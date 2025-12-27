@@ -1,0 +1,51 @@
+# Build output
+/bin/
+/chatwoot
+chatwoot-*
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tools
+.tools/
+
+# Local development (not for public repo)
+/docs/
+CLAUDE.md
+PLAN-*.md
+BATCH-*.md
+*test-results*.md
+*test_results*.md
+*.test.sh
+test_*.sh
+
+# Specstory (conversation history)
+.specstory/
+
+# Private journal
+.private-journal/
+
+# Test coverage
+coverage.out
+
+# Environment/secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+*~
+.worktrees/
+dist/
