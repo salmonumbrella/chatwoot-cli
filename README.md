@@ -35,27 +35,16 @@ make build
 
 ## Quick Start
 
-### 1. Configure Authentication
+### 1. Authenticate
 
-Choose between keychain or environment variables:
-
-**Browser login:**
+**Browser:**
 ```bash
 chatwoot auth login
 ```
 
-This opens a local page on `http://127.0.0.1:<port>` where you can enter credentials.
-
-**CLI login:**
+**Terminal:**
 ```bash
 chatwoot auth login --browser=false --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
-```
-
-**Environment variables:**
-```bash
-export CHATWOOT_BASE_URL=https://chatwoot.example.com
-export CHATWOOT_API_TOKEN=your_api_token
-export CHATWOOT_ACCOUNT_ID=1
 ```
 
 ### 2. Verify Setup
@@ -86,6 +75,15 @@ chatwoot auth status
 Remove stored credentials:
 ```bash
 chatwoot auth logout
+```
+
+### Environment Variables
+
+```bash
+export CHATWOOT_BASE_URL=https://chatwoot.example.com
+export CHATWOOT_API_TOKEN=your_api_token
+export CHATWOOT_ACCOUNT_ID=1
+```
 ```
 
 ## Security
@@ -482,11 +480,9 @@ chatwoot portals articles create kb \
   --status 1
 ```
 
-## Advanced Features
+### AI Context
 
-### AI Conversation Context
-
-Get complete conversation data optimized for AI consumption:
+Get complete conversation data optimized for use by LLMs:
 
 ```bash
 # Text format with embedded images
@@ -524,14 +520,6 @@ chatwoot conversations search --query "refund request"
 chatwoot contacts search --query "john smith"
 ```
 
-### Force Deletion
-
-Some delete commands require confirmation:
-
-```bash
-chatwoot campaigns delete 123 --force
-```
-
 ## Global Flags
 
 All commands support these flags:
@@ -542,22 +530,6 @@ All commands support these flags:
 - `--dry-run` - Preview changes without executing mutations
 - `--query <expr>` - JQ expression to filter JSON output
 - `--help` - Show help for any command
-
-### Debug Mode
-
-Enable verbose logging to troubleshoot issues:
-
-```bash
-chatwoot --debug conversations list
-```
-
-### Dry-Run Mode
-
-Preview changes before executing mutations:
-
-```bash
-chatwoot --dry-run conversations create --inbox-id 1 --contact-id 123
-```
 
 ### JQ Filtering
 
@@ -621,11 +593,10 @@ make setup
 
 This installs [lefthook](https://github.com/evilmartians/lefthook) pre-commit and pre-push hooks for linting and testing.
 
-### Build from source
+### Build from Source
 
 ```bash
 make build
-# Binary at ./bin/chatwoot
 ```
 
 ### Run tests
