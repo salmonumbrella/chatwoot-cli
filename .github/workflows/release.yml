@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-latest
+    # macOS runner required for CGO-enabled darwin builds (keychain access)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:

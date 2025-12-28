@@ -84,7 +84,6 @@ export CHATWOOT_BASE_URL=https://chatwoot.example.com
 export CHATWOOT_API_TOKEN=your_api_token
 export CHATWOOT_ACCOUNT_ID=1
 ```
-```
 
 ## Security
 

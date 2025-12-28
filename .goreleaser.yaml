@@ -3,14 +3,31 @@ version: 2
 project_name: chatwoot-cli
 
 builds:
-  - id: chatwoot
+  # Darwin builds require CGO for keychain access
+  - id: chatwoot-darwin
+    main: ./cmd/chatwoot
+    binary: chatwoot
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+  # Linux and Windows builds without CGO
+  - id: chatwoot-other
     main: ./cmd/chatwoot
     binary: chatwoot
     env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
@@ -34,6 +51,21 @@ archives:
       - README.md
       - LICENSE
 
+brews:
+  - name: chatwoot-cli
+    repository:
+      owner: salmonumbrella
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/salmonumbrella/chatwoot-cli"
+    description: "CLI for Chatwoot API"
+    license: "MIT"
+    install: |
+      bin.install "chatwoot"
+    test: |
+      system "#{bin}/chatwoot", "--help"
+
 checksum:
   name_template: "checksums.txt"
 
@@ -46,4 +78,3 @@ changelog:
       - "^ci:"
       - Merge pull request
       - Merge branch
-
