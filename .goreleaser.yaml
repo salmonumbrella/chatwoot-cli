@@ -47,17 +47,3 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
-  - name: chatwoot-cli
-    repository:
-      owner: salmonumbrella
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
-    homepage: "https://github.com/salmonumbrella/chatwoot-cli"
-    description: "CLI for Chatwoot to manage conversations, contacts, and inboxes"
-    license: "MIT"
-    install: |
-      bin.install "chatwoot"
-    test: |
-      system "#{bin}/chatwoot", "--help"
