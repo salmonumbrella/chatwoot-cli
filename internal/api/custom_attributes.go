@@ -5,11 +5,25 @@ import (
 	"fmt"
 )
 
+// translateModelToAPIValue converts human-readable model names to API values.
+// Chatwoot API expects: 0 for conversation_attribute, 1 for contact_attribute
+func translateModelToAPIValue(model string) string {
+	switch model {
+	case "contact", "contact_attribute":
+		return "1"
+	case "conversation", "conversation_attribute":
+		return "0"
+	default:
+		return model
+	}
+}
+
 // ListCustomAttributes retrieves all custom attribute definitions for a model
 func (c *Client) ListCustomAttributes(ctx context.Context, model string) ([]CustomAttribute, error) {
 	path := "/custom_attribute_definitions"
 	if model != "" {
-		path = fmt.Sprintf("/custom_attribute_definitions?attribute_model=%s", model)
+		apiModel := translateModelToAPIValue(model)
+		path = fmt.Sprintf("/custom_attribute_definitions?attribute_model=%s", apiModel)
 	}
 
 	var attrs []CustomAttribute
