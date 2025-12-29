@@ -309,10 +309,13 @@ type PortalListResponse struct {
 
 // Integration represents an integration app
 type Integration struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Enabled     bool   `json:"enabled"`
+	ID                 string            `json:"id"`
+	Name               string            `json:"name"`
+	Description        string            `json:"description,omitempty"`
+	HookType           string            `json:"hook_type,omitempty"`
+	Enabled            bool              `json:"enabled"`
+	AllowMultipleHooks bool              `json:"allow_multiple_hooks,omitempty"`
+	Hooks              []IntegrationHook `json:"hooks,omitempty"`
 }
 
 // IntegrationHook represents an integration hook

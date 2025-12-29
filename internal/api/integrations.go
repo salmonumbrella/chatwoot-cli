@@ -14,14 +14,20 @@ func (c *Client) ListIntegrationApps(ctx context.Context) ([]Integration, error)
 	return result.Payload, nil
 }
 
-// ListIntegrationHooks lists integration hooks
-// Note: The Chatwoot API does not have a dedicated list endpoint for hooks.
-// Hooks are returned nested within the apps response from ListIntegrationApps.
-// This method will return a 404 error.
+// ListIntegrationHooks lists all integration hooks by extracting them from the apps response.
+// The Chatwoot API does not have a dedicated list endpoint for hooks; they are
+// returned nested within each app in the /integrations/apps response.
 func (c *Client) ListIntegrationHooks(ctx context.Context) ([]IntegrationHook, error) {
-	var result []IntegrationHook
-	err := c.Get(ctx, "/integrations/hooks", &result)
-	return result, err
+	apps, err := c.ListIntegrationApps(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var hooks []IntegrationHook
+	for _, app := range apps {
+		hooks = append(hooks, app.Hooks...)
+	}
+	return hooks, nil
 }
 
 // CreateIntegrationHook creates a new integration hook
