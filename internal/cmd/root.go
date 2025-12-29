@@ -96,7 +96,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	root.SetContext(ctx)
 	root.SetArgs(args)
-	root.PersistentFlags().StringVar(&flags.Output, "output", flags.Output, "Output format: text|json")
+	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")
