@@ -51,22 +51,6 @@ archives:
       - README.md
       - LICENSE
 
-brews:
-  - name: chatwoot-cli
-    skip_upload: true
-    repository:
-      owner: salmonumbrella
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
-    homepage: "https://github.com/salmonumbrella/chatwoot-cli"
-    description: "CLI for Chatwoot API"
-    license: "MIT"
-    install: |
-      bin.install "chatwoot"
-    test: |
-      system "#{bin}/chatwoot", "--help"
-
 checksum:
   name_template: "checksums.txt"
 
