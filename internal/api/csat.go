@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -20,7 +21,7 @@ type CSATListParams struct {
 }
 
 // ListCSATResponses retrieves CSAT survey responses with optional filters
-func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) (*CSATListResponse, error) {
+func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) ([]CSATResponse, error) {
 	query := url.Values{}
 	if params.Page > 0 {
 		query.Set("page", strconv.Itoa(params.Page))
@@ -52,11 +53,23 @@ func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) (
 		path = path + "?" + query.Encode()
 	}
 
-	var result CSATListResponse
-	if err := c.Get(ctx, path, &result); err != nil {
+	body, err := c.GetRaw(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+
+	// Try bare array first (actual Chatwoot API response format)
+	var responses []CSATResponse
+	if err := json.Unmarshal(body, &responses); err == nil {
+		return responses, nil
+	}
+
+	// Fall back to wrapped format for compatibility
+	var wrapped CSATListResponse
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("unexpected API response format: %w", err)
+	}
+	return wrapped.Payload, nil
 }
 
 // GetConversationCSAT retrieves CSAT for a specific conversation
@@ -65,13 +78,28 @@ func (c *Client) GetConversationCSAT(ctx context.Context, conversationID int) (*
 	// so we filter the list by conversation (not ideal but works)
 	path := fmt.Sprintf("/csat_survey_responses?conversation_id=%d", conversationID)
 
-	var result CSATListResponse
-	if err := c.Get(ctx, path, &result); err != nil {
+	body, err := c.GetRaw(ctx, path)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(result.Payload) == 0 {
+	// Try bare array first (actual Chatwoot API response format)
+	var responses []CSATResponse
+	if err := json.Unmarshal(body, &responses); err == nil {
+		if len(responses) == 0 {
+			return nil, nil
+		}
+		return &responses[0], nil
+	}
+
+	// Fall back to wrapped format for compatibility
+	var wrapped CSATListResponse
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("unexpected API response format: %w", err)
+	}
+
+	if len(wrapped.Payload) == 0 {
 		return nil, nil
 	}
-	return &result.Payload[0], nil
+	return &wrapped.Payload[0], nil
 }

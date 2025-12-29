@@ -63,23 +63,23 @@ func newCSATListCmd() *cobra.Command {
 				Rating:  rating,
 			}
 
-			result, err := client.ListCSATResponses(cmdContext(cmd), params)
+			responses, err := client.ListCSATResponses(cmdContext(cmd), params)
 			if err != nil {
 				return fmt.Errorf("failed to list CSAT responses: %w", err)
 			}
 
 			if isJSON(cmd) {
-				return printJSON(result.Payload)
+				return printJSON(responses)
 			}
 
-			if len(result.Payload) == 0 {
+			if len(responses) == 0 {
 				fmt.Println("No CSAT responses found")
 				return nil
 			}
 
 			w := newTabWriter()
 			_, _ = fmt.Fprintln(w, "ID\tCONV\tRATING\tFEEDBACK\tCREATED")
-			for _, csat := range result.Payload {
+			for _, csat := range responses {
 				feedback := csat.FeedbackMessage
 				if len(feedback) > 40 {
 					feedback = feedback[:37] + "..."
@@ -195,15 +195,15 @@ func newCSATSummaryCmd() *cobra.Command {
 					InboxID: inboxID,
 				}
 
-				result, err := client.ListCSATResponses(cmdContext(cmd), params)
+				responses, err := client.ListCSATResponses(cmdContext(cmd), params)
 				if err != nil {
 					return fmt.Errorf("failed to get CSAT data: %w", err)
 				}
 
-				allResponses = append(allResponses, result.Payload...)
+				allResponses = append(allResponses, responses...)
 
 				// Stop if we got less than a full page (no more pages)
-				if len(result.Payload) == 0 || len(result.Payload) < 25 {
+				if len(responses) == 0 || len(responses) < 25 {
 					break
 				}
 				page++
