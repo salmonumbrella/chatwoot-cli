@@ -258,7 +258,11 @@ func TestListConversations(t *testing.T) {
 			client := newTestClient(server.URL, "test-token", 1)
 
 			// Execute
-			result, err := client.ListConversations(context.Background(), tt.status, tt.inboxID, tt.page)
+			result, err := client.ListConversations(context.Background(), ListConversationsParams{
+				Status:  tt.status,
+				InboxID: tt.inboxID,
+				Page:    tt.page,
+			})
 
 			// Verify
 			if tt.expectError && err == nil {

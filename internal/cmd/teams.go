@@ -43,7 +43,7 @@ func newTeamsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(teams)
+				return printJSON(cmd, teams)
 			}
 
 			w := newTabWriter()
@@ -85,7 +85,7 @@ func newTeamsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(team)
+				return printJSON(cmd, team)
 			}
 
 			w := newTabWriter()
@@ -125,7 +125,7 @@ func newTeamsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(team)
+				return printJSON(cmd, team)
 			}
 
 			fmt.Printf("Created team: %s (ID: %d)\n", team.Name, team.ID)
@@ -167,7 +167,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(team)
+				return printJSON(cmd, team)
 			}
 
 			fmt.Printf("Updated team: %s (ID: %d)\n", team.Name, team.ID)
@@ -202,7 +202,7 @@ func newTeamsDeleteCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]interface{}{
+				return printJSON(cmd, map[string]interface{}{
 					"id":      id,
 					"deleted": true,
 				})
@@ -236,7 +236,7 @@ func newTeamsMembersCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(members)
+				return printJSON(cmd, members)
 			}
 
 			w := newTabWriter()
@@ -284,7 +284,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]interface{}{
+				return printJSON(cmd, map[string]interface{}{
 					"team_id":     id,
 					"added_count": len(userIDs),
 					"user_ids":    userIDs,
@@ -333,7 +333,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]interface{}{
+				return printJSON(cmd, map[string]interface{}{
 					"team_id":       id,
 					"removed_count": len(userIDs),
 					"user_ids":      userIDs,

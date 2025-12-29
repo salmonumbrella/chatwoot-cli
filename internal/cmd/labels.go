@@ -49,7 +49,7 @@ func newLabelsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(labels)
+				return printJSON(cmd, labels)
 			}
 
 			if len(labels) == 0 {
@@ -105,7 +105,7 @@ func newLabelsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(label)
+				return printJSON(cmd, label)
 			}
 
 			fmt.Printf("Label #%d\n", label.ID)
@@ -152,7 +152,7 @@ func newLabelsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(label)
+				return printJSON(cmd, label)
 			}
 
 			fmt.Printf("Created label #%d: %s\n", label.ID, label.Title)
@@ -207,7 +207,7 @@ func newLabelsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(label)
+				return printJSON(cmd, label)
 			}
 
 			fmt.Printf("Updated label #%d: %s\n", label.ID, label.Title)

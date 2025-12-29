@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -77,7 +78,7 @@ func newInboxesGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(inbox)
+				return printJSON(cmd, inbox)
 			}
 
 			w := newTabWriter()
@@ -102,8 +103,22 @@ func newInboxesGetCmd() *cobra.Command {
 
 func newInboxesCreateCmd() *cobra.Command {
 	var (
-		name        string
-		channelType string
+		name                       string
+		channelType                string
+		greetingEnabled            bool
+		greetingMessage            string
+		enableEmailCollect         bool
+		csatSurveyEnabled          bool
+		enableAutoAssignment       bool
+		autoAssignmentConfig       string
+		workingHoursEnabled        bool
+		timezone                   string
+		allowMessagesAfterResolved bool
+		lockToSingleConversation   bool
+		portalID                   int
+		senderNameType             string
+		outOfOfficeMessage         string
+		outOfOfficeEnabled         bool
 	)
 
 	cmd := &cobra.Command{
@@ -122,13 +137,59 @@ func newInboxesCreateCmd() *cobra.Command {
 				return err
 			}
 
-			inbox, err := client.CreateInbox(cmdContext(cmd), name, channelType)
+			req := api.CreateInboxRequest{
+				Name:        name,
+				ChannelType: channelType,
+				InboxSettings: api.InboxSettings{
+					GreetingMessage:    greetingMessage,
+					Timezone:           timezone,
+					SenderNameType:     senderNameType,
+					OutOfOfficeMessage: outOfOfficeMessage,
+				},
+			}
+
+			if cmd.Flags().Changed("greeting-enabled") {
+				req.GreetingEnabled = &greetingEnabled
+			}
+			if cmd.Flags().Changed("enable-email-collect") {
+				req.EnableEmailCollect = &enableEmailCollect
+			}
+			if cmd.Flags().Changed("csat-survey-enabled") {
+				req.CSATSurveyEnabled = &csatSurveyEnabled
+			}
+			if cmd.Flags().Changed("enable-auto-assignment") {
+				req.EnableAutoAssignment = &enableAutoAssignment
+			}
+			if cmd.Flags().Changed("working-hours-enabled") {
+				req.WorkingHoursEnabled = &workingHoursEnabled
+			}
+			if cmd.Flags().Changed("allow-messages-after-resolved") {
+				req.AllowMessagesAfterResolved = &allowMessagesAfterResolved
+			}
+			if cmd.Flags().Changed("lock-to-single-conversation") {
+				req.LockToSingleConversation = &lockToSingleConversation
+			}
+			if cmd.Flags().Changed("out-of-office-enabled") {
+				req.OutOfOfficeEnabled = &outOfOfficeEnabled
+			}
+			if portalID > 0 {
+				req.PortalID = &portalID
+			}
+			if autoAssignmentConfig != "" {
+				var cfg map[string]any
+				if err := json.Unmarshal([]byte(autoAssignmentConfig), &cfg); err != nil {
+					return fmt.Errorf("invalid auto-assignment-config JSON: %w", err)
+				}
+				req.AutoAssignmentConfig = cfg
+			}
+
+			inbox, err := client.CreateInbox(cmdContext(cmd), req)
 			if err != nil {
 				return err
 			}
 
 			if isJSON(cmd) {
-				return printJSON(inbox)
+				return printJSON(cmd, inbox)
 			}
 
 			fmt.Printf("Created inbox %d: %s (%s)\n", inbox.ID, inbox.Name, inbox.ChannelType)
@@ -138,6 +199,20 @@ func newInboxesCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Inbox name (required)")
 	cmd.Flags().StringVar(&channelType, "channel-type", "", "Channel type (required)")
+	cmd.Flags().BoolVar(&greetingEnabled, "greeting-enabled", false, "Enable greeting message")
+	cmd.Flags().StringVar(&greetingMessage, "greeting-message", "", "Greeting message")
+	cmd.Flags().BoolVar(&enableEmailCollect, "enable-email-collect", false, "Enable email collection")
+	cmd.Flags().BoolVar(&csatSurveyEnabled, "csat-survey-enabled", false, "Enable CSAT survey")
+	cmd.Flags().BoolVar(&enableAutoAssignment, "enable-auto-assignment", false, "Enable auto-assignment")
+	cmd.Flags().StringVar(&autoAssignmentConfig, "auto-assignment-config", "", "Auto-assignment config JSON")
+	cmd.Flags().BoolVar(&workingHoursEnabled, "working-hours-enabled", false, "Enable working hours")
+	cmd.Flags().StringVar(&timezone, "timezone", "", "Timezone (e.g. America/New_York)")
+	cmd.Flags().BoolVar(&allowMessagesAfterResolved, "allow-messages-after-resolved", false, "Allow messages after resolved")
+	cmd.Flags().BoolVar(&lockToSingleConversation, "lock-to-single-conversation", false, "Lock to single conversation")
+	cmd.Flags().IntVar(&portalID, "portal-id", 0, "Help center portal ID")
+	cmd.Flags().StringVar(&senderNameType, "sender-name-type", "", "Sender name type")
+	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
+	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("channel-type")
 
@@ -145,7 +220,23 @@ func newInboxesCreateCmd() *cobra.Command {
 }
 
 func newInboxesUpdateCmd() *cobra.Command {
-	var name string
+	var (
+		name                       string
+		greetingEnabled            bool
+		greetingMessage            string
+		enableEmailCollect         bool
+		csatSurveyEnabled          bool
+		enableAutoAssignment       bool
+		autoAssignmentConfig       string
+		workingHoursEnabled        bool
+		timezone                   string
+		allowMessagesAfterResolved bool
+		lockToSingleConversation   bool
+		portalID                   int
+		senderNameType             string
+		outOfOfficeMessage         string
+		outOfOfficeEnabled         bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -157,7 +248,21 @@ func newInboxesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			if name == "" {
+			if name == "" &&
+				!cmd.Flags().Changed("greeting-enabled") &&
+				greetingMessage == "" &&
+				!cmd.Flags().Changed("enable-email-collect") &&
+				!cmd.Flags().Changed("csat-survey-enabled") &&
+				!cmd.Flags().Changed("enable-auto-assignment") &&
+				autoAssignmentConfig == "" &&
+				!cmd.Flags().Changed("working-hours-enabled") &&
+				timezone == "" &&
+				!cmd.Flags().Changed("allow-messages-after-resolved") &&
+				!cmd.Flags().Changed("lock-to-single-conversation") &&
+				portalID == 0 &&
+				senderNameType == "" &&
+				outOfOfficeMessage == "" &&
+				!cmd.Flags().Changed("out-of-office-enabled") {
 				return fmt.Errorf("at least one field must be provided to update")
 			}
 
@@ -166,13 +271,57 @@ func newInboxesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			inbox, err := client.UpdateInbox(cmdContext(cmd), id, name)
+			req := api.UpdateInboxRequest{
+				Name: name,
+				InboxSettings: api.InboxSettings{
+					GreetingMessage:    greetingMessage,
+					Timezone:           timezone,
+					SenderNameType:     senderNameType,
+					OutOfOfficeMessage: outOfOfficeMessage,
+				},
+			}
+			if cmd.Flags().Changed("greeting-enabled") {
+				req.GreetingEnabled = &greetingEnabled
+			}
+			if cmd.Flags().Changed("enable-email-collect") {
+				req.EnableEmailCollect = &enableEmailCollect
+			}
+			if cmd.Flags().Changed("csat-survey-enabled") {
+				req.CSATSurveyEnabled = &csatSurveyEnabled
+			}
+			if cmd.Flags().Changed("enable-auto-assignment") {
+				req.EnableAutoAssignment = &enableAutoAssignment
+			}
+			if cmd.Flags().Changed("working-hours-enabled") {
+				req.WorkingHoursEnabled = &workingHoursEnabled
+			}
+			if cmd.Flags().Changed("allow-messages-after-resolved") {
+				req.AllowMessagesAfterResolved = &allowMessagesAfterResolved
+			}
+			if cmd.Flags().Changed("lock-to-single-conversation") {
+				req.LockToSingleConversation = &lockToSingleConversation
+			}
+			if cmd.Flags().Changed("out-of-office-enabled") {
+				req.OutOfOfficeEnabled = &outOfOfficeEnabled
+			}
+			if portalID > 0 {
+				req.PortalID = &portalID
+			}
+			if autoAssignmentConfig != "" {
+				var cfg map[string]any
+				if err := json.Unmarshal([]byte(autoAssignmentConfig), &cfg); err != nil {
+					return fmt.Errorf("invalid auto-assignment-config JSON: %w", err)
+				}
+				req.AutoAssignmentConfig = cfg
+			}
+
+			inbox, err := client.UpdateInbox(cmdContext(cmd), id, req)
 			if err != nil {
 				return err
 			}
 
 			if isJSON(cmd) {
-				return printJSON(inbox)
+				return printJSON(cmd, inbox)
 			}
 
 			fmt.Printf("Updated inbox %d: %s\n", inbox.ID, inbox.Name)
@@ -181,6 +330,20 @@ func newInboxesUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Inbox name")
+	cmd.Flags().BoolVar(&greetingEnabled, "greeting-enabled", false, "Enable greeting message")
+	cmd.Flags().StringVar(&greetingMessage, "greeting-message", "", "Greeting message")
+	cmd.Flags().BoolVar(&enableEmailCollect, "enable-email-collect", false, "Enable email collection")
+	cmd.Flags().BoolVar(&csatSurveyEnabled, "csat-survey-enabled", false, "Enable CSAT survey")
+	cmd.Flags().BoolVar(&enableAutoAssignment, "enable-auto-assignment", false, "Enable auto-assignment")
+	cmd.Flags().StringVar(&autoAssignmentConfig, "auto-assignment-config", "", "Auto-assignment config JSON")
+	cmd.Flags().BoolVar(&workingHoursEnabled, "working-hours-enabled", false, "Enable working hours")
+	cmd.Flags().StringVar(&timezone, "timezone", "", "Timezone (e.g. America/New_York)")
+	cmd.Flags().BoolVar(&allowMessagesAfterResolved, "allow-messages-after-resolved", false, "Allow messages after resolved")
+	cmd.Flags().BoolVar(&lockToSingleConversation, "lock-to-single-conversation", false, "Lock to single conversation")
+	cmd.Flags().IntVar(&portalID, "portal-id", 0, "Help center portal ID")
+	cmd.Flags().StringVar(&senderNameType, "sender-name-type", "", "Sender name type")
+	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
+	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
 
 	return cmd
 }
@@ -233,7 +396,7 @@ func newInboxesAgentBotCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(bot)
+				return printJSON(cmd, bot)
 			}
 
 			w := newTabWriter()

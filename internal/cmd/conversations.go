@@ -71,6 +71,10 @@ func printConversationsTable(conversations []api.Conversation) {
 func newConversationsListCmd() *cobra.Command {
 	var inboxID string
 	var status string
+	var assigneeType string
+	var teamID int
+	var labels string
+	var search string
 	var page int
 	var all bool
 	var maxPages int
@@ -114,7 +118,20 @@ func newConversationsListCmd() *cobra.Command {
 					fmt.Fprintf(os.Stderr, "Fetching page %d...\n", currentPage)
 				}
 
-				result, err := client.ListConversations(cmdContext(cmd), status, inboxID, currentPage)
+				params := api.ListConversationsParams{
+					Status:       status,
+					InboxID:      inboxID,
+					AssigneeType: assigneeType,
+					Query:        search,
+					Page:         currentPage,
+				}
+				if teamID > 0 {
+					params.TeamID = strconv.Itoa(teamID)
+				}
+				if labels != "" {
+					params.Labels = splitCommaList(labels)
+				}
+				result, err := client.ListConversations(cmdContext(cmd), params)
 				if err != nil {
 					return fmt.Errorf("failed to list conversations: %w", err)
 				}
@@ -134,7 +151,7 @@ func newConversationsListCmd() *cobra.Command {
 					// Single page mode - output and exit
 					if isJSON(cmd) {
 						// Return array directly for easier jq processing
-						return printJSON(conversations)
+						return printJSON(cmd, conversations)
 					}
 
 					printConversationsTable(conversations)
@@ -150,7 +167,7 @@ func newConversationsListCmd() *cobra.Command {
 			// --all mode: output all fetched conversations
 			if isJSON(cmd) {
 				// Return array directly for easier jq processing
-				return printJSON(allConversations)
+				return printJSON(cmd, allConversations)
 			}
 
 			printConversationsTable(allConversations)
@@ -162,6 +179,10 @@ func newConversationsListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
+	cmd.Flags().StringVar(&assigneeType, "assignee-type", "", "Filter by assignee type (me|assigned|unassigned)")
+	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
+	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
+	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum number of pages to fetch when using --all")
@@ -199,7 +220,7 @@ func newConversationsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID
@@ -258,7 +279,19 @@ func newConversationsCreateCmd() *cobra.Command {
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if inboxID == 0 {
-				return fmt.Errorf("--inbox-id is required")
+				if isInteractive() {
+					client, err := getClient()
+					if err != nil {
+						return err
+					}
+					selected, err := promptInboxID(cmdContext(cmd), client)
+					if err != nil {
+						return err
+					}
+					inboxID = selected
+				} else {
+					return fmt.Errorf("--inbox-id is required")
+				}
 			}
 			if contactID == 0 {
 				return fmt.Errorf("--contact-id is required")
@@ -296,7 +329,7 @@ func newConversationsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID
@@ -370,7 +403,7 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 			}
 
 			if isJSON(cmd) {
-				return printJSON(result.Data.Payload)
+				return printJSON(cmd, result.Data.Payload)
 			}
 
 			printConversationsTable(result.Data.Payload)
@@ -385,6 +418,12 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 }
 
 func newConversationsMetaCmd() *cobra.Command {
+	var status string
+	var inboxID string
+	var teamID int
+	var labels string
+	var search string
+
 	cmd := &cobra.Command{
 		Use:   "meta",
 		Short: "Get conversations metadata",
@@ -399,13 +438,25 @@ func newConversationsMetaCmd() *cobra.Command {
 				return err
 			}
 
-			meta, err := client.GetConversationsMeta(cmdContext(cmd))
+			params := api.ListConversationsParams{
+				Status:  status,
+				InboxID: inboxID,
+				Query:   search,
+			}
+			if teamID > 0 {
+				params.TeamID = strconv.Itoa(teamID)
+			}
+			if labels != "" {
+				params.Labels = splitCommaList(labels)
+			}
+
+			meta, err := client.GetConversationsMeta(cmdContext(cmd), params)
 			if err != nil {
 				return fmt.Errorf("failed to get conversations metadata: %w", err)
 			}
 
 			if isJSON(cmd) {
-				return printJSON(meta)
+				return printJSON(cmd, meta)
 			}
 
 			fmt.Println("Conversations Metadata:")
@@ -417,10 +468,22 @@ func newConversationsMetaCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
+	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
+	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
+	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
+	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
+
 	return cmd
 }
 
 func newConversationsCountsCmd() *cobra.Command {
+	var status string
+	var inboxID string
+	var teamID int
+	var labels string
+	var search string
+
 	cmd := &cobra.Command{
 		Use:   "counts",
 		Short: "Get conversation counts by status",
@@ -438,13 +501,25 @@ func newConversationsCountsCmd() *cobra.Command {
 				return err
 			}
 
-			meta, err := client.GetConversationsMeta(cmdContext(cmd))
+			params := api.ListConversationsParams{
+				Status:  status,
+				InboxID: inboxID,
+				Query:   search,
+			}
+			if teamID > 0 {
+				params.TeamID = strconv.Itoa(teamID)
+			}
+			if labels != "" {
+				params.Labels = splitCommaList(labels)
+			}
+
+			meta, err := client.GetConversationsMeta(cmdContext(cmd), params)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation counts: %w", err)
 			}
 
 			if isJSON(cmd) {
-				return printJSON(meta)
+				return printJSON(cmd, meta)
 			}
 
 			// Extract counts from nested meta object
@@ -473,6 +548,12 @@ func newConversationsCountsCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
+	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
+	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
+	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
+	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
 
 	return cmd
 }
@@ -541,7 +622,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 
 			if isJSON(cmd) {
 				// Return payload directly for consistency
-				return printJSON(result.Payload)
+				return printJSON(cmd, result.Payload)
 			}
 
 			fmt.Printf("Conversation #%d status updated to: %s\n", result.Payload.ConversationID, result.Payload.CurrentStatus)
@@ -605,7 +686,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID
@@ -675,7 +756,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID
@@ -726,13 +807,28 @@ func newConversationsAssignCmd() *cobra.Command {
 				return err
 			}
 
-			if assigneeID == 0 && teamID == 0 {
-				return fmt.Errorf("at least one of --assignee-id or --team-id is required")
-			}
-
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+
+			if assigneeID == 0 && teamID == 0 {
+				if isInteractive() {
+					selectedAgent, err := promptAgentID(cmdContext(cmd), client)
+					if err != nil {
+						return err
+					}
+					assigneeID = selectedAgent
+					selectedTeam, err := promptTeamID(cmdContext(cmd), client)
+					if err != nil {
+						return err
+					}
+					teamID = selectedTeam
+				}
+			}
+
+			if assigneeID == 0 && teamID == 0 {
+				return fmt.Errorf("at least one of --assignee-id or --team-id is required")
 			}
 
 			if _, err := client.AssignConversation(cmdContext(cmd), id, assigneeID, teamID); err != nil {
@@ -746,7 +842,7 @@ func newConversationsAssignCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID
@@ -801,7 +897,7 @@ func newConversationsLabelsCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(labels)
+				return printJSON(cmd, labels)
 			}
 
 			if len(labels) == 0 {
@@ -858,7 +954,7 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(resultLabels)
+				return printJSON(cmd, resultLabels)
 			}
 
 			fmt.Printf("Labels updated for conversation #%d\n", id)
@@ -922,7 +1018,7 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(attrs)
+				return printJSON(cmd, attrs)
 			}
 
 			fmt.Printf("Custom attributes updated for conversation #%d\n", id)
@@ -977,7 +1073,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 			}
 
 			if isJSON(cmd) {
-				return printJSON(ctx)
+				return printJSON(cmd, ctx)
 			}
 
 			// Human-readable output
@@ -1077,7 +1173,7 @@ as unread in the inbox for all agents (not just the current user).`,
 			}
 
 			if isJSON(cmd) {
-				return printJSON(afterConv)
+				return printJSON(cmd, afterConv)
 			}
 
 			displayID := afterConv.ID
@@ -1138,7 +1234,7 @@ func newConversationsSearchCmd() *cobra.Command {
 			conversations := result.Data.Payload
 
 			if isJSON(cmd) {
-				return printJSON(conversations)
+				return printJSON(cmd, conversations)
 			}
 
 			if len(conversations) == 0 {
@@ -1191,7 +1287,7 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 	}
 
 	if isJSON(cmd) {
-		return printJSON(allConversations)
+		return printJSON(cmd, allConversations)
 	}
 
 	if len(allConversations) == 0 {
@@ -1234,7 +1330,7 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(attachments)
+				return printJSON(cmd, attachments)
 			}
 
 			if len(attachments) == 0 {
@@ -1300,7 +1396,7 @@ Muted conversations will not trigger desktop or push notifications for new messa
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID
@@ -1357,7 +1453,7 @@ Unmuted conversations will trigger desktop and push notifications for new messag
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conv)
+				return printJSON(cmd, conv)
 			}
 
 			displayID := conv.ID

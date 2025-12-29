@@ -41,7 +41,7 @@ func newAutomationRulesListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(rules)
+				return printJSON(cmd, rules)
 			}
 
 			if len(rules) == 0 {
@@ -86,7 +86,7 @@ func newAutomationRulesGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(rule)
+				return printJSON(cmd, rule)
 			}
 
 			fmt.Printf("ID:          %d\n", rule.ID)
@@ -134,7 +134,7 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(rule)
+				return printJSON(cmd, rule)
 			}
 
 			fmt.Printf("Created automation rule #%d: %s\n", rule.ID, rule.Name)
@@ -196,7 +196,7 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(rule)
+				return printJSON(cmd, rule)
 			}
 
 			fmt.Printf("Updated automation rule #%d: %s\n", rule.ID, rule.Name)
@@ -232,7 +232,7 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]any{"deleted": true, "id": id})
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
 			fmt.Printf("Deleted automation rule #%d\n", id)

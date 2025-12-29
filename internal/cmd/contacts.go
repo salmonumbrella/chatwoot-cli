@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,8 @@ func newContactsCmd() *cobra.Command {
 
 func newContactsListCmd() *cobra.Command {
 	var page int
+	var sort string
+	var order string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -60,14 +63,23 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 				return err
 			}
 
-			contacts, err := client.ListContacts(cmdContext(cmd), page)
+			sortField, sortOrder, err := parseSortOrder(sort, order)
+			if err != nil {
+				return err
+			}
+
+			contacts, err := client.ListContacts(cmdContext(cmd), api.ListContactsParams{
+				Page:  page,
+				Sort:  sortField,
+				Order: sortOrder,
+			})
 			if err != nil {
 				return fmt.Errorf("failed to list contacts: %w", err)
 			}
 
 			if isJSON(cmd) {
 				// Return array directly for easier jq processing
-				return printJSON(contacts.Payload)
+				return printJSON(cmd, contacts.Payload)
 			}
 
 			w := newTabWriter()
@@ -88,6 +100,8 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 	}
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
+	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at); prefix with '-' for desc")
+	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
 
 	return cmd
 }
@@ -122,7 +136,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 			}
 
 			if isJSON(cmd) {
-				return printJSON(contact)
+				return printJSON(cmd, contact)
 			}
 
 			w := newTabWriter()
@@ -172,7 +186,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 			}
 
 			if isJSON(cmd) {
-				return printJSON(contact)
+				return printJSON(cmd, contact)
 			}
 
 			w := newTabWriter()
@@ -237,7 +251,7 @@ func newContactsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(contact)
+				return printJSON(cmd, contact)
 			}
 
 			w := newTabWriter()
@@ -314,7 +328,7 @@ func newContactsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(contact)
+				return printJSON(cmd, contact)
 			}
 
 			w := newTabWriter()
@@ -400,7 +414,7 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 
 			if isJSON(cmd) {
 				// Return array directly for easier jq processing
-				return printJSON(contacts.Payload)
+				return printJSON(cmd, contacts.Payload)
 			}
 
 			w := newTabWriter()
@@ -476,7 +490,7 @@ Available query operators: and, or`,
 
 			if isJSON(cmd) {
 				// Return array directly for easier jq processing
-				return printJSON(contacts.Payload)
+				return printJSON(cmd, contacts.Payload)
 			}
 
 			w := newTabWriter()
@@ -524,7 +538,7 @@ func newContactsConversationsCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(conversations)
+				return printJSON(cmd, conversations)
 			}
 
 			w := newTabWriter()
@@ -568,7 +582,7 @@ func newContactsLabelsCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(labels)
+				return printJSON(cmd, labels)
 			}
 
 			if len(labels) == 0 {
@@ -619,7 +633,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(updatedLabels)
+				return printJSON(cmd, updatedLabels)
 			}
 
 			fmt.Println("Labels added successfully:")
@@ -659,7 +673,7 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(inboxes)
+				return printJSON(cmd, inboxes)
 			}
 
 			if len(inboxes) == 0 {
@@ -706,13 +720,20 @@ func newContactsCreateInboxCmd() *cobra.Command {
 				return err
 			}
 
-			if inboxID == 0 {
-				return fmt.Errorf("--inbox-id is required")
-			}
-
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+			if inboxID == 0 {
+				if isInteractive() {
+					selected, err := promptInboxID(cmdContext(cmd), client)
+					if err != nil {
+						return err
+					}
+					inboxID = selected
+				} else {
+					return fmt.Errorf("--inbox-id is required")
+				}
 			}
 
 			result, err := client.CreateContactInbox(cmdContext(cmd), contactID, inboxID, sourceID)
@@ -721,7 +742,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(result)
+				return printJSON(cmd, result)
 			}
 
 			if result.Inbox.ID == 0 {
@@ -775,7 +796,7 @@ func newContactsNotesCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(notes)
+				return printJSON(cmd, notes)
 			}
 
 			if len(notes) == 0 {
@@ -836,7 +857,7 @@ func newContactsNotesAddCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(note)
+				return printJSON(cmd, note)
 			}
 
 			fmt.Printf("Added note #%d to contact %d\n", note.ID, id)

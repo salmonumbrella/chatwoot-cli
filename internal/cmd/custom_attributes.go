@@ -60,7 +60,7 @@ func newCustomAttributesListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(attrs)
+				return printJSON(cmd, attrs)
 			}
 
 			if len(attrs) == 0 {
@@ -113,7 +113,7 @@ func newCustomAttributesGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(attr)
+				return printJSON(cmd, attr)
 			}
 
 			fmt.Printf("ID: %d\n", attr.ID)
@@ -171,7 +171,7 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(attr)
+				return printJSON(cmd, attr)
 			}
 
 			fmt.Printf("Created custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
@@ -215,7 +215,7 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(attr)
+				return printJSON(cmd, attr)
 			}
 
 			fmt.Printf("Updated custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)

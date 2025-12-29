@@ -65,7 +65,7 @@ func newMessagesListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(messages)
+				return printJSON(cmd, messages)
 			}
 
 			w := newTabWriter()
@@ -195,7 +195,7 @@ func newMessagesCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(message)
+				return printJSON(cmd, message)
 			}
 
 			fmt.Printf("Message created successfully (ID: %d)\n", message.ID)
@@ -250,7 +250,7 @@ func newMessagesDeleteCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]interface{}{
+				return printJSON(cmd, map[string]interface{}{
 					"message_id":      messageID,
 					"conversation_id": conversationID,
 					"deleted":         true,
@@ -307,7 +307,7 @@ func newMessagesUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(message)
+				return printJSON(cmd, message)
 			}
 
 			fmt.Printf("Message %d updated successfully\n", message.ID)

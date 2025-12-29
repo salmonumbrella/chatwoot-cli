@@ -50,7 +50,7 @@ func newPortalsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(portals)
+				return printJSON(cmd, portals)
 			}
 
 			w := newTabWriter()
@@ -88,7 +88,7 @@ func newPortalsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(portal)
+				return printJSON(cmd, portal)
 			}
 
 			w := newTabWriter()
@@ -131,7 +131,7 @@ func newPortalsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(portal)
+				return printJSON(cmd, portal)
 			}
 
 			fmt.Printf("Created portal %d: %s\n", portal.ID, portal.Name)
@@ -178,7 +178,7 @@ func newPortalsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(portal)
+				return printJSON(cmd, portal)
 			}
 
 			fmt.Printf("Updated portal %d\n", portal.ID)
@@ -259,7 +259,7 @@ func newPortalsArticlesListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(articles)
+				return printJSON(cmd, articles)
 			}
 
 			w := newTabWriter()
@@ -300,7 +300,7 @@ func newPortalsArticlesGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(article)
+				return printJSON(cmd, article)
 			}
 
 			fmt.Printf("ID: %d\n", article.ID)
@@ -372,7 +372,7 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(article)
+				return printJSON(cmd, article)
 			}
 
 			fmt.Printf("Created article %d: %s\n", article.ID, article.Title)
@@ -444,7 +444,7 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(article)
+				return printJSON(cmd, article)
 			}
 
 			fmt.Printf("Updated article %d\n", article.ID)
@@ -530,7 +530,7 @@ func newPortalsCategoriesListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(categories)
+				return printJSON(cmd, categories)
 			}
 
 			w := newTabWriter()
@@ -570,7 +570,7 @@ func newPortalsCategoriesGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(category)
+				return printJSON(cmd, category)
 			}
 
 			fmt.Printf("ID: %d\n", category.ID)
@@ -637,7 +637,7 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(category)
+				return printJSON(cmd, category)
 			}
 
 			fmt.Printf("Created category %d: %s\n", category.ID, category.Name)
@@ -701,7 +701,7 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(category)
+				return printJSON(cmd, category)
 			}
 
 			fmt.Printf("Updated category %d\n", category.ID)

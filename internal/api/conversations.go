@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // CreateConversationRequest represents a request to create a conversation
@@ -17,23 +18,46 @@ type CreateConversationRequest struct {
 	CustomAttributes map[string]any `json:"custom_attributes,omitempty"`
 }
 
-// ListConversations retrieves conversations filtered by status and inbox
-func (c *Client) ListConversations(ctx context.Context, status, inboxID string, page int) (*ConversationList, error) {
+// ListConversationsParams defines filters for listing conversations
+type ListConversationsParams struct {
+	Status       string
+	InboxID      string
+	AssigneeType string
+	TeamID       string
+	Labels       []string
+	Query        string
+	Page         int
+}
+
+// ListConversations retrieves conversations filtered by params
+func (c *Client) ListConversations(ctx context.Context, params ListConversationsParams) (*ConversationList, error) {
 	path := "/conversations"
-	params := url.Values{}
+	query := url.Values{}
 
-	if status != "" && status != "all" {
-		params.Set("status", status)
+	if params.Status != "" && params.Status != "all" {
+		query.Set("status", params.Status)
 	}
-	if inboxID != "" {
-		params.Set("inbox_id", inboxID)
+	if params.InboxID != "" {
+		query.Set("inbox_id", params.InboxID)
 	}
-	if page > 0 {
-		params.Set("page", fmt.Sprintf("%d", page))
+	if params.AssigneeType != "" {
+		query.Set("assignee_type", params.AssigneeType)
+	}
+	if params.TeamID != "" {
+		query.Set("team_id", params.TeamID)
+	}
+	if len(params.Labels) > 0 {
+		query.Set("labels", strings.Join(params.Labels, ","))
+	}
+	if params.Query != "" {
+		query.Set("q", params.Query)
+	}
+	if params.Page > 0 {
+		query.Set("page", fmt.Sprintf("%d", params.Page))
 	}
 
-	if len(params) > 0 {
-		path += "?" + params.Encode()
+	if len(query) > 0 {
+		path += "?" + query.Encode()
 	}
 
 	var result ConversationList
@@ -85,9 +109,32 @@ func (c *Client) FilterConversations(ctx context.Context, payload map[string]any
 }
 
 // GetConversationsMeta retrieves metadata about conversations
-func (c *Client) GetConversationsMeta(ctx context.Context) (map[string]any, error) {
+func (c *Client) GetConversationsMeta(ctx context.Context, params ListConversationsParams) (map[string]any, error) {
+	path := "/conversations/meta"
+	query := url.Values{}
+
+	if params.Status != "" && params.Status != "all" {
+		query.Set("status", params.Status)
+	}
+	if params.InboxID != "" {
+		query.Set("inbox_id", params.InboxID)
+	}
+	if params.TeamID != "" {
+		query.Set("team_id", params.TeamID)
+	}
+	if len(params.Labels) > 0 {
+		query.Set("labels", strings.Join(params.Labels, ","))
+	}
+	if params.Query != "" {
+		query.Set("q", params.Query)
+	}
+
+	if len(query) > 0 {
+		path += "?" + query.Encode()
+	}
+
 	var result map[string]any
-	if err := c.Get(ctx, "/conversations/meta", &result); err != nil {
+	if err := c.Get(ctx, path, &result); err != nil {
 		return nil, err
 	}
 	return result, nil

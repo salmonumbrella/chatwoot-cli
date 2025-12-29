@@ -115,7 +115,10 @@ func TestCreateInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateInbox(context.Background(), "New Inbox", "api")
+	result, err := client.CreateInbox(context.Background(), CreateInboxRequest{
+		Name:        "New Inbox",
+		ChannelType: "api",
+	})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -151,7 +154,9 @@ func TestUpdateInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateInbox(context.Background(), 1, "Updated Inbox")
+	result, err := client.UpdateInbox(context.Background(), 1, UpdateInboxRequest{
+		Name: "Updated Inbox",
+	})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

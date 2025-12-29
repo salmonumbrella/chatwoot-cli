@@ -59,7 +59,7 @@ func newCustomFiltersListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(filters)
+				return printJSON(cmd, filters)
 			}
 
 			if len(filters) == 0 {
@@ -112,7 +112,7 @@ func newCustomFiltersGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(filter)
+				return printJSON(cmd, filter)
 			}
 
 			queryJSON, _ := json.MarshalIndent(filter.Query, "", "  ")
@@ -163,7 +163,7 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(filter)
+				return printJSON(cmd, filter)
 			}
 
 			fmt.Printf("Created custom filter %d: %s\n", filter.ID, filter.Name)
@@ -216,7 +216,7 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(filter)
+				return printJSON(cmd, filter)
 			}
 
 			fmt.Printf("Updated custom filter %d: %s\n", filter.ID, filter.Name)

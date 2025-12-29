@@ -41,7 +41,7 @@ func newAgentBotsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(bots)
+				return printJSON(cmd, bots)
 			}
 
 			if len(bots) == 0 {
@@ -82,7 +82,7 @@ func newAgentBotsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(bot)
+				return printJSON(cmd, bot)
 			}
 
 			fmt.Printf("ID:           %d\n", bot.ID)
@@ -122,7 +122,7 @@ func newAgentBotsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(bot)
+				return printJSON(cmd, bot)
 			}
 
 			fmt.Printf("Created agent bot #%d: %s\n", bot.ID, bot.Name)
@@ -172,7 +172,7 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(bot)
+				return printJSON(cmd, bot)
 			}
 
 			fmt.Printf("Updated agent bot #%d: %s\n", bot.ID, bot.Name)
@@ -207,7 +207,7 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]any{"deleted": true, "id": id})
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
 			fmt.Printf("Deleted agent bot #%d\n", id)

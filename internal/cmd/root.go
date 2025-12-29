@@ -15,11 +15,13 @@ import (
 
 // rootFlags holds global CLI flags
 type rootFlags struct {
-	Output string
-	Color  string
-	Debug  bool
-	DryRun bool
-	Query  string
+	Output   string
+	Color    string
+	Debug    bool
+	DryRun   bool
+	Query    string
+	Fields   string
+	Template string
 }
 
 // Execute runs the root command
@@ -84,9 +86,28 @@ func Execute(ctx context.Context, args []string) error {
 			// Set up dry-run mode
 			ctx = dryrun.WithDryRun(ctx, flags.DryRun)
 
-			// Set up JQ query
+			// Set up JQ query (or fields shorthand)
+			if flags.Fields != "" {
+				if flags.Query != "" {
+					return fmt.Errorf("--fields and --query cannot be used together")
+				}
+				fields, err := parseFields(flags.Fields)
+				if err != nil {
+					return err
+				}
+				flags.Query = buildFieldsQuery(fields)
+			}
 			if flags.Query != "" {
 				ctx = outfmt.WithQuery(ctx, flags.Query)
+			}
+
+			// Set up template output
+			if flags.Template != "" {
+				tmpl, err := loadTemplate(flags.Template)
+				if err != nil {
+					return err
+				}
+				ctx = outfmt.WithTemplate(ctx, tmpl)
 			}
 
 			cmd.SetContext(ctx)
@@ -101,9 +122,12 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")
 	root.PersistentFlags().StringVar(&flags.Query, "query", "", "JQ expression to filter JSON output")
+	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
+	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 
 	// Add subcommands
 	root.AddCommand(newAuthCmd())
+	root.AddCommand(newConfigCmd())
 	root.AddCommand(newConversationsCmd())
 	root.AddCommand(newMessagesCmd())
 	root.AddCommand(newContactsCmd())
@@ -127,6 +151,8 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newLabelsCmd())
 	root.AddCommand(newCSATCmd())
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newClientCmd())
+	root.AddCommand(newPlatformCmd())
 
 	err := root.Execute()
 	if err != nil {
@@ -134,4 +160,62 @@ func Execute(ctx context.Context, args []string) error {
 		return err
 	}
 	return nil
+}
+
+func parseFields(input string) ([]string, error) {
+	raw := strings.Split(input, ",")
+	var fields []string
+	for _, field := range raw {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		fields = append(fields, field)
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("--fields must include at least one field")
+	}
+	return fields, nil
+}
+
+func buildFieldsQuery(fields []string) string {
+	var parts []string
+	for _, field := range fields {
+		parts = append(parts, fmt.Sprintf("%s: %s", jqKey(field), jqPath(field)))
+	}
+	expr := strings.Join(parts, ", ")
+	return fmt.Sprintf("if type==\"array\" then map({%s}) else {%s} end", expr, expr)
+}
+
+func jqKey(key string) string {
+	escaped := strings.ReplaceAll(key, "\"", "\\\"")
+	return fmt.Sprintf("\"%s\"", escaped)
+}
+
+func jqPath(path string) string {
+	segments := strings.Split(path, ".")
+	expr := ""
+	for _, seg := range segments {
+		if seg == "" {
+			continue
+		}
+		escaped := strings.ReplaceAll(seg, "\"", "\\\"")
+		expr += fmt.Sprintf("[\"%s\"]", escaped)
+	}
+	if expr == "" {
+		return "."
+	}
+	return "." + expr
+}
+
+func loadTemplate(value string) (string, error) {
+	if strings.HasPrefix(value, "@") {
+		path := strings.TrimPrefix(value, "@")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("failed to read template file: %w", err)
+		}
+		return string(data), nil
+	}
+	return value, nil
 }

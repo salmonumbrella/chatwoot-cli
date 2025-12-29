@@ -62,6 +62,16 @@ func (c *Client) accountPath(path string) string {
 	return fmt.Sprintf("%s/api/v1/accounts/%d%s", c.BaseURL, c.AccountID, path)
 }
 
+// platformPath returns the base path for platform API calls
+func (c *Client) platformPath(path string) string {
+	return fmt.Sprintf("%s/platform/api/v1%s", c.BaseURL, path)
+}
+
+// publicPath returns the base path for public client API calls
+func (c *Client) publicPath(path string) string {
+	return fmt.Sprintf("%s/public/api/v1%s", c.BaseURL, path)
+}
+
 // do performs an HTTP request and decodes the response
 func (c *Client) do(ctx context.Context, method, url string, body any, result any) error {
 	// Check circuit breaker at start
@@ -104,7 +114,9 @@ func (c *Client) do(ctx context.Context, method, url string, body any, result an
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 
-		req.Header.Set("api_access_token", c.APIToken)
+		if c.APIToken != "" {
+			req.Header.Set("api_access_token", c.APIToken)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
@@ -213,7 +225,9 @@ func (c *Client) doRaw(ctx context.Context, method, url string, body any) ([]byt
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 
-		req.Header.Set("api_access_token", c.APIToken)
+		if c.APIToken != "" {
+			req.Header.Set("api_access_token", c.APIToken)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 

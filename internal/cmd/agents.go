@@ -39,7 +39,7 @@ func newAgentsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(agents)
+				return printJSON(cmd, agents)
 			}
 
 			w := newTabWriter()
@@ -83,7 +83,7 @@ func newAgentsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(agent)
+				return printJSON(cmd, agent)
 			}
 
 			w := newTabWriter()
@@ -139,7 +139,7 @@ func newAgentsCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(agent)
+				return printJSON(cmd, agent)
 			}
 
 			w := newTabWriter()
@@ -201,7 +201,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(agent)
+				return printJSON(cmd, agent)
 			}
 
 			w := newTabWriter()

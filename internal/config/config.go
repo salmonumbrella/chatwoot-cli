@@ -4,20 +4,28 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/99designs/keyring"
 )
 
 const (
-	serviceName = "chatwoot-cli"
-	accountKey  = "default"
+	serviceName       = "chatwoot-cli"
+	accountKey        = "default"
+	defaultProfile    = "default"
+	profilePrefix     = "profile:"
+	profileIndexKey   = "profiles_index"
+	currentProfileKey = "current_profile"
 )
 
 // Account holds the Chatwoot connection details
 type Account struct {
-	BaseURL   string `json:"base_url"`
-	APIToken  string `json:"api_token"`
-	AccountID int    `json:"account_id"`
+	BaseURL       string `json:"base_url"`
+	APIToken      string `json:"api_token"`
+	AccountID     int    `json:"account_id"`
+	PlatformToken string `json:"platform_token,omitempty"`
 }
 
 // ErrNotConfigured is returned when no account is configured
@@ -30,8 +38,100 @@ func keyringConfig() keyring.Config {
 	}
 }
 
+func profileKey(name string) string {
+	if name == "" {
+		name = defaultProfile
+	}
+	if name == defaultProfile {
+		return accountKey
+	}
+	return profilePrefix + name
+}
+
+func loadProfileIndex(ring keyring.Keyring) ([]string, error) {
+	item, err := ring.Get(profileIndexKey)
+	if err != nil {
+		if errors.Is(err, keyring.ErrKeyNotFound) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to get profile index: %w", err)
+	}
+	var profiles []string
+	if err := json.Unmarshal(item.Data, &profiles); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal profile index: %w", err)
+	}
+	return profiles, nil
+}
+
+func saveProfileIndex(ring keyring.Keyring, profiles []string) error {
+	data, err := json.Marshal(profiles)
+	if err != nil {
+		return fmt.Errorf("failed to marshal profile index: %w", err)
+	}
+	return ring.Set(keyring.Item{
+		Key:  profileIndexKey,
+		Data: data,
+	})
+}
+
+func normalizeProfiles(profiles []string) []string {
+	seen := make(map[string]struct{}, len(profiles))
+	var out []string
+	for _, p := range profiles {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
 // SaveAccount stores the account credentials in the OS keychain
 func SaveAccount(account Account) error {
+	return SaveProfile(defaultProfile, account)
+}
+
+// LoadAccount retrieves the account credentials from the OS keychain
+func LoadAccount() (Account, error) {
+	if baseURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL")); baseURL != "" {
+		token := strings.TrimSpace(os.Getenv("CHATWOOT_API_TOKEN"))
+		accountIDStr := strings.TrimSpace(os.Getenv("CHATWOOT_ACCOUNT_ID"))
+		if token == "" || accountIDStr == "" {
+			return Account{}, fmt.Errorf("environment variables CHATWOOT_BASE_URL, CHATWOOT_API_TOKEN, and CHATWOOT_ACCOUNT_ID must all be set")
+		}
+		accountID, err := strconv.Atoi(accountIDStr)
+		if err != nil || accountID <= 0 {
+			return Account{}, fmt.Errorf("CHATWOOT_ACCOUNT_ID must be a positive integer")
+		}
+		return Account{
+			BaseURL:   strings.TrimSuffix(baseURL, "/"),
+			APIToken:  token,
+			AccountID: accountID,
+		}, nil
+	}
+
+	if profile := strings.TrimSpace(os.Getenv("CHATWOOT_PROFILE")); profile != "" {
+		return LoadProfile(profile)
+	}
+
+	current, err := CurrentProfile()
+	if err != nil {
+		return Account{}, err
+	}
+	return LoadProfile(current)
+}
+
+// SaveProfile stores the account credentials under a named profile
+func SaveProfile(profile string, account Account) error {
+	if profile == "" {
+		profile = defaultProfile
+	}
+
 	ring, err := keyring.Open(keyringConfig())
 	if err != nil {
 		return fmt.Errorf("failed to open keyring: %w", err)
@@ -42,35 +142,47 @@ func SaveAccount(account Account) error {
 		return fmt.Errorf("failed to marshal account: %w", err)
 	}
 
-	err = ring.Set(keyring.Item{
-		Key:  accountKey,
+	if err := ring.Set(keyring.Item{
+		Key:  profileKey(profile),
 		Data: data,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to save account: %w", err)
+	}); err != nil {
+		return fmt.Errorf("failed to save profile: %w", err)
 	}
 
-	return nil
+	profiles, err := loadProfileIndex(ring)
+	if err != nil {
+		return err
+	}
+	profiles = normalizeProfiles(append(profiles, profile))
+	if err := saveProfileIndex(ring, profiles); err != nil {
+		return err
+	}
+
+	return SetCurrentProfile(profile)
 }
 
-// LoadAccount retrieves the account credentials from the OS keychain
-func LoadAccount() (Account, error) {
+// LoadProfile retrieves credentials for a named profile
+func LoadProfile(profile string) (Account, error) {
+	if profile == "" {
+		profile = defaultProfile
+	}
+
 	ring, err := keyring.Open(keyringConfig())
 	if err != nil {
 		return Account{}, fmt.Errorf("failed to open keyring: %w", err)
 	}
 
-	item, err := ring.Get(accountKey)
+	item, err := ring.Get(profileKey(profile))
 	if err != nil {
 		if errors.Is(err, keyring.ErrKeyNotFound) {
 			return Account{}, ErrNotConfigured
 		}
-		return Account{}, fmt.Errorf("failed to get account: %w", err)
+		return Account{}, fmt.Errorf("failed to get profile: %w", err)
 	}
 
 	var account Account
 	if err := json.Unmarshal(item.Data, &account); err != nil {
-		return Account{}, fmt.Errorf("failed to unmarshal account: %w", err)
+		return Account{}, fmt.Errorf("failed to unmarshal profile: %w", err)
 	}
 
 	return account, nil
@@ -78,17 +190,47 @@ func LoadAccount() (Account, error) {
 
 // DeleteAccount removes the account credentials from the OS keychain
 func DeleteAccount() error {
+	return DeleteProfile(defaultProfile)
+}
+
+// DeleteProfile removes a stored profile
+func DeleteProfile(profile string) error {
+	if profile == "" {
+		profile = defaultProfile
+	}
+
 	ring, err := keyring.Open(keyringConfig())
 	if err != nil {
 		return fmt.Errorf("failed to open keyring: %w", err)
 	}
 
-	err = ring.Remove(accountKey)
-	if err != nil {
-		if errors.Is(err, keyring.ErrKeyNotFound) {
-			return nil // Already deleted
+	if err := ring.Remove(profileKey(profile)); err != nil {
+		if !errors.Is(err, keyring.ErrKeyNotFound) {
+			return fmt.Errorf("failed to remove profile: %w", err)
 		}
-		return fmt.Errorf("failed to remove account: %w", err)
+	}
+
+	profiles, err := loadProfileIndex(ring)
+	if err != nil {
+		return err
+	}
+	var remaining []string
+	for _, p := range profiles {
+		if p != profile {
+			remaining = append(remaining, p)
+		}
+	}
+	if err := saveProfileIndex(ring, remaining); err != nil {
+		return err
+	}
+
+	current, err := CurrentProfile()
+	if err == nil && current == profile {
+		next := defaultProfile
+		if len(remaining) > 0 {
+			next = remaining[0]
+		}
+		_ = SetCurrentProfile(next)
 	}
 
 	return nil
@@ -98,4 +240,57 @@ func DeleteAccount() error {
 func HasAccount() bool {
 	_, err := LoadAccount()
 	return err == nil
+}
+
+// ListProfiles returns the known profile names
+func ListProfiles() ([]string, error) {
+	ring, err := keyring.Open(keyringConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to open keyring: %w", err)
+	}
+
+	profiles, err := loadProfileIndex(ring)
+	if err != nil {
+		return nil, err
+	}
+	if len(profiles) == 0 {
+		if _, err := ring.Get(accountKey); err == nil {
+			return []string{defaultProfile}, nil
+		}
+	}
+	return profiles, nil
+}
+
+// CurrentProfile returns the active profile name
+func CurrentProfile() (string, error) {
+	ring, err := keyring.Open(keyringConfig())
+	if err != nil {
+		return "", fmt.Errorf("failed to open keyring: %w", err)
+	}
+
+	item, err := ring.Get(currentProfileKey)
+	if err != nil {
+		if errors.Is(err, keyring.ErrKeyNotFound) {
+			return defaultProfile, nil
+		}
+		return "", fmt.Errorf("failed to get current profile: %w", err)
+	}
+	return string(item.Data), nil
+}
+
+// SetCurrentProfile sets the active profile name
+func SetCurrentProfile(profile string) error {
+	if profile == "" {
+		profile = defaultProfile
+	}
+
+	ring, err := keyring.Open(keyringConfig())
+	if err != nil {
+		return fmt.Errorf("failed to open keyring: %w", err)
+	}
+
+	return ring.Set(keyring.Item{
+		Key:  currentProfileKey,
+		Data: []byte(profile),
+	})
 }

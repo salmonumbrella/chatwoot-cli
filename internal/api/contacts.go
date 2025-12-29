@@ -6,11 +6,29 @@ import (
 	"net/url"
 )
 
+// ListContactsParams defines filters for listing contacts
+type ListContactsParams struct {
+	Page  int
+	Sort  string
+	Order string
+}
+
 // ListContacts retrieves contacts with pagination
-func (c *Client) ListContacts(ctx context.Context, page int) (*ContactList, error) {
+func (c *Client) ListContacts(ctx context.Context, params ListContactsParams) (*ContactList, error) {
 	path := "/contacts"
-	if page > 0 {
-		path = fmt.Sprintf("%s?page=%d", path, page)
+	query := url.Values{}
+
+	if params.Page > 0 {
+		query.Set("page", fmt.Sprintf("%d", params.Page))
+	}
+	if params.Sort != "" {
+		query.Set("sort", params.Sort)
+	}
+	if params.Order != "" {
+		query.Set("order", params.Order)
+	}
+	if len(query) > 0 {
+		path += "?" + query.Encode()
 	}
 
 	var result ContactList

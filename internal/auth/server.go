@@ -33,10 +33,11 @@ type SetupServer struct {
 	shutdown      chan struct{}
 	pendingResult *SetupResult
 	csrfToken     string
+	profile       string
 }
 
 // NewSetupServer creates a new setup server
-func NewSetupServer() (*SetupServer, error) {
+func NewSetupServer(profile string) (*SetupServer, error) {
 	// Generate CSRF token
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -47,6 +48,7 @@ func NewSetupServer() (*SetupServer, error) {
 		result:    make(chan SetupResult, 1),
 		shutdown:  make(chan struct{}),
 		csrfToken: hex.EncodeToString(tokenBytes),
+		profile:   profile,
 	}, nil
 }
 
@@ -254,7 +256,7 @@ func (s *SetupServer) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		AccountID: req.AccountID,
 	}
 
-	if err := config.SaveAccount(account); err != nil {
+	if err := config.SaveProfile(s.profile, account); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": false,
 			"error":   fmt.Sprintf("Failed to save credentials: %v", err),

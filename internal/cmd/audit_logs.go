@@ -43,7 +43,7 @@ func newAuditLogsListCmd() *cobra.Command {
 
 			if isJSON(cmd) {
 				// Return array directly for easier jq processing
-				return printJSON(logs.Payload)
+				return printJSON(cmd, logs.Payload)
 			}
 
 			w := newTabWriter()

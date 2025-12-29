@@ -12,6 +12,9 @@ Chatwoot in your terminal. Manage conversations, contacts, campaigns, help cente
 - **Help Center** - manage portals, articles, and categories
 - **Inboxes** - list and view inbox details, member access and roles, create and manage saved filter presets
 - **Messages** - send, edit, delete messages and list attachments
+- **Platform APIs** - manage accounts and users (self-hosted/managed)
+- **Public Client APIs** - manage contacts and conversations via inbox identifiers
+- **Profiles** - store multiple accounts/tokens and switch contexts quickly
 - **Reports** - audit logs, customer satisfaction surveys, reports with metrics
 - **Teams** - list teams and team members
 - **Webhooks** - manage webhooks
@@ -64,8 +67,8 @@ chatwoot conversations list --status open
 ### Authentication
 
 Credentials are checked in this order:
-1. Keychain (if set via `chatwoot auth login`)
-2. Environment variables
+1. Environment variables (if set)
+2. Keychain profiles (set via `chatwoot auth login`)
 
 Check current configuration:
 ```bash
@@ -77,12 +80,24 @@ Remove stored credentials:
 chatwoot auth logout
 ```
 
+### Profiles
+
+Manage multiple stored accounts:
+```bash
+chatwoot config profiles list
+chatwoot config profiles use staging
+chatwoot config profiles show --name staging
+chatwoot config profiles delete staging
+```
+
 ### Environment Variables
 
 ```bash
 export CHATWOOT_BASE_URL=https://chatwoot.example.com
 export CHATWOOT_API_TOKEN=your_api_token
 export CHATWOOT_ACCOUNT_ID=1
+export CHATWOOT_PROFILE=staging
+export CHATWOOT_PLATFORM_TOKEN=your_platform_token
 ```
 
 ## Security
@@ -111,6 +126,9 @@ chatwoot auth logout                                                # Remove cre
 # List and filter
 chatwoot conversations list
 chatwoot conversations list --status open --inbox-id 1
+chatwoot conversations list --status open --assignee-type unassigned
+chatwoot conversations list --status open --team-id 2 --labels "vip,urgent"
+chatwoot conversations list --status open --search "refund"
 chatwoot conversations list --all --max-pages 50
 chatwoot conversations filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'
 chatwoot conversations search --query "refund"
@@ -159,6 +177,8 @@ chatwoot messages delete 123 456
 ```bash
 # List and search
 chatwoot contacts list
+chatwoot contacts list --sort name --order asc
+chatwoot contacts list --sort -last_activity_at
 chatwoot contacts search --query "john"
 chatwoot contacts filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@example.com"]}]'
 
@@ -230,6 +250,8 @@ chatwoot portals categories delete help faq
 ```bash
 chatwoot inboxes list
 chatwoot inboxes get 1
+chatwoot inboxes create --name "Support" --channel-type api --greeting-enabled --greeting-message "Hi!"
+chatwoot inboxes update 1 --timezone "America/New_York" --working-hours-enabled
 ```
 
 ### Inbox Members
@@ -329,6 +351,44 @@ chatwoot integrations hooks list --app-id slack
 chatwoot integrations hooks create --app-id slack --inbox-id 1 --settings '{"webhook_url":"https://hooks.slack.com/..."}'
 chatwoot integrations hooks update 123 --app-id slack --settings '{"webhook_url":"https://new.hooks.slack.com/..."}'
 chatwoot integrations hooks delete 123 --app-id slack
+```
+
+### Platform APIs
+
+```bash
+# Accounts
+chatwoot platform accounts create --name "Acme Inc" --domain acme.example.com --support-email support@acme.example.com
+chatwoot platform accounts get 123
+chatwoot platform accounts delete 123
+
+# Users
+chatwoot platform users create --name "Jane Doe" --email jane@example.com --password "secret"
+chatwoot platform users update 45 --display-name "Jane D"
+chatwoot platform users delete 45
+
+# Account users
+chatwoot platform account-users list 123
+chatwoot platform account-users create 123 --user-id 45 --role agent
+chatwoot platform account-users delete 123 --user-id 45
+```
+
+### Public Client APIs
+
+```bash
+# Contacts
+chatwoot client contacts create --inbox <inbox-identifier> --name "Visitor" --email visitor@example.com
+chatwoot client contacts get --inbox <inbox-identifier> --contact <contact-identifier>
+
+# Conversations
+chatwoot client conversations list --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client conversations create --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client conversations get 123 --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client conversations resolve 123 --inbox <inbox-identifier> --contact <contact-identifier>
+
+# Messages & typing
+chatwoot client messages create 123 --inbox <inbox-identifier> --contact <contact-identifier> --content "Hello!"
+chatwoot client typing 123 --inbox <inbox-identifier> --contact <contact-identifier> --status on
+chatwoot client last-seen update 123 --inbox <inbox-identifier> --contact <contact-identifier>
 ```
 
 ### Reports
@@ -528,6 +588,8 @@ All commands support these flags:
 - `--debug` - Enable verbose debug logging
 - `--dry-run` - Preview changes without executing mutations
 - `--query <expr>` - JQ expression to filter JSON output
+- `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`)
+- `--template <tmpl>` - Go template (or `@path`) to render JSON output
 - `--help` - Show help for any command
 
 ### JQ Filtering
@@ -540,6 +602,16 @@ chatwoot conversations list -o json --query '.[].id'
 
 # Filter by status
 chatwoot conversations list -o json --query '.[] | select(.status == "open")'
+```
+
+**Fields shorthand & templates**
+
+```bash
+# Select fields without writing JQ
+chatwoot conversations list -o json --fields id,status,assignee_id
+
+# Render custom output with a template
+chatwoot conversations get 123 -o json --template '{{.id}} {{.status}}'
 ```
 
 ## Shell Completions

@@ -48,3 +48,26 @@ func WriteJSONFiltered(w io.Writer, v any, query string) error {
 	}
 	return err
 }
+
+// ApplyQuery applies a JQ query to structured data and returns the filtered value.
+func ApplyQuery(v any, query string) (any, error) {
+	if query == "" {
+		return v, nil
+	}
+
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered, err := filter.ApplyToJSON(data, query)
+	if err != nil {
+		return nil, err
+	}
+
+	var out any
+	if err := json.Unmarshal(filtered, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

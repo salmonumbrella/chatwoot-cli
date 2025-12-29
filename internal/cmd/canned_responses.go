@@ -42,7 +42,7 @@ func newCannedResponsesListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(responses)
+				return printJSON(cmd, responses)
 			}
 
 			w := newTabWriter()
@@ -83,7 +83,7 @@ func newCannedResponsesGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(response)
+				return printJSON(cmd, response)
 			}
 
 			w := newTabWriter()
@@ -123,7 +123,7 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(response)
+				return printJSON(cmd, response)
 			}
 
 			fmt.Printf("Created canned response #%d: %s\n", response.ID, response.ShortCode)
@@ -183,7 +183,7 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(response)
+				return printJSON(cmd, response)
 			}
 
 			fmt.Printf("Updated canned response #%d: %s\n", response.ID, response.ShortCode)

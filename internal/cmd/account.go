@@ -35,7 +35,7 @@ func newAccountGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(account)
+				return printJSON(cmd, account)
 			}
 
 			w := newTabWriter()
@@ -70,7 +70,7 @@ func newAccountUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(account)
+				return printJSON(cmd, account)
 			}
 
 			fmt.Printf("Updated account: %s\n", account.Name)

@@ -91,7 +91,7 @@ Report types:
 			}
 
 			if isJSON(cmd) {
-				return printJSON(report)
+				return printJSON(cmd, report)
 			}
 
 			fmt.Println("Report Summary:")
@@ -181,7 +181,7 @@ Report types:
 			}
 
 			if isJSON(cmd) {
-				return printJSON(report)
+				return printJSON(cmd, report)
 			}
 
 			if len(report) == 0 {
@@ -228,7 +228,7 @@ func newReportsLiveCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(metrics)
+				return printJSON(cmd, metrics)
 			}
 
 			fmt.Println("Live Conversation Metrics:")
@@ -263,7 +263,7 @@ func newReportsAgentsCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(agents)
+				return printJSON(cmd, agents)
 			}
 
 			if len(agents) == 0 {

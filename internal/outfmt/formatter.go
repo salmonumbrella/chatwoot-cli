@@ -28,7 +28,15 @@ func NewFormatter(ctx context.Context, out, errOut io.Writer) *Formatter {
 // Output writes data as JSON or text based on context format.
 func (f *Formatter) Output(data any) error {
 	if IsJSON(f.ctx) {
-		return WriteJSONFiltered(f.out, data, GetQuery(f.ctx))
+		query := GetQuery(f.ctx)
+		if tmpl := GetTemplate(f.ctx); tmpl != "" {
+			filtered, err := ApplyQuery(data, query)
+			if err != nil {
+				return err
+			}
+			return WriteTemplate(f.out, filtered, tmpl)
+		}
+		return WriteJSONFiltered(f.out, data, query)
 	}
 	return nil
 }

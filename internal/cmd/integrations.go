@@ -42,7 +42,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(apps)
+				return printJSON(cmd, apps)
 			}
 
 			w := newTabWriter()
@@ -77,7 +77,7 @@ func newIntegrationsHooksCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(hooks)
+				return printJSON(cmd, hooks)
 			}
 
 			w := newTabWriter()
@@ -127,7 +127,7 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(hook)
+				return printJSON(cmd, hook)
 			}
 
 			fmt.Printf("Created integration hook %d\n", hook.ID)
@@ -174,7 +174,7 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(hook)
+				return printJSON(cmd, hook)
 			}
 
 			fmt.Printf("Updated integration hook %d\n", hook.ID)

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -34,6 +35,8 @@ func newAuthLoginCmd() *cobra.Command {
 		token     string
 		accountID int
 		browser   bool
+		profile   string
+		platform  string
 	)
 
 	cmd := &cobra.Command{
@@ -48,6 +51,10 @@ You'll need:
 - Base URL: Your Chatwoot instance URL (e.g. https://chatwoot.example.com)
 - API Token: Generate from Settings > Profile Settings > Access Token
 - Account ID: Found in your Chatwoot URL (e.g. /app/accounts/1)
+
+Optional:
+- Profile: Save multiple accounts and switch between them
+- Platform Token: For platform API operations (self-hosted/managed)
 `),
 		Example: strings.TrimSpace(`
   # Interactive browser-based login (default)
@@ -55,11 +62,14 @@ You'll need:
 
   # CLI-only login with flags
   chatwoot auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
+
+  # Save to a named profile with a platform token
+  chatwoot auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1 --profile staging --platform-token PLATFORM_TOKEN
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// If browser mode (default) and no flags provided, use browser setup
 			if browser && url == "" && token == "" && accountID == 0 {
-				return runBrowserSetup()
+				return runBrowserSetup(profile)
 			}
 
 			// CLI mode: validate required flags
@@ -83,18 +93,22 @@ You'll need:
 
 			// Save to keychain
 			account := config.Account{
-				BaseURL:   url,
-				APIToken:  token,
-				AccountID: accountID,
+				BaseURL:       url,
+				APIToken:      token,
+				AccountID:     accountID,
+				PlatformToken: platform,
 			}
 
-			if err := config.SaveAccount(account); err != nil {
+			if err := config.SaveProfile(profile, account); err != nil {
 				return fmt.Errorf("failed to save credentials: %w", err)
 			}
 
 			fmt.Println("Authentication credentials saved successfully!")
 			fmt.Printf("  Base URL: %s\n", url)
 			fmt.Printf("  Account ID: %d\n", accountID)
+			if profile != "" && profile != "default" {
+				fmt.Printf("  Profile: %s\n", profile)
+			}
 
 			return nil
 		},
@@ -104,19 +118,21 @@ You'll need:
 	cmd.Flags().StringVar(&token, "token", "", "API access token")
 	cmd.Flags().IntVar(&accountID, "account-id", 0, "Account ID")
 	cmd.Flags().BoolVar(&browser, "browser", true, "Use browser-based setup (default: true)")
+	cmd.Flags().StringVar(&profile, "profile", "default", "Profile name to save credentials under")
+	cmd.Flags().StringVar(&platform, "platform-token", "", "Platform API token (optional)")
 	cmd.Flags().Lookup("browser").NoOptDefVal = "true"
 
 	return cmd
 }
 
 // runBrowserSetup launches the browser-based authentication flow
-func runBrowserSetup() error {
+func runBrowserSetup(profile string) error {
 	fmt.Println("Opening browser for Chatwoot CLI setup...")
 	fmt.Println("(Press Ctrl+C to cancel)")
 	fmt.Println()
 
 	// Create setup server
-	server, err := auth.NewSetupServer()
+	server, err := auth.NewSetupServer(profile)
 	if err != nil {
 		return fmt.Errorf("failed to create setup server: %w", err)
 	}
@@ -159,11 +175,16 @@ func newAuthStatusCmd() *cobra.Command {
   chatwoot auth status
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			envBaseURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL"))
+			envToken := strings.TrimSpace(os.Getenv("CHATWOOT_API_TOKEN"))
+			envAccountID := strings.TrimSpace(os.Getenv("CHATWOOT_ACCOUNT_ID"))
+			usingEnv := envBaseURL != "" || envToken != "" || envAccountID != ""
+
 			account, err := config.LoadAccount()
 			if err != nil {
 				if err == config.ErrNotConfigured {
 					if isJSON(cmd) {
-						return printJSON(map[string]any{
+						return printJSON(cmd, map[string]any{
 							"authenticated": false,
 							"message":       "Not authenticated. Run 'chatwoot auth login' to configure credentials.",
 						})
@@ -176,11 +197,15 @@ func newAuthStatusCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(map[string]any{
-					"authenticated": true,
-					"base_url":      account.BaseURL,
-					"account_id":    account.AccountID,
-					"api_token":     maskToken(account.APIToken),
+				profile, _ := config.CurrentProfile()
+				return printJSON(cmd, map[string]any{
+					"authenticated":  true,
+					"base_url":       account.BaseURL,
+					"account_id":     account.AccountID,
+					"api_token":      maskToken(account.APIToken),
+					"platform_token": maskToken(account.PlatformToken),
+					"profile":        profile,
+					"source":         map[bool]string{true: "env", false: "keychain"}[usingEnv],
 				})
 			}
 
@@ -188,6 +213,15 @@ func newAuthStatusCmd() *cobra.Command {
 			fmt.Printf("  Base URL: %s\n", account.BaseURL)
 			fmt.Printf("  Account ID: %d\n", account.AccountID)
 			fmt.Printf("  API Token: %s\n", maskToken(account.APIToken))
+			if account.PlatformToken != "" {
+				fmt.Printf("  Platform Token: %s\n", maskToken(account.PlatformToken))
+			}
+			if profile, err := config.CurrentProfile(); err == nil {
+				fmt.Printf("  Profile: %s\n", profile)
+			}
+			if usingEnv {
+				fmt.Println("  Source: env")
+			}
 
 			return nil
 		},
@@ -198,6 +232,8 @@ func newAuthStatusCmd() *cobra.Command {
 
 // newAuthLogoutCmd creates the auth logout command
 func newAuthLogoutCmd() *cobra.Command {
+	var profile string
+
 	cmd := &cobra.Command{
 		Use:   "logout",
 		Short: "Remove credentials from keychain",
@@ -207,19 +243,32 @@ func newAuthLogoutCmd() *cobra.Command {
   chatwoot auth logout
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !config.HasAccount() {
+			if profile == "" {
+				current, err := config.CurrentProfile()
+				if err == nil {
+					profile = current
+				}
+			}
+
+			if profile == "" && !config.HasAccount() {
 				fmt.Println("No credentials found.")
 				return nil
 			}
 
-			if err := config.DeleteAccount(); err != nil {
+			if err := config.DeleteProfile(profile); err != nil {
 				return fmt.Errorf("failed to remove credentials: %w", err)
 			}
 
-			fmt.Println("Credentials removed successfully.")
+			if profile == "" {
+				fmt.Println("Credentials removed successfully.")
+			} else {
+				fmt.Printf("Profile %s removed successfully.\n", profile)
+			}
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&profile, "profile", "", "Profile name to remove (defaults to current)")
 
 	return cmd
 }

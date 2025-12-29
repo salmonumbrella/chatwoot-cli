@@ -34,7 +34,7 @@ func newProfileGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(profile)
+				return printJSON(cmd, profile)
 			}
 
 			w := newTabWriter()

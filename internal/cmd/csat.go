@@ -69,7 +69,7 @@ func newCSATListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(responses)
+				return printJSON(cmd, responses)
 			}
 
 			if len(responses) == 0 {
@@ -137,14 +137,14 @@ func newCSATGetCmd() *cobra.Command {
 
 			if csat == nil {
 				if isJSON(cmd) {
-					return printJSON(nil)
+					return printJSON(cmd, nil)
 				}
 				fmt.Printf("No CSAT response for conversation %d\n", conversationID)
 				return nil
 			}
 
 			if isJSON(cmd) {
-				return printJSON(csat)
+				return printJSON(cmd, csat)
 			}
 
 			fmt.Printf("CSAT for Conversation #%d\n", conversationID)
@@ -239,7 +239,7 @@ func newCSATSummaryCmd() *cobra.Command {
 					"satisfaction_rate": satisfactionRate,
 					"distribution":      distribution,
 				}
-				return printJSON(summary)
+				return printJSON(cmd, summary)
 			}
 
 			dateRange := ""

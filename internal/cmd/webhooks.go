@@ -44,7 +44,7 @@ func newWebhooksListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(webhooks)
+				return printJSON(cmd, webhooks)
 			}
 
 			tw := newTabWriter()
@@ -88,7 +88,7 @@ func newWebhooksGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(webhook)
+				return printJSON(cmd, webhook)
 			}
 
 			tw := newTabWriter()
@@ -150,7 +150,7 @@ Available subscription events:
 			}
 
 			if isJSON(cmd) {
-				return printJSON(webhook)
+				return printJSON(cmd, webhook)
 			}
 
 			fmt.Printf("Created webhook %d\n", webhook.ID)
@@ -224,7 +224,7 @@ Available subscription events:
 			}
 
 			if isJSON(cmd) {
-				return printJSON(webhook)
+				return printJSON(cmd, webhook)
 			}
 
 			fmt.Printf("Updated webhook %d\n", webhook.ID)

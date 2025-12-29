@@ -61,7 +61,7 @@ func TestListContacts(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListContacts(context.Background(), tt.page)
+			result, err := client.ListContacts(context.Background(), ListContactsParams{Page: tt.page})
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

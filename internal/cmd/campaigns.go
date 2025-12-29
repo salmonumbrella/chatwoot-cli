@@ -46,7 +46,7 @@ func newCampaignsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(campaigns)
+				return printJSON(cmd, campaigns)
 			}
 
 			if len(campaigns) == 0 {
@@ -99,7 +99,7 @@ func newCampaignsGetCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(campaign)
+				return printJSON(cmd, campaign)
 			}
 
 			w := newTabWriter()
@@ -164,6 +164,17 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 			if err != nil {
 				return err
 			}
+			if inboxID == 0 {
+				if isInteractive() {
+					selected, err := promptInboxID(cmdContext(cmd), client)
+					if err != nil {
+						return err
+					}
+					inboxID = selected
+				} else {
+					return fmt.Errorf("--inbox-id is required")
+				}
+			}
 
 			req := api.CreateCampaignRequest{
 				Title:                          title,
@@ -211,7 +222,7 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 			}
 
 			if isJSON(cmd) {
-				return printJSON(campaign)
+				return printJSON(cmd, campaign)
 			}
 
 			fmt.Printf("Campaign created successfully (ID: %d)\n", campaign.ID)
@@ -328,7 +339,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 			}
 
 			if isJSON(cmd) {
-				return printJSON(campaign)
+				return printJSON(cmd, campaign)
 			}
 
 			fmt.Printf("Campaign updated successfully (ID: %d)\n", campaign.ID)

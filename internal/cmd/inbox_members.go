@@ -45,7 +45,7 @@ func newInboxMembersListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				return printJSON(members)
+				return printJSON(cmd, members)
 			}
 
 			w := newTabWriter()
