@@ -51,6 +51,23 @@ func (c *Client) DeletePlatformAccount(ctx context.Context, accountID int) error
 	return c.do(ctx, "DELETE", c.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, nil)
 }
 
+// UpdatePlatformAccountRequest represents a request to update an account
+type UpdatePlatformAccountRequest struct {
+	Name   string `json:"name,omitempty"`
+	Locale string `json:"locale,omitempty"`
+	Domain string `json:"domain,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+// UpdatePlatformAccount updates an account via platform API
+func (c *Client) UpdatePlatformAccount(ctx context.Context, accountID int, req UpdatePlatformAccountRequest) (*PlatformAccount, error) {
+	var result PlatformAccount
+	if err := c.do(ctx, "PATCH", c.platformPath(fmt.Sprintf("/accounts/%d", accountID)), req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // PlatformUser represents a platform user
 // Fields are kept minimal to avoid tight coupling to API changes.
 type PlatformUser struct {

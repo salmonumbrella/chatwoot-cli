@@ -37,6 +37,7 @@ func newPlatformAccountsCmd(baseURL, token *string) *cobra.Command {
 
 	cmd.AddCommand(newPlatformAccountsCreateCmd(baseURL, token))
 	cmd.AddCommand(newPlatformAccountsGetCmd(baseURL, token))
+	cmd.AddCommand(newPlatformAccountsUpdateCmd(baseURL, token))
 	cmd.AddCommand(newPlatformAccountsDeleteCmd(baseURL, token))
 
 	return cmd
@@ -168,6 +169,60 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
+	var (
+		name   string
+		locale string
+		domain string
+		status string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update <account-id>",
+		Short: "Update an account",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			if err != nil {
+				return err
+			}
+
+			if name == "" && locale == "" && domain == "" && status == "" {
+				return fmt.Errorf("at least one field must be provided to update")
+			}
+
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			account, err := client.UpdatePlatformAccount(cmdContext(cmd), accountID, api.UpdatePlatformAccountRequest{
+				Name:   name,
+				Locale: locale,
+				Domain: domain,
+				Status: status,
+			})
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, account)
+			}
+
+			fmt.Printf("Updated account %d: %s\n", account.ID, account.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Account name")
+	cmd.Flags().StringVar(&locale, "locale", "", "Account locale")
+	cmd.Flags().StringVar(&domain, "domain", "", "Account domain")
+	cmd.Flags().StringVar(&status, "status", "", "Account status")
+
+	return cmd
 }
 
 func newPlatformUsersCmd(baseURL, token *string) *cobra.Command {
