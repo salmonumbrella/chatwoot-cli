@@ -116,3 +116,31 @@ func TestCountResults(t *testing.T) {
 		t.Errorf("expected 2 failures, got %d", failure)
 	}
 }
+
+func TestRunBulkOperation_ContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	ids := []int{1, 2, 3, 4, 5}
+	var callCount atomic.Int32
+
+	// Cancel after brief delay
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	_ = runBulkOperation(
+		ctx,
+		ids,
+		1, // sequential to make cancellation predictable
+		func(ctx context.Context, id int) (string, error) {
+			callCount.Add(1)
+			time.Sleep(50 * time.Millisecond)
+			return "ok", nil
+		},
+	)
+
+	// Should have processed fewer than all items due to cancellation
+	if callCount.Load() >= 5 {
+		t.Errorf("expected fewer than 5 calls due to cancellation, got %d", callCount.Load())
+	}
+}
