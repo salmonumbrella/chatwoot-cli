@@ -17,6 +17,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
       - name: Build
         run: go build -v ./...
 
