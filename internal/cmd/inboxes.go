@@ -525,6 +525,9 @@ func newInboxesTriageCmd() *cobra.Command {
 
 // truncateString truncates a string to maxLen characters, adding "..." if truncated
 func truncateString(s string, maxLen int) string {
+	if maxLen < 0 {
+		return ""
+	}
 	if len(s) <= maxLen {
 		return s
 	}

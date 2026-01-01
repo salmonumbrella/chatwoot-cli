@@ -96,6 +96,7 @@ func TestTruncateString(t *testing.T) {
 		{"empty string", "", 10, ""},
 		{"unicode chars", "héllo wörld", 8, "héll..."}, // byte-based, not rune-based
 		{"max length 0", "hello", 0, ""},
+		{"negative maxLen", "hello", -5, ""},
 	}
 
 	for _, tt := range tests {
