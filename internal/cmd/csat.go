@@ -211,6 +211,14 @@ func newCSATSummaryCmd() *cobra.Command {
 
 			responses := allResponses
 			if len(responses) == 0 {
+				if isJSON(cmd) {
+					return printJSON(cmd, map[string]any{
+						"total_responses":   0,
+						"average_rating":    0,
+						"satisfaction_rate": 0,
+						"distribution":      map[int]int{},
+					})
+				}
 				fmt.Println("No CSAT responses found for the specified period")
 				return nil
 			}

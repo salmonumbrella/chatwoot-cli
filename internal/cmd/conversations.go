@@ -33,6 +33,7 @@ func newConversationsCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsAssignCmd())
 	cmd.AddCommand(newConversationsLabelsCmd())
 	cmd.AddCommand(newConversationsLabelsAddCmd())
+	cmd.AddCommand(newConversationsLabelsRemoveCmd())
 	cmd.AddCommand(newConversationsCustomAttributesCmd())
 	cmd.AddCommand(newConversationsContextCmd())
 	cmd.AddCommand(newConversationsMarkUnreadCmd())
@@ -970,6 +971,87 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&labelsStr, "labels", "", "Comma-separated list of labels (required)")
+
+	return cmd
+}
+
+func newConversationsLabelsRemoveCmd() *cobra.Command {
+	var labelsStr string
+
+	cmd := &cobra.Command{
+		Use:   "labels-remove <id>",
+		Short: "Remove labels from conversation",
+		Long:  "Remove one or more labels from a conversation",
+		Example: strings.TrimSpace(`
+  # Remove labels from a conversation
+  chatwoot conversations labels-remove 123 --labels "bug,urgent"
+`),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			if err != nil {
+				return err
+			}
+
+			if labelsStr == "" {
+				return fmt.Errorf("--labels is required")
+			}
+
+			labelsToRemove := strings.Split(labelsStr, ",")
+			for i := range labelsToRemove {
+				labelsToRemove[i] = strings.TrimSpace(labelsToRemove[i])
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			// Get current labels
+			currentLabels, err := client.GetConversationLabels(cmdContext(cmd), id)
+			if err != nil {
+				return fmt.Errorf("failed to get current labels for conversation %d: %w", id, err)
+			}
+
+			// Build set of labels to remove for O(1) lookup
+			removeSet := make(map[string]bool)
+			for _, label := range labelsToRemove {
+				removeSet[label] = true
+			}
+
+			// Filter out labels to remove
+			var remainingLabels []string
+			for _, label := range currentLabels {
+				if !removeSet[label] {
+					remainingLabels = append(remainingLabels, label)
+				}
+			}
+
+			// Update with remaining labels
+			resultLabels, err := client.AddConversationLabels(cmdContext(cmd), id, remainingLabels)
+			if err != nil {
+				return fmt.Errorf("failed to update labels for conversation %d: %w", id, err)
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, resultLabels)
+			}
+
+			fmt.Printf("Labels updated for conversation #%d\n", id)
+			if len(resultLabels) > 0 {
+				fmt.Println("Current labels:")
+				for _, label := range resultLabels {
+					fmt.Printf("  - %s\n", label)
+				}
+			} else {
+				fmt.Println("No labels remaining")
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&labelsStr, "labels", "", "Comma-separated list of labels to remove (required)")
 
 	return cmd
 }

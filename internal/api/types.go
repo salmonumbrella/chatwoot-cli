@@ -48,6 +48,36 @@ func (fi *FlexInt) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("cannot unmarshal %s into FlexInt", data)
 }
 
+// FlexString handles JSON values that may come as strings or numbers
+// and stores them as strings
+type FlexString string
+
+func (fs *FlexString) UnmarshalJSON(data []byte) error {
+	// Try as string first
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*fs = FlexString(s)
+		return nil
+	}
+	// Try as float64 (JSON numbers are float64)
+	var f float64
+	if err := json.Unmarshal(data, &f); err == nil {
+		// Format as integer if it's a whole number
+		if f == float64(int64(f)) {
+			*fs = FlexString(strconv.FormatInt(int64(f), 10))
+		} else {
+			*fs = FlexString(strconv.FormatFloat(f, 'f', -1, 64))
+		}
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal %s into FlexString", data)
+}
+
+// String returns the string value
+func (fs FlexString) String() string {
+	return string(fs)
+}
+
 // Conversation represents a Chatwoot conversation
 type Conversation struct {
 	ID                  int            `json:"id"`

@@ -20,8 +20,8 @@ type ReportSummary struct {
 
 // ReportDataPoint represents a single data point in a time-series report from /reports
 type ReportDataPoint struct {
-	Value     string `json:"value"`
-	Timestamp int64  `json:"timestamp"`
+	Value     FlexString `json:"value"`
+	Timestamp int64      `json:"timestamp"`
 }
 
 // ConversationMetrics represents account-level conversation metrics from /reports/conversations?type=account
