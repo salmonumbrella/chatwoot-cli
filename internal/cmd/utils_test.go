@@ -108,3 +108,77 @@ func TestTruncateString(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateArticleStatus(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		wantErr bool
+	}{
+		{"status 0 (draft)", 0, false},
+		{"status 1 (published)", 1, false},
+		{"status 2 (archived)", 2, false},
+		{"negative", -1, true},
+		{"too high", 3, true},
+		{"way too high", 100, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateArticleStatus(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateArticleStatus(%d) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFormatFileSize(t *testing.T) {
+	tests := []struct {
+		name  string
+		bytes int
+		want  string
+	}{
+		{"zero bytes", 0, "-"},
+		{"bytes", 500, "500 B"},
+		{"kilobytes", 1024, "1.0 KB"},
+		{"kilobytes with decimal", 1536, "1.5 KB"},
+		{"megabytes", 1048576, "1.0 MB"},
+		{"megabytes with decimal", 1572864, "1.5 MB"},
+		{"gigabytes", 1073741824, "1.0 GB"},
+		{"large gigabytes", 2147483647, "2.0 GB"}, // max int32 to stay within int range
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatFileSize(tt.bytes)
+			if got != tt.want {
+				t.Errorf("formatFileSize(%d) = %q, want %q", tt.bytes, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateAttributeKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"simple lowercase", "name", "name"},
+		{"with spaces", "First Name", "first_name"},
+		{"with uppercase", "CompanyName", "companyname"},
+		{"with mixed", "User Email Address", "user_email_address"},
+		{"already snake case", "user_name", "user_name"},
+		{"empty string", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateAttributeKey(tt.input)
+			if got != tt.want {
+				t.Errorf("generateAttributeKey(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
