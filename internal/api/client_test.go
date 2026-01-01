@@ -143,6 +143,361 @@ func TestAPIError(t *testing.T) {
 	}
 }
 
+func TestPut(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusCode   int
+		responseBody string
+		expectError  bool
+	}{
+		{
+			name:         "successful PUT",
+			statusCode:   http.StatusOK,
+			responseBody: `{"id": 1, "updated": true}`,
+			expectError:  false,
+		},
+		{
+			name:         "not found",
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": "not found"}`,
+			expectError:  true,
+		},
+		{
+			name:         "server error",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: `{"error": "internal error"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPut {
+					t.Errorf("Expected PUT, got %s", r.Method)
+				}
+				if r.Header.Get("api_access_token") != "test-token" {
+					t.Error("Missing or wrong api_access_token header")
+				}
+				if r.Header.Get("Content-Type") != "application/json" {
+					t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+				}
+
+				// Verify body
+				var body map[string]string
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body["key"] != "value" {
+					t.Errorf("Expected body key=value, got %v", body)
+				}
+
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			var result map[string]any
+			err := client.Put(context.Background(), "/test", map[string]string{"key": "value"}, &result)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestPatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("Expected PATCH, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+
+		var body map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["key"] != "value" {
+			t.Errorf("Expected body key=value, got %v", body)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 1, "patched": true}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	var result map[string]any
+	err := client.Patch(context.Background(), "/test", map[string]string{"key": "value"}, &result)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if result["patched"] != true {
+		t.Errorf("Expected patched=true, got %v", result)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	tests := []struct {
+		name        string
+		statusCode  int
+		expectError bool
+	}{
+		{
+			name:        "successful DELETE",
+			statusCode:  http.StatusOK,
+			expectError: false,
+		},
+		{
+			name:        "not found",
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodDelete {
+					t.Errorf("Expected DELETE, got %s", r.Method)
+				}
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode >= 400 {
+					_, _ = w.Write([]byte(`{"error": "error"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.Delete(context.Background(), "/test")
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteWithBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("Expected DELETE, got %s", r.Method)
+		}
+
+		var body map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["reason"] != "test" {
+			t.Errorf("Expected body reason=test, got %v", body)
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.DeleteWithBody(context.Background(), "/test", map[string]string{"reason": "test"})
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestGetRaw(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusCode   int
+		responseBody string
+		expectError  bool
+	}{
+		{
+			name:         "successful GET raw",
+			statusCode:   http.StatusOK,
+			responseBody: `{"raw": "data", "unparsed": true}`,
+			expectError:  false,
+		},
+		{
+			name:         "not found",
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": "not found"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("Expected GET, got %s", r.Method)
+				}
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.GetRaw(context.Background(), "/test")
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if !tt.expectError && string(result) != tt.responseBody {
+				t.Errorf("Expected body %s, got %s", tt.responseBody, string(result))
+			}
+		})
+	}
+}
+
+func TestPlatformPath(t *testing.T) {
+	client := newTestClient("https://example.com", "token", 123)
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"/users", "https://example.com/platform/api/v1/users"},
+		{"/accounts", "https://example.com/platform/api/v1/accounts"},
+		{"", "https://example.com/platform/api/v1"},
+	}
+
+	for _, tt := range tests {
+		result := client.platformPath(tt.path)
+		if result != tt.expected {
+			t.Errorf("platformPath(%q) = %q, want %q", tt.path, result, tt.expected)
+		}
+	}
+}
+
+func TestPublicPath(t *testing.T) {
+	client := newTestClient("https://example.com", "token", 123)
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"/inboxes/abc123/contacts", "https://example.com/public/api/v1/inboxes/abc123/contacts"},
+		{"/inboxes/abc123/messages", "https://example.com/public/api/v1/inboxes/abc123/messages"},
+		{"", "https://example.com/public/api/v1"},
+	}
+
+	for _, tt := range tests {
+		result := client.publicPath(tt.path)
+		if result != tt.expected {
+			t.Errorf("publicPath(%q) = %q, want %q", tt.path, result, tt.expected)
+		}
+	}
+}
+
+func TestSanitizeErrorBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "JSON with error field",
+			input:    `{"error": "Invalid token"}`,
+			expected: "Invalid token",
+		},
+		{
+			name:     "JSON with message field",
+			input:    `{"message": "Resource not found"}`,
+			expected: "Resource not found",
+		},
+		{
+			name:     "JSON with both fields prefers error",
+			input:    `{"error": "Primary error", "message": "Secondary message"}`,
+			expected: "Primary error",
+		},
+		{
+			name:     "Invalid JSON",
+			input:    `not json at all`,
+			expected: "API request failed (response body redacted for security)",
+		},
+		{
+			name:     "JSON without error or message",
+			input:    `{"status": "failed", "code": 500}`,
+			expected: "API request failed (response body redacted for security)",
+		},
+		{
+			name:     "Empty string",
+			input:    ``,
+			expected: "API request failed (response body redacted for security)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeErrorBody(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeErrorBody(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDoWithNilBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify no body for GET request
+		body, _ := io.ReadAll(r.Body)
+		if len(body) != 0 {
+			t.Errorf("Expected empty body, got %s", string(body))
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 1}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	var result map[string]int
+	err := client.Get(context.Background(), "/test", &result)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestDoWithNilResult(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 1}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	// Pass nil result - should not error
+	err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, nil)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestDoWithEmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+		// No body
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	var result map[string]any
+	err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, &result)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
 func TestPostMultipart(t *testing.T) {
 	tests := []struct {
 		name         string

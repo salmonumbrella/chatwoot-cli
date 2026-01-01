@@ -859,6 +859,867 @@ func TestToggleMuteConversation(t *testing.T) {
 	}
 }
 
+func TestCreateConversation(t *testing.T) {
+	tests := []struct {
+		name            string
+		request         CreateConversationRequest
+		statusCode      int
+		responseBody    string
+		expectError     bool
+		validateFunc    func(*testing.T, *Conversation)
+		validatePayload func(*testing.T, map[string]any)
+	}{
+		{
+			name: "successful create with message",
+			request: CreateConversationRequest{
+				InboxID:   1,
+				ContactID: 123,
+				Message:   "Hello, starting a new conversation",
+				Status:    "open",
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"id": 456,
+				"account_id": 1,
+				"inbox_id": 1,
+				"contact_id": 123,
+				"status": "open",
+				"created_at": 1700000000
+			}`,
+			expectError: false,
+			validateFunc: func(t *testing.T, conv *Conversation) {
+				if conv.ID != 456 {
+					t.Errorf("Expected ID 456, got %d", conv.ID)
+				}
+				if conv.ContactID != 123 {
+					t.Errorf("Expected contact ID 123, got %d", conv.ContactID)
+				}
+			},
+			validatePayload: func(t *testing.T, payload map[string]any) {
+				if payload["inbox_id"] != float64(1) {
+					t.Errorf("Expected inbox_id 1, got %v", payload["inbox_id"])
+				}
+				if payload["contact_id"] != float64(123) {
+					t.Errorf("Expected contact_id 123, got %v", payload["contact_id"])
+				}
+				if payload["message"] != "Hello, starting a new conversation" {
+					t.Errorf("Expected message, got %v", payload["message"])
+				}
+			},
+		},
+		{
+			name: "create with assignee and team",
+			request: CreateConversationRequest{
+				InboxID:   1,
+				ContactID: 123,
+				Assignee:  intPtr(5),
+				TeamID:    intPtr(2),
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"id": 457,
+				"account_id": 1,
+				"inbox_id": 1,
+				"contact_id": 123,
+				"status": "open",
+				"assignee_id": 5,
+				"team_id": 2,
+				"created_at": 1700000000
+			}`,
+			expectError: false,
+			validateFunc: func(t *testing.T, conv *Conversation) {
+				if conv.AssigneeID == nil || *conv.AssigneeID != 5 {
+					t.Errorf("Expected assignee ID 5, got %v", conv.AssigneeID)
+				}
+				if conv.TeamID == nil || *conv.TeamID != 2 {
+					t.Errorf("Expected team ID 2, got %v", conv.TeamID)
+				}
+			},
+		},
+		{
+			name: "create with custom attributes",
+			request: CreateConversationRequest{
+				InboxID:          1,
+				ContactID:        123,
+				CustomAttributes: map[string]any{"priority": "high", "source": "api"},
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"id": 458,
+				"account_id": 1,
+				"inbox_id": 1,
+				"contact_id": 123,
+				"status": "open",
+				"custom_attributes": {"priority": "high", "source": "api"},
+				"created_at": 1700000000
+			}`,
+			expectError: false,
+		},
+		{
+			name: "error - inbox not found",
+			request: CreateConversationRequest{
+				InboxID:   999,
+				ContactID: 123,
+			},
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": "Inbox not found"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+
+				if tt.validatePayload != nil {
+					var payload map[string]any
+					_ = json.NewDecoder(r.Body).Decode(&payload)
+					tt.validatePayload(t, payload)
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.CreateConversation(context.Background(), tt.request)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil && result != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestFilterConversations(t *testing.T) {
+	tests := []struct {
+		name         string
+		payload      map[string]any
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateFunc func(*testing.T, *ConversationList)
+	}{
+		{
+			name: "successful filter",
+			payload: map[string]any{
+				"payload": []map[string]any{
+					{"attribute_key": "status", "filter_operator": "equal_to", "values": []string{"open"}},
+				},
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"meta": {"current_page": 1, "total_count": 2},
+				"payload": [
+					{"id": 1, "status": "open", "inbox_id": 5, "created_at": 1700000000},
+					{"id": 2, "status": "open", "inbox_id": 5, "created_at": 1700001000}
+				]
+			}`,
+			expectError: false,
+			validateFunc: func(t *testing.T, result *ConversationList) {
+				if len(result.Data.Payload) != 2 {
+					t.Errorf("Expected 2 conversations, got %d", len(result.Data.Payload))
+				}
+				if result.Data.Payload[0].Status != "open" {
+					t.Errorf("Expected status 'open', got %s", result.Data.Payload[0].Status)
+				}
+			},
+		},
+		{
+			name:         "empty filter results",
+			payload:      map[string]any{},
+			statusCode:   http.StatusOK,
+			responseBody: `{"meta": {"current_page": 1, "total_count": 0}, "payload": []}`,
+			expectError:  false,
+			validateFunc: func(t *testing.T, result *ConversationList) {
+				if len(result.Data.Payload) != 0 {
+					t.Errorf("Expected 0 conversations, got %d", len(result.Data.Payload))
+				}
+			},
+		},
+		{
+			name:         "server error",
+			payload:      map[string]any{},
+			statusCode:   http.StatusInternalServerError,
+			responseBody: `{"error": "Internal server error"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/filter") {
+					t.Errorf("Expected path to contain /filter, got %s", r.URL.Path)
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.FilterConversations(context.Background(), tt.payload)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil && result != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestGetConversationsMeta(t *testing.T) {
+	tests := []struct {
+		name         string
+		params       ListConversationsParams
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateFunc func(*testing.T, map[string]any)
+		validatePath func(*testing.T, string)
+	}{
+		{
+			name: "successful get meta",
+			params: ListConversationsParams{
+				Status:  "open",
+				InboxID: "5",
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"open": 10,
+				"pending": 5,
+				"resolved": 20,
+				"all": 35
+			}`,
+			expectError: false,
+			validateFunc: func(t *testing.T, result map[string]any) {
+				if result["open"] != float64(10) {
+					t.Errorf("Expected open count 10, got %v", result["open"])
+				}
+				if result["all"] != float64(35) {
+					t.Errorf("Expected all count 35, got %v", result["all"])
+				}
+			},
+			validatePath: func(t *testing.T, path string) {
+				if !strings.Contains(path, "status=open") {
+					t.Errorf("Expected path to contain status=open, got %s", path)
+				}
+				if !strings.Contains(path, "inbox_id=5") {
+					t.Errorf("Expected path to contain inbox_id=5, got %s", path)
+				}
+			},
+		},
+		{
+			name: "meta with labels filter",
+			params: ListConversationsParams{
+				Labels: []string{"bug", "urgent"},
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"open": 2,
+				"pending": 1,
+				"resolved": 3,
+				"all": 6
+			}`,
+			expectError: false,
+			validatePath: func(t *testing.T, path string) {
+				if !strings.Contains(path, "labels=bug") {
+					t.Errorf("Expected path to contain labels filter, got %s", path)
+				}
+			},
+		},
+		{
+			name: "meta with query",
+			params: ListConversationsParams{
+				Query: "test search",
+			},
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"open": 1,
+				"all": 1
+			}`,
+			expectError: false,
+			validatePath: func(t *testing.T, path string) {
+				if !strings.Contains(path, "q=test") {
+					t.Errorf("Expected path to contain query, got %s", path)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("Expected GET, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/meta") {
+					t.Errorf("Expected path to contain /meta, got %s", r.URL.Path)
+				}
+
+				if tt.validatePath != nil {
+					tt.validatePath(t, r.URL.String())
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.GetConversationsMeta(context.Background(), tt.params)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil && result != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestToggleConversationPriority(t *testing.T) {
+	tests := []struct {
+		name            string
+		conversationID  int
+		priority        string
+		statusCode      int
+		expectError     bool
+		validatePayload func(*testing.T, map[string]any)
+	}{
+		{
+			name:           "set priority to high",
+			conversationID: 123,
+			priority:       "high",
+			statusCode:     http.StatusOK,
+			expectError:    false,
+			validatePayload: func(t *testing.T, payload map[string]any) {
+				if payload["priority"] != "high" {
+					t.Errorf("Expected priority 'high', got %v", payload["priority"])
+				}
+			},
+		},
+		{
+			name:           "set priority to urgent",
+			conversationID: 123,
+			priority:       "urgent",
+			statusCode:     http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "set priority to nil (remove)",
+			conversationID: 123,
+			priority:       "nil",
+			statusCode:     http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "conversation not found",
+			conversationID: 999,
+			priority:       "high",
+			statusCode:     http.StatusNotFound,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/toggle_priority") {
+					t.Errorf("Expected path to contain /toggle_priority, got %s", r.URL.Path)
+				}
+
+				if tt.validatePayload != nil {
+					var payload map[string]any
+					_ = json.NewDecoder(r.Body).Decode(&payload)
+					tt.validatePayload(t, payload)
+				}
+
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode >= 400 {
+					_, _ = w.Write([]byte(`{"error": "error"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.ToggleConversationPriority(context.Background(), tt.conversationID, tt.priority)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestAssignConversation(t *testing.T) {
+	tests := []struct {
+		name            string
+		conversationID  int
+		agentID         int
+		teamID          int
+		statusCode      int
+		responseBody    string
+		expectError     bool
+		validatePayload func(*testing.T, map[string]any)
+	}{
+		{
+			name:           "assign to agent only",
+			conversationID: 123,
+			agentID:        5,
+			teamID:         0,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 5, "name": "Agent Name"}`,
+			expectError:    false,
+			validatePayload: func(t *testing.T, payload map[string]any) {
+				if payload["assignee_id"] != float64(5) {
+					t.Errorf("Expected assignee_id 5, got %v", payload["assignee_id"])
+				}
+				if _, exists := payload["team_id"]; exists {
+					t.Error("Expected team_id to not be in payload")
+				}
+			},
+		},
+		{
+			name:           "assign to team only",
+			conversationID: 123,
+			agentID:        0,
+			teamID:         2,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 2, "name": "Support Team"}`,
+			expectError:    false,
+			validatePayload: func(t *testing.T, payload map[string]any) {
+				if _, exists := payload["assignee_id"]; exists {
+					t.Error("Expected assignee_id to not be in payload")
+				}
+				if payload["team_id"] != float64(2) {
+					t.Errorf("Expected team_id 2, got %v", payload["team_id"])
+				}
+			},
+		},
+		{
+			name:           "assign to both agent and team",
+			conversationID: 123,
+			agentID:        5,
+			teamID:         2,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 5, "name": "Agent Name"}`,
+			expectError:    false,
+			validatePayload: func(t *testing.T, payload map[string]any) {
+				if payload["assignee_id"] != float64(5) {
+					t.Errorf("Expected assignee_id 5, got %v", payload["assignee_id"])
+				}
+				if payload["team_id"] != float64(2) {
+					t.Errorf("Expected team_id 2, got %v", payload["team_id"])
+				}
+			},
+		},
+		{
+			name:           "error - conversation not found",
+			conversationID: 999,
+			agentID:        5,
+			teamID:         0,
+			statusCode:     http.StatusNotFound,
+			responseBody:   `{"error": "Conversation not found"}`,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/assignments") {
+					t.Errorf("Expected path to contain /assignments, got %s", r.URL.Path)
+				}
+
+				if tt.validatePayload != nil {
+					var payload map[string]any
+					_ = json.NewDecoder(r.Body).Decode(&payload)
+					tt.validatePayload(t, payload)
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.AssignConversation(context.Background(), tt.conversationID, tt.agentID, tt.teamID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if !tt.expectError && result == nil {
+				t.Error("Expected result but got nil")
+			}
+		})
+	}
+}
+
+func TestGetConversationLabels(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		statusCode     int
+		responseBody   string
+		expectError    bool
+		validateFunc   func(*testing.T, []string)
+	}{
+		{
+			name:           "successful get labels",
+			conversationID: 123,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"payload": ["bug", "urgent", "customer-reported"]}`,
+			expectError:    false,
+			validateFunc: func(t *testing.T, result []string) {
+				if len(result) != 3 {
+					t.Errorf("Expected 3 labels, got %d", len(result))
+				}
+				if result[0] != "bug" {
+					t.Errorf("Expected first label 'bug', got %s", result[0])
+				}
+			},
+		},
+		{
+			name:           "no labels",
+			conversationID: 123,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"payload": []}`,
+			expectError:    false,
+			validateFunc: func(t *testing.T, result []string) {
+				if len(result) != 0 {
+					t.Errorf("Expected 0 labels, got %d", len(result))
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !strings.Contains(r.URL.Path, "/labels") {
+					t.Errorf("Expected path to contain /labels, got %s", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.GetConversationLabels(context.Background(), tt.conversationID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestAddConversationLabels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+
+		var payload map[string][]string
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		if len(payload["labels"]) != 2 {
+			t.Errorf("Expected 2 labels in payload, got %d", len(payload["labels"]))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"payload": ["existing", "new-label", "another"]}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.AddConversationLabels(context.Background(), 123, []string{"new-label", "another"})
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if len(result) != 3 {
+		t.Errorf("Expected 3 labels, got %d", len(result))
+	}
+}
+
+func TestUpdateConversationCustomAttributes(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		attrs          map[string]any
+		statusCode     int
+		expectError    bool
+	}{
+		{
+			name:           "successful update",
+			conversationID: 123,
+			attrs:          map[string]any{"priority": "high", "source": "api"},
+			statusCode:     http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "conversation not found",
+			conversationID: 999,
+			attrs:          map[string]any{"key": "value"},
+			statusCode:     http.StatusNotFound,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/custom_attributes") {
+					t.Errorf("Expected path to contain /custom_attributes, got %s", r.URL.Path)
+				}
+
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode >= 400 {
+					_, _ = w.Write([]byte(`{"error": "error"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.UpdateConversationCustomAttributes(context.Background(), tt.conversationID, tt.attrs)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestSearchConversations(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		page         int
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validatePath func(*testing.T, string)
+		validateFunc func(*testing.T, *ConversationList)
+	}{
+		{
+			name:       "successful search",
+			query:      "billing issue",
+			page:       1,
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"data": {
+					"meta": {"current_page": 1, "total_count": 2},
+					"payload": [
+						{"id": 1, "status": "open", "created_at": 1700000000},
+						{"id": 2, "status": "resolved", "created_at": 1700001000}
+					]
+				}
+			}`,
+			expectError: false,
+			validatePath: func(t *testing.T, path string) {
+				if !strings.Contains(path, "q=billing") {
+					t.Errorf("Expected path to contain query, got %s", path)
+				}
+			},
+			validateFunc: func(t *testing.T, result *ConversationList) {
+				if len(result.Data.Payload) != 2 {
+					t.Errorf("Expected 2 conversations, got %d", len(result.Data.Payload))
+				}
+			},
+		},
+		{
+			name:       "search with pagination",
+			query:      "test",
+			page:       2,
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"data": {
+					"meta": {"current_page": 2, "total_count": 25},
+					"payload": []
+				}
+			}`,
+			expectError: false,
+			validatePath: func(t *testing.T, path string) {
+				if !strings.Contains(path, "page=2") {
+					t.Errorf("Expected path to contain page=2, got %s", path)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("Expected GET, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/search") {
+					t.Errorf("Expected path to contain /search, got %s", r.URL.Path)
+				}
+
+				if tt.validatePath != nil {
+					tt.validatePath(t, r.URL.String())
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.SearchConversations(context.Background(), tt.query, tt.page)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil && result != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestGetConversationAttachments(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		statusCode     int
+		responseBody   string
+		expectError    bool
+		validateFunc   func(*testing.T, []Attachment)
+	}{
+		{
+			name:           "successful get attachments",
+			conversationID: 123,
+			statusCode:     http.StatusOK,
+			responseBody: `[
+				{"id": 1, "file_type": "image", "data_url": "https://example.com/img1.jpg", "file_size": 12345},
+				{"id": 2, "file_type": "document", "data_url": "https://example.com/doc.pdf", "file_size": 54321}
+			]`,
+			expectError: false,
+			validateFunc: func(t *testing.T, result []Attachment) {
+				if len(result) != 2 {
+					t.Errorf("Expected 2 attachments, got %d", len(result))
+				}
+				if result[0].FileType != "image" {
+					t.Errorf("Expected file type 'image', got %s", result[0].FileType)
+				}
+			},
+		},
+		{
+			name:           "no attachments",
+			conversationID: 123,
+			statusCode:     http.StatusOK,
+			responseBody:   `[]`,
+			expectError:    false,
+			validateFunc: func(t *testing.T, result []Attachment) {
+				if len(result) != 0 {
+					t.Errorf("Expected 0 attachments, got %d", len(result))
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !strings.Contains(r.URL.Path, "/attachments") {
+					t.Errorf("Expected path to contain /attachments, got %s", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.GetConversationAttachments(context.Background(), tt.conversationID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestLastActivityAtTime(t *testing.T) {
+	conv := &Conversation{LastActivityAt: 1700000000}
+	result := conv.LastActivityAtTime()
+
+	if result.Unix() != 1700000000 {
+		t.Errorf("Expected Unix timestamp 1700000000, got %d", result.Unix())
+	}
+}
+
+// Helper function
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestUpdateConversation(t *testing.T) {
 	tests := []struct {
 		name            string
