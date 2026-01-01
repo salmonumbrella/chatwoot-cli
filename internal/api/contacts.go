@@ -217,3 +217,20 @@ func (c *Client) DeleteContactNote(ctx context.Context, contactID, noteID int) e
 	path := fmt.Sprintf("/contacts/%d/notes/%d", contactID, noteID)
 	return c.Delete(ctx, path)
 }
+
+// MergeContacts merges two contacts into one.
+// The base contact survives and receives all data from the mergee contact.
+// The mergee contact is permanently deleted.
+func (c *Client) MergeContacts(ctx context.Context, baseContactID, mergeeContactID int) (*Contact, error) {
+	path := "/actions/contact_merge"
+	body := map[string]int{
+		"base_contact_id":   baseContactID,
+		"mergee_contact_id": mergeeContactID,
+	}
+
+	var result Contact
+	if err := c.Post(ctx, path, body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
