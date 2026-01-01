@@ -81,3 +81,29 @@ func TestParseDate(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateString(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{"short string", "hello", 10, "hello"},
+		{"exact length", "hello", 5, "hello"},
+		{"needs truncation", "hello world", 8, "hello..."},
+		{"very short max", "hello", 3, "hel"}, // maxLen <= 3 returns raw truncation
+		{"empty string", "", 10, ""},
+		{"unicode chars", "héllo wörld", 8, "héll..."}, // byte-based, not rune-based
+		{"max length 0", "hello", 0, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := truncateString(tt.input, tt.maxLen)
+			if got != tt.want {
+				t.Errorf("truncateString(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
+			}
+		})
+	}
+}
