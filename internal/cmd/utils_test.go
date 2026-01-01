@@ -49,3 +49,35 @@ func TestParseIntList(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid date", "2024-01-15", false},
+		{"valid date start of year", "2024-01-01", false},
+		{"valid date end of year", "2024-12-31", false},
+		{"invalid format slashes", "2024/01/15", true},
+		{"invalid format dots", "2024.01.15", true},
+		{"invalid month", "2024-13-01", true},
+		{"invalid day", "2024-01-32", true},
+		{"invalid format short", "24-01-15", true},
+		{"empty string", "", true},
+		{"random string", "not-a-date", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseDate(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseDate(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got == "" {
+				t.Errorf("parseDate(%q) returned empty string", tt.input)
+			}
+		})
+	}
+}
