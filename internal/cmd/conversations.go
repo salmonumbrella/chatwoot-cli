@@ -45,6 +45,7 @@ func newConversationsCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsSearchCmd())
 	cmd.AddCommand(newConversationsAttachmentsCmd())
 	cmd.AddCommand(newConversationsWatchCmd())
+	cmd.AddCommand(newConversationsBulkCmd())
 
 	return cmd
 }
@@ -1727,4 +1728,262 @@ func fetchAndDisplayConversations(ctx context.Context, cmd *cobra.Command, clien
 	}
 
 	return nil
+}
+
+func newConversationsBulkCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk",
+		Short: "Bulk operations on conversations",
+		Long:  "Perform bulk operations on multiple conversations at once",
+	}
+
+	cmd.AddCommand(newConversationsBulkResolveCmd())
+	cmd.AddCommand(newConversationsBulkAssignCmd())
+	cmd.AddCommand(newConversationsBulkAddLabelCmd())
+
+	return cmd
+}
+
+func newConversationsBulkResolveCmd() *cobra.Command {
+	var conversationIDs string
+
+	cmd := &cobra.Command{
+		Use:   "resolve",
+		Short: "Resolve multiple conversations",
+		Long:  "Mark multiple conversations as resolved at once",
+		Example: strings.TrimSpace(`
+  # Resolve multiple conversations
+  chatwoot conversations bulk resolve --ids 1,2,3
+
+  # Resolve and output result as JSON
+  chatwoot conversations bulk resolve --ids 1,2,3 --output json
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if conversationIDs == "" {
+				return fmt.Errorf("--ids is required")
+			}
+
+			ids, err := parseIntList(conversationIDs)
+			if err != nil {
+				return fmt.Errorf("invalid conversation IDs: %w", err)
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+			var successCount, failCount int
+			var results []map[string]any
+
+			for _, id := range ids {
+				result, err := client.ToggleConversationStatus(ctx, id, "resolved", 0)
+				if err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to resolve conversation %d: %v\n", id, err)
+					failCount++
+					results = append(results, map[string]any{
+						"id":      id,
+						"success": false,
+						"error":   err.Error(),
+					})
+				} else {
+					successCount++
+					results = append(results, map[string]any{
+						"id":      id,
+						"success": true,
+						"status":  result.Payload.CurrentStatus,
+					})
+				}
+			}
+
+			if isJSON(cmd) {
+				output := map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+					"results":       results,
+				}
+				return printJSON(cmd, output)
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resolved %d conversations (%d failed)\n", successCount, failCount)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
+
+	return cmd
+}
+
+func newConversationsBulkAssignCmd() *cobra.Command {
+	var (
+		conversationIDs string
+		agentID         int
+		teamID          int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "assign",
+		Short: "Assign multiple conversations",
+		Long:  "Assign multiple conversations to an agent and/or team at once",
+		Example: strings.TrimSpace(`
+  # Assign conversations to an agent
+  chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5
+
+  # Assign conversations to a team
+  chatwoot conversations bulk assign --ids 1,2,3 --team-id 2
+
+  # Assign to both agent and team
+  chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5 --team-id 2
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if conversationIDs == "" {
+				return fmt.Errorf("--ids is required")
+			}
+
+			if agentID == 0 && teamID == 0 {
+				return fmt.Errorf("at least one of --agent-id or --team-id is required")
+			}
+
+			ids, err := parseIntList(conversationIDs)
+			if err != nil {
+				return fmt.Errorf("invalid conversation IDs: %w", err)
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+			var successCount, failCount int
+			var results []map[string]any
+
+			for _, id := range ids {
+				_, err := client.AssignConversation(ctx, id, agentID, teamID)
+				if err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
+					failCount++
+					results = append(results, map[string]any{
+						"id":      id,
+						"success": false,
+						"error":   err.Error(),
+					})
+				} else {
+					successCount++
+					result := map[string]any{
+						"id":      id,
+						"success": true,
+					}
+					if agentID > 0 {
+						result["agent_id"] = agentID
+					}
+					if teamID > 0 {
+						result["team_id"] = teamID
+					}
+					results = append(results, result)
+				}
+			}
+
+			if isJSON(cmd) {
+				output := map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+					"results":       results,
+				}
+				return printJSON(cmd, output)
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Assigned %d conversations (%d failed)\n", successCount, failCount)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
+	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to")
+	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign conversations to")
+
+	return cmd
+}
+
+func newConversationsBulkAddLabelCmd() *cobra.Command {
+	var (
+		conversationIDs string
+		labels          string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add-label",
+		Short: "Add labels to multiple conversations",
+		Long:  "Add one or more labels to multiple conversations at once",
+		Example: strings.TrimSpace(`
+  # Add a single label to multiple conversations
+  chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent
+
+  # Add multiple labels to multiple conversations
+  chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent,bug
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if conversationIDs == "" || labels == "" {
+				return fmt.Errorf("both --ids and --labels are required")
+			}
+
+			ids, err := parseIntList(conversationIDs)
+			if err != nil {
+				return fmt.Errorf("invalid conversation IDs: %w", err)
+			}
+
+			labelList := strings.Split(labels, ",")
+			for i := range labelList {
+				labelList[i] = strings.TrimSpace(labelList[i])
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+			var successCount, failCount int
+			var results []map[string]any
+
+			for _, id := range ids {
+				resultLabels, err := client.AddConversationLabels(ctx, id, labelList)
+				if err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to conversation %d: %v\n", id, err)
+					failCount++
+					results = append(results, map[string]any{
+						"id":      id,
+						"success": false,
+						"error":   err.Error(),
+					})
+				} else {
+					successCount++
+					results = append(results, map[string]any{
+						"id":      id,
+						"success": true,
+						"labels":  resultLabels,
+					})
+				}
+			}
+
+			if isJSON(cmd) {
+				output := map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+					"results":       results,
+				}
+				return printJSON(cmd, output)
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d conversations (%d failed)\n", successCount, failCount)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
+
+	return cmd
 }
