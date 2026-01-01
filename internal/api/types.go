@@ -492,3 +492,46 @@ type CSATListResponse struct {
 	Payload []CSATResponse `json:"payload"`
 	Meta    PaginationMeta `json:"meta"`
 }
+
+// InboxTriage is the response for inbox triage command
+type InboxTriage struct {
+	InboxID       int                  `json:"inbox_id"`
+	InboxName     string               `json:"inbox_name"`
+	Summary       TriageSummary        `json:"summary"`
+	Conversations []TriageConversation `json:"conversations"`
+}
+
+// TriageSummary contains counts for triage overview
+type TriageSummary struct {
+	Open    int `json:"open"`
+	Pending int `json:"pending"`
+	Unread  int `json:"unread"`
+}
+
+// TriageConversation represents an enriched conversation for triage
+type TriageConversation struct {
+	ID          int            `json:"id"`
+	DisplayID   *int           `json:"display_id,omitempty"`
+	Contact     TriageContact  `json:"contact"`
+	Status      string         `json:"status"`
+	Priority    *string        `json:"priority,omitempty"`
+	UnreadCount int            `json:"unread_count"`
+	LastMessage *TriageMessage `json:"last_message,omitempty"`
+	Labels      []string       `json:"labels,omitempty"`
+	AssigneeID  *int           `json:"assignee_id,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+}
+
+// TriageContact contains essential contact info for triage
+type TriageContact struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email,omitempty"`
+}
+
+// TriageMessage represents the last message in a conversation
+type TriageMessage struct {
+	Content string    `json:"content"`
+	Type    string    `json:"type"` // "incoming" | "outgoing"
+	At      time.Time `json:"at"`
+}

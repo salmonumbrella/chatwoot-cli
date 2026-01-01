@@ -452,13 +452,13 @@ func TestGetConversationMetrics(t *testing.T) {
 
 func TestGetAgentMetrics(t *testing.T) {
 	tests := []struct {
-		name        string
-		userID      string
-		statusCode  int
+		name         string
+		userID       string
+		statusCode   int
 		responseBody string
-		expectError bool
-		expectCount int
-		validateURL func(*testing.T, string)
+		expectError  bool
+		expectCount  int
+		validateURL  func(*testing.T, string)
 	}{
 		{
 			name:       "all agents",

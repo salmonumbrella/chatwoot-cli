@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -334,5 +336,362 @@ func TestRemoveInboxMembers(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestGetInboxTriage(t *testing.T) {
+	// Track request counts for concurrent requests
+	var contactRequests, messageRequests atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		// Get inbox
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/accounts/1/inboxes/1":
+			_, _ = w.Write([]byte(`{
+				"id": 1,
+				"name": "Support Inbox",
+				"channel_type": "Channel::Email"
+			}`))
+
+		// List messages for conversation 100 (must be before generic conversations match)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/accounts/1/conversations/100/messages":
+			messageRequests.Add(1)
+			_, _ = w.Write([]byte(`{
+				"payload": [
+					{
+						"id": 1000,
+						"conversation_id": 100,
+						"content": "Hi, I need help with my billing issue",
+						"message_type": 0,
+						"created_at": 1700000500
+					}
+				]
+			}`))
+
+		// List messages for conversation 101
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/accounts/1/conversations/101/messages":
+			messageRequests.Add(1)
+			_, _ = w.Write([]byte(`{
+				"payload": [
+					{
+						"id": 1001,
+						"conversation_id": 101,
+						"content": "We have resolved your issue",
+						"message_type": 1,
+						"created_at": 1700001500
+					}
+				]
+			}`))
+
+		// List conversations (after specific message paths)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/accounts/1/conversations":
+			// Verify query parameters
+			query := r.URL.Query()
+			if query.Get("inbox_id") != "1" {
+				t.Errorf("Expected inbox_id=1, got %s", query.Get("inbox_id"))
+			}
+			if query.Get("status") != "open" {
+				t.Errorf("Expected status=open, got %s", query.Get("status"))
+			}
+
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"meta": {"current_page": 1, "per_page": 25, "total_pages": 1, "total_count": 2},
+					"payload": [
+						{
+							"id": 100,
+							"display_id": 1001,
+							"account_id": 1,
+							"inbox_id": 1,
+							"status": "open",
+							"priority": "high",
+							"contact_id": 200,
+							"unread_count": 3,
+							"created_at": 1700000000,
+							"labels": ["urgent", "billing"]
+						},
+						{
+							"id": 101,
+							"display_id": 1002,
+							"account_id": 1,
+							"inbox_id": 1,
+							"status": "pending",
+							"contact_id": 201,
+							"unread_count": 0,
+							"created_at": 1700001000,
+							"labels": []
+						}
+					]
+				}
+			}`))
+
+		// Get contact 200
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/accounts/1/contacts/200":
+			contactRequests.Add(1)
+			_, _ = w.Write([]byte(`{
+				"payload": {
+					"id": 200,
+					"name": "John Doe",
+					"email": "john@example.com"
+				}
+			}`))
+
+		// Get contact 201
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/accounts/1/contacts/201":
+			contactRequests.Add(1)
+			_, _ = w.Write([]byte(`{
+				"payload": {
+					"id": 201,
+					"name": "Jane Smith",
+					"email": "jane@example.com"
+				}
+			}`))
+
+		default:
+			t.Errorf("Unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxTriage(context.Background(), 1, "", 25)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Verify inbox info
+	if result.InboxID != 1 {
+		t.Errorf("Expected InboxID 1, got %d", result.InboxID)
+	}
+	if result.InboxName != "Support Inbox" {
+		t.Errorf("Expected InboxName 'Support Inbox', got %s", result.InboxName)
+	}
+
+	// Verify summary
+	if result.Summary.Open != 1 {
+		t.Errorf("Expected 1 open, got %d", result.Summary.Open)
+	}
+	if result.Summary.Pending != 1 {
+		t.Errorf("Expected 1 pending, got %d", result.Summary.Pending)
+	}
+	if result.Summary.Unread != 1 {
+		t.Errorf("Expected 1 unread, got %d", result.Summary.Unread)
+	}
+
+	// Verify conversations
+	if len(result.Conversations) != 2 {
+		t.Fatalf("Expected 2 conversations, got %d", len(result.Conversations))
+	}
+
+	// First conversation
+	conv1 := result.Conversations[0]
+	if conv1.ID != 100 {
+		t.Errorf("Expected conv ID 100, got %d", conv1.ID)
+	}
+	if conv1.Contact.Name != "John Doe" {
+		t.Errorf("Expected contact name 'John Doe', got %s", conv1.Contact.Name)
+	}
+	if conv1.Contact.Email != "john@example.com" {
+		t.Errorf("Expected contact email 'john@example.com', got %s", conv1.Contact.Email)
+	}
+	if conv1.LastMessage == nil {
+		t.Error("Expected last message, got nil")
+	} else {
+		if conv1.LastMessage.Content != "Hi, I need help with my billing issue" {
+			t.Errorf("Expected message content, got %s", conv1.LastMessage.Content)
+		}
+		if conv1.LastMessage.Type != "incoming" {
+			t.Errorf("Expected message type 'incoming', got %s", conv1.LastMessage.Type)
+		}
+	}
+	if len(conv1.Labels) != 2 {
+		t.Errorf("Expected 2 labels, got %d", len(conv1.Labels))
+	}
+
+	// Second conversation
+	conv2 := result.Conversations[1]
+	if conv2.ID != 101 {
+		t.Errorf("Expected conv ID 101, got %d", conv2.ID)
+	}
+	if conv2.Contact.Name != "Jane Smith" {
+		t.Errorf("Expected contact name 'Jane Smith', got %s", conv2.Contact.Name)
+	}
+	if conv2.LastMessage == nil {
+		t.Error("Expected last message, got nil")
+	} else if conv2.LastMessage.Type != "outgoing" {
+		t.Errorf("Expected message type 'outgoing', got %s", conv2.LastMessage.Type)
+	}
+
+	// Verify parallel requests were made
+	if contactRequests.Load() != 2 {
+		t.Errorf("Expected 2 contact requests, got %d", contactRequests.Load())
+	}
+	if messageRequests.Load() != 2 {
+		t.Errorf("Expected 2 message requests, got %d", messageRequests.Load())
+	}
+}
+
+func TestGetInboxTriageWithLimit(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.URL.Path == "/api/v1/accounts/1/inboxes/1":
+			_, _ = w.Write([]byte(`{"id": 1, "name": "Support"}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v1/accounts/1/conversations") && !strings.Contains(r.URL.Path, "/messages"):
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"meta": {"current_page": 1, "total_count": 5},
+					"payload": [
+						{"id": 1, "status": "open", "contact_id": 100, "unread_count": 0, "created_at": 1700000000},
+						{"id": 2, "status": "open", "contact_id": 101, "unread_count": 0, "created_at": 1700000000},
+						{"id": 3, "status": "open", "contact_id": 102, "unread_count": 0, "created_at": 1700000000},
+						{"id": 4, "status": "open", "contact_id": 103, "unread_count": 0, "created_at": 1700000000},
+						{"id": 5, "status": "open", "contact_id": 104, "unread_count": 0, "created_at": 1700000000}
+					]
+				}
+			}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v1/accounts/1/contacts/"):
+			_, _ = w.Write([]byte(`{"payload": {"id": 100, "name": "Test User"}}`))
+
+		case strings.Contains(r.URL.Path, "/messages"):
+			_, _ = w.Write([]byte(`{"payload": []}`))
+
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxTriage(context.Background(), 1, "open", 2)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Verify limit was applied
+	if len(result.Conversations) != 2 {
+		t.Errorf("Expected 2 conversations (limit), got %d", len(result.Conversations))
+	}
+}
+
+func TestGetInboxTriageEmptyInbox(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.URL.Path == "/api/v1/accounts/1/inboxes/1":
+			_, _ = w.Write([]byte(`{"id": 1, "name": "Empty Inbox"}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v1/accounts/1/conversations"):
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"meta": {"current_page": 1, "total_count": 0},
+					"payload": []
+				}
+			}`))
+
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxTriage(context.Background(), 1, "open", 25)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(result.Conversations) != 0 {
+		t.Errorf("Expected 0 conversations, got %d", len(result.Conversations))
+	}
+	if result.Summary.Open != 0 {
+		t.Errorf("Expected 0 open, got %d", result.Summary.Open)
+	}
+}
+
+func TestGetInboxTriageInboxNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error": "Inbox not found"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	_, err := client.GetInboxTriage(context.Background(), 999, "", 25)
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to get inbox") {
+		t.Errorf("Expected 'failed to get inbox' error, got %v", err)
+	}
+}
+
+func TestGetInboxTriageContactFetchFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.URL.Path == "/api/v1/accounts/1/inboxes/1":
+			_, _ = w.Write([]byte(`{"id": 1, "name": "Support"}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v1/accounts/1/conversations") && !strings.Contains(r.URL.Path, "/messages"):
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"meta": {"current_page": 1},
+					"payload": [
+						{"id": 100, "status": "open", "contact_id": 200, "unread_count": 1, "created_at": 1700000000}
+					]
+				}
+			}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v1/accounts/1/contacts/"):
+			// Contact fetch fails
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error": "Server error"}`))
+
+		case strings.Contains(r.URL.Path, "/messages"):
+			_, _ = w.Write([]byte(`{"payload": [{"id": 1, "content": "Hello", "message_type": 0, "created_at": 1700000000}]}`))
+
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxTriage(context.Background(), 1, "open", 25)
+
+	// Should not error - contact fetch failure is handled gracefully
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Conversation should still be present with contact ID fallback
+	if len(result.Conversations) != 1 {
+		t.Fatalf("Expected 1 conversation, got %d", len(result.Conversations))
+	}
+
+	// Contact should have ID but no name (fallback behavior)
+	if result.Conversations[0].Contact.ID != 200 {
+		t.Errorf("Expected contact ID 200, got %d", result.Conversations[0].Contact.ID)
+	}
+	if result.Conversations[0].Contact.Name != "" {
+		t.Errorf("Expected empty contact name (fallback), got %s", result.Conversations[0].Contact.Name)
+	}
+
+	// Last message should still be present
+	if result.Conversations[0].LastMessage == nil {
+		t.Error("Expected last message even when contact fetch fails")
 	}
 }

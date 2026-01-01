@@ -24,6 +24,7 @@ func newInboxesCmd() *cobra.Command {
 	cmd.AddCommand(newInboxesDeleteCmd())
 	cmd.AddCommand(newInboxesAgentBotCmd())
 	cmd.AddCommand(newInboxesSetAgentBotCmd())
+	cmd.AddCommand(newInboxesTriageCmd())
 
 	return cmd
 }
@@ -451,4 +452,84 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("bot-id")
 
 	return cmd
+}
+
+func newInboxesTriageCmd() *cobra.Command {
+	var (
+		status string
+		limit  int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "triage <id>",
+		Short: "Get conversations with enriched context for triage",
+		Long:  "Returns conversations for an inbox with contact info and last message for decision-making",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			triage, err := client.GetInboxTriage(cmdContext(cmd), id, status, limit)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, triage)
+			}
+
+			// Text output
+			fmt.Printf("Inbox: %s (ID: %d)\n", triage.InboxName, triage.InboxID)
+			fmt.Printf("Summary: %d open, %d pending, %d unread\n\n",
+				triage.Summary.Open, triage.Summary.Pending, triage.Summary.Unread)
+
+			if len(triage.Conversations) == 0 {
+				fmt.Println("No conversations found")
+				return nil
+			}
+
+			w := newTabWriter()
+			_, _ = fmt.Fprintln(w, "ID\tCONTACT\tSTATUS\tUNREAD\tLAST MESSAGE")
+			for _, conv := range triage.Conversations {
+				contactName := conv.Contact.Name
+				if contactName == "" {
+					contactName = fmt.Sprintf("Contact #%d", conv.Contact.ID)
+				}
+
+				lastMsg := ""
+				if conv.LastMessage != nil {
+					lastMsg = truncateString(conv.LastMessage.Content, 40)
+				}
+
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%s\n",
+					conv.ID, contactName, conv.Status, conv.UnreadCount, lastMsg)
+			}
+			_ = w.Flush()
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&status, "status", "open", "Filter by status (open, pending, resolved, snoozed, all)")
+	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum number of conversations to return")
+
+	return cmd
+}
+
+// truncateString truncates a string to maxLen characters, adding "..." if truncated
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }

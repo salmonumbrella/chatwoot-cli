@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // InboxSettings represents configurable inbox attributes
@@ -192,4 +193,154 @@ func (c *Client) UpdateInboxMembers(ctx context.Context, inboxID int, userIDs []
 		"user_ids": userIDs,
 	}
 	return c.Patch(ctx, "/inbox_members", body, nil)
+}
+
+// triageResult holds the result of fetching enrichment data for a conversation
+type triageResult struct {
+	index   int
+	contact *Contact
+	message *Message
+}
+
+// GetInboxTriage retrieves conversations for an inbox with enriched context for triage
+func (c *Client) GetInboxTriage(ctx context.Context, inboxID int, status string, limit int) (*InboxTriage, error) {
+	// Get inbox info
+	inbox, err := c.GetInbox(ctx, inboxID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inbox: %w", err)
+	}
+
+	// Default status to "open" if not specified
+	if status == "" {
+		status = "open"
+	}
+
+	// List conversations for the inbox
+	params := ListConversationsParams{
+		InboxID: fmt.Sprintf("%d", inboxID),
+		Status:  status,
+	}
+
+	convList, err := c.ListConversations(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list conversations: %w", err)
+	}
+
+	conversations := convList.Data.Payload
+
+	// Apply limit
+	if limit > 0 && len(conversations) > limit {
+		conversations = conversations[:limit]
+	}
+
+	// Calculate summary from the fetched conversations
+	summary := TriageSummary{}
+	for _, conv := range conversations {
+		switch conv.Status {
+		case "open":
+			summary.Open++
+		case "pending":
+			summary.Pending++
+		}
+		if conv.Unread > 0 {
+			summary.Unread++
+		}
+	}
+
+	// Fetch contact and last message for each conversation in parallel
+	const maxConcurrency = 8
+	sem := make(chan struct{}, maxConcurrency)
+	results := make(chan triageResult, len(conversations))
+	var wg sync.WaitGroup
+
+	for i, conv := range conversations {
+		wg.Add(1)
+		go func(idx int, conv Conversation) {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
+
+			result := triageResult{index: idx}
+
+			// Fetch contact (ignore errors, just leave it empty)
+			if conv.ContactID > 0 {
+				contact, err := c.GetContact(ctx, conv.ContactID)
+				if err == nil {
+					result.contact = contact
+				}
+			}
+
+			// Fetch last message (first page, take first non-activity message)
+			messages, err := c.ListMessages(ctx, conv.ID)
+			if err == nil && len(messages) > 0 {
+				// Find the first non-activity message (incoming or outgoing)
+				for _, msg := range messages {
+					if msg.MessageType == MessageTypeIncoming || msg.MessageType == MessageTypeOutgoing {
+						result.message = &msg
+						break
+					}
+				}
+			}
+
+			results <- result
+		}(i, conv)
+	}
+
+	// Close results channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	enrichments := make([]triageResult, len(conversations))
+	for result := range results {
+		enrichments[result.index] = result
+	}
+
+	// Build triage conversations
+	triageConvs := make([]TriageConversation, len(conversations))
+	for i, conv := range conversations {
+		tc := TriageConversation{
+			ID:          conv.ID,
+			DisplayID:   conv.DisplayID,
+			Status:      conv.Status,
+			Priority:    conv.Priority,
+			UnreadCount: conv.Unread,
+			Labels:      conv.Labels,
+			AssigneeID:  conv.AssigneeID,
+			CreatedAt:   conv.CreatedAtTime(),
+		}
+
+		// Add contact info
+		if enrichments[i].contact != nil {
+			tc.Contact = TriageContact{
+				ID:    enrichments[i].contact.ID,
+				Name:  enrichments[i].contact.Name,
+				Email: enrichments[i].contact.Email,
+			}
+		} else if conv.ContactID > 0 {
+			// Fallback: at least include the contact ID
+			tc.Contact = TriageContact{ID: conv.ContactID}
+		}
+
+		// Add last message
+		if enrichments[i].message != nil {
+			msg := enrichments[i].message
+			tc.LastMessage = &TriageMessage{
+				Content: msg.Content,
+				Type:    msg.MessageTypeName(),
+				At:      msg.CreatedAtTime(),
+			}
+		}
+
+		triageConvs[i] = tc
+	}
+
+	return &InboxTriage{
+		InboxID:       inbox.ID,
+		InboxName:     inbox.Name,
+		Summary:       summary,
+		Conversations: triageConvs,
+	}, nil
 }
