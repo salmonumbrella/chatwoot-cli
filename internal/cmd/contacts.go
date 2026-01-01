@@ -36,6 +36,7 @@ func newContactsCmd() *cobra.Command {
 	cmd.AddCommand(newContactsNotesAddCmd())
 	cmd.AddCommand(newContactsNotesDeleteCmd())
 	cmd.AddCommand(newContactsBulkCmd())
+	cmd.AddCommand(newContactsMergeCmd())
 
 	return cmd
 }
@@ -1103,6 +1104,134 @@ labels, and updates the contact with the remaining labels.`,
 	_ = cmd.MarkFlagRequired("labels")
 
 	return cmd
+}
+
+func newContactsMergeCmd() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "merge <keep-id> <delete-id>",
+		Short: "Merge two contacts",
+		Long: `Merge two contacts into one.
+
+The first argument (keep-id) is the contact that SURVIVES and receives all data.
+The second argument (delete-id) is the contact that gets PERMANENTLY DELETED.
+
+All conversations, messages, notes, and other data from the deleted contact
+will be transferred to the surviving contact.
+
+This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
+		Example: `  # Merge contact 456 INTO contact 123 (456 gets deleted, 123 keeps all data)
+  chatwoot contacts merge 123 456
+
+  # Skip confirmation (for scripting)
+  chatwoot contacts merge 123 456 --force
+
+  # JSON output (requires --force)
+  chatwoot contacts merge 123 456 --force --output json`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			keepID, err := validation.ParsePositiveInt(args[0], "keep-id")
+			if err != nil {
+				return err
+			}
+
+			deleteID, err := validation.ParsePositiveInt(args[1], "delete-id")
+			if err != nil {
+				return err
+			}
+
+			if keepID == deleteID {
+				return fmt.Errorf("cannot merge contact with itself: both IDs are %d", keepID)
+			}
+
+			// In JSON mode, --force is required (can't prompt interactively)
+			if isJSON(cmd) && !force {
+				return fmt.Errorf("--force flag is required when using --output json")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+
+			// If not forced, fetch both contacts and prompt for confirmation
+			if !force {
+				// Fetch keep contact
+				keepContact, err := client.GetContact(ctx, keepID)
+				if err != nil {
+					return fmt.Errorf("failed to get keep contact %d: %w", keepID, err)
+				}
+
+				// Fetch delete contact
+				deleteContact, err := client.GetContact(ctx, deleteID)
+				if err != nil {
+					return fmt.Errorf("failed to get delete contact %d: %w", deleteID, err)
+				}
+
+				// Display merge preview
+				fmt.Println()
+				fmt.Println("MERGE CONTACTS")
+				fmt.Println()
+				fmt.Printf("KEEP (base):     #%d %s\n", keepContact.ID, formatContactSummary(keepContact))
+				fmt.Printf("DELETE (mergee): #%d %s\n", deleteContact.ID, formatContactSummary(deleteContact))
+				fmt.Println()
+				fmt.Printf("The contact #%d will be PERMANENTLY DELETED.\n", deleteID)
+				fmt.Println("All conversations, messages, and notes will be transferred to #" + strconv.Itoa(keepID) + ".")
+				fmt.Println()
+				fmt.Print("Type 'merge' to confirm: ")
+
+				var response string
+				_, _ = fmt.Scanln(&response)
+				response = strings.TrimSpace(strings.ToLower(response))
+				if response != "merge" {
+					fmt.Println("Merge cancelled.")
+					return nil
+				}
+			}
+
+			// Perform the merge
+			mergedContact, err := client.MergeContacts(ctx, keepID, deleteID)
+			if err != nil {
+				return fmt.Errorf("failed to merge contacts: %w", err)
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, mergedContact)
+			}
+
+			fmt.Printf("Successfully merged contact #%d into #%d\n", deleteID, keepID)
+			fmt.Printf("Contact #%d has been deleted. Contact #%d now contains all data.\n", deleteID, keepID)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt (required for --output json)")
+
+	return cmd
+}
+
+// formatContactSummary formats a contact for display in the merge confirmation
+func formatContactSummary(c *api.Contact) string {
+	var parts []string
+
+	if c.Name != "" {
+		parts = append(parts, fmt.Sprintf("%q", c.Name))
+	}
+	if c.Email != "" {
+		parts = append(parts, fmt.Sprintf("<%s>", c.Email))
+	}
+	if c.PhoneNumber != "" {
+		parts = append(parts, c.PhoneNumber)
+	}
+
+	if len(parts) == 0 {
+		return "(no details)"
+	}
+	return strings.Join(parts, " ")
 }
 
 // parseIntList parses a comma-separated list of integers
