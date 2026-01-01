@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -23,6 +25,7 @@ func newMessagesCmd() *cobra.Command {
 	cmd.AddCommand(newMessagesCreateCmd())
 	cmd.AddCommand(newMessagesDeleteCmd())
 	cmd.AddCommand(newMessagesUpdateCmd())
+	cmd.AddCommand(newMessagesBatchSendCmd())
 
 	return cmd
 }
@@ -319,6 +322,157 @@ func newMessagesUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&content, "content", "", "New message content (required)")
 	_ = cmd.MarkFlagRequired("content")
+
+	return cmd
+}
+
+// BatchSendItem represents a single message to send in a batch operation
+type BatchSendItem struct {
+	ConversationID int    `json:"conversation_id"`
+	Content        string `json:"content"`
+	Private        bool   `json:"private,omitempty"`
+}
+
+// BatchSendResult represents the result of a single batch send operation
+type BatchSendResult struct {
+	ConversationID int    `json:"conversation_id"`
+	MessageID      int    `json:"message_id,omitempty"`
+	Status         string `json:"status"` // "sent" | "error"
+	Error          string `json:"error,omitempty"`
+}
+
+// BatchSendResponse is the response for the batch-send command
+type BatchSendResponse struct {
+	Total     int               `json:"total"`
+	Succeeded int               `json:"succeeded"`
+	Failed    int               `json:"failed"`
+	Results   []BatchSendResult `json:"results"`
+}
+
+// newMessagesBatchSendCmd creates the batch-send subcommand
+func newMessagesBatchSendCmd() *cobra.Command {
+	var concurrency int
+
+	cmd := &cobra.Command{
+		Use:   "batch-send",
+		Short: "Send messages to multiple conversations",
+		Long: `Send messages to multiple conversations in parallel.
+
+Reads JSON input from stdin with an array of messages to send.
+Messages are sent concurrently for efficiency.`,
+		Example: strings.TrimSpace(`
+  # Send messages to multiple conversations
+  echo '[
+    {"conversation_id": 123, "content": "Thanks for your patience!"},
+    {"conversation_id": 456, "content": "Your order has shipped."}
+  ]' | chatwoot messages batch-send
+
+  # Send from a file
+  cat messages.json | chatwoot messages batch-send
+
+  # With custom concurrency
+  cat messages.json | chatwoot messages batch-send --concurrency 10
+
+  # Send private notes
+  echo '[{"conversation_id": 123, "content": "Internal note", "private": true}]' | chatwoot messages batch-send
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Read input from stdin
+			var items []BatchSendItem
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&items); err != nil {
+				return fmt.Errorf("failed to parse JSON input: %w", err)
+			}
+
+			if len(items) == 0 {
+				return fmt.Errorf("no messages to send")
+			}
+
+			// Validate items
+			for i, item := range items {
+				if item.ConversationID <= 0 {
+					return fmt.Errorf("item %d: conversation_id must be positive", i)
+				}
+				if item.Content == "" {
+					return fmt.Errorf("item %d: content is required", i)
+				}
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+
+			// Process messages in parallel with bounded concurrency
+			results := make([]BatchSendResult, len(items))
+			sem := make(chan struct{}, concurrency)
+			var wg sync.WaitGroup
+
+			for i, item := range items {
+				wg.Add(1)
+				go func(idx int, item BatchSendItem) {
+					defer wg.Done()
+					sem <- struct{}{}        // Acquire semaphore
+					defer func() { <-sem }() // Release semaphore
+
+					result := BatchSendResult{
+						ConversationID: item.ConversationID,
+					}
+
+					msg, err := client.CreateMessage(ctx, item.ConversationID, item.Content, item.Private, "outgoing")
+					if err != nil {
+						result.Status = "error"
+						result.Error = err.Error()
+					} else {
+						result.Status = "sent"
+						result.MessageID = msg.ID
+					}
+
+					results[idx] = result
+				}(i, item)
+			}
+
+			wg.Wait()
+
+			// Count successes and failures
+			var succeeded, failed int
+			for _, r := range results {
+				if r.Status == "sent" {
+					succeeded++
+				} else {
+					failed++
+				}
+			}
+
+			response := BatchSendResponse{
+				Total:     len(items),
+				Succeeded: succeeded,
+				Failed:    failed,
+				Results:   results,
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, response)
+			}
+
+			// Text output
+			fmt.Printf("Batch send complete: %d sent, %d failed (total: %d)\n", succeeded, failed, len(items))
+			if failed > 0 {
+				fmt.Println("\nFailed messages:")
+				for _, r := range results {
+					if r.Status == "error" {
+						fmt.Printf("  Conversation %d: %s\n", r.ConversationID, r.Error)
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Maximum concurrent requests")
 
 	return cmd
 }

@@ -535,3 +535,17 @@ type TriageMessage struct {
 	Type    string    `json:"type"` // "incoming" | "outgoing"
 	At      time.Time `json:"at"`
 }
+
+// ReplyResult is the response for the reply command
+type ReplyResult struct {
+	Action         string         `json:"action"` // "replied" | "disambiguation_needed"
+	ConversationID int            `json:"conversation_id,omitempty"`
+	Contact        *TriageContact `json:"contact,omitempty"`
+	MessageID      int            `json:"message_id,omitempty"`
+	Resolved       bool           `json:"resolved,omitempty"`
+
+	// For disambiguation
+	Type    string `json:"type,omitempty"` // "multiple_contacts" | "multiple_conversations"
+	Matches any    `json:"matches,omitempty"`
+	Hint    string `json:"hint,omitempty"`
+}

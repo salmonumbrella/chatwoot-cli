@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -38,10 +39,14 @@ func New(baseURL, token string, accountID int) *Client {
 		TLSClientConfig: tlsConfig,
 	}
 
+	// Allow localhost URLs when CHATWOOT_TESTING=1 is set (for integration tests)
+	skipValidation := os.Getenv("CHATWOOT_TESTING") == "1"
+
 	return &Client{
-		BaseURL:   baseURL,
-		APIToken:  token,
-		AccountID: accountID,
+		BaseURL:           baseURL,
+		APIToken:          token,
+		AccountID:         accountID,
+		skipURLValidation: skipValidation,
 		HTTP: &http.Client{
 			Timeout:   defaultTimeout,
 			Transport: transport,
