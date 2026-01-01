@@ -25,6 +25,7 @@ func newPlatformCmd() *cobra.Command {
 	cmd.AddCommand(newPlatformAccountsCmd(&baseURL, &token))
 	cmd.AddCommand(newPlatformUsersCmd(&baseURL, &token))
 	cmd.AddCommand(newPlatformAccountUsersCmd(&baseURL, &token))
+	cmd.AddCommand(newPlatformAgentBotsCmd(&baseURL, &token))
 
 	return cmd
 }
@@ -548,4 +549,211 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().IntVar(&userID, "user-id", 0, "User ID (required)")
 
 	return cmd
+}
+
+func newPlatformAgentBotsCmd(baseURL, token *string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "agent-bots",
+		Short: "Manage agent bots via platform API",
+	}
+
+	cmd.AddCommand(newPlatformAgentBotsListCmd(baseURL, token))
+	cmd.AddCommand(newPlatformAgentBotsGetCmd(baseURL, token))
+	cmd.AddCommand(newPlatformAgentBotsCreateCmd(baseURL, token))
+	cmd.AddCommand(newPlatformAgentBotsUpdateCmd(baseURL, token))
+	cmd.AddCommand(newPlatformAgentBotsDeleteCmd(baseURL, token))
+
+	return cmd
+}
+
+func newPlatformAgentBotsListCmd(baseURL, token *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all platform agent bots",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			bots, err := client.ListPlatformAgentBots(cmdContext(cmd))
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, bots)
+			}
+
+			w := newTabWriter()
+			defer func() { _ = w.Flush() }()
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE\tURL")
+			for _, bot := range bots {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", bot.ID, bot.Name, bot.BotType, bot.OutgoingURL)
+			}
+			return nil
+		},
+	}
+}
+
+func newPlatformAgentBotsGetCmd(baseURL, token *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <bot-id>",
+		Short: "Get a platform agent bot",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			bot, err := client.GetPlatformAgentBot(cmdContext(cmd), botID)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, bot)
+			}
+
+			fmt.Printf("Agent Bot %d: %s\n", bot.ID, bot.Name)
+			if bot.Description != "" {
+				fmt.Printf("Description: %s\n", bot.Description)
+			}
+			if bot.BotType != "" {
+				fmt.Printf("Type: %s\n", bot.BotType)
+			}
+			if bot.OutgoingURL != "" {
+				fmt.Printf("URL: %s\n", bot.OutgoingURL)
+			}
+			return nil
+		},
+	}
+}
+
+func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
+	var (
+		name        string
+		description string
+		outgoingURL string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a platform agent bot",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if name == "" {
+				return fmt.Errorf("--name is required")
+			}
+
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			bot, err := client.CreatePlatformAgentBot(cmdContext(cmd), api.CreatePlatformAgentBotRequest{
+				Name:        name,
+				Description: description,
+				OutgoingURL: outgoingURL,
+			})
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, bot)
+			}
+
+			fmt.Printf("Created agent bot %d: %s\n", bot.ID, bot.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Agent bot name (required)")
+	cmd.Flags().StringVar(&description, "description", "", "Agent bot description")
+	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Webhook URL for bot events")
+
+	return cmd
+}
+
+func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
+	var (
+		name        string
+		description string
+		outgoingURL string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update <bot-id>",
+		Short: "Update a platform agent bot",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
+			if err != nil {
+				return err
+			}
+
+			if name == "" && description == "" && outgoingURL == "" {
+				return fmt.Errorf("at least one field must be provided to update")
+			}
+
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			bot, err := client.UpdatePlatformAgentBot(cmdContext(cmd), botID, api.UpdatePlatformAgentBotRequest{
+				Name:        name,
+				Description: description,
+				OutgoingURL: outgoingURL,
+			})
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, bot)
+			}
+
+			fmt.Printf("Updated agent bot %d: %s\n", bot.ID, bot.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Agent bot name")
+	cmd.Flags().StringVar(&description, "description", "", "Agent bot description")
+	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Webhook URL for bot events")
+
+	return cmd
+}
+
+func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete <bot-id>",
+		Short: "Delete a platform agent bot",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			if err := client.DeletePlatformAgentBot(cmdContext(cmd), botID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Deleted agent bot %d\n", botID)
+			return nil
+		},
+	}
 }
