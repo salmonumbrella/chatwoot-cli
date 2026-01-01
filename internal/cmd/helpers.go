@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -270,4 +271,18 @@ func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
 	}
 	id, _, err := promptSelect("Select team", options, true)
 	return id, err
+}
+
+// RunE wraps a command function with enhanced error handling
+func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		err := fn(cmd, args)
+		if err != nil {
+			// Print enhanced error to stderr
+			_, _ = fmt.Fprint(cmd.ErrOrStderr(), HandleError(err))
+			// Return a simple error to prevent Cobra from printing it again
+			return errors.New("")
+		}
+		return nil
+	}
 }
