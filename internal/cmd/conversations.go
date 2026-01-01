@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -1740,12 +1741,16 @@ func newConversationsBulkCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsBulkResolveCmd())
 	cmd.AddCommand(newConversationsBulkAssignCmd())
 	cmd.AddCommand(newConversationsBulkAddLabelCmd())
+	cmd.AddCommand(newConversationsBatchUpdateCmd())
 
 	return cmd
 }
 
 func newConversationsBulkResolveCmd() *cobra.Command {
-	var conversationIDs string
+	var (
+		conversationIDs string
+		concurrency     int
+	)
 
 	cmd := &cobra.Command{
 		Use:   "resolve",
@@ -1757,12 +1762,11 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 
   # Resolve and output result as JSON
   chatwoot conversations bulk resolve --ids 1,2,3 --output json
+
+  # Resolve with custom concurrency
+  chatwoot conversations bulk resolve --ids 1,2,3 --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if conversationIDs == "" {
-				return fmt.Errorf("--ids is required")
-			}
-
 			ids, err := parseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
@@ -1774,36 +1778,42 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 			}
 
 			ctx := cmdContext(cmd)
-			var successCount, failCount int
-			var results []map[string]any
 
-			for _, id := range ids {
-				result, err := client.ToggleConversationStatus(ctx, id, "resolved", 0)
-				if err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to resolve conversation %d: %v\n", id, err)
-					failCount++
-					results = append(results, map[string]any{
-						"id":      id,
-						"success": false,
-						"error":   err.Error(),
-					})
-				} else {
-					successCount++
-					results = append(results, map[string]any{
-						"id":      id,
-						"success": true,
-						"status":  result.Payload.CurrentStatus,
-					})
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				func(ctx context.Context, id int) (any, error) {
+					result, err := client.ToggleConversationStatus(ctx, id, "resolved", 0)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to resolve conversation %d: %v\n", id, err)
+						return nil, err
+					}
+					return result, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
+
+			// Build JSON output if needed
+			var output []map[string]any
+			for _, r := range results {
+				item := map[string]any{"id": r.ID, "success": r.Success}
+				if r.Error != nil {
+					item["error"] = r.Error.Error()
 				}
+				if r.Success {
+					item["status"] = "resolved"
+				}
+				output = append(output, item)
 			}
 
 			if isJSON(cmd) {
-				output := map[string]any{
+				return printJSON(cmd, map[string]any{
 					"success_count": successCount,
 					"fail_count":    failCount,
-					"results":       results,
-				}
-				return printJSON(cmd, output)
+					"results":       output,
+				})
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resolved %d conversations (%d failed)\n", successCount, failCount)
@@ -1811,7 +1821,8 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -1822,6 +1833,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 		conversationIDs string
 		agentID         int
 		teamID          int
+		concurrency     int
 	)
 
 	cmd := &cobra.Command{
@@ -1837,12 +1849,11 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 
   # Assign to both agent and team
   chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5 --team-id 2
+
+  # Assign with custom concurrency
+  chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5 --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if conversationIDs == "" {
-				return fmt.Errorf("--ids is required")
-			}
-
 			if agentID == 0 && teamID == 0 {
 				return fmt.Errorf("at least one of --agent-id or --team-id is required")
 			}
@@ -1858,42 +1869,47 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 			}
 
 			ctx := cmdContext(cmd)
-			var successCount, failCount int
-			var results []map[string]any
 
-			for _, id := range ids {
-				_, err := client.AssignConversation(ctx, id, agentID, teamID)
-				if err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
-					failCount++
-					results = append(results, map[string]any{
-						"id":      id,
-						"success": false,
-						"error":   err.Error(),
-					})
-				} else {
-					successCount++
-					result := map[string]any{
-						"id":      id,
-						"success": true,
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				func(ctx context.Context, id int) (any, error) {
+					result, err := client.AssignConversation(ctx, id, agentID, teamID)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
+						return nil, err
 					}
+					return result, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
+
+			// Build JSON output
+			var output []map[string]any
+			for _, r := range results {
+				item := map[string]any{"id": r.ID, "success": r.Success}
+				if r.Error != nil {
+					item["error"] = r.Error.Error()
+				}
+				if r.Success {
 					if agentID > 0 {
-						result["agent_id"] = agentID
+						item["agent_id"] = agentID
 					}
 					if teamID > 0 {
-						result["team_id"] = teamID
+						item["team_id"] = teamID
 					}
-					results = append(results, result)
 				}
+				output = append(output, item)
 			}
 
 			if isJSON(cmd) {
-				output := map[string]any{
+				return printJSON(cmd, map[string]any{
 					"success_count": successCount,
 					"fail_count":    failCount,
-					"results":       results,
-				}
-				return printJSON(cmd, output)
+					"results":       output,
+				})
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Assigned %d conversations (%d failed)\n", successCount, failCount)
@@ -1901,9 +1917,10 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign conversations to")
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -1913,6 +1930,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 	var (
 		conversationIDs string
 		labels          string
+		concurrency     int
 	)
 
 	cmd := &cobra.Command{
@@ -1925,12 +1943,11 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 
   # Add multiple labels to multiple conversations
   chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent,bug
+
+  # Add labels with custom concurrency
+  chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if conversationIDs == "" || labels == "" {
-				return fmt.Errorf("both --ids and --labels are required")
-			}
-
 			ids, err := parseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
@@ -1956,36 +1973,42 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 			}
 
 			ctx := cmdContext(cmd)
-			var successCount, failCount int
-			var results []map[string]any
 
-			for _, id := range ids {
-				resultLabels, err := client.AddConversationLabels(ctx, id, labelList)
-				if err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to conversation %d: %v\n", id, err)
-					failCount++
-					results = append(results, map[string]any{
-						"id":      id,
-						"success": false,
-						"error":   err.Error(),
-					})
-				} else {
-					successCount++
-					results = append(results, map[string]any{
-						"id":      id,
-						"success": true,
-						"labels":  resultLabels,
-					})
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				func(ctx context.Context, id int) (any, error) {
+					resultLabels, err := client.AddConversationLabels(ctx, id, labelList)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to conversation %d: %v\n", id, err)
+						return nil, err
+					}
+					return resultLabels, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
+
+			// Build JSON output
+			var output []map[string]any
+			for _, r := range results {
+				item := map[string]any{"id": r.ID, "success": r.Success}
+				if r.Error != nil {
+					item["error"] = r.Error.Error()
 				}
+				if r.Success && r.Data != nil {
+					item["labels"] = r.Data
+				}
+				output = append(output, item)
 			}
 
 			if isJSON(cmd) {
-				output := map[string]any{
+				return printJSON(cmd, map[string]any{
 					"success_count": successCount,
 					"fail_count":    failCount,
-					"results":       results,
-				}
-				return printJSON(cmd, output)
+					"results":       output,
+				})
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d conversations (%d failed)\n", successCount, failCount)
@@ -1993,10 +2016,215 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
+	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add")
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
+
+	return cmd
+}
+
+// BatchUpdateItem represents a single conversation update in a batch operation
+type BatchUpdateItem struct {
+	ID         int      `json:"id"`
+	Status     string   `json:"status,omitempty"`
+	Priority   string   `json:"priority,omitempty"`
+	Labels     []string `json:"labels,omitempty"`
+	AssigneeID int      `json:"assignee_id,omitempty"`
+	TeamID     int      `json:"team_id,omitempty"`
+}
+
+// BatchUpdateResult represents the result of a single batch update operation
+type BatchUpdateResult struct {
+	ID     int    `json:"id"`
+	Action string `json:"action"`
+	Status string `json:"status"` // "ok" | "error"
+	Error  string `json:"error,omitempty"`
+}
+
+// BatchUpdateResponse is the response for the batch-update command
+type BatchUpdateResponse struct {
+	Total     int                 `json:"total"`
+	Succeeded int                 `json:"succeeded"`
+	Failed    int                 `json:"failed"`
+	Results   []BatchUpdateResult `json:"results"`
+}
+
+// newConversationsBatchUpdateCmd creates the batch-update subcommand
+func newConversationsBatchUpdateCmd() *cobra.Command {
+	var concurrency int
+
+	cmd := &cobra.Command{
+		Use:   "batch-update",
+		Short: "Update multiple conversations with different operations",
+		Long: `Update multiple conversations in parallel with varying operations per conversation.
+
+Reads JSON input from stdin with an array of updates. Each item can specify different
+operations (status, priority, labels, assignment).`,
+		Example: strings.TrimSpace(`
+  # Update multiple conversations with different operations
+  echo '[
+    {"id": 123, "status": "resolved"},
+    {"id": 456, "labels": ["handled"], "assignee_id": 5},
+    {"id": 789, "priority": "low"}
+  ]' | chatwoot conversations bulk batch-update
+
+  # From a file
+  cat updates.json | chatwoot conversations bulk batch-update
+
+  # With custom concurrency
+  cat updates.json | chatwoot conversations bulk batch-update --concurrency 10
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Read input from stdin
+			var items []BatchUpdateItem
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&items); err != nil {
+				return fmt.Errorf("failed to parse JSON input: %w", err)
+			}
+
+			if len(items) == 0 {
+				return fmt.Errorf("no updates to process")
+			}
+
+			// Validate items
+			for i, item := range items {
+				if item.ID <= 0 {
+					return fmt.Errorf("item %d: id must be positive", i)
+				}
+				// At least one operation must be specified
+				if item.Status == "" && item.Priority == "" && len(item.Labels) == 0 && item.AssigneeID == 0 && item.TeamID == 0 {
+					return fmt.Errorf("item %d: at least one operation (status, priority, labels, assignee_id, team_id) is required", i)
+				}
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+
+			// Process updates in parallel with bounded concurrency
+			results := make([]BatchUpdateResult, len(items))
+			sem := make(chan struct{}, concurrency)
+			var wg sync.WaitGroup
+
+			for i, item := range items {
+				wg.Add(1)
+				go func(idx int, item BatchUpdateItem) {
+					defer wg.Done()
+					sem <- struct{}{}        // Acquire semaphore
+					defer func() { <-sem }() // Release semaphore
+
+					result := BatchUpdateResult{
+						ID:     item.ID,
+						Status: "ok",
+					}
+
+					var actions []string
+					var firstErr error
+
+					// Apply status change
+					if item.Status != "" {
+						_, err := client.ToggleConversationStatus(ctx, item.ID, item.Status, 0)
+						if err != nil {
+							if firstErr == nil {
+								firstErr = err
+							}
+						} else {
+							actions = append(actions, "status_changed")
+						}
+					}
+
+					// Apply priority change
+					if item.Priority != "" {
+						err := client.ToggleConversationPriority(ctx, item.ID, item.Priority)
+						if err != nil {
+							if firstErr == nil {
+								firstErr = err
+							}
+						} else {
+							actions = append(actions, "priority_changed")
+						}
+					}
+
+					// Apply labels
+					if len(item.Labels) > 0 {
+						_, err := client.AddConversationLabels(ctx, item.ID, item.Labels)
+						if err != nil {
+							if firstErr == nil {
+								firstErr = err
+							}
+						} else {
+							actions = append(actions, "labels_updated")
+						}
+					}
+
+					// Apply assignment
+					if item.AssigneeID > 0 || item.TeamID > 0 {
+						_, err := client.AssignConversation(ctx, item.ID, item.AssigneeID, item.TeamID)
+						if err != nil {
+							if firstErr == nil {
+								firstErr = err
+							}
+						} else {
+							actions = append(actions, "assigned")
+						}
+					}
+
+					if len(actions) > 0 {
+						result.Action = strings.Join(actions, ",")
+					}
+					if firstErr != nil {
+						result.Status = "error"
+						result.Error = firstErr.Error()
+					}
+
+					results[idx] = result
+				}(i, item)
+			}
+
+			wg.Wait()
+
+			// Count successes and failures
+			var succeeded, failed int
+			for _, r := range results {
+				if r.Status == "ok" {
+					succeeded++
+				} else {
+					failed++
+				}
+			}
+
+			response := BatchUpdateResponse{
+				Total:     len(items),
+				Succeeded: succeeded,
+				Failed:    failed,
+				Results:   results,
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, response)
+			}
+
+			// Text output
+			fmt.Printf("Batch update complete: %d succeeded, %d failed (total: %d)\n", succeeded, failed, len(items))
+			if failed > 0 {
+				fmt.Println("\nFailed updates:")
+				for _, r := range results {
+					if r.Status == "error" {
+						fmt.Printf("  Conversation %d: %s\n", r.ID, r.Error)
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Maximum concurrent requests")
 
 	return cmd
 }
