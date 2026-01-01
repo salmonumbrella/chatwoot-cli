@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +29,7 @@ Date parameters use Unix timestamps. Use --from and --to flags with dates like
 	cmd.AddCommand(newReportsDataCmd())
 	cmd.AddCommand(newReportsLiveCmd())
 	cmd.AddCommand(newReportsAgentsCmd())
+	cmd.AddCommand(newReportingEventsCmd())
 
 	return cmd
 }
@@ -285,5 +287,83 @@ func newReportsAgentsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userID, "user-id", "", "Filter by specific user ID")
+	return cmd
+}
+
+func newReportingEventsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "events",
+		Short: "Manage reporting events",
+	}
+
+	// List account events
+	var since, until, eventType string
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List account reporting events",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			events, err := client.ListReportingEvents(cmdContext(cmd), since, until, eventType)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, events)
+			}
+
+			w := newTabWriter()
+			defer func() { _ = w.Flush() }()
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tVALUE\tCREATED")
+			for _, e := range events {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%v\t%s\n", e.ID, e.Name, e.Value, e.CreatedAt)
+			}
+			return nil
+		},
+	}
+	listCmd.Flags().StringVar(&since, "since", "", "Start timestamp (Unix)")
+	listCmd.Flags().StringVar(&until, "until", "", "End timestamp (Unix)")
+	listCmd.Flags().StringVar(&eventType, "type", "", "Event type filter")
+	cmd.AddCommand(listCmd)
+
+	// Conversation events
+	cmd.AddCommand(&cobra.Command{
+		Use:   "conversation <conversation-id>",
+		Short: "List reporting events for a conversation",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			events, err := client.GetConversationReportingEvents(cmdContext(cmd), conversationID)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, events)
+			}
+
+			w := newTabWriter()
+			defer func() { _ = w.Flush() }()
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tVALUE\tCREATED")
+			for _, e := range events {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%v\t%s\n", e.ID, e.Name, e.Value, e.CreatedAt)
+			}
+			return nil
+		},
+	})
+
 	return cmd
 }

@@ -130,3 +130,51 @@ func (c *Client) GetAgentMetrics(ctx context.Context, userID string) ([]AgentMet
 	}
 	return result, nil
 }
+
+// ReportingEvent represents a reporting event
+type ReportingEvent struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Value     any    `json:"value"`
+	AccountID int    `json:"account_id"`
+	InboxID   int    `json:"inbox_id,omitempty"`
+	UserID    int    `json:"user_id,omitempty"`
+	CreatedAt string `json:"created_at"`
+	EventType string `json:"event_type,omitempty"`
+}
+
+// ListReportingEvents lists account-level reporting events
+func (c *Client) ListReportingEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
+	params := url.Values{}
+	if since != "" {
+		params.Set("since", since)
+	}
+	if until != "" {
+		params.Set("until", until)
+	}
+	if eventType != "" {
+		params.Set("type", eventType)
+	}
+
+	path := c.accountPath("/reporting_events")
+	if len(params) > 0 {
+		path += "?" + params.Encode()
+	}
+
+	var result []ReportingEvent
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GetConversationReportingEvents gets reporting events for a conversation
+func (c *Client) GetConversationReportingEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
+	path := c.accountPath(fmt.Sprintf("/conversations/%d/reporting_events", conversationID))
+
+	var result []ReportingEvent
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
