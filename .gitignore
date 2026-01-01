@@ -49,3 +49,7 @@ coverage.out
 *~
 .worktrees/
 dist/
+
+# Coverage artifacts
+coverage.out
+coverage.html
