@@ -154,6 +154,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newClientCmd())
 	root.AddCommand(newPlatformCmd())
 	root.AddCommand(newPublicCmd())
+	root.AddCommand(newSurveyCmd())
 
 	err := root.Execute()
 	if err != nil {
