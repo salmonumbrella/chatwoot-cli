@@ -184,3 +184,12 @@ func (c *Client) RemoveInboxMembers(ctx context.Context, inboxID int, userIDs []
 	}
 	return c.DeleteWithBody(ctx, "/inbox_members", body)
 }
+
+// UpdateInboxMembers updates inbox members (replaces the list)
+func (c *Client) UpdateInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	body := map[string]any{
+		"inbox_id": inboxID,
+		"user_ids": userIDs,
+	}
+	return c.Patch(ctx, "/inbox_members", body, nil)
+}

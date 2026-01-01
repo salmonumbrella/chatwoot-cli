@@ -19,6 +19,7 @@ func newInboxMembersCmd() *cobra.Command {
 	cmd.AddCommand(newInboxMembersListCmd())
 	cmd.AddCommand(newInboxMembersAddCmd())
 	cmd.AddCommand(newInboxMembersRemoveCmd())
+	cmd.AddCommand(newInboxMembersUpdateCmd())
 
 	return cmd
 }
@@ -150,6 +151,48 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs (required)")
+	_ = cmd.MarkFlagRequired("user-ids")
+
+	return cmd
+}
+
+func newInboxMembersUpdateCmd() *cobra.Command {
+	var userIDsStr string
+
+	cmd := &cobra.Command{
+		Use:   "update <inbox-id>",
+		Short: "Update inbox members (replaces the list)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
+			if err != nil {
+				return err
+			}
+
+			if userIDsStr == "" {
+				return fmt.Errorf("user-ids is required")
+			}
+
+			userIDs, err := parseUserIDs(userIDsStr)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.UpdateInboxMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
+				return err
+			}
+
+			fmt.Printf("Updated inbox %d members\n", inboxID)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs to set as members (required)")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd
