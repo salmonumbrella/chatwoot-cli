@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -33,6 +34,7 @@ func newContactsCmd() *cobra.Command {
 	cmd.AddCommand(newContactsNotesCmd())
 	cmd.AddCommand(newContactsNotesAddCmd())
 	cmd.AddCommand(newContactsNotesDeleteCmd())
+	cmd.AddCommand(newContactsBulkCmd())
 
 	return cmd
 }
@@ -904,4 +906,185 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newContactsBulkCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk",
+		Short: "Bulk operations on contacts",
+		Long:  "Perform bulk operations on multiple contacts at once",
+	}
+
+	cmd.AddCommand(newContactsBulkAddLabelCmd())
+	cmd.AddCommand(newContactsBulkRemoveLabelCmd())
+
+	return cmd
+}
+
+func newContactsBulkAddLabelCmd() *cobra.Command {
+	var (
+		contactIDs string
+		labels     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add-label",
+		Short: "Add labels to multiple contacts",
+		Long:  "Add one or more labels to multiple contacts at once",
+		Example: strings.TrimSpace(`
+  # Add a single label to multiple contacts
+  chatwoot contacts bulk add-label --ids 1,2,3 --labels important
+
+  # Add multiple labels to multiple contacts
+  chatwoot contacts bulk add-label --ids 1,2,3 --labels important,vip
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if contactIDs == "" || labels == "" {
+				return fmt.Errorf("both --ids and --labels are required")
+			}
+
+			ids, err := parseIntList(contactIDs)
+			if err != nil {
+				return fmt.Errorf("invalid contact IDs: %w", err)
+			}
+
+			labelList := strings.Split(labels, ",")
+			for i := range labelList {
+				labelList[i] = strings.TrimSpace(labelList[i])
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+			var successCount, failCount int
+
+			for _, id := range ids {
+				if _, err := client.AddContactLabels(ctx, id, labelList); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to contact %d: %v\n", id, err)
+					failCount++
+				} else {
+					successCount++
+				}
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d contacts (%d failed)\n", successCount, failCount)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
+	_ = cmd.MarkFlagRequired("ids")
+	_ = cmd.MarkFlagRequired("labels")
+
+	return cmd
+}
+
+func newContactsBulkRemoveLabelCmd() *cobra.Command {
+	var (
+		contactIDs string
+		labels     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "remove-label",
+		Short: "Remove labels from multiple contacts",
+		Long: `Remove one or more labels from multiple contacts at once.
+
+For each contact, this command fetches current labels, removes the specified
+labels, and updates the contact with the remaining labels.`,
+		Example: strings.TrimSpace(`
+  # Remove a single label from multiple contacts
+  chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam
+
+  # Remove multiple labels from multiple contacts
+  chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam,inactive
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if contactIDs == "" || labels == "" {
+				return fmt.Errorf("both --ids and --labels are required")
+			}
+
+			ids, err := parseIntList(contactIDs)
+			if err != nil {
+				return fmt.Errorf("invalid contact IDs: %w", err)
+			}
+
+			labelsToRemove := make(map[string]bool)
+			for _, l := range strings.Split(labels, ",") {
+				labelsToRemove[strings.TrimSpace(l)] = true
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+			var successCount, failCount int
+
+			for _, id := range ids {
+				// Get current labels
+				currentLabels, err := client.GetContactLabels(ctx, id)
+				if err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to get labels for contact %d: %v\n", id, err)
+					failCount++
+					continue
+				}
+
+				// Filter out labels to remove
+				var remainingLabels []string
+				for _, label := range currentLabels {
+					if !labelsToRemove[label] {
+						remainingLabels = append(remainingLabels, label)
+					}
+				}
+
+				// Update with remaining labels (API replaces all labels)
+				if _, err := client.AddContactLabels(ctx, id, remainingLabels); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to update labels for contact %d: %v\n", id, err)
+					failCount++
+				} else {
+					successCount++
+				}
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed labels from %d contacts (%d failed)\n", successCount, failCount)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to remove (required)")
+	_ = cmd.MarkFlagRequired("ids")
+	_ = cmd.MarkFlagRequired("labels")
+
+	return cmd
+}
+
+// parseIntList parses a comma-separated list of integers
+func parseIntList(s string) ([]int, error) {
+	parts := strings.Split(s, ",")
+	result := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ID %q: %w", p, err)
+		}
+		if id <= 0 {
+			return nil, fmt.Errorf("ID must be positive: %d", id)
+		}
+		result = append(result, id)
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no valid IDs provided")
+	}
+	return result, nil
 }
