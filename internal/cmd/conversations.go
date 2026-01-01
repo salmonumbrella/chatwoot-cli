@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -1638,7 +1640,10 @@ func newConversationsWatchCmd() *cobra.Command {
 				return err
 			}
 
-			ctx := cmdContext(cmd)
+			// Set up signal handling for graceful shutdown
+			ctx, stop := signal.NotifyContext(cmdContext(cmd), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+
 			seen := make(map[int]int64) // ID -> last updated timestamp
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Watching conversations (interval: %ds, press Ctrl+C to stop)...\n\n", interval)
@@ -1654,7 +1659,8 @@ func newConversationsWatchCmd() *cobra.Command {
 			for {
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nStopped watching.")
+					return nil // Not an error - user requested stop
 				case <-ticker.C:
 					if err := fetchAndDisplayConversations(ctx, cmd, client, status, inboxID, limit, seen); err != nil {
 						// Log error but continue watching
