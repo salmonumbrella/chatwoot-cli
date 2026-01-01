@@ -948,9 +948,15 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 				return fmt.Errorf("invalid contact IDs: %w", err)
 			}
 
-			labelList := strings.Split(labels, ",")
-			for i := range labelList {
-				labelList[i] = strings.TrimSpace(labelList[i])
+			var labelList []string
+			for _, l := range strings.Split(labels, ",") {
+				l = strings.TrimSpace(l)
+				if l != "" {
+					labelList = append(labelList, l)
+				}
+			}
+			if len(labelList) == 0 {
+				return fmt.Errorf("no valid labels provided after filtering empty values")
 			}
 
 			client, err := getClient()
