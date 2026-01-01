@@ -1,0 +1,516 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestMessagesListCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello", "message_type": 0, "private": false, "created_at": 1704067200},
+				{"id": 2, "content": "World", "message_type": 1, "private": true, "created_at": 1704153600}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"messages", "list", "123"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages list failed: %v", err)
+	}
+
+	if !strings.Contains(output, "Hello") {
+		t.Errorf("output missing 'Hello': %s", output)
+	}
+	if !strings.Contains(output, "World") {
+		t.Errorf("output missing 'World': %s", output)
+	}
+	if !strings.Contains(output, "ID") || !strings.Contains(output, "TYPE") {
+		t.Errorf("output missing expected headers: %s", output)
+	}
+}
+
+func TestMessagesListCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello", "message_type": 0, "private": false, "created_at": 1704067200}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"messages", "list", "123", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages list failed: %v", err)
+	}
+
+	var messages []map[string]any
+	if err := json.Unmarshal([]byte(output), &messages); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if len(messages) != 1 {
+		t.Errorf("expected 1 message, got %d", len(messages))
+	}
+}
+
+func TestMessagesListCommand_InvalidID(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "list", "abc"})
+	if err == nil {
+		t.Error("expected error for invalid conversation ID")
+	}
+
+	err = Execute(context.Background(), []string{"messages", "list", "-1"})
+	if err == nil {
+		t.Error("expected error for negative conversation ID")
+	}
+}
+
+func TestMessagesListCommand_MissingID(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "list"})
+	if err == nil {
+		t.Error("expected error when conversation ID is missing")
+	}
+}
+
+func TestMessagesCreateCommand(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 456, "content": "Test message", "message_type": 1, "private": false, "created_at": 1704067200}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"messages", "create", "123",
+		"--content", "Test message",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages create failed: %v", err)
+	}
+
+	if !strings.Contains(output, "Message created successfully") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+	if !strings.Contains(output, "456") {
+		t.Errorf("expected message ID in output, got: %s", output)
+	}
+
+	if receivedBody["content"] != "Test message" {
+		t.Errorf("expected content 'Test message', got %v", receivedBody["content"])
+	}
+}
+
+func TestMessagesCreateCommand_Private(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 456, "content": "Private note", "message_type": 1, "private": true, "created_at": 1704067200}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"messages", "create", "123",
+		"--content", "Private note",
+		"--private",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	if err != nil {
+		t.Errorf("messages create failed: %v", err)
+	}
+
+	if receivedBody["private"] != true {
+		t.Errorf("expected private true, got %v", receivedBody["private"])
+	}
+}
+
+func TestMessagesCreateCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"id": 456,
+			"content": "Test message",
+			"message_type": 1,
+			"private": false,
+			"created_at": 1704067200
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"messages", "create", "123",
+		"--content", "Test message",
+		"-o", "json",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages create failed: %v", err)
+	}
+
+	var message map[string]any
+	if err := json.Unmarshal([]byte(output), &message); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if message["content"] != "Test message" {
+		t.Errorf("expected content 'Test message', got %v", message["content"])
+	}
+}
+
+func TestMessagesCreateCommand_MissingContent(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "create", "123"})
+	if err == nil {
+		t.Error("expected error when content is missing")
+	}
+	if !strings.Contains(err.Error(), "either --content or --attachment is required") {
+		t.Errorf("expected '--content or --attachment is required' error, got: %v", err)
+	}
+}
+
+func TestMessagesCreateCommand_InvalidConversationID(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "create", "abc", "--content", "test"})
+	if err == nil {
+		t.Error("expected error for invalid conversation ID")
+	}
+}
+
+func TestMessagesDeleteCommand(t *testing.T) {
+	deleteRequested := false
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/conversations/123/messages/456", func(w http.ResponseWriter, r *http.Request) {
+			deleteRequested = true
+			w.WriteHeader(http.StatusOK)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"messages", "delete", "123", "456"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages delete failed: %v", err)
+	}
+
+	if !deleteRequested {
+		t.Error("expected DELETE request to be made")
+	}
+
+	if !strings.Contains(output, "deleted successfully") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+}
+
+func TestMessagesDeleteCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/conversations/123/messages/456", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"messages", "delete", "123", "456", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages delete failed: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if result["deleted"] != true {
+		t.Errorf("expected deleted true, got %v", result["deleted"])
+	}
+}
+
+func TestMessagesDeleteCommand_InvalidIDs(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "delete", "abc", "456"})
+	if err == nil {
+		t.Error("expected error for invalid conversation ID")
+	}
+
+	err = Execute(context.Background(), []string{"messages", "delete", "123", "abc"})
+	if err == nil {
+		t.Error("expected error for invalid message ID")
+	}
+}
+
+func TestMessagesDeleteCommand_MissingArgs(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "delete", "123"})
+	if err == nil {
+		t.Error("expected error when message ID is missing")
+	}
+
+	err = Execute(context.Background(), []string{"messages", "delete"})
+	if err == nil {
+		t.Error("expected error when both IDs are missing")
+	}
+}
+
+func TestMessagesUpdateCommand(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/conversations/123/messages/456", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 456, "content": "Updated content", "message_type": 1, "private": false, "created_at": 1704067200}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"messages", "update", "123", "456",
+		"--content", "Updated content",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages update failed: %v", err)
+	}
+
+	if !strings.Contains(output, "updated successfully") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+
+	if receivedBody["content"] != "Updated content" {
+		t.Errorf("expected content 'Updated content', got %v", receivedBody["content"])
+	}
+}
+
+func TestMessagesUpdateCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/conversations/123/messages/456", jsonResponse(200, `{
+			"id": 456,
+			"content": "Updated content",
+			"message_type": 1,
+			"private": false,
+			"created_at": 1704067200
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"messages", "update", "123", "456",
+		"--content", "Updated content",
+		"-o", "json",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages update failed: %v", err)
+	}
+
+	var message map[string]any
+	if err := json.Unmarshal([]byte(output), &message); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+}
+
+func TestMessagesUpdateCommand_MissingContent(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "update", "123", "456"})
+	if err == nil {
+		t.Error("expected error when content is missing")
+	}
+}
+
+func TestMessagesUpdateCommand_InvalidIDs(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"messages", "update", "abc", "456", "--content", "test"})
+	if err == nil {
+		t.Error("expected error for invalid conversation ID")
+	}
+
+	err = Execute(context.Background(), []string{"messages", "update", "123", "abc", "--content", "test"})
+	if err == nil {
+		t.Error("expected error for invalid message ID")
+	}
+}
+
+func TestMessagesCommand_APIError(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(500, `{"error": "Internal Server Error"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"messages", "list", "123"})
+	if err == nil {
+		t.Error("expected error for API failure")
+	}
+}
+
+func TestMessagesListCommand_LongContent(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "This is a very long message content that should be truncated in the table output to keep things readable and manageable", "message_type": 0, "private": false, "created_at": 1704067200}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"messages", "list", "123"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("messages list failed: %v", err)
+	}
+
+	if !strings.Contains(output, "...") {
+		t.Errorf("expected truncated content with '...', got: %s", output)
+	}
+}
