@@ -754,3 +754,87 @@ func TestContactsMergeCommand_APIError(t *testing.T) {
 		t.Error("expected error for API failure")
 	}
 }
+
+// TestContactsMergeCmd_InteractiveFlow verifies that when --force is not provided,
+// the command fetches both contacts before displaying the confirmation prompt.
+func TestContactsMergeCmd_InteractiveFlow(t *testing.T) {
+	var getContact123Called, getContact456Called bool
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", func(w http.ResponseWriter, r *http.Request) {
+			getContact123Called = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"payload": {"id": 123, "name": "Keep Contact", "email": "keep@example.com"}}`))
+		}).
+		On("GET", "/api/v1/accounts/1/contacts/456", func(w http.ResponseWriter, r *http.Request) {
+			getContact456Called = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"payload": {"id": 456, "name": "Delete Contact", "email": "delete@example.com", "phone_number": "+1234567890"}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	// Run without --force - since there's no stdin, it will prompt and fail to read
+	// but the important thing is that it fetches both contacts first
+	output := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"contacts", "merge", "123", "456"})
+	})
+
+	// Verify both contacts were fetched
+	if !getContact123Called {
+		t.Error("expected GET request for contact 123 (keep contact)")
+	}
+	if !getContact456Called {
+		t.Error("expected GET request for contact 456 (delete contact)")
+	}
+
+	// Verify the confirmation prompt is displayed with correct information
+	if !strings.Contains(output, "MERGE CONTACTS") {
+		t.Errorf("output missing 'MERGE CONTACTS' header: %s", output)
+	}
+	if !strings.Contains(output, "KEEP (base)") {
+		t.Errorf("output missing 'KEEP (base)' label: %s", output)
+	}
+	if !strings.Contains(output, "DELETE (mergee)") {
+		t.Errorf("output missing 'DELETE (mergee)' label: %s", output)
+	}
+	if !strings.Contains(output, "Keep Contact") {
+		t.Errorf("output missing keep contact name: %s", output)
+	}
+	if !strings.Contains(output, "Delete Contact") {
+		t.Errorf("output missing delete contact name: %s", output)
+	}
+	if !strings.Contains(output, "PERMANENTLY DELETED") {
+		t.Errorf("output missing deletion warning: %s", output)
+	}
+}
+
+// TestContactsMergeCmd_VerifiesIDMapping verifies that keep-id maps to base_contact_id
+// and delete-id maps to mergee_contact_id in the API request.
+func TestContactsMergeCmd_VerifiesIDMapping(t *testing.T) {
+	var capturedBody map[string]int
+
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/actions/contact_merge", func(w http.ResponseWriter, r *http.Request) {
+			if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+				t.Errorf("failed to decode request body: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"id": 100, "name": "Merged", "email": "merged@example.com"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	_ = Execute(context.Background(), []string{"contacts", "merge", "100", "200", "--force"})
+
+	// Verify the ID mapping: keep-id (100) -> base_contact_id, delete-id (200) -> mergee_contact_id
+	if capturedBody["base_contact_id"] != 100 {
+		t.Errorf("expected base_contact_id=100 (keep-id), got %d", capturedBody["base_contact_id"])
+	}
+	if capturedBody["mergee_contact_id"] != 200 {
+		t.Errorf("expected mergee_contact_id=200 (delete-id), got %d", capturedBody["mergee_contact_id"])
+	}
+}

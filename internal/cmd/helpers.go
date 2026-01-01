@@ -278,6 +278,61 @@ func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
 // without Cobra printing it again (since SilenceErrors is true on root command).
 var errAlreadyHandled = errors.New("error already handled")
 
+// ANSI color codes
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorBold   = "\033[1m"
+)
+
+// colorEnabled returns true if color output should be used
+func colorEnabled() bool {
+	// Check the global flags
+	switch flags.Color {
+	case "always":
+		return true
+	case "never":
+		return false
+	default: // "auto"
+		// Enable color if stdout is a terminal
+		info, err := os.Stdout.Stat()
+		if err != nil {
+			return false
+		}
+		return (info.Mode() & os.ModeCharDevice) != 0
+	}
+}
+
+// colorize wraps text with ANSI color codes if color is enabled
+func colorize(text, color string) string {
+	if !colorEnabled() {
+		return text
+	}
+	return color + text + colorReset
+}
+
+// red returns text in red color
+func red(text string) string {
+	return colorize(text, colorRed)
+}
+
+// green returns text in green color
+func green(text string) string {
+	return colorize(text, colorGreen)
+}
+
+// yellow returns text in yellow color
+func yellow(text string) string {
+	return colorize(text, colorYellow)
+}
+
+// bold returns text in bold
+func bold(text string) string {
+	return colorize(text, colorBold)
+}
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {

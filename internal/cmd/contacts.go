@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -1173,15 +1174,15 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 
 				// Display merge preview
 				fmt.Println()
-				fmt.Println("MERGE CONTACTS")
+				fmt.Println(bold("MERGE CONTACTS"))
 				fmt.Println()
-				fmt.Printf("KEEP (base):     #%d %s\n", keepContact.ID, formatContactSummary(keepContact))
-				fmt.Printf("DELETE (mergee): #%d %s\n", deleteContact.ID, formatContactSummary(deleteContact))
+				fmt.Printf("%s #%d %s\n", green("KEEP (base):    "), keepContact.ID, formatContactSummary(keepContact))
+				fmt.Printf("%s #%d %s\n", red("DELETE (mergee):"), deleteContact.ID, formatContactSummary(deleteContact))
 				fmt.Println()
-				fmt.Printf("The contact #%d will be PERMANENTLY DELETED.\n", deleteID)
+				fmt.Printf("The contact #%d will be %s.\n", deleteID, red("PERMANENTLY DELETED"))
 				fmt.Printf("All conversations, messages, and notes will be transferred to #%d.\n", keepID)
 				fmt.Println()
-				fmt.Print("Type 'merge' to confirm: ")
+				fmt.Print(yellow("Type 'merge' to confirm: "))
 
 				var response string
 				_, _ = fmt.Scanln(&response)
@@ -1227,11 +1228,23 @@ func formatContactSummary(c *api.Contact) string {
 	if c.PhoneNumber != "" {
 		parts = append(parts, c.PhoneNumber)
 	}
+	if c.Identifier != "" {
+		parts = append(parts, fmt.Sprintf("[id:%s]", c.Identifier))
+	}
 
 	if len(parts) == 0 {
 		return "(no details)"
 	}
-	return strings.Join(parts, " ")
+
+	summary := strings.Join(parts, " ")
+
+	// Add last activity if available
+	if c.LastActivityAt != nil && *c.LastActivityAt > 0 {
+		lastActivity := time.Unix(*c.LastActivityAt, 0)
+		summary += fmt.Sprintf(" (last active: %s)", lastActivity.Format("2006-01-02"))
+	}
+
+	return summary
 }
 
 // parseIntList parses a comma-separated list of integers

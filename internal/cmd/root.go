@@ -24,9 +24,16 @@ type rootFlags struct {
 	Template string
 }
 
+// flags holds the global command flags, accessible to helper functions
+var flags = rootFlags{
+	Output: "text",
+	Color:  "auto",
+}
+
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
-	flags := rootFlags{
+	// Reset flags to defaults for each execution (important for tests)
+	flags = rootFlags{
 		Output: "text",
 		Color:  "auto",
 	}
