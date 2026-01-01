@@ -569,6 +569,97 @@ func TestFlexIntUnmarshal(t *testing.T) {
 	}
 }
 
+func TestFlexStringUnmarshal(t *testing.T) {
+	tests := []struct {
+		name        string
+		jsonInput   string
+		expected    string
+		expectError bool
+	}{
+		{
+			name:        "string value",
+			jsonInput:   `{"value": "hello"}`,
+			expected:    "hello",
+			expectError: false,
+		},
+		{
+			name:        "integer value",
+			jsonInput:   `{"value": 42}`,
+			expected:    "42",
+			expectError: false,
+		},
+		{
+			name:        "float value as whole number",
+			jsonInput:   `{"value": 100.0}`,
+			expected:    "100",
+			expectError: false,
+		},
+		{
+			name:        "float value with decimals",
+			jsonInput:   `{"value": 3.14159}`,
+			expected:    "3.14159",
+			expectError: false,
+		},
+		{
+			name:        "empty string",
+			jsonInput:   `{"value": ""}`,
+			expected:    "",
+			expectError: false,
+		},
+		{
+			name:        "zero number",
+			jsonInput:   `{"value": 0}`,
+			expected:    "0",
+			expectError: false,
+		},
+		{
+			name:        "negative number",
+			jsonInput:   `{"value": -42}`,
+			expected:    "-42",
+			expectError: false,
+		},
+		{
+			name:        "boolean value",
+			jsonInput:   `{"value": true}`,
+			expected:    "",
+			expectError: true,
+		},
+		{
+			name:        "null value becomes empty string",
+			jsonInput:   `{"value": null}`,
+			expected:    "",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result struct {
+				Value FlexString `json:"value"`
+			}
+
+			err := json.Unmarshal([]byte(tt.jsonInput), &result)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if !tt.expectError && string(result.Value) != tt.expected {
+				t.Errorf("Expected value %q, got %q", tt.expected, string(result.Value))
+			}
+		})
+	}
+}
+
+func TestFlexStringString(t *testing.T) {
+	fs := FlexString("test value")
+	if fs.String() != "test value" {
+		t.Errorf("Expected 'test value', got %q", fs.String())
+	}
+}
+
 func TestConversationCreatedAtTime(t *testing.T) {
 	conv := &Conversation{CreatedAt: 1700000000}
 	result := conv.CreatedAtTime()
