@@ -1179,7 +1179,7 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 				fmt.Printf("DELETE (mergee): #%d %s\n", deleteContact.ID, formatContactSummary(deleteContact))
 				fmt.Println()
 				fmt.Printf("The contact #%d will be PERMANENTLY DELETED.\n", deleteID)
-				fmt.Println("All conversations, messages, and notes will be transferred to #" + strconv.Itoa(keepID) + ".")
+				fmt.Printf("All conversations, messages, and notes will be transferred to #%d.\n", keepID)
 				fmt.Println()
 				fmt.Print("Type 'merge' to confirm: ")
 
