@@ -153,6 +153,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newClientCmd())
 	root.AddCommand(newPlatformCmd())
+	root.AddCommand(newPublicCmd())
 
 	err := root.Execute()
 	if err != nil {
