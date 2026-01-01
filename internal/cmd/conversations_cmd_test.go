@@ -493,3 +493,276 @@ func TestConversationsAttachmentsCommand(t *testing.T) {
 		t.Errorf("Expected attachment info in output, got: %s", output)
 	}
 }
+
+func TestConversationsCreateCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"id": 123,
+			"status": "open",
+			"inbox_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "create", "--inbox-id", "1", "--contact-id", "123"})
+		if err != nil {
+			t.Errorf("conversations create failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Created conversation") || !strings.Contains(output, "123") {
+		t.Errorf("Expected creation confirmation, got: %s", output)
+	}
+}
+
+func TestConversationsCreateCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"id": 123,
+			"status": "open"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "create", "--inbox-id", "1", "--contact-id", "123", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations create JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"id"`) {
+		t.Errorf("JSON output missing 'id' field: %s", output)
+	}
+}
+
+func TestConversationsCreateCommand_MissingInboxID(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"conversations", "create", "--contact-id", "123"})
+	if err == nil {
+		t.Error("expected error for missing --inbox-id")
+	}
+}
+
+func TestConversationsMetaCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/meta", jsonResponse(200, `{
+			"meta": {
+				"all_count": 100,
+				"assigned_count": 25,
+				"unassigned_count": 30,
+				"mine_count": 10
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "meta"})
+		if err != nil {
+			t.Errorf("conversations meta failed: %v", err)
+		}
+	})
+
+	// Check for any of the count values in output
+	if !strings.Contains(output, "100") {
+		t.Errorf("Expected meta output with counts, got: %s", output)
+	}
+}
+
+func TestConversationsMetaCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/meta", jsonResponse(200, `{
+			"meta": {
+				"all_count": 100
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "meta", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations meta JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"all_count"`) {
+		t.Errorf("JSON output missing 'all_count' field: %s", output)
+	}
+}
+
+func TestConversationsCountsCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/meta", jsonResponse(200, `{
+			"meta": {
+				"all_count": 105,
+				"mine_count": 50,
+				"assigned_count": 20,
+				"unassigned_count": 30
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "counts"})
+		if err != nil {
+			t.Errorf("conversations counts failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "50") {
+		t.Errorf("Expected counts output, got: %s", output)
+	}
+}
+
+func TestConversationsCountsCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/meta", jsonResponse(200, `{
+			"meta": {
+				"all_count": 105,
+				"mine_count": 50
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "counts", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations counts JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "50") {
+		t.Errorf("JSON output missing counts: %s", output)
+	}
+}
+
+func TestConversationsTogglePriorityCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_priority", jsonResponse(200, ``)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"priority": "high"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "toggle-priority", "123", "--priority", "high"})
+		if err != nil {
+			t.Errorf("conversations toggle-priority failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "priority updated") || !strings.Contains(output, "high") {
+		t.Errorf("Expected priority update confirmation, got: %s", output)
+	}
+}
+
+func TestConversationsTogglePriorityCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_priority", jsonResponse(200, ``)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"priority": "high"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "toggle-priority", "123", "--priority", "high", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations toggle-priority JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"priority"`) {
+		t.Errorf("JSON output missing 'priority' field: %s", output)
+	}
+}
+
+func TestConversationsUpdateCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"status": "open",
+			"priority": "high"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "update", "123", "--priority", "high"})
+		if err != nil {
+			t.Errorf("conversations update failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "updated") {
+		t.Errorf("Expected update confirmation, got: %s", output)
+	}
+}
+
+func TestConversationsUpdateCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"priority": "high"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "update", "123", "--priority", "high", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations update JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"priority"`) {
+		t.Errorf("JSON output missing 'priority' field: %s", output)
+	}
+}
+
+func TestConversationsUpdateCommand_NoFlags(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"conversations", "update", "123"})
+	if err == nil {
+		t.Error("expected error when no update flags provided")
+	}
+}
+
+func TestConversationsLabelsRemoveCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/labels", jsonResponse(200, `{
+			"payload": ["label1", "label2", "removed-label"]
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/labels", jsonResponse(200, `{
+			"payload": ["label1", "label2"]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "labels-remove", "123", "--labels", "removed-label"})
+		if err != nil {
+			t.Errorf("conversations labels-remove failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Labels updated") {
+		t.Errorf("Expected labels update confirmation, got: %s", output)
+	}
+}
+
+// TestConversationsContextCommand is complex because it makes multiple
+// sequential API calls with pagination. Covered by API tests.
+
+// TestConversationsContextCommand_JSON is complex because it makes multiple
+// sequential API calls with pagination. Covered by API tests.

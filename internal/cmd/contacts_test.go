@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -448,5 +449,308 @@ func TestContactsFilterCommand_InvalidJSON(t *testing.T) {
 	err := Execute(context.Background(), []string{"contacts", "filter", "--payload", "not-valid-json"})
 	if err == nil {
 		t.Error("expected error for invalid JSON")
+	}
+}
+
+func TestContactsContactableInboxesCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/contactable_inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"},
+				{"id": 2, "name": "Email", "channel_type": "Channel::Email"}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "contactable-inboxes", "123"})
+		if err != nil {
+			t.Errorf("contacts contactable-inboxes failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Website") {
+		t.Errorf("output missing 'Website': %s", output)
+	}
+	if !strings.Contains(output, "Email") {
+		t.Errorf("output missing 'Email': %s", output)
+	}
+}
+
+func TestContactsContactableInboxesCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/contactable_inboxes", jsonResponse(200, `{"payload": []}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "contactable-inboxes", "123"})
+		if err != nil {
+			t.Errorf("contacts contactable-inboxes failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "No contactable inboxes found") {
+		t.Errorf("expected empty message, got: %s", output)
+	}
+}
+
+func TestContactsContactableInboxesCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/contactable_inboxes", jsonResponse(200, `{
+			"payload": [{"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "contactable-inboxes", "123", "-o", "json"})
+		if err != nil {
+			t.Errorf("contacts contactable-inboxes JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"id"`) {
+		t.Errorf("JSON output missing 'id' field: %s", output)
+	}
+}
+
+func TestContactsContactableInboxesCommand_InvalidID(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"contacts", "contactable-inboxes", "invalid"})
+	if err == nil {
+		t.Error("expected error for invalid ID")
+	}
+}
+
+func TestContactsCreateInboxCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/contacts/123/contact_inboxes", jsonResponse(200, `{
+			"source_id": "src-123",
+			"inbox": {"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "create-inbox", "123", "--inbox-id", "1"})
+		if err != nil {
+			t.Errorf("contacts create-inbox failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "associated with inbox") {
+		t.Errorf("output missing success message: %s", output)
+	}
+}
+
+func TestContactsCreateInboxCommand_WithSourceID(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/contacts/123/contact_inboxes", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"source_id": "+15551234567", "inbox": {"id": 1, "name": "SMS"}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "create-inbox", "123", "--inbox-id", "1", "--source-id", "+15551234567"})
+		if err != nil {
+			t.Errorf("contacts create-inbox failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Source ID") {
+		t.Errorf("output missing source ID: %s", output)
+	}
+	if receivedBody["source_id"] != "+15551234567" {
+		t.Errorf("expected source_id '+15551234567', got %v", receivedBody["source_id"])
+	}
+}
+
+func TestContactsCreateInboxCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/contacts/123/contact_inboxes", jsonResponse(200, `{
+			"source_id": "src-123",
+			"inbox": {"id": 1, "name": "Website"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "create-inbox", "123", "--inbox-id", "1", "-o", "json"})
+		if err != nil {
+			t.Errorf("contacts create-inbox JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"source_id"`) {
+		t.Errorf("JSON output missing 'source_id' field: %s", output)
+	}
+}
+
+func TestContactsCreateInboxCommand_NoInboxDetails(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/contacts/123/contact_inboxes", jsonResponse(200, `{
+			"source_id": "src-123"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "create-inbox", "123", "--inbox-id", "1"})
+		if err != nil {
+			t.Errorf("contacts create-inbox failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "no details returned") {
+		t.Errorf("expected 'no details returned' message, got: %s", output)
+	}
+}
+
+func TestContactsCreateInboxCommand_MissingInboxID(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"contacts", "create-inbox", "123"})
+	if err == nil {
+		t.Error("expected error for missing --inbox-id")
+	}
+}
+
+func TestContactsMergeCmd_RequiresArgs(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"no args", []string{"contacts", "merge"}},
+		{"one arg", []string{"contacts", "merge", "123"}},
+		{"one arg with force", []string{"contacts", "merge", "123", "--force"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Execute(context.Background(), tt.args)
+			if err == nil {
+				t.Error("expected error for missing arguments")
+			}
+		})
+	}
+}
+
+func TestContactsMergeCmd_ValidatesIDs(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	tests := []struct {
+		name   string
+		args   []string
+		errMsg string
+	}{
+		{"invalid keep-id", []string{"contacts", "merge", "invalid", "456", "--force"}, "keep-id"},
+		{"invalid delete-id", []string{"contacts", "merge", "123", "invalid", "--force"}, "delete-id"},
+		{"both invalid", []string{"contacts", "merge", "abc", "xyz", "--force"}, "keep-id"},
+		{"negative keep-id", []string{"contacts", "merge", "-1", "456", "--force"}, "keep-id"},
+		{"negative delete-id", []string{"contacts", "merge", "123", "-1", "--force"}, "delete-id"},
+		{"zero keep-id", []string{"contacts", "merge", "0", "456", "--force"}, "keep-id"},
+		{"zero delete-id", []string{"contacts", "merge", "123", "0", "--force"}, "delete-id"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Execute(context.Background(), tt.args)
+			if err == nil {
+				t.Error("expected error for invalid ID")
+			}
+		})
+	}
+}
+
+func TestContactsMergeCmd_SameID(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"contacts", "merge", "123", "123", "--force"})
+	if err == nil {
+		t.Error("expected error when merging contact with itself")
+	}
+	if !strings.Contains(err.Error(), "cannot merge contact with itself") {
+		t.Errorf("expected 'cannot merge contact with itself' error, got: %v", err)
+	}
+}
+
+func TestContactsMergeCmd_ForceRequired(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "-o", "json"})
+	if err == nil {
+		t.Error("expected error when --force not provided with JSON output")
+	}
+	if !strings.Contains(err.Error(), "--force flag is required") {
+		t.Errorf("expected '--force flag is required' error, got: %v", err)
+	}
+}
+
+func TestContactsMergeCmd_Success(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/actions/contact_merge", jsonResponse(200, `{
+			"id": 123,
+			"name": "Merged Contact",
+			"email": "merged@example.com"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "--force"})
+		if err != nil {
+			t.Errorf("contacts merge failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Successfully merged contact") {
+		t.Errorf("output missing success message: %s", output)
+	}
+	if !strings.Contains(output, "#456 into #123") {
+		t.Errorf("output missing merge details: %s", output)
+	}
+}
+
+func TestContactsMergeCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/actions/contact_merge", jsonResponse(200, `{
+			"id": 123,
+			"name": "Merged Contact",
+			"email": "merged@example.com"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "--force", "-o", "json"})
+		if err != nil {
+			t.Errorf("contacts merge JSON failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"id"`) {
+		t.Errorf("JSON output missing 'id' field: %s", output)
+	}
+}
+
+func TestContactsMergeCommand_APIError(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/actions/contact_merge", jsonResponse(500, `{"error": "Internal Server Error"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "--force"})
+	if err == nil {
+		t.Error("expected error for API failure")
 	}
 }
