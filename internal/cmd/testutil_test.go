@@ -1,11 +1,30 @@
 package cmd
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 )
+
+// captureStdout executes a function and captures its stdout output
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	fn()
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	return buf.String()
+}
 
 // testEnv holds the original environment and restores it on cleanup
 type testEnv struct {
@@ -61,6 +80,7 @@ func setupTestEnvWithHandler(t *testing.T, handler http.Handler) *testEnv {
 	_ = os.Setenv("CHATWOOT_BASE_URL", server.URL)
 	_ = os.Setenv("CHATWOOT_API_TOKEN", "test-token")
 	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1") // Skip URL validation for localhost
 
 	t.Cleanup(func() {
 		server.Close()
