@@ -130,6 +130,20 @@ func (c *Client) DeletePlatformUser(ctx context.Context, userID int) error {
 	return c.do(ctx, "DELETE", c.platformPath(fmt.Sprintf("/users/%d", userID)), nil, nil)
 }
 
+// PlatformUserLogin represents the SSO login response
+type PlatformUserLogin struct {
+	URL string `json:"url"`
+}
+
+// GetPlatformUserLogin gets the SSO login URL for a user
+func (c *Client) GetPlatformUserLogin(ctx context.Context, userID int) (*PlatformUserLogin, error) {
+	var result PlatformUserLogin
+	if err := c.do(ctx, "GET", c.platformPath(fmt.Sprintf("/users/%d/login", userID)), nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // PlatformAccountUser represents a user membership in an account
 // Fields are kept minimal to avoid tight coupling to API changes.
 type PlatformAccountUser struct {

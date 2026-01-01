@@ -236,6 +236,7 @@ func newPlatformUsersCmd(baseURL, token *string) *cobra.Command {
 	cmd.AddCommand(newPlatformUsersGetCmd(baseURL, token))
 	cmd.AddCommand(newPlatformUsersUpdateCmd(baseURL, token))
 	cmd.AddCommand(newPlatformUsersDeleteCmd(baseURL, token))
+	cmd.AddCommand(newPlatformUsersLoginCmd(baseURL, token))
 
 	return cmd
 }
@@ -414,6 +415,37 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 			}
 
 			fmt.Printf("Deleted user %d\n", userID)
+			return nil
+		},
+	}
+}
+
+func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "login <user-id>",
+		Short: "Get SSO login URL for a user",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			userID, err := validation.ParsePositiveInt(args[0], "user ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getPlatformClient(*baseURL, *token)
+			if err != nil {
+				return err
+			}
+
+			login, err := client.GetPlatformUserLogin(cmdContext(cmd), userID)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, login)
+			}
+
+			fmt.Println(login.URL)
 			return nil
 		},
 	}
