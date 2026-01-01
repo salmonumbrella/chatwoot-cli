@@ -1,0 +1,118 @@
+package cmd
+
+import (
+	"context"
+	"errors"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+func TestRunBulkOperation_Success(t *testing.T) {
+	ids := []int{1, 2, 3, 4, 5}
+	var callCount atomic.Int32
+
+	results := runBulkOperation(
+		context.Background(),
+		ids,
+		5,
+		func(ctx context.Context, id int) (string, error) {
+			callCount.Add(1)
+			return "ok", nil
+		},
+	)
+
+	if int(callCount.Load()) != 5 {
+		t.Errorf("expected 5 calls, got %d", callCount.Load())
+	}
+
+	successCount := 0
+	for _, r := range results {
+		if r.Success {
+			successCount++
+		}
+	}
+	if successCount != 5 {
+		t.Errorf("expected 5 successes, got %d", successCount)
+	}
+}
+
+func TestRunBulkOperation_PartialFailure(t *testing.T) {
+	ids := []int{1, 2, 3}
+
+	results := runBulkOperation(
+		context.Background(),
+		ids,
+		5,
+		func(ctx context.Context, id int) (string, error) {
+			if id == 2 {
+				return "", errors.New("failed")
+			}
+			return "ok", nil
+		},
+	)
+
+	successCount := 0
+	failCount := 0
+	for _, r := range results {
+		if r.Success {
+			successCount++
+		} else {
+			failCount++
+		}
+	}
+
+	if successCount != 2 {
+		t.Errorf("expected 2 successes, got %d", successCount)
+	}
+	if failCount != 1 {
+		t.Errorf("expected 1 failure, got %d", failCount)
+	}
+}
+
+func TestRunBulkOperation_Concurrency(t *testing.T) {
+	ids := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	var maxConcurrent atomic.Int32
+	var current atomic.Int32
+
+	_ = runBulkOperation(
+		context.Background(),
+		ids,
+		3, // limit to 3 concurrent
+		func(ctx context.Context, id int) (string, error) {
+			cur := current.Add(1)
+			// Track max concurrent
+			for {
+				max := maxConcurrent.Load()
+				if cur <= max || maxConcurrent.CompareAndSwap(max, cur) {
+					break
+				}
+			}
+			time.Sleep(10 * time.Millisecond)
+			current.Add(-1)
+			return "ok", nil
+		},
+	)
+
+	if maxConcurrent.Load() > 3 {
+		t.Errorf("max concurrent exceeded limit: got %d, want <= 3", maxConcurrent.Load())
+	}
+}
+
+func TestCountResults(t *testing.T) {
+	results := []BulkResult{
+		{ID: 1, Success: true},
+		{ID: 2, Success: false},
+		{ID: 3, Success: true},
+		{ID: 4, Success: true},
+		{ID: 5, Success: false},
+	}
+
+	success, failure := countResults(results)
+	if success != 3 {
+		t.Errorf("expected 3 successes, got %d", success)
+	}
+	if failure != 2 {
+		t.Errorf("expected 2 failures, got %d", failure)
+	}
+}
