@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -41,6 +42,7 @@ func newConversationsCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsUnmuteCmd())
 	cmd.AddCommand(newConversationsSearchCmd())
 	cmd.AddCommand(newConversationsAttachmentsCmd())
+	cmd.AddCommand(newConversationsWatchCmd())
 
 	return cmd
 }
@@ -1606,4 +1608,117 @@ func parseSnoozedUntil(s string) (int64, error) {
 	}
 
 	return ts, nil
+}
+
+func newConversationsWatchCmd() *cobra.Command {
+	var (
+		status   string
+		inboxID  int
+		interval int
+		limit    int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "watch",
+		Short: "Watch conversations in real-time",
+		Long:  "Poll for new and updated conversations at regular intervals",
+		Example: strings.TrimSpace(`
+  # Watch all open conversations
+  chatwoot conversations watch --status open
+
+  # Watch specific inbox every 5 seconds
+  chatwoot conversations watch --inbox-id 1 --interval 5
+
+  # Watch with custom limit
+  chatwoot conversations watch --status open --limit 20
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+			seen := make(map[int]int64) // ID -> last updated timestamp
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Watching conversations (interval: %ds, press Ctrl+C to stop)...\n\n", interval)
+
+			ticker := time.NewTicker(time.Duration(interval) * time.Second)
+			defer ticker.Stop()
+
+			// Initial fetch
+			if err := fetchAndDisplayConversations(ctx, cmd, client, status, inboxID, limit, seen); err != nil {
+				return err
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-ticker.C:
+					if err := fetchAndDisplayConversations(ctx, cmd, client, status, inboxID, limit, seen); err != nil {
+						// Log error but continue watching
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error fetching: %v\n", err)
+					}
+				}
+			}
+		},
+	}
+
+	cmd.Flags().StringVar(&status, "status", "open", "Filter by status: open, resolved, pending, snoozed, all")
+	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
+	cmd.Flags().IntVar(&interval, "interval", 10, "Polling interval in seconds")
+	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum conversations to display")
+
+	return cmd
+}
+
+func fetchAndDisplayConversations(ctx context.Context, cmd *cobra.Command, client *api.Client, status string, inboxID, limit int, seen map[int]int64) error {
+	params := api.ListConversationsParams{
+		Status: status,
+		Page:   1,
+	}
+	if inboxID > 0 {
+		params.InboxID = strconv.Itoa(inboxID)
+	}
+
+	result, err := client.ListConversations(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	// Filter to only new or updated conversations
+	var updated []api.Conversation
+	for _, conv := range result.Data.Payload {
+		lastUpdated := conv.LastActivityAtTime().Unix()
+		if prev, exists := seen[conv.ID]; !exists || lastUpdated > prev {
+			updated = append(updated, conv)
+			seen[conv.ID] = lastUpdated
+		}
+	}
+
+	if len(updated) > 0 {
+		timestamp := time.Now().Format("15:04:05")
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] %d update(s):\n", timestamp, len(updated))
+
+		if limit > 0 && len(updated) > limit {
+			updated = updated[:limit]
+		}
+
+		for _, conv := range updated {
+			displayID := conv.ID
+			if conv.DisplayID != nil {
+				displayID = *conv.DisplayID
+			}
+			priority := "-"
+			if conv.Priority != nil {
+				priority = *conv.Priority
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  #%d [%s] priority=%s unread=%d\n",
+				displayID, conv.Status, priority, conv.Unread)
+		}
+		_, _ = fmt.Fprintln(cmd.OutOrStdout())
+	}
+
+	return nil
 }

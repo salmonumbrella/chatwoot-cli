@@ -104,6 +104,11 @@ func (c *Conversation) CreatedAtTime() time.Time {
 	return time.Unix(c.CreatedAt, 0)
 }
 
+// LastActivityAtTime returns LastActivityAt as time.Time
+func (c *Conversation) LastActivityAtTime() time.Time {
+	return time.Unix(c.LastActivityAt, 0)
+}
+
 // ConversationList is a paginated list of conversations
 // Note: The nested Data structure matches the Chatwoot API response format exactly:
 // {"data": {"meta": {...}, "payload": [...]}}
