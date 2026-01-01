@@ -273,6 +273,11 @@ func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
 	return id, err
 }
 
+// errAlreadyHandled is a sentinel error indicating the error was already printed to stderr.
+// Commands using RunE return this to signal Cobra that an error occurred (for exit code)
+// without Cobra printing it again (since SilenceErrors is true on root command).
+var errAlreadyHandled = errors.New("error already handled")
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -280,8 +285,8 @@ func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Comm
 		if err != nil {
 			// Print enhanced error to stderr
 			_, _ = fmt.Fprint(cmd.ErrOrStderr(), HandleError(err))
-			// Return a simple error to prevent Cobra from printing it again
-			return errors.New("")
+			// Return sentinel error to signal failure without Cobra printing again
+			return errAlreadyHandled
 		}
 		return nil
 	}

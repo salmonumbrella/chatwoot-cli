@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
@@ -304,5 +306,88 @@ func TestIsInteractive(t *testing.T) {
 		t.Log("isInteractive() returned true (running in terminal)")
 	} else {
 		t.Log("isInteractive() returned false (not a terminal)")
+	}
+}
+
+func TestRunE_CallsInnerFunction(t *testing.T) {
+	called := false
+	inner := func(cmd *cobra.Command, args []string) error {
+		called = true
+		return nil
+	}
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	wrapped := RunE(inner)
+	err := wrapped(cmd, nil)
+
+	if !called {
+		t.Error("RunE wrapper did not call inner function")
+	}
+	if err != nil {
+		t.Errorf("RunE wrapper returned error on success: %v", err)
+	}
+}
+
+func TestRunE_WritesErrorToStderr(t *testing.T) {
+	testErr := errors.New("test error message")
+	inner := func(cmd *cobra.Command, args []string) error {
+		return testErr
+	}
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	var stderr bytes.Buffer
+	cmd.SetErr(&stderr)
+
+	wrapped := RunE(inner)
+	err := wrapped(cmd, nil)
+
+	if err == nil {
+		t.Error("RunE wrapper should return error when inner function errors")
+	}
+
+	stderrOutput := stderr.String()
+	if stderrOutput == "" {
+		t.Error("RunE wrapper should write error to stderr")
+	}
+	if !bytes.Contains([]byte(stderrOutput), []byte("test error message")) {
+		t.Errorf("stderr output should contain error message, got: %s", stderrOutput)
+	}
+}
+
+func TestRunE_ReturnsNilOnSuccess(t *testing.T) {
+	inner := func(cmd *cobra.Command, args []string) error {
+		return nil
+	}
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	wrapped := RunE(inner)
+	err := wrapped(cmd, nil)
+
+	if err != nil {
+		t.Errorf("RunE wrapper should return nil on success, got: %v", err)
+	}
+}
+
+func TestRunE_ReturnsSentinelErrorOnFailure(t *testing.T) {
+	inner := func(cmd *cobra.Command, args []string) error {
+		return errors.New("any error")
+	}
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	var stderr bytes.Buffer
+	cmd.SetErr(&stderr)
+
+	wrapped := RunE(inner)
+	err := wrapped(cmd, nil)
+
+	if err == nil {
+		t.Error("RunE wrapper should return error when inner function errors")
+	}
+	if !errors.Is(err, errAlreadyHandled) {
+		t.Errorf("RunE wrapper should return errAlreadyHandled sentinel, got: %v", err)
 	}
 }
