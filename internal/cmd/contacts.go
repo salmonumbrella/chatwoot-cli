@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -923,8 +924,9 @@ func newContactsBulkCmd() *cobra.Command {
 
 func newContactsBulkAddLabelCmd() *cobra.Command {
 	var (
-		contactIDs string
-		labels     string
+		contactIDs  string
+		labels      string
+		concurrency int
 	)
 
 	cmd := &cobra.Command{
@@ -937,12 +939,11 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 
   # Add multiple labels to multiple contacts
   chatwoot contacts bulk add-label --ids 1,2,3 --labels important,vip
+
+  # Control concurrency (default: 5)
+  chatwoot contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if contactIDs == "" || labels == "" {
-				return fmt.Errorf("both --ids and --labels are required")
-			}
-
 			ids, err := parseIntList(contactIDs)
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
@@ -956,7 +957,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 				}
 			}
 			if len(labelList) == 0 {
-				return fmt.Errorf("no valid labels provided after filtering empty values")
+				return fmt.Errorf("no valid labels provided")
 			}
 
 			client, err := getClient()
@@ -965,24 +966,30 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 			}
 
 			ctx := cmdContext(cmd)
-			var successCount, failCount int
 
-			for _, id := range ids {
-				if _, err := client.AddContactLabels(ctx, id, labelList); err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to contact %d: %v\n", id, err)
-					failCount++
-				} else {
-					successCount++
-				}
-			}
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				func(ctx context.Context, id int) (any, error) {
+					_, err := client.AddContactLabels(ctx, id, labelList)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to contact %d: %v\n", id, err)
+						return nil, err
+					}
+					return nil, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
 
 			if isJSON(cmd) {
-				result := map[string]any{
+				return printJSON(cmd, map[string]any{
 					"success_count": successCount,
 					"fail_count":    failCount,
-				}
-				return printJSON(cmd, result)
+				})
 			}
+
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d contacts (%d failed)\n", successCount, failCount)
 			return nil
 		},
@@ -990,6 +997,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
@@ -998,8 +1006,9 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 
 func newContactsBulkRemoveLabelCmd() *cobra.Command {
 	var (
-		contactIDs string
-		labels     string
+		contactIDs  string
+		labels      string
+		concurrency int
 	)
 
 	cmd := &cobra.Command{
@@ -1015,12 +1024,11 @@ labels, and updates the contact with the remaining labels.`,
 
   # Remove multiple labels from multiple contacts
   chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam,inactive
+
+  # Control concurrency (default: 5)
+  chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if contactIDs == "" || labels == "" {
-				return fmt.Errorf("both --ids and --labels are required")
-			}
-
 			ids, err := parseIntList(contactIDs)
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
@@ -1028,7 +1036,13 @@ labels, and updates the contact with the remaining labels.`,
 
 			labelsToRemove := make(map[string]bool)
 			for _, l := range strings.Split(labels, ",") {
-				labelsToRemove[strings.TrimSpace(l)] = true
+				l = strings.TrimSpace(l)
+				if l != "" {
+					labelsToRemove[l] = true
+				}
+			}
+			if len(labelsToRemove) == 0 {
+				return fmt.Errorf("no valid labels provided")
 			}
 
 			client, err := getClient()
@@ -1037,41 +1051,46 @@ labels, and updates the contact with the remaining labels.`,
 			}
 
 			ctx := cmdContext(cmd)
-			var successCount, failCount int
 
-			for _, id := range ids {
-				// Get current labels
-				currentLabels, err := client.GetContactLabels(ctx, id)
-				if err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to get labels for contact %d: %v\n", id, err)
-					failCount++
-					continue
-				}
-
-				// Filter out labels to remove
-				var remainingLabels []string
-				for _, label := range currentLabels {
-					if !labelsToRemove[label] {
-						remainingLabels = append(remainingLabels, label)
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				func(ctx context.Context, id int) (any, error) {
+					// Get current labels
+					currentLabels, err := client.GetContactLabels(ctx, id)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to get labels for contact %d: %v\n", id, err)
+						return nil, err
 					}
-				}
 
-				// Update with remaining labels (API replaces all labels)
-				if _, err := client.AddContactLabels(ctx, id, remainingLabels); err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to update labels for contact %d: %v\n", id, err)
-					failCount++
-				} else {
-					successCount++
-				}
-			}
+					// Filter out labels to remove
+					var remainingLabels []string
+					for _, label := range currentLabels {
+						if !labelsToRemove[label] {
+							remainingLabels = append(remainingLabels, label)
+						}
+					}
+
+					// Update with remaining labels (API replaces all labels)
+					_, err = client.AddContactLabels(ctx, id, remainingLabels)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to update labels for contact %d: %v\n", id, err)
+						return nil, err
+					}
+					return nil, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
 
 			if isJSON(cmd) {
-				result := map[string]any{
+				return printJSON(cmd, map[string]any{
 					"success_count": successCount,
 					"fail_count":    failCount,
-				}
-				return printJSON(cmd, result)
+				})
 			}
+
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed labels from %d contacts (%d failed)\n", successCount, failCount)
 			return nil
 		},
@@ -1079,6 +1098,7 @@ labels, and updates the contact with the remaining labels.`,
 
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to remove (required)")
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
