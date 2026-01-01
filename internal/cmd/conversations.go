@@ -1812,6 +1812,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
+	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
 }
@@ -1903,6 +1904,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign conversations to")
+	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
 }
@@ -1935,8 +1937,17 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 			}
 
 			labelList := strings.Split(labels, ",")
-			for i := range labelList {
-				labelList[i] = strings.TrimSpace(labelList[i])
+			var filtered []string
+			for _, l := range labelList {
+				l = strings.TrimSpace(l)
+				if l != "" {
+					filtered = append(filtered, l)
+				}
+			}
+			labelList = filtered
+
+			if len(labelList) == 0 {
+				return fmt.Errorf("no valid labels provided after filtering empty values")
 			}
 
 			client, err := getClient()
@@ -1984,6 +1995,8 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
+	_ = cmd.MarkFlagRequired("ids")
+	_ = cmd.MarkFlagRequired("labels")
 
 	return cmd
 }
