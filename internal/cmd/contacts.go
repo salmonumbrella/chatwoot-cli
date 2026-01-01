@@ -970,6 +970,13 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 				}
 			}
 
+			if isJSON(cmd) {
+				result := map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+				}
+				return printJSON(cmd, result)
+			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d contacts (%d failed)\n", successCount, failCount)
 			return nil
 		},
@@ -1052,6 +1059,13 @@ labels, and updates the contact with the remaining labels.`,
 				}
 			}
 
+			if isJSON(cmd) {
+				result := map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+				}
+				return printJSON(cmd, result)
+			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed labels from %d contacts (%d failed)\n", successCount, failCount)
 			return nil
 		},
