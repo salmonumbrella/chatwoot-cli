@@ -21,6 +21,7 @@ func newIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newIntegrationsHookCreateCmd())
 	cmd.AddCommand(newIntegrationsHookUpdateCmd())
 	cmd.AddCommand(newIntegrationsHookDeleteCmd())
+	cmd.AddCommand(newShopifyCmd())
 
 	return cmd
 }
@@ -210,6 +211,127 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 
 			if !isJSON(cmd) {
 				fmt.Printf("Deleted integration hook %d\n", hookID)
+			}
+			return nil
+		},
+	}
+}
+
+func newShopifyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "shopify",
+		Short: "Manage Shopify integration",
+	}
+
+	cmd.AddCommand(newShopifyAuthCmd())
+	cmd.AddCommand(newShopifyOrdersCmd())
+	cmd.AddCommand(newShopifyDeleteCmd())
+
+	return cmd
+}
+
+func newShopifyAuthCmd() *cobra.Command {
+	var shopDomain string
+	var code string
+
+	cmd := &cobra.Command{
+		Use:     "auth",
+		Short:   "Authenticate Shopify integration",
+		Example: "chatwoot integrations shopify auth --shop mystore.myshopify.com --code AUTH_CODE",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if shopDomain == "" {
+				return fmt.Errorf("--shop is required")
+			}
+			if code == "" {
+				return fmt.Errorf("--code is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.ShopifyAuth(cmdContext(cmd), shopDomain, code); err != nil {
+				return err
+			}
+
+			if !isJSON(cmd) {
+				fmt.Println("Shopify integration authenticated successfully")
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&shopDomain, "shop", "", "Shopify store domain (e.g., mystore.myshopify.com)")
+	cmd.Flags().StringVar(&code, "code", "", "OAuth authorization code")
+
+	return cmd
+}
+
+func newShopifyOrdersCmd() *cobra.Command {
+	var contactID int
+
+	cmd := &cobra.Command{
+		Use:     "orders",
+		Short:   "List Shopify orders for a contact",
+		Example: "chatwoot integrations shopify orders --contact-id 123",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if contactID == 0 {
+				return fmt.Errorf("--contact-id is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			orders, err := client.ListShopifyOrders(cmdContext(cmd), contactID)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, orders)
+			}
+
+			if len(orders) == 0 {
+				fmt.Println("No orders found")
+				return nil
+			}
+
+			w := newTabWriter()
+			defer func() { _ = w.Flush() }()
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tTOTAL\tSTATUS")
+			for _, o := range orders {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s %s\t%s\n",
+					o.ID, o.Name, o.Email, o.TotalPrice, o.Currency, o.FinancialStatus)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Contact ID to get orders for")
+
+	return cmd
+}
+
+func newShopifyDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete",
+		Short:   "Delete Shopify integration",
+		Example: "chatwoot integrations shopify delete",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.DeleteShopifyIntegration(cmdContext(cmd)); err != nil {
+				return err
+			}
+
+			if !isJSON(cmd) {
+				fmt.Println("Shopify integration deleted")
 			}
 			return nil
 		},
