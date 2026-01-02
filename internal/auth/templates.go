@@ -51,6 +51,22 @@ const fadeUpAnimationCSS = `
         }
 `
 
+// baseCSSVars contains the CSS custom properties shared by both templates.
+const baseCSSVars = `
+        :root {
+            --bg-deep: #06060a;
+            --bg-card: #0d0d14;
+            --bg-input: #12121a;
+            --border: #1a1a2e;
+            --text: #e4e4eb;
+            --text-muted: #6b6b7a;
+            --text-dim: #3d3d4a;
+            --chatwoot-blue: #47A7F6;
+            --success: #22c55e;
+            --success-glow: rgba(34, 197, 94, 0.15);
+        }
+`
+
 const setupTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -61,21 +77,12 @@ const setupTemplate = `<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+` + baseCSSVars + `
         :root {
-            --bg-deep: #06060a;
-            --bg-card: #0d0d14;
-            --bg-input: #12121a;
-            --border: #1a1a2e;
             --border-focus: #1f93ff;
-            --text: #e4e4eb;
-            --text-muted: #6b6b7a;
-            --text-dim: #3d3d4a;
             --accent: #1f93ff;
-            --chatwoot-blue: #47A7F6;
             --accent-glow: rgba(31, 147, 255, 0.15);
             --accent-hover: #3da3ff;
-            --success: #22c55e;
-            --success-glow: rgba(34, 197, 94, 0.15);
             --error: #ef4444;
             --error-glow: rgba(239, 68, 68, 0.15);
             --warning: #f59e0b;
@@ -704,18 +711,9 @@ const successTemplate = `<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+` + baseCSSVars + `
         :root {
-            --bg-deep: #06060a;
-            --bg-card: #0d0d14;
-            --bg-input: #12121a;
-            --border: #1a1a2e;
-            --text: #e4e4eb;
-            --text-muted: #6b6b7a;
-            --text-dim: #3d3d4a;
-            --chatwoot-blue: #47A7F6;
             --chatwoot-glow: rgba(71, 167, 246, 0.2);
-            --success: #22c55e;
-            --success-glow: rgba(34, 197, 94, 0.15);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
