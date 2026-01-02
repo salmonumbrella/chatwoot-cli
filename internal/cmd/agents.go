@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ func newAgentsCmd() *cobra.Command {
 	cmd.AddCommand(newAgentsCreateCmd())
 	cmd.AddCommand(newAgentsUpdateCmd())
 	cmd.AddCommand(newAgentsDeleteCmd())
+	cmd.AddCommand(newAgentsBulkCreateCmd())
 
 	return cmd
 }
@@ -253,4 +255,71 @@ func newAgentsDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newAgentsBulkCreateCmd() *cobra.Command {
+	var emails string
+
+	cmd := &cobra.Command{
+		Use:   "bulk-create",
+		Short: "Create multiple agents at once",
+		Long:  "Create multiple agents at once by providing a comma-separated list of email addresses",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if emails == "" {
+				return fmt.Errorf("--emails is required")
+			}
+
+			// Split emails by comma and trim whitespace
+			emailList := strings.Split(emails, ",")
+			for i := range emailList {
+				emailList[i] = strings.TrimSpace(emailList[i])
+			}
+
+			// Filter out empty strings
+			var validEmails []string
+			for _, email := range emailList {
+				if email != "" {
+					validEmails = append(validEmails, email)
+				}
+			}
+
+			if len(validEmails) == 0 {
+				return fmt.Errorf("at least one email address is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			agents, err := client.BulkCreateAgents(cmdContext(cmd), validEmails)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, agents)
+			}
+
+			fmt.Printf("Created %d agents:\n", len(agents))
+			w := newTabWriter()
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE")
+			for _, agent := range agents {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+					agent.ID,
+					agent.Name,
+					agent.Email,
+					agent.Role,
+				)
+			}
+			_ = w.Flush()
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&emails, "emails", "", "Comma-separated list of email addresses (required)")
+	_ = cmd.MarkFlagRequired("emails")
+
+	return cmd
 }
