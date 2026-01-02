@@ -26,6 +26,8 @@ func newMessagesCmd() *cobra.Command {
 	cmd.AddCommand(newMessagesCreateCmd())
 	cmd.AddCommand(newMessagesDeleteCmd())
 	cmd.AddCommand(newMessagesUpdateCmd())
+	cmd.AddCommand(newMessagesTranslateCmd())
+	cmd.AddCommand(newMessagesRetryCmd())
 	cmd.AddCommand(newMessagesBatchSendCmd())
 
 	return cmd
@@ -356,6 +358,124 @@ func newMessagesUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&content, "content", "", "New message content (required)")
 	_ = cmd.MarkFlagRequired("content")
+
+	return cmd
+}
+
+// newMessagesTranslateCmd creates the translate subcommand
+func newMessagesTranslateCmd() *cobra.Command {
+	var lang string
+
+	cmd := &cobra.Command{
+		Use:   "translate <conversation-id> <message-id>",
+		Short: "Translate a message to another language",
+		Long: `Translate a message's content to a specified target language.
+
+Uses the Chatwoot translation service to translate message content.
+Requires an AI integration to be configured in your Chatwoot instance.`,
+		Example: strings.TrimSpace(`
+  # Translate a message to Spanish
+  chatwoot messages translate 123 456 --lang es
+
+  # Translate to French
+  chatwoot messages translate 123 456 --lang fr
+
+  # Get translation as JSON
+  chatwoot messages translate 123 456 --lang de --output json
+`),
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			if err != nil {
+				return err
+			}
+
+			messageID, err := validation.ParsePositiveInt(args[1], "message ID")
+			if err != nil {
+				return err
+			}
+
+			if lang == "" {
+				return fmt.Errorf("--lang is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			content, err := client.TranslateMessage(cmdContext(cmd), conversationID, messageID, lang)
+			if err != nil {
+				return fmt.Errorf("failed to translate message %d: %w", messageID, err)
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{
+					"conversation_id": conversationID,
+					"message_id":      messageID,
+					"target_language": lang,
+					"translated_text": content,
+				})
+			}
+
+			fmt.Println(content)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&lang, "lang", "", "Target language code (e.g., es, fr, de, ja)")
+
+	return cmd
+}
+
+// newMessagesRetryCmd creates the retry subcommand
+func newMessagesRetryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "retry <conversation-id> <message-id>",
+		Short: "Retry sending a failed message",
+		Long: `Retry sending a message that previously failed to send.
+
+Use this to reattempt delivery of messages that encountered
+temporary failures (e.g., network issues, rate limiting).`,
+		Example: strings.TrimSpace(`
+  # Retry a failed message
+  chatwoot messages retry 123 456
+
+  # Retry and get result as JSON
+  chatwoot messages retry 123 456 --output json
+`),
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			if err != nil {
+				return err
+			}
+
+			messageID, err := validation.ParsePositiveInt(args[1], "message ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			message, err := client.RetryMessage(cmdContext(cmd), conversationID, messageID)
+			if err != nil {
+				return fmt.Errorf("failed to retry message %d: %w", messageID, err)
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, message)
+			}
+
+			fmt.Printf("Message %d retry successful\n", message.ID)
+			fmt.Printf("Content: %s\n", message.Content)
+			fmt.Printf("Type: %s\n", message.MessageTypeName())
+			return nil
+		},
+	}
 
 	return cmd
 }
