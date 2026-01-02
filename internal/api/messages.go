@@ -128,3 +128,26 @@ func (c *Client) CreateMessageWithAttachments(ctx context.Context, conversationI
 	}
 	return &message, nil
 }
+
+// TranslateMessage translates a message to the specified language
+func (c *Client) TranslateMessage(ctx context.Context, conversationID, messageID int, targetLanguage string) (string, error) {
+	path := fmt.Sprintf("/conversations/%d/messages/%d/translate", conversationID, messageID)
+	body := map[string]string{"target_language": targetLanguage}
+	var result struct {
+		Content string `json:"content"`
+	}
+	if err := c.Post(ctx, path, body, &result); err != nil {
+		return "", err
+	}
+	return result.Content, nil
+}
+
+// RetryMessage retries sending a failed message
+func (c *Client) RetryMessage(ctx context.Context, conversationID, messageID int) (*Message, error) {
+	path := fmt.Sprintf("/conversations/%d/messages/%d/retry", conversationID, messageID)
+	var result Message
+	if err := c.Post(ctx, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}

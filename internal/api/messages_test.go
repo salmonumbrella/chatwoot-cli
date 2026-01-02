@@ -798,3 +798,152 @@ func TestUpdateMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestTranslateMessage(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		messageID      int
+		targetLanguage string
+		statusCode     int
+		responseBody   string
+		expectError    bool
+		expectedResult string
+	}{
+		{
+			name:           "successful translation",
+			conversationID: 1,
+			messageID:      100,
+			targetLanguage: "es",
+			statusCode:     http.StatusOK,
+			responseBody:   `{"content": "Texto traducido"}`,
+			expectError:    false,
+			expectedResult: "Texto traducido",
+		},
+		{
+			name:           "translation to French",
+			conversationID: 2,
+			messageID:      200,
+			targetLanguage: "fr",
+			statusCode:     http.StatusOK,
+			responseBody:   `{"content": "Texte traduit"}`,
+			expectError:    false,
+			expectedResult: "Texte traduit",
+		},
+		{
+			name:           "server error",
+			conversationID: 1,
+			messageID:      100,
+			targetLanguage: "es",
+			statusCode:     http.StatusInternalServerError,
+			responseBody:   `{"error": "translation service unavailable"}`,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				expectedPath := fmt.Sprintf("/api/v1/accounts/1/conversations/%d/messages/%d/translate", tt.conversationID, tt.messageID)
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+				_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			content, err := client.TranslateMessage(context.Background(), tt.conversationID, tt.messageID, tt.targetLanguage)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && content != tt.expectedResult {
+				t.Errorf("Expected '%s', got '%s'", tt.expectedResult, content)
+			}
+			if !tt.expectError && capturedBody["target_language"] != tt.targetLanguage {
+				t.Errorf("Expected target_language '%s' in body, got %v", tt.targetLanguage, capturedBody["target_language"])
+			}
+		})
+	}
+}
+
+func TestRetryMessage(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		messageID      int
+		statusCode     int
+		responseBody   string
+		expectError    bool
+		expectedID     int
+	}{
+		{
+			name:           "successful retry",
+			conversationID: 1,
+			messageID:      100,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 100, "content": "Retried message", "message_type": 1, "conversation_id": 1, "created_at": 1700000000}`,
+			expectError:    false,
+			expectedID:     100,
+		},
+		{
+			name:           "retry different message",
+			conversationID: 2,
+			messageID:      200,
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 200, "content": "Another retried message", "message_type": 1, "conversation_id": 2, "created_at": 1700001000}`,
+			expectError:    false,
+			expectedID:     200,
+		},
+		{
+			name:           "not found",
+			conversationID: 1,
+			messageID:      999,
+			statusCode:     http.StatusNotFound,
+			responseBody:   `{"error": "message not found"}`,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				expectedPath := fmt.Sprintf("/api/v1/accounts/1/conversations/%d/messages/%d/retry", tt.conversationID, tt.messageID)
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			msg, err := client.RetryMessage(context.Background(), tt.conversationID, tt.messageID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && msg.ID != tt.expectedID {
+				t.Errorf("Expected ID %d, got %d", tt.expectedID, msg.ID)
+			}
+		})
+	}
+}
