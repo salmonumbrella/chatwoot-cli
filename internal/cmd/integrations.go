@@ -22,6 +22,7 @@ func newIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newIntegrationsHookUpdateCmd())
 	cmd.AddCommand(newIntegrationsHookDeleteCmd())
 	cmd.AddCommand(newShopifyCmd())
+	cmd.AddCommand(newNotionCmd())
 
 	return cmd
 }
@@ -332,6 +333,40 @@ func newShopifyDeleteCmd() *cobra.Command {
 
 			if !isJSON(cmd) {
 				fmt.Println("Shopify integration deleted")
+			}
+			return nil
+		},
+	}
+}
+
+func newNotionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "notion",
+		Short: "Manage Notion integration",
+	}
+
+	cmd.AddCommand(newNotionDeleteCmd())
+
+	return cmd
+}
+
+func newNotionDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete",
+		Short:   "Delete Notion integration",
+		Example: "chatwoot integrations notion delete",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.DeleteNotionIntegration(cmdContext(cmd)); err != nil {
+				return err
+			}
+
+			if !isJSON(cmd) {
+				fmt.Println("Notion integration deleted")
 			}
 			return nil
 		},
