@@ -172,6 +172,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newStatusCmd())
 	root.AddCommand(newOpenCmd())
 	root.AddCommand(newSchemaCmd())
+	root.AddCommand(newSearchCmd())
 
 	err := root.Execute()
 	if err != nil {
