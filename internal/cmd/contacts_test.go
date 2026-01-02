@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 )
@@ -836,5 +837,57 @@ func TestContactsMergeCmd_VerifiesIDMapping(t *testing.T) {
 	}
 	if capturedBody["mergee_contact_id"] != 200 {
 		t.Errorf("expected mergee_contact_id=200 (delete-id), got %d", capturedBody["mergee_contact_id"])
+	}
+}
+
+// TestContactsMergeCmd_CancellationFlow verifies that when user provides input
+// that is NOT "merge", the merge is cancelled and the API is not called.
+func TestContactsMergeCmd_CancellationFlow(t *testing.T) {
+	var mergeAPICalled bool
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {"id": 123, "name": "Keep Contact", "email": "keep@example.com"}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Delete Contact", "email": "delete@example.com"}
+		}`)).
+		On("POST", "/api/v1/accounts/1/actions/contact_merge", func(w http.ResponseWriter, r *http.Request) {
+			mergeAPICalled = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"id": 123, "name": "Merged Contact"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	// Create a pipe to mock stdin with "no" input (not "merge")
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+
+	// Write test input to the pipe and close the write end
+	go func() {
+		_, _ = w.Write([]byte("no\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "merge", "123", "456"})
+		if err != nil {
+			t.Errorf("expected no error on cancellation, got: %v", err)
+		}
+	})
+
+	os.Stdin = oldStdin
+
+	// Verify the merge API was NOT called
+	if mergeAPICalled {
+		t.Error("merge API should NOT have been called when user cancels")
+	}
+
+	// Verify the output contains the cancellation message
+	if !strings.Contains(output, "Merge cancelled.") {
+		t.Errorf("output missing 'Merge cancelled.' message: %s", output)
 	}
 }
