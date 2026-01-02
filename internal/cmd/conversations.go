@@ -43,6 +43,8 @@ func newConversationsCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsMarkUnreadCmd())
 	cmd.AddCommand(newConversationsMuteCmd())
 	cmd.AddCommand(newConversationsUnmuteCmd())
+	cmd.AddCommand(newConversationsTranscriptCmd())
+	cmd.AddCommand(newConversationsTypingCmd())
 	cmd.AddCommand(newConversationsSearchCmd())
 	cmd.AddCommand(newConversationsAttachmentsCmd())
 	cmd.AddCommand(newConversationsWatchCmd())
@@ -1552,6 +1554,124 @@ Unmuted conversations will trigger desktop and push notifications for new messag
 			return nil
 		},
 	}
+
+	return cmd
+}
+
+func newConversationsTranscriptCmd() *cobra.Command {
+	var email string
+
+	cmd := &cobra.Command{
+		Use:   "transcript <id>",
+		Short: "Send conversation transcript via email",
+		Long: `Send a conversation transcript to an email address.
+
+The transcript includes all messages in the conversation and is sent
+to the specified email address.`,
+		Example: strings.TrimSpace(`
+  # Send transcript to an email address
+  chatwoot conversations transcript 123 --email user@example.com
+`),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			if err != nil {
+				return err
+			}
+
+			if email == "" {
+				return fmt.Errorf("--email is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.SendTranscript(cmdContext(cmd), id, email); err != nil {
+				return fmt.Errorf("failed to send transcript for conversation %d: %w", id, err)
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{
+					"conversation_id": id,
+					"email":           email,
+					"status":          "sent",
+				})
+			}
+
+			fmt.Printf("Transcript for conversation #%d sent to %s\n", id, email)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&email, "email", "", "Email address to send transcript to (required)")
+
+	return cmd
+}
+
+func newConversationsTypingCmd() *cobra.Command {
+	var (
+		typingOn  bool
+		isPrivate bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "typing <id>",
+		Short: "Toggle typing indicator for a conversation",
+		Long: `Toggle the typing indicator for a conversation.
+
+This shows or hides the "agent is typing" indicator that the customer sees.
+Use --private to show the typing indicator only to other agents (for private notes).`,
+		Example: strings.TrimSpace(`
+  # Show typing indicator to customer
+  chatwoot conversations typing 123 --on
+
+  # Hide typing indicator
+  chatwoot conversations typing 123
+
+  # Show typing indicator for private note (visible only to agents)
+  chatwoot conversations typing 123 --on --private
+`),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.ToggleTypingStatus(cmdContext(cmd), id, typingOn, isPrivate); err != nil {
+				return fmt.Errorf("failed to toggle typing status for conversation %d: %w", id, err)
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{
+					"conversation_id": id,
+					"typing":          typingOn,
+					"private":         isPrivate,
+				})
+			}
+
+			status := "off"
+			if typingOn {
+				status = "on"
+			}
+			visibility := "public"
+			if isPrivate {
+				visibility = "private"
+			}
+			fmt.Printf("Typing indicator for conversation #%d: %s (%s)\n", id, status, visibility)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&typingOn, "on", false, "Turn typing indicator on (default: off)")
+	cmd.Flags().BoolVar(&isPrivate, "private", false, "Show typing indicator only to agents (for private notes)")
 
 	return cmd
 }
