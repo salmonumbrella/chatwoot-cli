@@ -27,6 +27,10 @@ func newPortalsCmd() *cobra.Command {
 	cmd.AddCommand(newPortalsCreateCmd())
 	cmd.AddCommand(newPortalsUpdateCmd())
 	cmd.AddCommand(newPortalsDeleteCmd())
+	cmd.AddCommand(newPortalsArchiveCmd())
+	cmd.AddCommand(newPortalsDeleteLogoCmd())
+	cmd.AddCommand(newPortalsSendInstructionsCmd())
+	cmd.AddCommand(newPortalsSSLStatusCmd())
 	cmd.AddCommand(newPortalsArticlesCmd())
 	cmd.AddCommand(newPortalsCategoriesCmd())
 
@@ -222,6 +226,137 @@ func newPortalsDeleteCmd() *cobra.Command {
 	}
 }
 
+func newPortalsArchiveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "archive <portal-slug>",
+		Short:   "Archive a portal",
+		Example: "chatwoot portals archive help-center",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			portalSlug := args[0]
+
+			if err := validateSlug(portalSlug); err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.ArchivePortal(cmdContext(cmd), portalSlug); err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"archived": true, "slug": portalSlug})
+			}
+
+			fmt.Printf("Archived portal %s\n", portalSlug)
+			return nil
+		},
+	}
+}
+
+func newPortalsDeleteLogoCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete-logo <portal-slug>",
+		Short:   "Remove portal logo",
+		Example: "chatwoot portals delete-logo help-center",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			portalSlug := args[0]
+
+			if err := validateSlug(portalSlug); err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.DeletePortalLogo(cmdContext(cmd), portalSlug); err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted_logo": true, "slug": portalSlug})
+			}
+
+			fmt.Printf("Deleted logo for portal %s\n", portalSlug)
+			return nil
+		},
+	}
+}
+
+func newPortalsSendInstructionsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "send-instructions <portal-slug>",
+		Short:   "Send CNAME setup instructions for portal",
+		Example: "chatwoot portals send-instructions help-center",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			portalSlug := args[0]
+
+			if err := validateSlug(portalSlug); err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.SendPortalInstructions(cmdContext(cmd), portalSlug); err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"sent": true, "slug": portalSlug})
+			}
+
+			fmt.Printf("Sent CNAME instructions for portal %s\n", portalSlug)
+			return nil
+		},
+	}
+}
+
+func newPortalsSSLStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "ssl-status <portal-slug>",
+		Short:   "Get SSL certificate status for portal",
+		Example: "chatwoot portals ssl-status help-center",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			portalSlug := args[0]
+
+			if err := validateSlug(portalSlug); err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			status, err := client.GetPortalSSLStatus(cmdContext(cmd), portalSlug)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, status)
+			}
+
+			for key, value := range status {
+				fmt.Printf("%s: %v\n", key, value)
+			}
+			return nil
+		},
+	}
+}
+
 func newPortalsArticlesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "articles",
@@ -233,6 +368,7 @@ func newPortalsArticlesCmd() *cobra.Command {
 	cmd.AddCommand(newPortalsArticlesCreateCmd())
 	cmd.AddCommand(newPortalsArticlesUpdateCmd())
 	cmd.AddCommand(newPortalsArticlesDeleteCmd())
+	cmd.AddCommand(newPortalsArticlesReorderCmd())
 
 	return cmd
 }
@@ -491,6 +627,53 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newPortalsArticlesReorderCmd() *cobra.Command {
+	var articleIDs string
+
+	cmd := &cobra.Command{
+		Use:     "reorder <portal-slug>",
+		Short:   "Reorder articles in a portal",
+		Example: "chatwoot portals articles reorder help --article-ids 1,2,3",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			portalSlug := args[0]
+			if err := validateSlug(portalSlug); err != nil {
+				return err
+			}
+
+			if articleIDs == "" {
+				return fmt.Errorf("--article-ids is required")
+			}
+
+			// Parse comma-separated IDs
+			ids, err := parseIntList(articleIDs)
+			if err != nil {
+				return fmt.Errorf("invalid article IDs: %w", err)
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.ReorderArticles(cmdContext(cmd), portalSlug, ids); err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"reordered": true, "article_ids": ids})
+			}
+
+			fmt.Printf("Reordered %d articles in portal %s\n", len(ids), portalSlug)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&articleIDs, "article-ids", "", "Comma-separated article IDs in desired order (required)")
+
+	return cmd
 }
 
 func newPortalsCategoriesCmd() *cobra.Command {
