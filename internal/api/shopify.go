@@ -1,0 +1,42 @@
+package api
+
+import (
+	"context"
+	"fmt"
+)
+
+// ShopifyOrder represents a Shopify order
+type ShopifyOrder struct {
+	ID                int    `json:"id"`
+	Name              string `json:"name"`
+	Email             string `json:"email"`
+	TotalPrice        string `json:"total_price"`
+	Currency          string `json:"currency"`
+	FinancialStatus   string `json:"financial_status"`
+	FulfillmentStatus string `json:"fulfillment_status,omitempty"`
+	CreatedAt         string `json:"created_at"`
+}
+
+// ShopifyAuth authenticates with Shopify using OAuth code
+func (c *Client) ShopifyAuth(ctx context.Context, shopDomain, code string) error {
+	body := map[string]string{
+		"shop": shopDomain,
+		"code": code,
+	}
+	return c.Post(ctx, "/integrations/shopify/auth", body, nil)
+}
+
+// ListShopifyOrders retrieves Shopify orders for a contact
+func (c *Client) ListShopifyOrders(ctx context.Context, contactID int) ([]ShopifyOrder, error) {
+	path := fmt.Sprintf("/integrations/shopify/orders?contact_id=%d", contactID)
+	var result []ShopifyOrder
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// DeleteShopifyIntegration removes the Shopify integration
+func (c *Client) DeleteShopifyIntegration(ctx context.Context) error {
+	return c.Delete(ctx, "/integrations/shopify")
+}
