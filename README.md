@@ -165,12 +165,35 @@ chatwoot messages list 123 --all
 
 # Create messages
 chatwoot messages create 123 --content "Hello!"
-chatwoot messages create 123 --content "Internal note" --private
 
 # Update and delete
 chatwoot messages update 123 456 --content "Updated text"
 chatwoot messages delete 123 456
 ```
+
+### Private Notes & Mentions
+
+Private notes are internal messages visible only to agents, not customers. You can mention/tag agents to notify them.
+
+```bash
+# Create a private note (internal, not visible to customer)
+chatwoot messages create 123 --private --content "Internal note for the team"
+
+# Mention an agent (they'll receive a notification)
+chatwoot messages create 123 --private --mention lily --content "Can you follow up on this?"
+
+# Mention multiple agents
+chatwoot messages create 123 --private --mention lily --mention jack --content "Please review together"
+
+# Mention by email
+chatwoot messages create 123 --private --mention lily@example.com --content "Check this out"
+```
+
+The `--mention` flag:
+- Accepts agent name (partial match) or email
+- Automatically resolves to the agent's ID
+- Formats the mention correctly so the agent receives a notification
+- Requires the `--private` flag (mentions only work in private notes)
 
 ### Contacts
 

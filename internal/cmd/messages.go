@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,6 +110,7 @@ func newMessagesCreateCmd() *cobra.Command {
 		private     bool
 		messageType string
 		attachments []string
+		mentions    []string
 	)
 
 	cmd := &cobra.Command{
@@ -117,6 +119,15 @@ func newMessagesCreateCmd() *cobra.Command {
 		Example: strings.TrimSpace(`
   # Send a text message
   chatwoot messages create 123 --content "Hello!"
+
+  # Send a private note (internal, not visible to customer)
+  chatwoot messages create 123 --private --content "Internal note for team"
+
+  # Tag/mention an agent in a private note (agent will be notified)
+  chatwoot messages create 123 --private --mention lily --content "Can you follow up on this?"
+
+  # Mention multiple agents
+  chatwoot messages create 123 --private --mention lily --mention jack --content "Please review"
 
   # Send a message with attachment
   chatwoot messages create 123 --content "See attached" --attachment /path/to/file.pdf
@@ -138,16 +149,38 @@ func newMessagesCreateCmd() *cobra.Command {
 				return fmt.Errorf("either --content or --attachment is required")
 			}
 
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			// Resolve mentions to user IDs and build mention prefix
+			if len(mentions) > 0 {
+				if !private {
+					return fmt.Errorf("--mention requires --private flag (mentions only work in private notes)")
+				}
+
+				var mentionParts []string
+				ctx := cmdContext(cmd)
+				for _, m := range mentions {
+					agent, err := client.FindAgentByNameOrEmail(ctx, m)
+					if err != nil {
+						return fmt.Errorf("failed to resolve mention '%s': %w", m, err)
+					}
+					// Format: [@DisplayName](mention://user/{id}/{url-encoded-name})
+					// URL-encode the name in the URL part to handle spaces correctly
+					encodedName := url.PathEscape(agent.Name)
+					mentionParts = append(mentionParts, fmt.Sprintf("[@%s](mention://user/%d/%s)", agent.Name, agent.ID, encodedName))
+				}
+				// Prepend mentions to content
+				content = strings.Join(mentionParts, " ") + " " + content
+			}
+
 			// Validate message content length if provided
 			if content != "" {
 				if err := validation.ValidateMessageContent(content); err != nil {
 					return err
 				}
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
 			}
 
 			var message *api.Message
@@ -222,6 +255,7 @@ func newMessagesCreateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&private, "private", false, "Mark message as private (internal note)")
 	cmd.Flags().StringVar(&messageType, "type", "outgoing", "Message type: outgoing|incoming")
 	cmd.Flags().StringArrayVar(&attachments, "attachment", nil, "File path to attach (can be repeated)")
+	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated). Requires --private")
 
 	return cmd
 }

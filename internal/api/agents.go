@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // ListAgents retrieves all agents in the account
@@ -70,4 +71,56 @@ func (c *Client) UpdateAgent(ctx context.Context, id int, name, role string) (*A
 func (c *Client) DeleteAgent(ctx context.Context, id int) error {
 	path := fmt.Sprintf("/agents/%d", id)
 	return c.Delete(ctx, path)
+}
+
+// FindAgentByNameOrEmail searches for an agent by name or email (case-insensitive partial match)
+// Returns the first matching agent, or an error if no match or multiple ambiguous matches found
+func (c *Client) FindAgentByNameOrEmail(ctx context.Context, query string) (*Agent, error) {
+	agents, err := c.ListAgents(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	query = strings.ToLower(query)
+	var matches []Agent
+
+	for _, agent := range agents {
+		nameLower := strings.ToLower(agent.Name)
+		emailLower := strings.ToLower(agent.Email)
+
+		// Exact match on name or email takes priority
+		if nameLower == query || emailLower == query {
+			return &agent, nil
+		}
+
+		// Partial match on name or email prefix (before @)
+		emailPrefix := emailLower
+		if idx := strings.Index(emailLower, "@"); idx > 0 {
+			emailPrefix = emailLower[:idx]
+		}
+		if strings.Contains(nameLower, query) || strings.HasPrefix(emailPrefix, query) {
+			matches = append(matches, agent)
+		}
+	}
+
+	if len(matches) == 0 {
+		return nil, &APIError{
+			StatusCode: 404,
+			Body:       fmt.Sprintf("no agent found matching '%s'", query),
+		}
+	}
+
+	if len(matches) == 1 {
+		return &matches[0], nil
+	}
+
+	// Multiple matches - return error with suggestions
+	var names []string
+	for _, m := range matches {
+		names = append(names, fmt.Sprintf("%s (%s)", m.Name, m.Email))
+	}
+	return nil, &APIError{
+		StatusCode: 400,
+		Body:       fmt.Sprintf("ambiguous match for '%s': %s", query, strings.Join(names, ", ")),
+	}
 }
