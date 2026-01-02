@@ -21,6 +21,8 @@ func newAgentBotsCmd() *cobra.Command {
 	cmd.AddCommand(newAgentBotsCreateCmd())
 	cmd.AddCommand(newAgentBotsUpdateCmd())
 	cmd.AddCommand(newAgentBotsDeleteCmd())
+	cmd.AddCommand(newAgentBotsDeleteAvatarCmd())
+	cmd.AddCommand(newAgentBotsResetTokenCmd())
 
 	return cmd
 }
@@ -211,6 +213,67 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Deleted agent bot #%d\n", id)
+			return nil
+		},
+	}
+}
+
+func newAgentBotsDeleteAvatarCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete-avatar <id>",
+		Short: "Remove the avatar from an agent bot",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return fmt.Errorf("invalid bot ID: %w", err)
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.DeleteAgentBotAvatar(cmdContext(cmd), id); err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
+			}
+
+			fmt.Printf("Deleted avatar for agent bot #%d\n", id)
+			return nil
+		},
+	}
+}
+
+func newAgentBotsResetTokenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "reset-token <id>",
+		Short: "Reset the access token for an agent bot",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return fmt.Errorf("invalid bot ID: %w", err)
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			token, err := client.ResetAgentBotAccessToken(cmdContext(cmd), id)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"access_token": token})
+			}
+
+			fmt.Printf("New access token for agent bot #%d: %s\n", id, token)
 			return nil
 		},
 	}
