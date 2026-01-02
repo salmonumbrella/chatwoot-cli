@@ -20,6 +20,7 @@ type rootFlags struct {
 	Debug    bool
 	DryRun   bool
 	Query    string
+	JQ       string
 	Fields   string
 	Template string
 }
@@ -93,19 +94,20 @@ func Execute(ctx context.Context, args []string) error {
 			// Set up dry-run mode
 			ctx = dryrun.WithDryRun(ctx, flags.DryRun)
 
-			// Set up JQ query (or fields shorthand)
+			// Set up JQ query (--jq takes precedence over --query, or fields shorthand)
+			jqQuery := getJQQuery()
 			if flags.Fields != "" {
-				if flags.Query != "" {
-					return fmt.Errorf("--fields and --query cannot be used together")
+				if jqQuery != "" {
+					return fmt.Errorf("--fields and --query/--jq cannot be used together")
 				}
 				fields, err := parseFields(flags.Fields)
 				if err != nil {
 					return err
 				}
-				flags.Query = buildFieldsQuery(fields)
+				jqQuery = buildFieldsQuery(fields)
 			}
-			if flags.Query != "" {
-				ctx = outfmt.WithQuery(ctx, flags.Query)
+			if jqQuery != "" {
+				ctx = outfmt.WithQuery(ctx, jqQuery)
 			}
 
 			// Set up template output
@@ -129,6 +131,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")
 	root.PersistentFlags().StringVar(&flags.Query, "query", "", "JQ expression to filter JSON output")
+	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "JQ expression to filter JSON output (alias for --query)")
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 

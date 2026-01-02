@@ -17,6 +17,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// getJQQuery returns the jq query from --jq or --query flags.
+// --jq takes precedence over --query for consistency with gh CLI.
+func getJQQuery() string {
+	// Check --jq first (shorter, preferred for agents)
+	if flags.JQ != "" {
+		return flags.JQ
+	}
+	// Fall back to --query
+	return flags.Query
+}
+
 // getClient creates an API client from stored credentials
 func getClient() (*api.Client, error) {
 	account, err := config.LoadAccount()
