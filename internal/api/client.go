@@ -328,6 +328,114 @@ func (c *Client) DeleteWithBody(ctx context.Context, path string, body any) erro
 	return c.do(ctx, http.MethodDelete, c.accountPath(path), body, nil)
 }
 
+// DoRaw performs an HTTP request with the given method and path, returning raw response body,
+// headers, and status code. This is designed for the raw API command that needs full response details.
+// The path is relative to the account API path (e.g., "/conversations/123").
+func (c *Client) DoRaw(ctx context.Context, method, path string, body any) ([]byte, http.Header, int, error) {
+	// Check circuit breaker at start
+	if c.circuitBreaker != nil && c.circuitBreaker.isOpen() {
+		return nil, nil, 0, &CircuitBreakerError{}
+	}
+
+	// Validate BaseURL at request time to prevent DNS rebinding attacks
+	// Skip validation in tests to allow httptest.Server localhost URLs
+	if !c.skipURLValidation {
+		if err := validation.ValidateChatwootURL(c.BaseURL); err != nil {
+			return nil, nil, 0, fmt.Errorf("URL validation failed: %w", err)
+		}
+	}
+
+	// Marshal body to JSON once (will be reused for retries)
+	var jsonBody []byte
+	if body != nil {
+		var err error
+		jsonBody, err = json.Marshal(body)
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+	}
+
+	// Determine if method is idempotent for retry logic
+	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+
+	var retries429, retries5xx int
+
+	for {
+		// Create fresh body reader for each attempt
+		var bodyReader io.Reader
+		if jsonBody != nil {
+			bodyReader = bytes.NewReader(jsonBody)
+		}
+
+		url := c.accountPath(path)
+		req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		if c.APIToken != "" {
+			req.Header.Set("api_access_token", c.APIToken)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := c.HTTP.Do(req)
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("request failed: %w", err)
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("failed to read response: %w", err)
+		}
+
+		// Handle 429 rate limiting with exponential backoff
+		if resp.StatusCode == 429 {
+			if retries429 >= MaxRateLimitRetries {
+				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: RateLimitBaseDelay}
+			}
+			delay := RateLimitBaseDelay * time.Duration(1<<retries429)
+			slog.Info("rate limited, retrying", "delay", delay, "attempt", retries429+1)
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, nil, 0, ctx.Err()
+			}
+			retries429++
+			continue
+		}
+
+		// Handle 5xx server errors
+		if resp.StatusCode >= 500 {
+			if c.circuitBreaker != nil {
+				c.circuitBreaker.recordFailure()
+			}
+			if isIdempotent && retries5xx < Max5xxRetries {
+				slog.Info("server error, retrying", "status", resp.StatusCode)
+				time.Sleep(ServerErrorRetryDelay)
+				retries5xx++
+				continue
+			}
+		}
+
+		// Handle other 4xx errors - return as error but still include body for debugging
+		if resp.StatusCode >= 400 {
+			return respBody, resp.Header, resp.StatusCode, &APIError{
+				StatusCode: resp.StatusCode,
+				Body:       sanitizeErrorBody(string(respBody)),
+			}
+		}
+
+		// Success (2xx) - record to circuit breaker
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 && c.circuitBreaker != nil {
+			c.circuitBreaker.recordSuccess()
+		}
+
+		return respBody, resp.Header, resp.StatusCode, nil
+	}
+}
+
 // PostMultipart performs a multipart POST request with files and form fields
 func (c *Client) PostMultipart(ctx context.Context, path string, fields map[string]string, files map[string][]byte, result any) error {
 	if !c.skipURLValidation {

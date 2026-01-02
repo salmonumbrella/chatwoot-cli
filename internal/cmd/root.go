@@ -163,6 +163,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newPublicCmd())
 	root.AddCommand(newSurveyCmd())
 	root.AddCommand(newReplyCmd())
+	root.AddCommand(newAPICmd())
 
 	err := root.Execute()
 	if err != nil {
