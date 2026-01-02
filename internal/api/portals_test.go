@@ -1140,6 +1140,7 @@ func TestReorderArticles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var capturedBody map[string][]any
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodPost {
 					t.Errorf("Expected POST, got %s", r.Method)
@@ -1147,6 +1148,7 @@ func TestReorderArticles(t *testing.T) {
 				if !strings.Contains(r.URL.Path, "/articles/reorder") {
 					t.Errorf("Expected reorder path, got %s", r.URL.Path)
 				}
+				_ = json.NewDecoder(r.Body).Decode(&capturedBody)
 				w.WriteHeader(tt.statusCode)
 			}))
 			defer server.Close()
@@ -1159,6 +1161,17 @@ func TestReorderArticles(t *testing.T) {
 			}
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && capturedBody != nil {
+				ids := capturedBody["article_ids"]
+				if len(ids) != len(tt.articleIDs) {
+					t.Errorf("Expected %d article IDs, got %d", len(tt.articleIDs), len(ids))
+				}
+				for i, id := range ids {
+					if int(id.(float64)) != tt.articleIDs[i] {
+						t.Errorf("Article ID at position %d: expected %d, got %v", i, tt.articleIDs[i], id)
+					}
+				}
 			}
 		})
 	}
