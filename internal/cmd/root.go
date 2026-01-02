@@ -19,6 +19,7 @@ type rootFlags struct {
 	Color    string
 	Debug    bool
 	DryRun   bool
+	Quiet    bool
 	Query    string
 	JQ       string
 	Fields   string
@@ -133,6 +134,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.Query, "query", "", "JQ expression to filter JSON output")
 	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "JQ expression to filter JSON output (alias for --query)")
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
+	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 
 	// Add subcommands

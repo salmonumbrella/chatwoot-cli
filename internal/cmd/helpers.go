@@ -119,6 +119,18 @@ func isJSON(cmd *cobra.Command) bool {
 	return outfmt.IsJSON(cmd.Context())
 }
 
+// isQuiet returns true if --quiet/-q flag is set
+func isQuiet(_ *cobra.Command) bool {
+	return flags.Quiet
+}
+
+// printIfNotQuiet prints to stdout only if not in quiet mode
+func printIfNotQuiet(_ *cobra.Command, format string, args ...any) {
+	if !flags.Quiet {
+		fmt.Printf(format, args...)
+	}
+}
+
 // cmdContext returns the command context
 func cmdContext(cmd *cobra.Command) context.Context {
 	return cmd.Context()
