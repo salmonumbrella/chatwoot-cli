@@ -20,6 +20,12 @@ const (
 	currentProfileKey = "current_profile"
 )
 
+// openKeyring is a package-level function for opening keyrings.
+// It can be replaced in tests to use a mock keyring.
+var openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
+	return keyring.Open(cfg)
+}
+
 // Account holds the Chatwoot connection details
 type Account struct {
 	BaseURL       string `json:"base_url"`
@@ -132,7 +138,7 @@ func SaveProfile(profile string, account Account) error {
 		profile = defaultProfile
 	}
 
-	ring, err := keyring.Open(keyringConfig())
+	ring, err := openKeyring(keyringConfig())
 	if err != nil {
 		return fmt.Errorf("failed to open keyring: %w", err)
 	}
@@ -167,7 +173,7 @@ func LoadProfile(profile string) (Account, error) {
 		profile = defaultProfile
 	}
 
-	ring, err := keyring.Open(keyringConfig())
+	ring, err := openKeyring(keyringConfig())
 	if err != nil {
 		return Account{}, fmt.Errorf("failed to open keyring: %w", err)
 	}
@@ -199,7 +205,7 @@ func DeleteProfile(profile string) error {
 		profile = defaultProfile
 	}
 
-	ring, err := keyring.Open(keyringConfig())
+	ring, err := openKeyring(keyringConfig())
 	if err != nil {
 		return fmt.Errorf("failed to open keyring: %w", err)
 	}
@@ -244,7 +250,7 @@ func HasAccount() bool {
 
 // ListProfiles returns the known profile names
 func ListProfiles() ([]string, error) {
-	ring, err := keyring.Open(keyringConfig())
+	ring, err := openKeyring(keyringConfig())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open keyring: %w", err)
 	}
@@ -263,7 +269,7 @@ func ListProfiles() ([]string, error) {
 
 // CurrentProfile returns the active profile name
 func CurrentProfile() (string, error) {
-	ring, err := keyring.Open(keyringConfig())
+	ring, err := openKeyring(keyringConfig())
 	if err != nil {
 		return "", fmt.Errorf("failed to open keyring: %w", err)
 	}
@@ -284,7 +290,7 @@ func SetCurrentProfile(profile string) error {
 		profile = defaultProfile
 	}
 
-	ring, err := keyring.Open(keyringConfig())
+	ring, err := openKeyring(keyringConfig())
 	if err != nil {
 		return fmt.Errorf("failed to open keyring: %w", err)
 	}

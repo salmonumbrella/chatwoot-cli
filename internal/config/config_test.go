@@ -1,0 +1,1339 @@
+package config
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"testing"
+
+	"github.com/99designs/keyring"
+)
+
+// testKeyring creates a mock keyring for testing
+func testKeyring(initial []keyring.Item) *keyring.ArrayKeyring {
+	return keyring.NewArrayKeyring(initial)
+}
+
+// withMockKeyring sets up a mock keyring for the duration of a test
+func withMockKeyring(t *testing.T, ring keyring.Keyring) func() {
+	original := openKeyring
+	openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
+		return ring, nil
+	}
+	return func() {
+		openKeyring = original
+	}
+}
+
+// withFailingKeyring sets up a keyring that always fails to open
+func withFailingKeyring(t *testing.T, err error) func() {
+	original := openKeyring
+	openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
+		return nil, err
+	}
+	return func() {
+		openKeyring = original
+	}
+}
+
+func TestProfileKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  string
+		expected string
+	}{
+		{
+			name:     "empty profile defaults to accountKey",
+			profile:  "",
+			expected: accountKey,
+		},
+		{
+			name:     "default profile uses accountKey",
+			profile:  "default",
+			expected: accountKey,
+		},
+		{
+			name:     "named profile uses prefix",
+			profile:  "work",
+			expected: profilePrefix + "work",
+		},
+		{
+			name:     "another named profile",
+			profile:  "production",
+			expected: profilePrefix + "production",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := profileKey(tt.profile)
+			if result != tt.expected {
+				t.Errorf("profileKey(%q) = %q, want %q", tt.profile, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeProfiles(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "empty list",
+			input:    []string{},
+			expected: nil,
+		},
+		{
+			name:     "single profile",
+			input:    []string{"default"},
+			expected: []string{"default"},
+		},
+		{
+			name:     "multiple unique profiles",
+			input:    []string{"default", "work", "production"},
+			expected: []string{"default", "work", "production"},
+		},
+		{
+			name:     "duplicates removed",
+			input:    []string{"default", "work", "default", "production", "work"},
+			expected: []string{"default", "work", "production"},
+		},
+		{
+			name:     "whitespace trimmed",
+			input:    []string{" default ", "  work  ", "production"},
+			expected: []string{"default", "work", "production"},
+		},
+		{
+			name:     "empty strings removed",
+			input:    []string{"default", "", "work", "  ", "production"},
+			expected: []string{"default", "work", "production"},
+		},
+		{
+			name:     "all empty strings",
+			input:    []string{"", "  ", "   "},
+			expected: nil,
+		},
+		{
+			name:     "preserves order with duplicates",
+			input:    []string{"a", "b", "a", "c", "b", "d"},
+			expected: []string{"a", "b", "c", "d"},
+		},
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeProfiles(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("normalizeProfiles(%v) = %v, want %v", tt.input, result, tt.expected)
+				return
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("normalizeProfiles(%v)[%d] = %q, want %q", tt.input, i, result[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestLoadProfileIndex(t *testing.T) {
+	tests := []struct {
+		name        string
+		items       []keyring.Item
+		expected    []string
+		expectError bool
+	}{
+		{
+			name:        "no index exists",
+			items:       []keyring.Item{},
+			expected:    []string{},
+			expectError: false,
+		},
+		{
+			name: "valid index with profiles",
+			items: []keyring.Item{
+				{
+					Key:  profileIndexKey,
+					Data: []byte(`["default","work","production"]`),
+				},
+			},
+			expected:    []string{"default", "work", "production"},
+			expectError: false,
+		},
+		{
+			name: "empty index",
+			items: []keyring.Item{
+				{
+					Key:  profileIndexKey,
+					Data: []byte(`[]`),
+				},
+			},
+			expected:    []string{},
+			expectError: false,
+		},
+		{
+			name: "invalid JSON",
+			items: []keyring.Item{
+				{
+					Key:  profileIndexKey,
+					Data: []byte(`not valid json`),
+				},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(tt.items)
+			result, err := loadProfileIndex(ring)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("loadProfileIndex() = %v, want %v", result, tt.expected)
+				return
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("loadProfileIndex()[%d] = %q, want %q", i, result[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestSaveProfileIndex(t *testing.T) {
+	tests := []struct {
+		name     string
+		profiles []string
+	}{
+		{
+			name:     "empty list",
+			profiles: []string{},
+		},
+		{
+			name:     "single profile",
+			profiles: []string{"default"},
+		},
+		{
+			name:     "multiple profiles",
+			profiles: []string{"default", "work", "production"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+
+			err := saveProfileIndex(ring, tt.profiles)
+			if err != nil {
+				t.Fatalf("saveProfileIndex() error = %v", err)
+			}
+
+			// Verify it was saved correctly
+			item, err := ring.Get(profileIndexKey)
+			if err != nil {
+				t.Fatalf("Failed to get saved index: %v", err)
+			}
+
+			var saved []string
+			if err := json.Unmarshal(item.Data, &saved); err != nil {
+				t.Fatalf("Failed to unmarshal saved index: %v", err)
+			}
+
+			if len(saved) != len(tt.profiles) {
+				t.Errorf("Saved profiles = %v, want %v", saved, tt.profiles)
+				return
+			}
+			for i := range saved {
+				if saved[i] != tt.profiles[i] {
+					t.Errorf("Saved profiles[%d] = %q, want %q", i, saved[i], tt.profiles[i])
+				}
+			}
+		})
+	}
+}
+
+func TestLoadAccountFromEnv(t *testing.T) {
+	// Save original environment
+	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
+	origToken := os.Getenv("CHATWOOT_API_TOKEN")
+	origAccountID := os.Getenv("CHATWOOT_ACCOUNT_ID")
+	origProfile := os.Getenv("CHATWOOT_PROFILE")
+
+	// Restore environment after test
+	defer func() {
+		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
+		_ = os.Setenv("CHATWOOT_API_TOKEN", origToken)
+		_ = os.Setenv("CHATWOOT_ACCOUNT_ID", origAccountID)
+		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
+	}()
+
+	tests := []struct {
+		name        string
+		envVars     map[string]string
+		expected    Account
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "all env vars set correctly",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com",
+				"CHATWOOT_API_TOKEN":  "test-token-123",
+				"CHATWOOT_ACCOUNT_ID": "42",
+			},
+			expected: Account{
+				BaseURL:   "https://chatwoot.example.com",
+				APIToken:  "test-token-123",
+				AccountID: 42,
+			},
+			expectError: false,
+		},
+		{
+			name: "trailing slash stripped from URL",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com/",
+				"CHATWOOT_API_TOKEN":  "test-token",
+				"CHATWOOT_ACCOUNT_ID": "1",
+			},
+			expected: Account{
+				BaseURL:   "https://chatwoot.example.com",
+				APIToken:  "test-token",
+				AccountID: 1,
+			},
+			expectError: false,
+		},
+		{
+			name: "missing token",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com",
+				"CHATWOOT_API_TOKEN":  "",
+				"CHATWOOT_ACCOUNT_ID": "42",
+			},
+			expectError: true,
+			errorMsg:    "environment variables CHATWOOT_BASE_URL, CHATWOOT_API_TOKEN, and CHATWOOT_ACCOUNT_ID must all be set",
+		},
+		{
+			name: "missing account ID",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com",
+				"CHATWOOT_API_TOKEN":  "test-token",
+				"CHATWOOT_ACCOUNT_ID": "",
+			},
+			expectError: true,
+			errorMsg:    "environment variables CHATWOOT_BASE_URL, CHATWOOT_API_TOKEN, and CHATWOOT_ACCOUNT_ID must all be set",
+		},
+		{
+			name: "invalid account ID - not a number",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com",
+				"CHATWOOT_API_TOKEN":  "test-token",
+				"CHATWOOT_ACCOUNT_ID": "not-a-number",
+			},
+			expectError: true,
+			errorMsg:    "CHATWOOT_ACCOUNT_ID must be a positive integer",
+		},
+		{
+			name: "invalid account ID - zero",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com",
+				"CHATWOOT_API_TOKEN":  "test-token",
+				"CHATWOOT_ACCOUNT_ID": "0",
+			},
+			expectError: true,
+			errorMsg:    "CHATWOOT_ACCOUNT_ID must be a positive integer",
+		},
+		{
+			name: "invalid account ID - negative",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "https://chatwoot.example.com",
+				"CHATWOOT_API_TOKEN":  "test-token",
+				"CHATWOOT_ACCOUNT_ID": "-1",
+			},
+			expectError: true,
+			errorMsg:    "CHATWOOT_ACCOUNT_ID must be a positive integer",
+		},
+		{
+			name: "whitespace handling",
+			envVars: map[string]string{
+				"CHATWOOT_BASE_URL":   "  https://chatwoot.example.com  ",
+				"CHATWOOT_API_TOKEN":  "  test-token  ",
+				"CHATWOOT_ACCOUNT_ID": "  42  ",
+			},
+			expected: Account{
+				BaseURL:   "https://chatwoot.example.com",
+				APIToken:  "test-token",
+				AccountID: 42,
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear environment
+			_ = os.Unsetenv("CHATWOOT_BASE_URL")
+			_ = os.Unsetenv("CHATWOOT_API_TOKEN")
+			_ = os.Unsetenv("CHATWOOT_ACCOUNT_ID")
+			_ = os.Unsetenv("CHATWOOT_PROFILE")
+
+			// Set test environment
+			for k, v := range tt.envVars {
+				_ = os.Setenv(k, v)
+			}
+
+			result, err := LoadAccount()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got nil")
+					return
+				}
+				if tt.errorMsg != "" && err.Error() != tt.errorMsg {
+					t.Errorf("Error message = %q, want %q", err.Error(), tt.errorMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if result.BaseURL != tt.expected.BaseURL {
+				t.Errorf("BaseURL = %q, want %q", result.BaseURL, tt.expected.BaseURL)
+			}
+			if result.APIToken != tt.expected.APIToken {
+				t.Errorf("APIToken = %q, want %q", result.APIToken, tt.expected.APIToken)
+			}
+			if result.AccountID != tt.expected.AccountID {
+				t.Errorf("AccountID = %d, want %d", result.AccountID, tt.expected.AccountID)
+			}
+		})
+	}
+}
+
+func TestAccountSerialization(t *testing.T) {
+	tests := []struct {
+		name    string
+		account Account
+	}{
+		{
+			name: "basic account",
+			account: Account{
+				BaseURL:   "https://chatwoot.example.com",
+				APIToken:  "test-token",
+				AccountID: 42,
+			},
+		},
+		{
+			name: "account with platform token",
+			account: Account{
+				BaseURL:       "https://chatwoot.example.com",
+				APIToken:      "test-token",
+				AccountID:     42,
+				PlatformToken: "platform-token-123",
+			},
+		},
+		{
+			name: "account with empty platform token",
+			account: Account{
+				BaseURL:       "https://chatwoot.example.com",
+				APIToken:      "test-token",
+				AccountID:     42,
+				PlatformToken: "",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			data, err := json.Marshal(tt.account)
+			if err != nil {
+				t.Fatalf("Marshal error: %v", err)
+			}
+
+			// Unmarshal
+			var result Account
+			if err := json.Unmarshal(data, &result); err != nil {
+				t.Fatalf("Unmarshal error: %v", err)
+			}
+
+			// Verify
+			if result.BaseURL != tt.account.BaseURL {
+				t.Errorf("BaseURL = %q, want %q", result.BaseURL, tt.account.BaseURL)
+			}
+			if result.APIToken != tt.account.APIToken {
+				t.Errorf("APIToken = %q, want %q", result.APIToken, tt.account.APIToken)
+			}
+			if result.AccountID != tt.account.AccountID {
+				t.Errorf("AccountID = %d, want %d", result.AccountID, tt.account.AccountID)
+			}
+			if result.PlatformToken != tt.account.PlatformToken {
+				t.Errorf("PlatformToken = %q, want %q", result.PlatformToken, tt.account.PlatformToken)
+			}
+		})
+	}
+}
+
+func TestErrNotConfigured(t *testing.T) {
+	expectedMsg := "chatwoot not configured - run 'chatwoot auth login' first"
+	if ErrNotConfigured.Error() != expectedMsg {
+		t.Errorf("ErrNotConfigured.Error() = %q, want %q", ErrNotConfigured.Error(), expectedMsg)
+	}
+}
+
+func TestKeyringConfig(t *testing.T) {
+	cfg := keyringConfig()
+	if cfg.ServiceName != serviceName {
+		t.Errorf("ServiceName = %q, want %q", cfg.ServiceName, serviceName)
+	}
+}
+
+func TestConstants(t *testing.T) {
+	// Verify constants have expected values
+	if serviceName != "chatwoot-cli" {
+		t.Errorf("serviceName = %q, want %q", serviceName, "chatwoot-cli")
+	}
+	if accountKey != "default" {
+		t.Errorf("accountKey = %q, want %q", accountKey, "default")
+	}
+	if defaultProfile != "default" {
+		t.Errorf("defaultProfile = %q, want %q", defaultProfile, "default")
+	}
+	if profilePrefix != "profile:" {
+		t.Errorf("profilePrefix = %q, want %q", profilePrefix, "profile:")
+	}
+	if profileIndexKey != "profiles_index" {
+		t.Errorf("profileIndexKey = %q, want %q", profileIndexKey, "profiles_index")
+	}
+	if currentProfileKey != "current_profile" {
+		t.Errorf("currentProfileKey = %q, want %q", currentProfileKey, "current_profile")
+	}
+}
+
+func TestSaveProfile(t *testing.T) {
+	tests := []struct {
+		name        string
+		profile     string
+		account     Account
+		expectError bool
+	}{
+		{
+			name:    "save default profile with empty name",
+			profile: "",
+			account: Account{
+				BaseURL:   "https://example.com",
+				APIToken:  "token123",
+				AccountID: 1,
+			},
+			expectError: false,
+		},
+		{
+			name:    "save default profile explicitly",
+			profile: "default",
+			account: Account{
+				BaseURL:   "https://example.com",
+				APIToken:  "token123",
+				AccountID: 1,
+			},
+			expectError: false,
+		},
+		{
+			name:    "save named profile",
+			profile: "work",
+			account: Account{
+				BaseURL:   "https://work.example.com",
+				APIToken:  "worktoken",
+				AccountID: 2,
+			},
+			expectError: false,
+		},
+		{
+			name:    "save profile with platform token",
+			profile: "production",
+			account: Account{
+				BaseURL:       "https://prod.example.com",
+				APIToken:      "prodtoken",
+				AccountID:     3,
+				PlatformToken: "platform123",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+			cleanup := withMockKeyring(t, ring)
+			defer cleanup()
+
+			err := SaveProfile(tt.profile, tt.account)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Verify profile was saved
+			profile := tt.profile
+			if profile == "" {
+				profile = defaultProfile
+			}
+
+			item, err := ring.Get(profileKey(profile))
+			if err != nil {
+				t.Fatalf("Failed to get saved profile: %v", err)
+			}
+
+			var saved Account
+			if err := json.Unmarshal(item.Data, &saved); err != nil {
+				t.Fatalf("Failed to unmarshal saved account: %v", err)
+			}
+
+			if saved.BaseURL != tt.account.BaseURL {
+				t.Errorf("Saved BaseURL = %q, want %q", saved.BaseURL, tt.account.BaseURL)
+			}
+			if saved.APIToken != tt.account.APIToken {
+				t.Errorf("Saved APIToken = %q, want %q", saved.APIToken, tt.account.APIToken)
+			}
+			if saved.AccountID != tt.account.AccountID {
+				t.Errorf("Saved AccountID = %d, want %d", saved.AccountID, tt.account.AccountID)
+			}
+		})
+	}
+}
+
+func TestSaveProfileKeyringError(t *testing.T) {
+	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
+	defer cleanup()
+
+	err := SaveProfile("test", Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1})
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestLoadProfile(t *testing.T) {
+	tests := []struct {
+		name        string
+		profile     string
+		setup       func(*keyring.ArrayKeyring)
+		expected    Account
+		expectError bool
+	}{
+		{
+			name:    "load existing default profile",
+			profile: "",
+			setup: func(ring *keyring.ArrayKeyring) {
+				account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
+				data, _ := json.Marshal(account)
+				_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
+			},
+			expected:    Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1},
+			expectError: false,
+		},
+		{
+			name:    "load existing named profile",
+			profile: "work",
+			setup: func(ring *keyring.ArrayKeyring) {
+				account := Account{BaseURL: "https://work.example.com", APIToken: "worktoken", AccountID: 2}
+				data, _ := json.Marshal(account)
+				_ = ring.Set(keyring.Item{Key: profilePrefix + "work", Data: data})
+			},
+			expected:    Account{BaseURL: "https://work.example.com", APIToken: "worktoken", AccountID: 2},
+			expectError: false,
+		},
+		{
+			name:        "load non-existent profile",
+			profile:     "nonexistent",
+			setup:       func(ring *keyring.ArrayKeyring) {},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+			tt.setup(ring)
+			cleanup := withMockKeyring(t, ring)
+			defer cleanup()
+
+			result, err := LoadProfile(tt.profile)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if result.BaseURL != tt.expected.BaseURL {
+				t.Errorf("BaseURL = %q, want %q", result.BaseURL, tt.expected.BaseURL)
+			}
+			if result.APIToken != tt.expected.APIToken {
+				t.Errorf("APIToken = %q, want %q", result.APIToken, tt.expected.APIToken)
+			}
+			if result.AccountID != tt.expected.AccountID {
+				t.Errorf("AccountID = %d, want %d", result.AccountID, tt.expected.AccountID)
+			}
+		})
+	}
+}
+
+func TestLoadProfileInvalidJSON(t *testing.T) {
+	ring := testKeyring(nil)
+	_ = ring.Set(keyring.Item{Key: accountKey, Data: []byte("not valid json")})
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	_, err := LoadProfile("")
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestLoadProfileKeyringError(t *testing.T) {
+	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
+	defer cleanup()
+
+	_, err := LoadProfile("test")
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestDeleteProfile(t *testing.T) {
+	tests := []struct {
+		name    string
+		profile string
+		setup   func(*keyring.ArrayKeyring)
+	}{
+		{
+			name:    "delete existing default profile",
+			profile: "",
+			setup: func(ring *keyring.ArrayKeyring) {
+				account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
+				data, _ := json.Marshal(account)
+				_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
+				_ = saveProfileIndex(ring, []string{"default"})
+			},
+		},
+		{
+			name:    "delete existing named profile",
+			profile: "work",
+			setup: func(ring *keyring.ArrayKeyring) {
+				account := Account{BaseURL: "https://work.example.com", APIToken: "worktoken", AccountID: 2}
+				data, _ := json.Marshal(account)
+				_ = ring.Set(keyring.Item{Key: profilePrefix + "work", Data: data})
+				_ = saveProfileIndex(ring, []string{"default", "work"})
+			},
+		},
+		{
+			name:    "delete non-existent profile",
+			profile: "nonexistent",
+			setup:   func(ring *keyring.ArrayKeyring) {},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+			tt.setup(ring)
+			cleanup := withMockKeyring(t, ring)
+			defer cleanup()
+
+			err := DeleteProfile(tt.profile)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Verify profile was deleted
+			profile := tt.profile
+			if profile == "" {
+				profile = defaultProfile
+			}
+
+			_, err = ring.Get(profileKey(profile))
+			// Profile should be gone (either deleted or never existed)
+			if err == nil {
+				t.Error("Expected profile to be deleted")
+			}
+		})
+	}
+}
+
+func TestDeleteProfileKeyringError(t *testing.T) {
+	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
+	defer cleanup()
+
+	err := DeleteProfile("test")
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestDeleteProfileSwitchesCurrentProfile(t *testing.T) {
+	ring := testKeyring(nil)
+
+	// Setup: create two profiles with "work" as current
+	defaultAccount := Account{BaseURL: "https://default.example.com", APIToken: "defaulttoken", AccountID: 1}
+	workAccount := Account{BaseURL: "https://work.example.com", APIToken: "worktoken", AccountID: 2}
+
+	defaultData, _ := json.Marshal(defaultAccount)
+	workData, _ := json.Marshal(workAccount)
+
+	_ = ring.Set(keyring.Item{Key: accountKey, Data: defaultData})
+	_ = ring.Set(keyring.Item{Key: profilePrefix + "work", Data: workData})
+	_ = saveProfileIndex(ring, []string{"default", "work"})
+	_ = ring.Set(keyring.Item{Key: currentProfileKey, Data: []byte("work")})
+
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	// Delete current profile
+	err := DeleteProfile("work")
+	if err != nil {
+		t.Fatalf("DeleteProfile error: %v", err)
+	}
+
+	// Verify current profile switched to default
+	item, err := ring.Get(currentProfileKey)
+	if err != nil {
+		t.Fatalf("Failed to get current profile: %v", err)
+	}
+	if string(item.Data) != "default" {
+		t.Errorf("Current profile = %q, want %q", string(item.Data), "default")
+	}
+}
+
+func TestListProfiles(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(*keyring.ArrayKeyring)
+		expected []string
+	}{
+		{
+			name: "list profiles from index",
+			setup: func(ring *keyring.ArrayKeyring) {
+				_ = saveProfileIndex(ring, []string{"default", "work", "production"})
+			},
+			expected: []string{"default", "work", "production"},
+		},
+		{
+			name: "empty index but default account exists",
+			setup: func(ring *keyring.ArrayKeyring) {
+				account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
+				data, _ := json.Marshal(account)
+				_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
+			},
+			expected: []string{"default"},
+		},
+		{
+			name:     "no profiles",
+			setup:    func(ring *keyring.ArrayKeyring) {},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+			tt.setup(ring)
+			cleanup := withMockKeyring(t, ring)
+			defer cleanup()
+
+			result, err := ListProfiles()
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("ListProfiles() = %v, want %v", result, tt.expected)
+				return
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("ListProfiles()[%d] = %q, want %q", i, result[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestListProfilesKeyringError(t *testing.T) {
+	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
+	defer cleanup()
+
+	_, err := ListProfiles()
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestCurrentProfile(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(*keyring.ArrayKeyring)
+		expected string
+	}{
+		{
+			name: "current profile is set",
+			setup: func(ring *keyring.ArrayKeyring) {
+				_ = ring.Set(keyring.Item{Key: currentProfileKey, Data: []byte("work")})
+			},
+			expected: "work",
+		},
+		{
+			name:     "no current profile set returns default",
+			setup:    func(ring *keyring.ArrayKeyring) {},
+			expected: "default",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+			tt.setup(ring)
+			cleanup := withMockKeyring(t, ring)
+			defer cleanup()
+
+			result, err := CurrentProfile()
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if result != tt.expected {
+				t.Errorf("CurrentProfile() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCurrentProfileKeyringError(t *testing.T) {
+	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
+	defer cleanup()
+
+	_, err := CurrentProfile()
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestSetCurrentProfile(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  string
+		expected string
+	}{
+		{
+			name:     "set empty profile defaults to default",
+			profile:  "",
+			expected: "default",
+		},
+		{
+			name:     "set named profile",
+			profile:  "work",
+			expected: "work",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := testKeyring(nil)
+			cleanup := withMockKeyring(t, ring)
+			defer cleanup()
+
+			err := SetCurrentProfile(tt.profile)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			item, err := ring.Get(currentProfileKey)
+			if err != nil {
+				t.Fatalf("Failed to get current profile: %v", err)
+			}
+
+			if string(item.Data) != tt.expected {
+				t.Errorf("Current profile = %q, want %q", string(item.Data), tt.expected)
+			}
+		})
+	}
+}
+
+func TestSetCurrentProfileKeyringError(t *testing.T) {
+	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
+	defer cleanup()
+
+	err := SetCurrentProfile("test")
+	if err == nil {
+		t.Error("Expected error but got nil")
+	}
+}
+
+func TestSaveAccount(t *testing.T) {
+	ring := testKeyring(nil)
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
+	err := SaveAccount(account)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Verify saved under default key
+	item, err := ring.Get(accountKey)
+	if err != nil {
+		t.Fatalf("Failed to get saved account: %v", err)
+	}
+
+	var saved Account
+	if err := json.Unmarshal(item.Data, &saved); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if saved.BaseURL != account.BaseURL {
+		t.Errorf("BaseURL = %q, want %q", saved.BaseURL, account.BaseURL)
+	}
+}
+
+func TestDeleteAccount(t *testing.T) {
+	ring := testKeyring(nil)
+
+	// Setup: save default account
+	account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
+	data, _ := json.Marshal(account)
+	_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
+	_ = saveProfileIndex(ring, []string{"default"})
+
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	err := DeleteAccount()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Verify deleted
+	_, err = ring.Get(accountKey)
+	if !errors.Is(err, keyring.ErrKeyNotFound) {
+		t.Error("Expected account to be deleted")
+	}
+}
+
+func TestHasAccountWithEnvVars(t *testing.T) {
+	// Save original environment
+	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
+	origToken := os.Getenv("CHATWOOT_API_TOKEN")
+	origAccountID := os.Getenv("CHATWOOT_ACCOUNT_ID")
+	origProfile := os.Getenv("CHATWOOT_PROFILE")
+
+	// Restore environment after test
+	defer func() {
+		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
+		_ = os.Setenv("CHATWOOT_API_TOKEN", origToken)
+		_ = os.Setenv("CHATWOOT_ACCOUNT_ID", origAccountID)
+		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
+	}()
+
+	// Clear profile env
+	_ = os.Unsetenv("CHATWOOT_PROFILE")
+
+	// Set valid env vars
+	_ = os.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	_ = os.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	if !HasAccount() {
+		t.Error("HasAccount() = false, want true when env vars are set")
+	}
+}
+
+func TestHasAccountWithInvalidEnvVars(t *testing.T) {
+	// Save original environment
+	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
+	origToken := os.Getenv("CHATWOOT_API_TOKEN")
+	origAccountID := os.Getenv("CHATWOOT_ACCOUNT_ID")
+	origProfile := os.Getenv("CHATWOOT_PROFILE")
+
+	// Restore environment after test
+	defer func() {
+		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
+		_ = os.Setenv("CHATWOOT_API_TOKEN", origToken)
+		_ = os.Setenv("CHATWOOT_ACCOUNT_ID", origAccountID)
+		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
+	}()
+
+	// Clear profile env
+	_ = os.Unsetenv("CHATWOOT_PROFILE")
+
+	// Set invalid env vars (missing token)
+	_ = os.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	_ = os.Setenv("CHATWOOT_API_TOKEN", "")
+	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	if HasAccount() {
+		t.Error("HasAccount() = true, want false when env vars are invalid")
+	}
+}
+
+func TestHasAccountWithKeyring(t *testing.T) {
+	// Save original environment
+	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
+	origProfile := os.Getenv("CHATWOOT_PROFILE")
+
+	defer func() {
+		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
+		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
+	}()
+
+	// Clear env vars to force keyring lookup
+	_ = os.Unsetenv("CHATWOOT_BASE_URL")
+	_ = os.Unsetenv("CHATWOOT_PROFILE")
+
+	ring := testKeyring(nil)
+
+	// Setup: save default account
+	account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
+	data, _ := json.Marshal(account)
+	_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
+
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	if !HasAccount() {
+		t.Error("HasAccount() = false, want true when account in keyring")
+	}
+}
+
+func TestLoadAccountFromProfile(t *testing.T) {
+	// Save original environment
+	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
+	origProfile := os.Getenv("CHATWOOT_PROFILE")
+
+	defer func() {
+		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
+		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
+	}()
+
+	// Clear base URL to force profile lookup
+	_ = os.Unsetenv("CHATWOOT_BASE_URL")
+	_ = os.Setenv("CHATWOOT_PROFILE", "work")
+
+	ring := testKeyring(nil)
+
+	// Setup: save work profile
+	account := Account{BaseURL: "https://work.example.com", APIToken: "worktoken", AccountID: 2}
+	data, _ := json.Marshal(account)
+	_ = ring.Set(keyring.Item{Key: profilePrefix + "work", Data: data})
+
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	result, err := LoadAccount()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result.BaseURL != account.BaseURL {
+		t.Errorf("BaseURL = %q, want %q", result.BaseURL, account.BaseURL)
+	}
+}
+
+func TestLoadAccountFromCurrentProfile(t *testing.T) {
+	// Save original environment
+	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
+	origProfile := os.Getenv("CHATWOOT_PROFILE")
+
+	defer func() {
+		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
+		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
+	}()
+
+	// Clear all env vars
+	_ = os.Unsetenv("CHATWOOT_BASE_URL")
+	_ = os.Unsetenv("CHATWOOT_PROFILE")
+
+	ring := testKeyring(nil)
+
+	// Setup: save production profile and set as current
+	account := Account{BaseURL: "https://prod.example.com", APIToken: "prodtoken", AccountID: 3}
+	data, _ := json.Marshal(account)
+	_ = ring.Set(keyring.Item{Key: profilePrefix + "production", Data: data})
+	_ = ring.Set(keyring.Item{Key: currentProfileKey, Data: []byte("production")})
+
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	result, err := LoadAccount()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result.BaseURL != account.BaseURL {
+		t.Errorf("BaseURL = %q, want %q", result.BaseURL, account.BaseURL)
+	}
+}
+
+func TestProfileKeyEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  string
+		expected string
+	}{
+		{
+			name:     "profile with spaces",
+			profile:  "my profile",
+			expected: profilePrefix + "my profile",
+		},
+		{
+			name:     "profile with special chars",
+			profile:  "profile@work",
+			expected: profilePrefix + "profile@work",
+		},
+		{
+			name:     "profile with numbers",
+			profile:  "profile123",
+			expected: profilePrefix + "profile123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := profileKey(tt.profile)
+			if result != tt.expected {
+				t.Errorf("profileKey(%q) = %q, want %q", tt.profile, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestAccountJSONOmitEmpty(t *testing.T) {
+	account := Account{
+		BaseURL:   "https://example.com",
+		APIToken:  "token",
+		AccountID: 1,
+		// PlatformToken intentionally empty
+	}
+
+	data, err := json.Marshal(account)
+	if err != nil {
+		t.Fatalf("Marshal error: %v", err)
+	}
+
+	// Verify platform_token is not in JSON
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+
+	if _, exists := m["platform_token"]; exists {
+		t.Error("platform_token should be omitted when empty")
+	}
+}
+
+func TestSaveProfileUpdatesIndex(t *testing.T) {
+	ring := testKeyring(nil)
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	// Save first profile
+	err := SaveProfile("work", Account{BaseURL: "https://work.example.com", APIToken: "token1", AccountID: 1})
+	if err != nil {
+		t.Fatalf("SaveProfile error: %v", err)
+	}
+
+	// Save second profile
+	err = SaveProfile("production", Account{BaseURL: "https://prod.example.com", APIToken: "token2", AccountID: 2})
+	if err != nil {
+		t.Fatalf("SaveProfile error: %v", err)
+	}
+
+	// Verify index contains both
+	profiles, err := loadProfileIndex(ring)
+	if err != nil {
+		t.Fatalf("loadProfileIndex error: %v", err)
+	}
+
+	if len(profiles) != 2 {
+		t.Errorf("Expected 2 profiles, got %d", len(profiles))
+	}
+
+	hasWork := false
+	hasProd := false
+	for _, p := range profiles {
+		if p == "work" {
+			hasWork = true
+		}
+		if p == "production" {
+			hasProd = true
+		}
+	}
+	if !hasWork {
+		t.Error("Missing 'work' profile in index")
+	}
+	if !hasProd {
+		t.Error("Missing 'production' profile in index")
+	}
+}
+
+func TestDeleteProfileRemovesFromIndex(t *testing.T) {
+	ring := testKeyring(nil)
+	cleanup := withMockKeyring(t, ring)
+	defer cleanup()
+
+	// Setup: create profiles
+	_ = saveProfileIndex(ring, []string{"default", "work", "production"})
+	account := Account{BaseURL: "https://work.example.com", APIToken: "token", AccountID: 1}
+	data, _ := json.Marshal(account)
+	_ = ring.Set(keyring.Item{Key: profilePrefix + "work", Data: data})
+
+	// Delete work profile
+	err := DeleteProfile("work")
+	if err != nil {
+		t.Fatalf("DeleteProfile error: %v", err)
+	}
+
+	// Verify index no longer contains work
+	profiles, err := loadProfileIndex(ring)
+	if err != nil {
+		t.Fatalf("loadProfileIndex error: %v", err)
+	}
+
+	for _, p := range profiles {
+		if p == "work" {
+			t.Error("'work' profile should be removed from index")
+		}
+	}
+}
