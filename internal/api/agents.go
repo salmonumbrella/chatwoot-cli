@@ -73,6 +73,21 @@ func (c *Client) DeleteAgent(ctx context.Context, id int) error {
 	return c.Delete(ctx, path)
 }
 
+// BulkCreateAgentsRequest represents a request to create multiple agents
+type BulkCreateAgentsRequest struct {
+	Emails []string `json:"emails"`
+}
+
+// BulkCreateAgents creates multiple agents at once
+func (c *Client) BulkCreateAgents(ctx context.Context, emails []string) ([]Agent, error) {
+	body := BulkCreateAgentsRequest{Emails: emails}
+	var result []Agent
+	if err := c.Post(ctx, "/agents/bulk_create", body, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // FindAgentByNameOrEmail searches for an agent by name or email (case-insensitive partial match)
 // Returns the first matching agent, or an error if no match or multiple ambiguous matches found
 func (c *Client) FindAgentByNameOrEmail(ctx context.Context, query string) (*Agent, error) {

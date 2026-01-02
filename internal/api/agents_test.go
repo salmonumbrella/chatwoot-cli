@@ -415,3 +415,76 @@ func TestDeleteAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestBulkCreateAgents(t *testing.T) {
+	tests := []struct {
+		name         string
+		emails       []string
+		statusCode   int
+		responseBody string
+		expectError  bool
+		expectedLen  int
+	}{
+		{
+			name:       "successful bulk create",
+			emails:     []string{"agent1@example.com", "agent2@example.com"},
+			statusCode: http.StatusOK,
+			responseBody: `[
+				{"id": 1, "name": "Agent One", "email": "agent1@example.com", "role": "agent"},
+				{"id": 2, "name": "Agent Two", "email": "agent2@example.com", "role": "agent"}
+			]`,
+			expectError: false,
+			expectedLen: 2,
+		},
+		{
+			name:       "single email",
+			emails:     []string{"single@example.com"},
+			statusCode: http.StatusOK,
+			responseBody: `[
+				{"id": 1, "name": "Single Agent", "email": "single@example.com", "role": "agent"}
+			]`,
+			expectError: false,
+			expectedLen: 1,
+		},
+		{
+			name:         "validation error",
+			emails:       []string{"invalid-email"},
+			statusCode:   http.StatusUnprocessableEntity,
+			responseBody: `{"error": "invalid email format"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+
+				expectedPath := "/api/v1/accounts/1/agents/bulk_create"
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.BulkCreateAgents(context.Background(), tt.emails)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && len(result) != tt.expectedLen {
+				t.Errorf("Expected %d agents, got %d", tt.expectedLen, len(result))
+			}
+		})
+	}
+}
