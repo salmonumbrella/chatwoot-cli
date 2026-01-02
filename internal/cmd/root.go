@@ -174,6 +174,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newCompletionsCmd())
+	root.AddCommand(newMentionsCmd())
 
 	err := root.Execute()
 	if err != nil {
