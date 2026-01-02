@@ -255,6 +255,27 @@ const setupTemplate = `<!DOCTYPE html>
             border-color: #2a2a3e;
         }
 
+        input.error {
+            border-color: var(--error);
+            box-shadow: 0 0 0 3px var(--error-glow);
+        }
+
+        input.error:focus {
+            border-color: var(--error);
+            box-shadow: 0 0 0 3px var(--error-glow);
+        }
+
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
         .input-hint {
             font-size: 0.75rem;
             color: var(--text-dim);
@@ -618,14 +639,34 @@ const setupTemplate = `<!DOCTYPE html>
         accountIdInput.addEventListener('input', updateDynamicLinks);
         updateDynamicLinks(); // Initialize on load
 
+        function validateFields() {
+            const fields = [
+                { el: document.getElementById('baseUrl'), value: document.getElementById('baseUrl').value.trim() },
+                { el: document.getElementById('accountId'), value: document.getElementById('accountId').value.trim() },
+                { el: document.getElementById('apiToken'), value: document.getElementById('apiToken').value.trim() }
+            ];
+            let valid = true;
+            fields.forEach(f => {
+                if (!f.value) {
+                    f.el.classList.add('error');
+                    valid = false;
+                } else {
+                    f.el.classList.remove('error');
+                }
+            });
+            return valid;
+        }
+
+        // Clear error state on input
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => input.classList.remove('error'));
+        });
+
         testBtn.addEventListener('click', async () => {
+            hideStatus();
+            if (!validateFields()) return;
+
             const data = getFormData();
-
-            if (!data.base_url || !data.api_token || !data.account_id) {
-                showStatus('error', 'Please fill in all fields');
-                return;
-            }
-
             testBtn.disabled = true;
             submitBtn.disabled = true;
             showStatus('loading', 'Testing connection...');
@@ -657,14 +698,10 @@ const setupTemplate = `<!DOCTYPE html>
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            hideStatus();
+            if (!validateFields()) return;
 
             const data = getFormData();
-
-            if (!data.base_url || !data.api_token || !data.account_id) {
-                showStatus('error', 'Please fill in all fields');
-                return;
-            }
-
             testBtn.disabled = true;
             submitBtn.disabled = true;
             showStatus('loading', 'Saving credentials...');
