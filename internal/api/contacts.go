@@ -68,6 +68,16 @@ func (c *Client) CreateContact(ctx context.Context, name, email, phone string) (
 	return &result.Payload.Contact, nil
 }
 
+// CreateContactFromMap creates a new contact using a map of fields.
+// This allows passing arbitrary fields like identifier, custom_attributes, etc.
+func (c *Client) CreateContactFromMap(ctx context.Context, body map[string]any) (*Contact, error) {
+	var result ContactCreateResponse
+	if err := c.Post(ctx, "/contacts", body, &result); err != nil {
+		return nil, err
+	}
+	return &result.Payload.Contact, nil
+}
+
 // UpdateContact updates an existing contact
 func (c *Client) UpdateContact(ctx context.Context, id int, name, email, phone string) (*Contact, error) {
 	body := map[string]any{}

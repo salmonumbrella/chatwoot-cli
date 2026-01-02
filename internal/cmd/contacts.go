@@ -183,36 +183,87 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 
 func newContactsCreateCmd() *cobra.Command {
 	var (
-		name  string
-		email string
-		phone string
+		name      string
+		email     string
+		phone     string
+		fromStdin bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new contact",
-		Long:  "Create a new contact with the specified name, email, and/or phone number",
+		Long: `Create a new contact with the specified name, email, and/or phone number.
+
+When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
+		Example: `  # Create contact with flags
+  chatwoot contacts create --name "John Doe" --email "john@example.com"
+
+  # Create contact from JSON stdin
+  echo '{"name":"John","email":"john@test.com"}' | chatwoot contacts create --json
+
+  # JSON stdin with flag override (flag takes precedence)
+  echo '{"name":"JSON Name","email":"json@test.com"}' | chatwoot contacts create --json --name "Override Name"
+
+  # Create contact with additional fields via JSON
+  cat <<EOF | chatwoot contacts create --json
+  {
+    "name": "Full Contact",
+    "email": "full@test.com",
+    "identifier": "ext-123",
+    "custom_attributes": {"plan": "enterprise"}
+  }
+  EOF`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if name == "" {
+			var body map[string]any
+
+			// If --json flag is set, read from stdin
+			if fromStdin {
+				stdinData, err := readJSONFromStdin()
+				if err != nil {
+					return err
+				}
+				body = stdinData
+			} else {
+				body = make(map[string]any)
+			}
+
+			// CLI flags override stdin JSON values
+			if name != "" {
+				body["name"] = name
+			}
+			if email != "" {
+				body["email"] = email
+			}
+			if phone != "" {
+				body["phone_number"] = phone
+			}
+
+			// Get the final name value for validation
+			finalName, _ := body["name"].(string)
+			if finalName == "" {
 				return fmt.Errorf("--name is required")
 			}
 
+			// Get values for validation
+			finalEmail, _ := body["email"].(string)
+			finalPhone, _ := body["phone_number"].(string)
+
 			// Validate input lengths
-			if err := validation.ValidateName(name); err != nil {
+			if err := validation.ValidateName(finalName); err != nil {
 				return err
 			}
-			if err := validation.ValidateEmail(email); err != nil {
+			if err := validation.ValidateEmail(finalEmail); err != nil {
 				return err
 			}
-			if err := validation.ValidatePhone(phone); err != nil {
+			if err := validation.ValidatePhone(finalPhone); err != nil {
 				return err
 			}
 
 			// Validate input formats
-			if err := validation.ValidateEmailFormat(email); err != nil {
+			if err := validation.ValidateEmailFormat(finalEmail); err != nil {
 				return err
 			}
-			if err := validation.ValidatePhoneFormat(phone); err != nil {
+			if err := validation.ValidatePhoneFormat(finalPhone); err != nil {
 				return err
 			}
 
@@ -221,7 +272,7 @@ func newContactsCreateCmd() *cobra.Command {
 				return err
 			}
 
-			contact, err := client.CreateContact(cmdContext(cmd), name, email, phone)
+			contact, err := client.CreateContactFromMap(cmdContext(cmd), body)
 			if err != nil {
 				return fmt.Errorf("failed to create contact: %w", err)
 			}
@@ -245,9 +296,10 @@ func newContactsCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Contact name (required)")
+	cmd.Flags().StringVar(&name, "name", "", "Contact name (required unless provided via --json)")
 	cmd.Flags().StringVar(&email, "email", "", "Contact email address")
 	cmd.Flags().StringVar(&phone, "phone", "", "Contact phone number")
+	cmd.Flags().BoolVar(&fromStdin, "json", false, "Read contact data from stdin as JSON")
 
 	return cmd
 }

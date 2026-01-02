@@ -3,8 +3,10 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
@@ -200,6 +202,28 @@ func splitCommaList(value string) []string {
 		out = append(out, part)
 	}
 	return out
+}
+
+// readJSONFromStdin reads JSON data from stdin and parses it into a map
+func readJSONFromStdin() (map[string]any, error) {
+	// Read all data from stdin
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read from stdin: %w", err)
+	}
+
+	// Check if we got any data
+	if len(data) == 0 {
+		return nil, fmt.Errorf("no input data provided on stdin")
+	}
+
+	// Parse the JSON
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("invalid JSON input: %w", err)
+	}
+
+	return result, nil
 }
 
 type selectOption struct {
