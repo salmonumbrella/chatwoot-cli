@@ -25,6 +25,11 @@ func newInboxesCmd() *cobra.Command {
 	cmd.AddCommand(newInboxesAgentBotCmd())
 	cmd.AddCommand(newInboxesSetAgentBotCmd())
 	cmd.AddCommand(newInboxesTriageCmd())
+	cmd.AddCommand(newInboxesCampaignsCmd())
+	cmd.AddCommand(newInboxesSyncTemplatesCmd())
+	cmd.AddCommand(newInboxesHealthCmd())
+	cmd.AddCommand(newInboxesDeleteAvatarCmd())
+	cmd.AddCommand(newInboxesCSATTemplateCmd())
 
 	return cmd
 }
@@ -535,4 +540,237 @@ func truncateString(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func newInboxesCampaignsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "campaigns <id>",
+		Short: "List campaigns for an inbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			campaigns, err := client.GetInboxCampaigns(cmdContext(cmd), id)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, campaigns)
+			}
+
+			if len(campaigns) == 0 {
+				fmt.Println("No campaigns found for this inbox")
+				return nil
+			}
+
+			w := newTabWriter()
+			_, _ = fmt.Fprintln(w, "ID\tTITLE\tTYPE\tENABLED")
+			for _, c := range campaigns {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%v\n",
+					c.ID, c.Title, c.CampaignType, c.Enabled)
+			}
+			_ = w.Flush()
+
+			return nil
+		},
+	}
+}
+
+func newInboxesSyncTemplatesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync-templates <id>",
+		Short: "Sync WhatsApp templates for an inbox",
+		Long:  "Sync WhatsApp message templates from the WhatsApp Business API for this inbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.SyncInboxTemplates(cmdContext(cmd), id); err != nil {
+				return err
+			}
+
+			fmt.Printf("Successfully synced templates for inbox %d\n", id)
+			return nil
+		},
+	}
+}
+
+func newInboxesHealthCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "health <id>",
+		Short: "Get WhatsApp Cloud API health status for an inbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			health, err := client.GetInboxHealth(cmdContext(cmd), id)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, health)
+			}
+
+			w := newTabWriter()
+			defer func() { _ = w.Flush() }()
+
+			for k, v := range health {
+				_, _ = fmt.Fprintf(w, "%s:\t%v\n", k, v)
+			}
+
+			return nil
+		},
+	}
+}
+
+func newInboxesDeleteAvatarCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete-avatar <id>",
+		Short: "Remove the inbox avatar",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			if err := client.DeleteInboxAvatar(cmdContext(cmd), id); err != nil {
+				return err
+			}
+
+			fmt.Printf("Deleted avatar for inbox %d\n", id)
+			return nil
+		},
+	}
+}
+
+func newInboxesCSATTemplateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "csat-template <id>",
+		Short: "Get or set CSAT survey template for an inbox",
+		Args:  cobra.ExactArgs(1),
+	}
+
+	cmd.AddCommand(newInboxesCSATTemplateGetCmd())
+	cmd.AddCommand(newInboxesCSATTemplateSetCmd())
+
+	return cmd
+}
+
+func newInboxesCSATTemplateGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <inbox-id>",
+		Short: "Get the CSAT survey template for an inbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			template, err := client.GetInboxCSATTemplate(cmdContext(cmd), id)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, template)
+			}
+
+			w := newTabWriter()
+			defer func() { _ = w.Flush() }()
+
+			_, _ = fmt.Fprintf(w, "ID:\t%d\n", template.ID)
+			_, _ = fmt.Fprintf(w, "Question:\t%s\n", template.Question)
+			_, _ = fmt.Fprintf(w, "Message:\t%s\n", template.Message)
+
+			return nil
+		},
+	}
+}
+
+func newInboxesCSATTemplateSetCmd() *cobra.Command {
+	var (
+		question string
+		message  string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "set <inbox-id>",
+		Short: "Create or update the CSAT survey template for an inbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			if question == "" {
+				return fmt.Errorf("question is required")
+			}
+			if message == "" {
+				return fmt.Errorf("message is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			template, err := client.CreateInboxCSATTemplate(cmdContext(cmd), id, question, message)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, template)
+			}
+
+			fmt.Printf("Updated CSAT template for inbox %d\n", id)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&question, "question", "", "Survey question (required)")
+	cmd.Flags().StringVar(&message, "message", "", "Survey message (required)")
+	_ = cmd.MarkFlagRequired("question")
+	_ = cmd.MarkFlagRequired("message")
+
+	return cmd
 }
