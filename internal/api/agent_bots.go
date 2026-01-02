@@ -60,3 +60,20 @@ func (c *Client) DeleteAgentBot(ctx context.Context, id int) error {
 	path := fmt.Sprintf("/agent_bots/%d", id)
 	return c.Delete(ctx, path)
 }
+
+// DeleteAgentBotAvatar removes the avatar from an agent bot
+func (c *Client) DeleteAgentBotAvatar(ctx context.Context, id int) error {
+	return c.Delete(ctx, fmt.Sprintf("/agent_bots/%d/avatar", id))
+}
+
+// ResetAgentBotAccessToken resets the access token for an agent bot
+func (c *Client) ResetAgentBotAccessToken(ctx context.Context, id int) (string, error) {
+	path := fmt.Sprintf("/agent_bots/%d/reset_access_token", id)
+	var result struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := c.Post(ctx, path, nil, &result); err != nil {
+		return "", err
+	}
+	return result.AccessToken, nil
+}

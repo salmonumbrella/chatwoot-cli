@@ -331,3 +331,108 @@ func TestDeleteAgentBot(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteAgentBotAvatar(t *testing.T) {
+	tests := []struct {
+		name        string
+		botID       int
+		statusCode  int
+		expectError bool
+	}{
+		{
+			name:        "successful delete avatar",
+			botID:       1,
+			statusCode:  http.StatusOK,
+			expectError: false,
+		},
+		{
+			name:        "not found",
+			botID:       999,
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodDelete {
+					t.Errorf("Expected DELETE, got %s", r.Method)
+				}
+				expectedPath := "/api/v1/accounts/1/agent_bots/1/avatar"
+				if tt.botID == 999 {
+					expectedPath = "/api/v1/accounts/1/agent_bots/999/avatar"
+				}
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.DeleteAgentBotAvatar(context.Background(), tt.botID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestResetAgentBotAccessToken(t *testing.T) {
+	tests := []struct {
+		name         string
+		botID        int
+		statusCode   int
+		responseBody string
+		expectError  bool
+		expectToken  string
+	}{
+		{
+			name:         "successful reset",
+			botID:        1,
+			statusCode:   http.StatusOK,
+			responseBody: `{"access_token": "new_test_token_123"}`,
+			expectError:  false,
+			expectToken:  "new_test_token_123",
+		},
+		{
+			name:         "not found",
+			botID:        999,
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": "not found"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			token, err := client.ResetAgentBotAccessToken(context.Background(), tt.botID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if token != tt.expectToken {
+				t.Errorf("Expected token %s, got %s", tt.expectToken, token)
+			}
+		})
+	}
+}
