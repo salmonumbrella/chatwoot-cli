@@ -1212,3 +1212,253 @@ func TestCampaignTitleEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestCampaignsUpdateCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/campaigns/1", jsonResponse(200, `{"id": 1, "title": "Updated Campaign"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--title", "Updated Campaign",
+		"-o", "json",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("campaigns update failed: %v", err)
+	}
+
+	var campaign map[string]any
+	if err := json.Unmarshal([]byte(output), &campaign); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+}
+
+func TestCampaignsUpdateCommand_WithScheduledAt(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/campaigns/1", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 1, "title": "Campaign"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--scheduled-at", "2025-01-15T10:00:00Z",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	if err != nil {
+		t.Errorf("campaigns update failed: %v", err)
+	}
+
+	if receivedBody["scheduled_at"] == nil || receivedBody["scheduled_at"].(float64) == 0 {
+		t.Errorf("expected scheduled_at to be set, got %v", receivedBody["scheduled_at"])
+	}
+}
+
+func TestCampaignsUpdateCommand_InvalidScheduledAt(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--scheduled-at", "invalid-date",
+	})
+	if err == nil {
+		t.Error("expected error for invalid scheduled-at")
+	}
+	if !strings.Contains(err.Error(), "RFC3339") {
+		t.Errorf("expected 'RFC3339' error, got: %v", err)
+	}
+}
+
+func TestCampaignsUpdateCommand_WithLabels(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/campaigns/1", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 1, "title": "Campaign"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--labels", "1,2,3",
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	if err != nil {
+		t.Errorf("campaigns update failed: %v", err)
+	}
+
+	audience, ok := receivedBody["audience"].([]any)
+	if !ok || len(audience) != 3 {
+		t.Errorf("expected 3 audience items, got %v", receivedBody["audience"])
+	}
+}
+
+func TestCampaignsUpdateCommand_WithAudience(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/campaigns/1", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 1, "title": "Campaign"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--audience", `[{"type":"Label","id":1}]`,
+	})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	if err != nil {
+		t.Errorf("campaigns update failed: %v", err)
+	}
+
+	audience, ok := receivedBody["audience"].([]any)
+	if !ok || len(audience) != 1 {
+		t.Errorf("expected 1 audience item, got %v", receivedBody["audience"])
+	}
+}
+
+func TestCampaignsUpdateCommand_InvalidLabelsID(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--labels", "abc,def",
+	})
+	if err == nil {
+		t.Error("expected error for invalid labels")
+	}
+	if !strings.Contains(err.Error(), "label ID") {
+		t.Errorf("expected 'label ID' error, got: %v", err)
+	}
+}
+
+func TestCampaignsUpdateCommand_InvalidAudienceJSON(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "1",
+		"--audience", "invalid-json",
+	})
+	if err == nil {
+		t.Error("expected error for invalid audience JSON")
+	}
+	if !strings.Contains(err.Error(), "invalid audience JSON") {
+		t.Errorf("expected 'invalid audience JSON' error, got: %v", err)
+	}
+}
+
+func TestCampaignsUpdateCommand_InvalidID(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "update", "invalid",
+		"--title", "Test",
+	})
+	if err == nil {
+		t.Error("expected error for invalid ID")
+	}
+	if !strings.Contains(err.Error(), "ID") {
+		t.Errorf("expected 'ID' error, got: %v", err)
+	}
+}
+
+func TestCampaignsDeleteCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/campaigns/1", jsonResponse(200, ``))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"campaigns", "delete", "1", "--force", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	if err != nil {
+		t.Errorf("campaigns delete failed: %v", err)
+	}
+}
+
+func TestCampaignsDeleteCommand_APIError(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/campaigns/1", jsonResponse(500, `{"error": "Internal Server Error"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"campaigns", "delete", "1", "--force"})
+	if err == nil {
+		t.Error("expected error for API failure")
+	}
+}

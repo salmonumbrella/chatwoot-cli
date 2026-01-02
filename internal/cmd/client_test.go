@@ -645,3 +645,652 @@ func TestConversationIDValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestClientContactsCreateWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/public/api/v1/inboxes/inbox-123/contacts", jsonResponse(201, `{"id":1,"name":"New Contact","email":"new@example.com","source_id":"new-contact"}`))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("create contact success", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+
+		cmd := newClientContactsCreateCmd(&baseURL, &inboxID)
+		cmd.SetArgs([]string{})
+		_ = cmd.Flags().Set("name", "New Contact")
+		_ = cmd.Flags().Set("email", "new@example.com")
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Created contact") {
+			t.Errorf("Expected 'Created contact' in output, got: %s", output)
+		}
+	})
+
+	t.Run("create contact JSON output", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+
+		cmd := newClientContactsCreateCmd(&baseURL, &inboxID)
+		cmd.SetArgs([]string{"-o", "json"})
+		_ = cmd.Flags().Set("name", "New Contact")
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, `"id"`) {
+			t.Errorf("Expected JSON output, got: %s", output)
+		}
+	})
+
+	t.Run("create contact with custom attributes", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+
+		cmd := newClientContactsCreateCmd(&baseURL, &inboxID)
+		cmd.SetArgs([]string{})
+		_ = cmd.Flags().Set("name", "Test")
+		_ = cmd.Flags().Set("custom-attributes", `{"key":"value"}`)
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Created contact") {
+			t.Errorf("Expected 'Created contact' in output, got: %s", output)
+		}
+	})
+
+	t.Run("create contact with invalid custom attributes", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+
+		cmd := newClientContactsCreateCmd(&baseURL, &inboxID)
+		cmd.SetArgs([]string{})
+		_ = cmd.Flags().Set("custom-attributes", `invalid-json`)
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for invalid JSON")
+		}
+		if !strings.Contains(err.Error(), "invalid custom-attributes JSON") {
+			t.Errorf("Expected 'invalid custom-attributes JSON' error, got: %v", err)
+		}
+	})
+
+	t.Run("create contact API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("POST", "/public/api/v1/inboxes/inbox-123/contacts", jsonResponse(400, `{"error":"bad request"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
+		inboxID := "inbox-123"
+
+		cmd := newClientContactsCreateCmd(&baseURL, &inboxID)
+		cmd.SetArgs([]string{})
+		_ = cmd.Flags().Set("name", "Test")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 400 response")
+		}
+	})
+}
+
+func TestClientConversationsCreateWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations", jsonResponse(201, `{"id":1,"status":"open"}`))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("create conversation success", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Created conversation") {
+			t.Errorf("Expected 'Created conversation' in output, got: %s", output)
+		}
+	})
+
+	t.Run("create conversation JSON output", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"-o", "json"})
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, `"id"`) {
+			t.Errorf("Expected JSON output, got: %s", output)
+		}
+	})
+
+	t.Run("create conversation with custom attributes", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+		_ = cmd.Flags().Set("custom-attributes", `{"key":"value"}`)
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Created conversation") {
+			t.Errorf("Expected 'Created conversation' in output, got: %s", output)
+		}
+	})
+
+	t.Run("create conversation with invalid custom attributes", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+		_ = cmd.Flags().Set("custom-attributes", `{invalid}`)
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for invalid JSON")
+		}
+		if !strings.Contains(err.Error(), "invalid custom-attributes JSON") {
+			t.Errorf("Expected 'invalid custom-attributes JSON' error, got: %v", err)
+		}
+	})
+
+	t.Run("create conversation missing inbox", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := ""
+		contactID := "contact-123"
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing inbox")
+		}
+		if !strings.Contains(err.Error(), "--inbox is required") {
+			t.Errorf("Expected '--inbox is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("create conversation missing contact", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := ""
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing contact")
+		}
+		if !strings.Contains(err.Error(), "--contact is required") {
+			t.Errorf("Expected '--contact is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("create conversation API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
+		}
+	})
+}
+
+func TestClientConversationsResolveWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/toggle_status", jsonResponse(200, `{"id":1,"status":"resolved"}`))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("resolve conversation missing inbox", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := ""
+		contactID := "contact-123"
+
+		cmd := newClientConversationsResolveCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing inbox")
+		}
+		if !strings.Contains(err.Error(), "--inbox is required") {
+			t.Errorf("Expected '--inbox is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("resolve conversation missing contact", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := ""
+
+		cmd := newClientConversationsResolveCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing contact")
+		}
+		if !strings.Contains(err.Error(), "--contact is required") {
+			t.Errorf("Expected '--contact is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("resolve conversation invalid ID", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsResolveCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"invalid"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for invalid conversation ID")
+		}
+	})
+
+	t.Run("resolve conversation JSON output", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsResolveCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1", "-o", "json"})
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, `"id"`) {
+			t.Errorf("Expected JSON output, got: %s", output)
+		}
+	})
+}
+
+func TestClientConversationsGetWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1", jsonResponse(200, `{"id":1,"status":"open"}`))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("get conversation JSON output", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsGetCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1", "-o", "json"})
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, `"id"`) {
+			t.Errorf("Expected JSON output, got: %s", output)
+		}
+	})
+
+	t.Run("get conversation missing inbox", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := ""
+		contactID := "contact-123"
+
+		cmd := newClientConversationsGetCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing inbox")
+		}
+	})
+
+	t.Run("get conversation missing contact", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := ""
+
+		cmd := newClientConversationsGetCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing contact")
+		}
+	})
+}
+
+func TestClientMessagesCreateWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/messages", jsonResponse(201, `{"id":1,"content":"Hello"}`))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("create message JSON output", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientMessagesCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1", "-o", "json"})
+		_ = cmd.Flags().Set("content", "Hello")
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, `"id"`) {
+			t.Errorf("Expected JSON output, got: %s", output)
+		}
+	})
+
+	t.Run("create message with echo-id", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientMessagesCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("content", "Hello")
+		_ = cmd.Flags().Set("echo-id", "echo-123")
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "Sent message") {
+			t.Errorf("Expected 'Sent message' in output, got: %s", output)
+		}
+	})
+
+	t.Run("create message missing inbox", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := ""
+		contactID := "contact-123"
+
+		cmd := newClientMessagesCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("content", "Hello")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing inbox")
+		}
+	})
+
+	t.Run("create message missing contact", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := ""
+
+		cmd := newClientMessagesCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("content", "Hello")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing contact")
+		}
+	})
+
+	t.Run("create message invalid conversation ID", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientMessagesCreateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"invalid"})
+		_ = cmd.Flags().Set("content", "Hello")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for invalid conversation ID")
+		}
+	})
+}
+
+func TestClientTypingWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/toggle_typing", jsonResponse(200, ``))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("typing API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/toggle_typing", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientTypingCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("status", "on")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
+		}
+	})
+
+	t.Run("typing off status", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientTypingCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("status", "off")
+		output := captureStdout(t, func() {
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "off") {
+			t.Errorf("Expected 'off' in output, got: %s", output)
+		}
+	})
+
+	t.Run("typing missing inbox", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := ""
+		contactID := "contact-123"
+
+		cmd := newClientTypingCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("status", "on")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing inbox")
+		}
+	})
+
+	t.Run("typing missing contact", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := ""
+
+		cmd := newClientTypingCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+		_ = cmd.Flags().Set("status", "on")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing contact")
+		}
+	})
+
+	t.Run("typing invalid conversation ID", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientTypingCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"invalid"})
+		_ = cmd.Flags().Set("status", "on")
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for invalid conversation ID")
+		}
+	})
+}
+
+func TestClientLastSeenWithServer(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/update_last_seen", jsonResponse(200, ``))
+
+	env := setupTestEnvWithHandler(t, handler)
+
+	t.Run("last seen API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/update_last_seen", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientLastSeenUpdateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
+		}
+	})
+
+	t.Run("last seen missing inbox", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := ""
+		contactID := "contact-123"
+
+		cmd := newClientLastSeenUpdateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing inbox")
+		}
+	})
+
+	t.Run("last seen missing contact", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := ""
+
+		cmd := newClientLastSeenUpdateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"1"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing contact")
+		}
+	})
+
+	t.Run("last seen invalid conversation ID", func(t *testing.T) {
+		baseURL := env.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientLastSeenUpdateCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{"invalid"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for invalid conversation ID")
+		}
+	})
+}
+
+func TestClientConversationsListWithServer(t *testing.T) {
+	t.Run("list conversations API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("GET", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientConversationsListCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
+		}
+	})
+}
+
+func TestClientContactsGetWithServer(t *testing.T) {
+	t.Run("get contact API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("GET", "/public/api/v1/inboxes/inbox-123/contacts/contact-123", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
+		inboxID := "inbox-123"
+		contactID := "contact-123"
+
+		cmd := newClientContactsGetCmd(&baseURL, &inboxID, &contactID)
+		cmd.SetArgs([]string{})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
+		}
+	})
+}
