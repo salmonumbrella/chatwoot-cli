@@ -1,5 +1,56 @@
 package auth
 
+// chatwootLogoSVG is the Chatwoot logo used in both templates.
+// Note: The viewBox and basic SVG attributes are included here; wrapper attributes
+// (class, width/height for sizing) are added by each template.
+const chatwootLogoSVG = `<circle cx="256" cy="256" fill="#47A7F6" r="256"/><path d="M362.807947,368.807947 L244.122956,368.807947 C178.699407,368.807947 125.456954,315.561812 125.456954,250.12177 C125.456954,184.703089 178.699407,131.456954 244.124143,131.456954 C309.565494,131.456954 362.807947,184.703089 362.807947,250.12177 L362.807947,368.807947 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="6"/>`
+
+// githubIconSVG is the GitHub icon used in the footer of both templates.
+const githubIconSVG = `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>`
+
+// footerCSS contains the shared footer styles used in both templates.
+const footerCSS = `
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.8125rem;
+            color: var(--text-dim);
+        }
+
+        .footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover {
+            color: var(--chatwoot-blue);
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .github-link svg {
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .github-link:hover svg {
+            opacity: 1;
+        }
+`
+
+// fadeUpAnimationCSS contains the shared fadeUp animation used in both templates.
+const fadeUpAnimationCSS = `
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+`
+
 const setupTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -377,38 +428,7 @@ const setupTemplate = `<!DOCTYPE html>
         }
 
         /* Footer */
-        .footer {
-            text-align: center;
-            margin-top: 2rem;
-            font-size: 0.8125rem;
-            color: var(--text-dim);
-        }
-
-        .footer a {
-            color: var(--text-muted);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        .footer a:hover {
-            color: #2D52F6;
-        }
-
-        .github-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .github-link svg {
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-
-        .github-link:hover svg {
-            opacity: 1;
-        }
-
+` + footerCSS + `
         /* Animations */
         .fade-in {
             animation: fadeIn 0.5s ease forwards;
@@ -433,8 +453,7 @@ const setupTemplate = `<!DOCTYPE html>
         <div class="logo-section fade-in">
             <div class="logo">
                 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="256" cy="256" fill="#47A7F6" r="256"/>
-                    <path d="M362.807947,368.807947 L244.122956,368.807947 C178.699407,368.807947 125.456954,315.561812 125.456954,250.12177 C125.456954,184.703089 178.699407,131.456954 244.124143,131.456954 C309.565494,131.456954 362.807947,184.703089 362.807947,250.12177 L362.807947,368.807947 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="6"/>
+                    ` + chatwootLogoSVG + `
                 </svg>
             </div>
             <h1>Connect to Chatwoot</h1>
@@ -510,9 +529,7 @@ const setupTemplate = `<!DOCTYPE html>
 
         <div class="footer fade-in" style="animation-delay: 0.2s; opacity: 0;">
             <a href="https://github.com/salmonumbrella/chatwoot-cli" target="_blank" class="github-link">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                </svg>
+                ` + githubIconSVG + `
                 View on GitHub
             </a>
         </div>
@@ -805,11 +822,7 @@ const successTemplate = `<!DOCTYPE html>
             50% { opacity: 0.5; }
         }
 
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
+` + fadeUpAnimationCSS + `
         /* Terminal card */
         .terminal {
             background: var(--bg-card);
@@ -927,45 +940,27 @@ const successTemplate = `<!DOCTYPE html>
             color: var(--text-muted);
         }
 
-        .footer {
-            text-align: center;
-            margin-top: 2rem;
+        .message-text code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-input);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
             font-size: 0.8125rem;
-            color: var(--text-dim);
+            color: var(--chatwoot-blue);
+            border: 1px solid var(--border);
+        }
+
+` + footerCSS + `
+        /* Override footer with animation for success page */
+        .footer {
             animation: fadeUp 0.5s ease 0.6s both;
-        }
-
-        .footer a {
-            color: var(--text-muted);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        .footer a:hover {
-            color: #2D52F6;
-        }
-
-        .github-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .github-link svg {
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-
-        .github-link:hover svg {
-            opacity: 1;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="256" cy="256" fill="#47A7F6" r="256"/>
-            <path d="M362.807947,368.807947 L244.122956,368.807947 C178.699407,368.807947 125.456954,315.561812 125.456954,250.12177 C125.456954,184.703089 178.699407,131.456954 244.124143,131.456954 C309.565494,131.456954 362.807947,184.703089 362.807947,250.12177 L362.807947,368.807947 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="6"/>
+            ` + chatwootLogoSVG + `
         </svg>
 
         <h1>You're all set!</h1>
@@ -1006,14 +1001,12 @@ const successTemplate = `<!DOCTYPE html>
         <div class="message">
             <div class="message-icon">&#8592;</div>
             <div class="message-title">Return to your terminal</div>
-            <div class="message-text">You can close this window and start using the CLI. Try running <strong>chatwoot --help</strong> to see all available commands.</div>
+            <div class="message-text">You can close this window and start using the CLI. Try running <code>chatwoot --help</code> to see all available commands.</div>
         </div>
 
         <div class="footer">
             <a href="https://github.com/salmonumbrella/chatwoot-cli" target="_blank" class="github-link">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                </svg>
+                ` + githubIconSVG + `
                 View on GitHub
             </a>
         </div>
