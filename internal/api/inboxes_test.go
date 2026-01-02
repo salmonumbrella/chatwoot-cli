@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -693,5 +694,81 @@ func TestGetInboxTriageContactFetchFails(t *testing.T) {
 	// Last message should still be present
 	if result.Conversations[0].LastMessage == nil {
 		t.Error("Expected last message even when contact fetch fails")
+	}
+}
+
+func TestUpdateInboxMembers(t *testing.T) {
+	tests := []struct {
+		name        string
+		inboxID     int
+		userIDs     []int
+		statusCode  int
+		expectError bool
+		validateReq func(*testing.T, *http.Request, []byte)
+	}{
+		{
+			name:        "successful update",
+			inboxID:     1,
+			userIDs:     []int{10, 20, 30},
+			statusCode:  http.StatusOK,
+			expectError: false,
+			validateReq: func(t *testing.T, r *http.Request, body []byte) {
+				if r.Method != http.MethodPatch {
+					t.Errorf("Expected PATCH, got %s", r.Method)
+				}
+				if r.URL.Path != "/api/v1/accounts/1/inbox_members" {
+					t.Errorf("Expected path /api/v1/accounts/1/inbox_members, got %s", r.URL.Path)
+				}
+				// Verify body contains inbox_id and user_ids
+				bodyStr := string(body)
+				if !strings.Contains(bodyStr, `"inbox_id":1`) && !strings.Contains(bodyStr, `"inbox_id": 1`) {
+					t.Errorf("Expected inbox_id in body, got %s", bodyStr)
+				}
+			},
+		},
+		{
+			name:        "empty user list",
+			inboxID:     2,
+			userIDs:     []int{},
+			statusCode:  http.StatusOK,
+			expectError: false,
+			validateReq: func(t *testing.T, r *http.Request, body []byte) {
+				bodyStr := string(body)
+				if !strings.Contains(bodyStr, `"user_ids":[]`) && !strings.Contains(bodyStr, `"user_ids": []`) {
+					t.Errorf("Expected empty user_ids array in body, got %s", bodyStr)
+				}
+			},
+		},
+		{
+			name:        "server error",
+			inboxID:     3,
+			userIDs:     []int{1},
+			statusCode:  http.StatusInternalServerError,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedBody []byte
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedBody, _ = io.ReadAll(r.Body)
+				if tt.validateReq != nil {
+					tt.validateReq(t, r, capturedBody)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.UpdateInboxMembers(context.Background(), tt.inboxID, tt.userIDs)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
 	}
 }

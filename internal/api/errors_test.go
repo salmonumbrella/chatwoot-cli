@@ -40,6 +40,66 @@ func TestContextualError_Unwrap(t *testing.T) {
 	}
 }
 
+func TestRateLimitError_Error(t *testing.T) {
+	err := &RateLimitError{RetryAfter: 30 * time.Second}
+	expected := "rate limit exceeded, retry after 30s"
+	if err.Error() != expected {
+		t.Errorf("Expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestAuthError_Error(t *testing.T) {
+	err := &AuthError{Reason: "invalid credentials"}
+	expected := "authentication error: invalid credentials"
+	if err.Error() != expected {
+		t.Errorf("Expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestCircuitBreakerError_Error(t *testing.T) {
+	err := &CircuitBreakerError{}
+	expected := "circuit breaker is open, too many recent failures"
+	if err.Error() != expected {
+		t.Errorf("Expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestIsCircuitBreakerError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"circuit breaker error", &CircuitBreakerError{}, true},
+		{"rate limit error", &RateLimitError{RetryAfter: time.Second}, false},
+		{"auth error", &AuthError{Reason: "test"}, false},
+		{"nil error", nil, false},
+		{"plain error", errors.New("some error"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsCircuitBreakerError(tt.err); got != tt.expected {
+				t.Errorf("IsCircuitBreakerError() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestContextualError_Error(t *testing.T) {
+	inner := errors.New("connection refused")
+	err := &ContextualError{
+		Method:     "POST",
+		URL:        "/api/v1/messages",
+		StatusCode: 500,
+		Err:        inner,
+	}
+	expected := "POST /api/v1/messages failed (status 500): connection refused"
+	if err.Error() != expected {
+		t.Errorf("Expected %q, got %q", expected, err.Error())
+	}
+}
+
 func TestIsNotFoundError(t *testing.T) {
 	tests := []struct {
 		name     string

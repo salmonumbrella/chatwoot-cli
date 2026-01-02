@@ -563,3 +563,238 @@ func TestCreateMessageWithAttachments(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateMessage(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		content        string
+		private        bool
+		messageType    string
+		statusCode     int
+		responseBody   string
+		expectError    bool
+		validateFunc   func(*testing.T, *Message, map[string]any)
+	}{
+		{
+			name:           "create outgoing message",
+			conversationID: 123,
+			content:        "Hello there!",
+			private:        false,
+			messageType:    "outgoing",
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 1, "conversation_id": 123, "content": "Hello there!", "message_type": 1, "private": false, "created_at": 1700000000}`,
+			expectError:    false,
+			validateFunc: func(t *testing.T, msg *Message, body map[string]any) {
+				if msg.ID != 1 {
+					t.Errorf("Expected message ID 1, got %d", msg.ID)
+				}
+				if msg.Content != "Hello there!" {
+					t.Errorf("Expected content 'Hello there!', got %s", msg.Content)
+				}
+				if body["content"] != "Hello there!" {
+					t.Errorf("Expected content in body, got %v", body["content"])
+				}
+				if body["message_type"] != "outgoing" {
+					t.Errorf("Expected message_type 'outgoing', got %v", body["message_type"])
+				}
+				if body["private"] != false {
+					t.Errorf("Expected private false, got %v", body["private"])
+				}
+			},
+		},
+		{
+			name:           "create private note",
+			conversationID: 456,
+			content:        "Internal note",
+			private:        true,
+			messageType:    "outgoing",
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 2, "conversation_id": 456, "content": "Internal note", "message_type": 1, "private": true, "created_at": 1700000000}`,
+			expectError:    false,
+			validateFunc: func(t *testing.T, msg *Message, body map[string]any) {
+				if !msg.Private {
+					t.Error("Expected private message")
+				}
+				if body["private"] != true {
+					t.Errorf("Expected private true in body, got %v", body["private"])
+				}
+			},
+		},
+		{
+			name:           "server error",
+			conversationID: 789,
+			content:        "Test",
+			private:        false,
+			messageType:    "outgoing",
+			statusCode:     http.StatusInternalServerError,
+			responseBody:   `{"error": "internal error"}`,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			msg, err := client.CreateMessage(context.Background(), tt.conversationID, tt.content, tt.private, tt.messageType)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil && msg != nil {
+				tt.validateFunc(t, msg, capturedBody)
+			}
+		})
+	}
+}
+
+func TestDeleteMessage(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		messageID      int
+		statusCode     int
+		expectError    bool
+	}{
+		{
+			name:           "successful delete",
+			conversationID: 123,
+			messageID:      456,
+			statusCode:     http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "not found",
+			conversationID: 123,
+			messageID:      999,
+			statusCode:     http.StatusNotFound,
+			expectError:    true,
+		},
+		{
+			name:           "server error",
+			conversationID: 123,
+			messageID:      456,
+			statusCode:     http.StatusInternalServerError,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodDelete {
+					t.Errorf("Expected DELETE, got %s", r.Method)
+				}
+				expectedPath := fmt.Sprintf("/api/v1/accounts/1/conversations/%d/messages/%d", tt.conversationID, tt.messageID)
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.DeleteMessage(context.Background(), tt.conversationID, tt.messageID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestUpdateMessage(t *testing.T) {
+	tests := []struct {
+		name           string
+		conversationID int
+		messageID      int
+		content        string
+		statusCode     int
+		responseBody   string
+		expectError    bool
+		validateFunc   func(*testing.T, *Message, map[string]any)
+	}{
+		{
+			name:           "successful update",
+			conversationID: 123,
+			messageID:      456,
+			content:        "Updated content",
+			statusCode:     http.StatusOK,
+			responseBody:   `{"id": 456, "conversation_id": 123, "content": "Updated content", "message_type": 1, "created_at": 1700000000}`,
+			expectError:    false,
+			validateFunc: func(t *testing.T, msg *Message, body map[string]any) {
+				if msg.Content != "Updated content" {
+					t.Errorf("Expected content 'Updated content', got %s", msg.Content)
+				}
+				if body["content"] != "Updated content" {
+					t.Errorf("Expected content in body, got %v", body["content"])
+				}
+			},
+		},
+		{
+			name:           "empty content fails",
+			conversationID: 123,
+			messageID:      456,
+			content:        "",
+			statusCode:     http.StatusOK,
+			responseBody:   `{}`,
+			expectError:    true,
+		},
+		{
+			name:           "not found",
+			conversationID: 123,
+			messageID:      999,
+			content:        "Test",
+			statusCode:     http.StatusNotFound,
+			responseBody:   `{"error": "not found"}`,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPatch {
+					t.Errorf("Expected PATCH, got %s", r.Method)
+				}
+				_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			msg, err := client.UpdateMessage(context.Background(), tt.conversationID, tt.messageID, tt.content)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.validateFunc != nil && msg != nil {
+				tt.validateFunc(t, msg, capturedBody)
+			}
+		})
+	}
+}
