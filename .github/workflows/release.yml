@@ -13,7 +13,7 @@ jobs:
     # macOS runner required for CGO-enabled darwin builds (keychain access)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
