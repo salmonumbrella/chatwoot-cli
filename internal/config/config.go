@@ -26,6 +26,14 @@ var openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
 	return keyring.Open(cfg)
 }
 
+// SetOpenKeyring allows replacing the keyring opener for testing.
+// Returns a cleanup function that restores the original.
+func SetOpenKeyring(fn func(keyring.Config) (keyring.Keyring, error)) func() {
+	original := openKeyring
+	openKeyring = fn
+	return func() { openKeyring = original }
+}
+
 // Account holds the Chatwoot connection details
 type Account struct {
 	BaseURL       string `json:"base_url"`

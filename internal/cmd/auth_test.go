@@ -5,7 +5,19 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/99designs/keyring"
+	"github.com/chatwoot/chatwoot-cli/internal/config"
 )
+
+// withEmptyKeyring sets up an empty mock keyring for testing
+func withEmptyKeyring(t *testing.T) {
+	t.Helper()
+	cleanup := config.SetOpenKeyring(func(cfg keyring.Config) (keyring.Keyring, error) {
+		return keyring.NewArrayKeyring(nil), nil
+	})
+	t.Cleanup(cleanup)
+}
 
 func TestMaskToken(t *testing.T) {
 	tests := []struct {
@@ -399,6 +411,9 @@ func TestAuthLogoutCommand_WithProfile(t *testing.T) {
 	t.Setenv("CHATWOOT_API_TOKEN", "")
 	t.Setenv("CHATWOOT_ACCOUNT_ID", "")
 
+	// Use mock keyring to avoid real keyring access in CI
+	withEmptyKeyring(t)
+
 	// Test that specifying a non-existent profile still works (may print success or error)
 	output := captureStdout(t, func() {
 		_ = Execute(context.Background(), []string{"auth", "logout", "--profile", "test-nonexistent-profile-12345"})
@@ -415,6 +430,9 @@ func TestAuthStatusCommand_NotConfigured(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "")
 	t.Setenv("CHATWOOT_API_TOKEN", "")
 	t.Setenv("CHATWOOT_ACCOUNT_ID", "")
+
+	// Use mock keyring to avoid real keyring access in CI
+	withEmptyKeyring(t)
 
 	output := captureStdout(t, func() {
 		err := Execute(context.Background(), []string{"auth", "status"})
@@ -433,6 +451,9 @@ func TestAuthStatusCommand_JSON_NotConfigured(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "")
 	t.Setenv("CHATWOOT_API_TOKEN", "")
 	t.Setenv("CHATWOOT_ACCOUNT_ID", "")
+
+	// Use mock keyring to avoid real keyring access in CI
+	withEmptyKeyring(t)
 
 	output := captureStdout(t, func() {
 		err := Execute(context.Background(), []string{"auth", "status", "-o", "json"})
