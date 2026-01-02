@@ -772,3 +772,159 @@ func TestUpdateInboxMembers(t *testing.T) {
 		})
 	}
 }
+
+func TestGetInboxCampaigns(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/inboxes/1/campaigns" {
+			t.Errorf("Expected path /api/v1/accounts/1/inboxes/1/campaigns, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[
+			{"id": 1, "title": "Welcome Campaign", "enabled": true},
+			{"id": 2, "title": "Exit Intent", "enabled": false}
+		]`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxCampaigns(context.Background(), 1)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("Expected 2 campaigns, got %d", len(result))
+	}
+}
+
+func TestSyncInboxTemplates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/inboxes/1/sync_templates" {
+			t.Errorf("Expected path /api/v1/accounts/1/inboxes/1/sync_templates, got %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.SyncInboxTemplates(context.Background(), 1)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestGetInboxHealth(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/inboxes/1/health" {
+			t.Errorf("Expected path /api/v1/accounts/1/inboxes/1/health, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status": "healthy", "last_checked": "2025-01-01T12:00:00Z"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxHealth(context.Background(), 1)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if result["status"] != "healthy" {
+		t.Errorf("Expected status 'healthy', got %v", result["status"])
+	}
+}
+
+func TestDeleteInboxAvatar(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("Expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/inboxes/1/avatar" {
+			t.Errorf("Expected path /api/v1/accounts/1/inboxes/1/avatar, got %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.DeleteInboxAvatar(context.Background(), 1)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestGetInboxCSATTemplate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/inboxes/1/csat_template" {
+			t.Errorf("Expected path /api/v1/accounts/1/inboxes/1/csat_template, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 1, "question": "How was your experience?", "message": "Thank you for your feedback!"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.GetInboxCSATTemplate(context.Background(), 1)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if result.ID != 1 {
+		t.Errorf("Expected ID 1, got %d", result.ID)
+	}
+	if result.Question != "How was your experience?" {
+		t.Errorf("Expected question 'How was your experience?', got %s", result.Question)
+	}
+	if result.Message != "Thank you for your feedback!" {
+		t.Errorf("Expected message 'Thank you for your feedback!', got %s", result.Message)
+	}
+}
+
+func TestCreateInboxCSATTemplate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/inboxes/1/csat_template" {
+			t.Errorf("Expected path /api/v1/accounts/1/inboxes/1/csat_template, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 1, "question": "Rate us!", "message": "Thanks!"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	result, err := client.CreateInboxCSATTemplate(context.Background(), 1, "Rate us!", "Thanks!")
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if result.Question != "Rate us!" {
+		t.Errorf("Expected question 'Rate us!', got %s", result.Question)
+	}
+	if result.Message != "Thanks!" {
+		t.Errorf("Expected message 'Thanks!', got %s", result.Message)
+	}
+}

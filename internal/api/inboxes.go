@@ -344,3 +344,64 @@ func (c *Client) GetInboxTriage(ctx context.Context, inboxID int, status string,
 		Conversations: triageConvs,
 	}, nil
 }
+
+// GetInboxCampaigns retrieves campaigns for an inbox
+func (c *Client) GetInboxCampaigns(ctx context.Context, inboxID int) ([]Campaign, error) {
+	path := fmt.Sprintf("/inboxes/%d/campaigns", inboxID)
+	var result []Campaign
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// SyncInboxTemplates syncs WhatsApp templates for an inbox
+func (c *Client) SyncInboxTemplates(ctx context.Context, inboxID int) error {
+	return c.Post(ctx, fmt.Sprintf("/inboxes/%d/sync_templates", inboxID), nil, nil)
+}
+
+// GetInboxHealth gets WhatsApp Cloud API health for an inbox
+func (c *Client) GetInboxHealth(ctx context.Context, inboxID int) (map[string]any, error) {
+	path := fmt.Sprintf("/inboxes/%d/health", inboxID)
+	var result map[string]any
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// DeleteInboxAvatar removes the inbox avatar
+func (c *Client) DeleteInboxAvatar(ctx context.Context, inboxID int) error {
+	return c.Delete(ctx, fmt.Sprintf("/inboxes/%d/avatar", inboxID))
+}
+
+// CSATTemplate represents a CSAT survey template
+type CSATTemplate struct {
+	ID       int    `json:"id"`
+	Question string `json:"question"`
+	Message  string `json:"message"`
+}
+
+// GetInboxCSATTemplate gets the CSAT template for an inbox
+func (c *Client) GetInboxCSATTemplate(ctx context.Context, inboxID int) (*CSATTemplate, error) {
+	path := fmt.Sprintf("/inboxes/%d/csat_template", inboxID)
+	var result CSATTemplate
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateInboxCSATTemplate creates or updates CSAT template for an inbox
+func (c *Client) CreateInboxCSATTemplate(ctx context.Context, inboxID int, question, message string) (*CSATTemplate, error) {
+	path := fmt.Sprintf("/inboxes/%d/csat_template", inboxID)
+	body := map[string]string{
+		"question": question,
+		"message":  message,
+	}
+	var result CSATTemplate
+	if err := c.Post(ctx, path, body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
