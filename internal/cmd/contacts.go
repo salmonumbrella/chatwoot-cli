@@ -111,6 +111,41 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 	return cmd
 }
 
+// contactGetRunE is the shared implementation for get/show commands
+func contactGetRunE(cmd *cobra.Command, args []string) error {
+	id, err := validation.ParsePositiveInt(args[0], "contact ID")
+	if err != nil {
+		return err
+	}
+
+	client, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	contact, err := client.GetContact(cmdContext(cmd), id)
+	if err != nil {
+		return fmt.Errorf("failed to get contact %d: %w", id, err)
+	}
+
+	if isJSON(cmd) {
+		return printJSON(cmd, contact)
+	}
+
+	w := newTabWriter()
+	defer func() { _ = w.Flush() }()
+
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
+	_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+		contact.ID,
+		contact.Name,
+		contact.Email,
+		contact.PhoneNumber,
+	)
+
+	return nil
+}
+
 func newContactsGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -124,39 +159,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
   # Get contact as JSON
   chatwoot contacts get 123 --output json`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
-			if err != nil {
-				return err
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			contact, err := client.GetContact(cmdContext(cmd), id)
-			if err != nil {
-				return fmt.Errorf("failed to get contact %d: %w", id, err)
-			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, contact)
-			}
-
-			w := newTabWriter()
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
-				contact.ID,
-				contact.Name,
-				contact.Email,
-				contact.PhoneNumber,
-			)
-
-			return nil
-		},
+		RunE: contactGetRunE,
 	}
 }
 
@@ -174,39 +177,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
   # Show contact as JSON
   chatwoot contacts show 123 --output json`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
-			if err != nil {
-				return err
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			contact, err := client.GetContact(cmdContext(cmd), id)
-			if err != nil {
-				return fmt.Errorf("failed to get contact %d: %w", id, err)
-			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, contact)
-			}
-
-			w := newTabWriter()
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
-				contact.ID,
-				contact.Name,
-				contact.Email,
-				contact.PhoneNumber,
-			)
-
-			return nil
-		},
+		RunE: contactGetRunE,
 	}
 }
 
