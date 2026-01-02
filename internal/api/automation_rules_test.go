@@ -369,3 +369,84 @@ func TestDeleteAutomationRule(t *testing.T) {
 		})
 	}
 }
+
+func TestCloneAutomationRule(t *testing.T) {
+	tests := []struct {
+		name         string
+		ruleID       int
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateFunc func(*testing.T, *AutomationRule)
+	}{
+		{
+			name:       "successful clone",
+			ruleID:     1,
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"payload": {
+					"id": 2,
+					"name": "Auto Assign (Copy)",
+					"event_name": "conversation_created",
+					"active": false,
+					"account_id": 1,
+					"conditions": [{"attribute_key": "status"}],
+					"actions": [{"action_name": "assign_agent"}]
+				}
+			}`,
+			expectError: false,
+			validateFunc: func(t *testing.T, rule *AutomationRule) {
+				if rule.ID != 2 {
+					t.Errorf("Expected ID 2, got %d", rule.ID)
+				}
+				if rule.Name != "Auto Assign (Copy)" {
+					t.Errorf("Expected name with (Copy), got %s", rule.Name)
+				}
+				if rule.Active {
+					t.Error("Expected cloned rule to be inactive")
+				}
+			},
+		},
+		{
+			name:         "not found",
+			ruleID:       999,
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": "not found"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				expectedPath := "/api/v1/accounts/1/automation_rules/1/clone"
+				if tt.ruleID == 999 {
+					expectedPath = "/api/v1/accounts/1/automation_rules/999/clone"
+				}
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.CloneAutomationRule(context.Background(), tt.ruleID)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if tt.validateFunc != nil && result != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}

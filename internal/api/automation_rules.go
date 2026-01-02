@@ -65,3 +65,13 @@ func (c *Client) DeleteAutomationRule(ctx context.Context, id int) error {
 	path := fmt.Sprintf("/automation_rules/%d", id)
 	return c.Delete(ctx, path)
 }
+
+// CloneAutomationRule clones an existing automation rule
+func (c *Client) CloneAutomationRule(ctx context.Context, id int) (*AutomationRule, error) {
+	path := fmt.Sprintf("/automation_rules/%d/clone", id)
+	var result AutomationRuleResponse
+	if err := c.Post(ctx, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result.Payload, nil
+}
