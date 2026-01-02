@@ -911,3 +911,255 @@ func TestDeleteCategory(t *testing.T) {
 		})
 	}
 }
+
+func TestArchivePortal(t *testing.T) {
+	tests := []struct {
+		name        string
+		portalSlug  string
+		statusCode  int
+		expectError bool
+	}{
+		{
+			name:        "successful archive",
+			portalSlug:  "support",
+			statusCode:  http.StatusOK,
+			expectError: false,
+		},
+		{
+			name:        "not found",
+			portalSlug:  "nonexistent",
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPatch {
+					t.Errorf("Expected PATCH, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/archive") {
+					t.Errorf("Expected archive path, got %s", r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.ArchivePortal(context.Background(), tt.portalSlug)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeletePortalLogo(t *testing.T) {
+	tests := []struct {
+		name        string
+		portalSlug  string
+		statusCode  int
+		expectError bool
+	}{
+		{
+			name:        "successful delete logo",
+			portalSlug:  "support",
+			statusCode:  http.StatusOK,
+			expectError: false,
+		},
+		{
+			name:        "not found",
+			portalSlug:  "nonexistent",
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodDelete {
+					t.Errorf("Expected DELETE, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/logo") {
+					t.Errorf("Expected logo path, got %s", r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.DeletePortalLogo(context.Background(), tt.portalSlug)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestSendPortalInstructions(t *testing.T) {
+	tests := []struct {
+		name        string
+		portalSlug  string
+		statusCode  int
+		expectError bool
+	}{
+		{
+			name:        "successful send instructions",
+			portalSlug:  "support",
+			statusCode:  http.StatusOK,
+			expectError: false,
+		},
+		{
+			name:        "not found",
+			portalSlug:  "nonexistent",
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/send_instructions") {
+					t.Errorf("Expected send_instructions path, got %s", r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.SendPortalInstructions(context.Background(), tt.portalSlug)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestGetPortalSSLStatus(t *testing.T) {
+	tests := []struct {
+		name         string
+		portalSlug   string
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateFunc func(*testing.T, map[string]any)
+	}{
+		{
+			name:         "successful get ssl status",
+			portalSlug:   "support",
+			statusCode:   http.StatusOK,
+			responseBody: `{"ssl_enabled": true, "certificate_expiry": "2025-12-31"}`,
+			expectError:  false,
+			validateFunc: func(t *testing.T, result map[string]any) {
+				if result["ssl_enabled"] != true {
+					t.Errorf("Expected ssl_enabled true, got %v", result["ssl_enabled"])
+				}
+			},
+		},
+		{
+			name:         "not found",
+			portalSlug:   "nonexistent",
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": "not found"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("Expected GET, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/ssl_status") {
+					t.Errorf("Expected ssl_status path, got %s", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.GetPortalSSLStatus(context.Background(), tt.portalSlug)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if tt.validateFunc != nil && result != nil {
+				tt.validateFunc(t, result)
+			}
+		})
+	}
+}
+
+func TestReorderArticles(t *testing.T) {
+	tests := []struct {
+		name        string
+		portalSlug  string
+		articleIDs  []int
+		statusCode  int
+		expectError bool
+	}{
+		{
+			name:        "successful reorder",
+			portalSlug:  "support",
+			articleIDs:  []int{3, 1, 2},
+			statusCode:  http.StatusOK,
+			expectError: false,
+		},
+		{
+			name:        "not found",
+			portalSlug:  "nonexistent",
+			articleIDs:  []int{1, 2},
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/articles/reorder") {
+					t.Errorf("Expected reorder path, got %s", r.URL.Path)
+				}
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			err := client.ReorderArticles(context.Background(), tt.portalSlug, tt.articleIDs)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}

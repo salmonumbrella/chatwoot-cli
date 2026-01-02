@@ -167,3 +167,34 @@ func (c *Client) DeleteCategory(ctx context.Context, portalSlug, categorySlug st
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
 	return c.Delete(ctx, path)
 }
+
+// ArchivePortal archives a portal
+func (c *Client) ArchivePortal(ctx context.Context, portalSlug string) error {
+	return c.Patch(ctx, fmt.Sprintf("/portals/%s/archive", url.PathEscape(portalSlug)), nil, nil)
+}
+
+// DeletePortalLogo removes the logo from a portal
+func (c *Client) DeletePortalLogo(ctx context.Context, portalSlug string) error {
+	return c.Delete(ctx, fmt.Sprintf("/portals/%s/logo", url.PathEscape(portalSlug)))
+}
+
+// SendPortalInstructions sends CNAME setup instructions for a portal
+func (c *Client) SendPortalInstructions(ctx context.Context, portalSlug string) error {
+	return c.Post(ctx, fmt.Sprintf("/portals/%s/send_instructions", url.PathEscape(portalSlug)), nil, nil)
+}
+
+// GetPortalSSLStatus gets the SSL status for a portal
+func (c *Client) GetPortalSSLStatus(ctx context.Context, portalSlug string) (map[string]any, error) {
+	path := fmt.Sprintf("/portals/%s/ssl_status", url.PathEscape(portalSlug))
+	var result map[string]any
+	if err := c.Get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ReorderArticles reorders articles in a portal
+func (c *Client) ReorderArticles(ctx context.Context, portalSlug string, articleIDs []int) error {
+	body := map[string][]int{"article_ids": articleIDs}
+	return c.Post(ctx, fmt.Sprintf("/portals/%s/articles/reorder", url.PathEscape(portalSlug)), body, nil)
+}
