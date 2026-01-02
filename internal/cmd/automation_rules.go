@@ -21,6 +21,7 @@ func newAutomationRulesCmd() *cobra.Command {
 	cmd.AddCommand(newAutomationRulesCreateCmd())
 	cmd.AddCommand(newAutomationRulesUpdateCmd())
 	cmd.AddCommand(newAutomationRulesDeleteCmd())
+	cmd.AddCommand(newAutomationRulesCloneCmd())
 
 	return cmd
 }
@@ -236,6 +237,38 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Deleted automation rule #%d\n", id)
+			return nil
+		},
+	}
+}
+
+func newAutomationRulesCloneCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "clone <id>",
+		Short: "Clone an existing automation rule",
+		Long:  "Create a copy of an existing automation rule. The cloned rule will be inactive by default.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return fmt.Errorf("invalid rule ID: %w", err)
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			rule, err := client.CloneAutomationRule(cmdContext(cmd), id)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, rule)
+			}
+
+			fmt.Printf("Cloned automation rule #%d to new rule #%d: %s\n", id, rule.ID, rule.Name)
 			return nil
 		},
 	}
