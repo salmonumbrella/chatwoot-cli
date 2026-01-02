@@ -121,18 +121,26 @@ type ConversationList struct {
 	} `json:"data"`
 }
 
+// MessageSender represents the sender of a message
+type MessageSender struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type,omitempty"`
+}
+
 // Message represents a message in a conversation
 type Message struct {
-	ID             int          `json:"id"`
-	ConversationID int          `json:"conversation_id"`
-	Content        string       `json:"content"`
-	ContentType    string       `json:"content_type"`
-	MessageType    int          `json:"message_type"`
-	Private        bool         `json:"private"`
-	SenderID       *int         `json:"sender_id,omitempty"`
-	SenderType     string       `json:"sender_type,omitempty"`
-	CreatedAt      int64        `json:"created_at"`
-	Attachments    []Attachment `json:"attachments,omitempty"`
+	ID             int            `json:"id"`
+	ConversationID int            `json:"conversation_id"`
+	Content        string         `json:"content"`
+	ContentType    string         `json:"content_type"`
+	MessageType    int            `json:"message_type"`
+	Private        bool           `json:"private"`
+	SenderID       *int           `json:"sender_id,omitempty"`
+	SenderType     string         `json:"sender_type,omitempty"`
+	Sender         *MessageSender `json:"sender,omitempty"`
+	CreatedAt      int64          `json:"created_at"`
+	Attachments    []Attachment   `json:"attachments,omitempty"`
 }
 
 // CreatedAtTime returns CreatedAt as time.Time
@@ -548,4 +556,13 @@ type ReplyResult struct {
 	Type    string `json:"type,omitempty"` // "multiple_contacts" | "multiple_conversations"
 	Matches any    `json:"matches,omitempty"`
 	Hint    string `json:"hint,omitempty"`
+}
+
+// Mention represents a mention of the current user in a private note
+type Mention struct {
+	ConversationID int       `json:"conversation_id"`
+	MessageID      int       `json:"message_id"`
+	Content        string    `json:"content"`
+	SenderName     string    `json:"sender_name"`
+	CreatedAt      time.Time `json:"created_at"`
 }

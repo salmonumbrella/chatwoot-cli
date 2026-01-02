@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/spf13/cobra"
 )
 
@@ -85,20 +86,62 @@ mentioned so you can follow up on requests from teammates.`,
 				return fmt.Errorf("--limit must be at least 1")
 			}
 
-			// Placeholder output for now - API logic will be added in Task 2
-			if isJSON(cmd) {
-				return printJSON(cmd, []map[string]any{})
+			// Get API client
+			client, err := getClient()
+			if err != nil {
+				return fmt.Errorf("failed to create API client: %w", err)
 			}
 
-			fmt.Println("Mentions list (placeholder)")
-			if conversationID > 0 {
-				fmt.Printf("  Filtering by conversation: %d\n", conversationID)
+			ctx := cmdContext(cmd)
+
+			// Get current user's profile to find their user ID
+			profile, err := client.GetProfile(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get current user profile: %w", err)
 			}
-			if sinceTime != nil {
-				fmt.Printf("  Since: %s\n", sinceTime.Format("2006-01-02 15:04:05"))
+
+			// Find mentions
+			mentions, err := client.FindMentions(ctx, api.FindMentionsParams{
+				UserID:         profile.ID,
+				ConversationID: conversationID,
+				Since:          sinceTime,
+				Limit:          limit,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to find mentions: %w", err)
 			}
-			fmt.Printf("  Limit: %d\n", limit)
-			fmt.Println("\nNo mentions found (API not yet implemented)")
+
+			// Output results
+			if isJSON(cmd) {
+				return printJSON(cmd, mentions)
+			}
+
+			// Text output
+			if len(mentions) == 0 {
+				fmt.Println("No mentions found")
+				return nil
+			}
+
+			w := newTabWriter()
+			_, _ = fmt.Fprintf(w, "CONV\tMSG\tFROM\tTIME\tCONTENT\n")
+			for _, m := range mentions {
+				// Truncate content for display
+				content := m.Content
+				if len(content) > 60 {
+					content = content[:57] + "..."
+				}
+				// Remove newlines for tabular display
+				content = strings.ReplaceAll(content, "\n", " ")
+
+				_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%s\n",
+					m.ConversationID,
+					m.MessageID,
+					m.SenderName,
+					m.CreatedAt.Format("2006-01-02 15:04"),
+					content,
+				)
+			}
+			_ = w.Flush()
 
 			return nil
 		},
