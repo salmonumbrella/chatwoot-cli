@@ -170,6 +170,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newReplyCmd())
 	root.AddCommand(newAPICmd())
 	root.AddCommand(newStatusCmd())
+	root.AddCommand(newOpenCmd())
 
 	err := root.Execute()
 	if err != nil {
