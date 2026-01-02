@@ -7,7 +7,7 @@ Chatwoot in your terminal. Manage conversations, contacts, campaigns, help cente
 - **Automations** - list and view automation rules, manage canned response templates
 - **Bots** - create, update, delete bots
 - **Campaigns** - create and manage SMS and messaging campaigns
-- **Contacts** - create, update, search, filter, manage labels and notes
+- **Contacts** - create, update, search, filter, merge duplicates, bulk operations, manage labels and notes
 - **Conversations** - list, filter, search, assign, status, priority, labels
 - **Help Center** - manage portals, articles, and categories
 - **Inboxes** - list and view inbox details, member access and roles, create and manage saved filter presets
@@ -189,9 +189,13 @@ chatwoot contacts create --name "John Doe" --email "john@example.com"
 chatwoot contacts update 123 --phone "+1234567890"
 chatwoot contacts delete 123
 
+# Merge contacts (combine duplicates)
+chatwoot contacts merge 123 456                   # Merge 456 INTO 123 (456 deleted)
+chatwoot contacts merge 123 456 --force           # Skip confirmation
+
 # Related data
-chatwoot contacts conversations 123               
-chatwoot contacts contactable-inboxes 123        
+chatwoot contacts conversations 123
+chatwoot contacts contactable-inboxes 123
 
 # Inbox association
 chatwoot contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"
@@ -199,6 +203,10 @@ chatwoot contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"
 # Labels
 chatwoot contacts labels 123
 chatwoot contacts labels-add 123 --labels "customer,premium"
+
+# Bulk label operations
+chatwoot contacts bulk add-label --ids 1,2,3 --labels "vip,priority"
+chatwoot contacts bulk remove-label --ids 1,2,3 --labels "old-tag"
 
 # Notes
 chatwoot contacts notes 123
