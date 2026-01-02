@@ -195,7 +195,7 @@ func TestSearchContacts(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.SearchContacts(context.Background(), "john")
+	result, err := client.SearchContacts(context.Background(), "john", 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

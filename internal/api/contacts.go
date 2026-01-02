@@ -106,8 +106,12 @@ func (c *Client) DeleteContact(ctx context.Context, id int) error {
 }
 
 // SearchContacts searches for contacts by query string
-func (c *Client) SearchContacts(ctx context.Context, query string) (*ContactList, error) {
+// The page parameter controls pagination (1-indexed). Page size is fixed at 15 by the API.
+func (c *Client) SearchContacts(ctx context.Context, query string, page int) (*ContactList, error) {
 	path := fmt.Sprintf("/contacts/search?q=%s", url.QueryEscape(query))
+	if page > 0 {
+		path = fmt.Sprintf("%s&page=%d", path, page)
+	}
 	var result ContactList
 	if err := c.Get(ctx, path, &result); err != nil {
 		return nil, err

@@ -79,7 +79,7 @@ If multiple open conversations exist for the contact, disambiguation is required
 
 			// Mode 3: Search by contact name/email
 			query := args[0]
-			contacts, err := client.SearchContacts(ctx, query)
+			contacts, err := client.SearchContacts(ctx, query, 1)
 			if err != nil {
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}

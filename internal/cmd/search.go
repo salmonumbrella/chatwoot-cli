@@ -99,41 +99,71 @@ of relevant resources with a single query.`,
 
 					switch st {
 					case "contacts":
-						contacts, err := client.SearchContacts(ctx, query)
-						if err != nil {
-							mu.Lock()
-							if searchErr == nil {
-								searchErr = fmt.Errorf("failed to search contacts: %w", err)
+						// Chatwoot contacts search has fixed page size of 15.
+						// We fetch enough pages to satisfy the limit, then truncate client-side.
+						var allContacts []api.Contact
+						page := 1
+						for {
+							contacts, err := client.SearchContacts(ctx, query, page)
+							if err != nil {
+								mu.Lock()
+								if searchErr == nil {
+									searchErr = fmt.Errorf("failed to search contacts: %w", err)
+								}
+								mu.Unlock()
+								return
 							}
-							mu.Unlock()
-							return
+							allContacts = append(allContacts, contacts.Payload...)
+							// Stop if we have enough results or no more pages
+							if limit > 0 && len(allContacts) >= limit {
+								break
+							}
+							if len(contacts.Payload) == 0 || int(contacts.Meta.CurrentPage) >= int(contacts.Meta.TotalPages) {
+								break
+							}
+							page++
 						}
 						mu.Lock()
 						// Apply limit
-						if limit > 0 && len(contacts.Payload) > limit {
-							results.Contacts = contacts.Payload[:limit]
+						if limit > 0 && len(allContacts) > limit {
+							results.Contacts = allContacts[:limit]
 						} else {
-							results.Contacts = contacts.Payload
+							results.Contacts = allContacts
 						}
 						results.Summary["contacts"] = len(results.Contacts)
 						mu.Unlock()
 
 					case "conversations":
-						conversations, err := client.SearchConversations(ctx, query, 0)
-						if err != nil {
-							mu.Lock()
-							if searchErr == nil {
-								searchErr = fmt.Errorf("failed to search conversations: %w", err)
+						// Chatwoot conversations search has fixed page size of 25.
+						// We fetch enough pages to satisfy the limit, then truncate client-side.
+						var allConversations []api.Conversation
+						page := 1
+						for {
+							conversations, err := client.SearchConversations(ctx, query, page)
+							if err != nil {
+								mu.Lock()
+								if searchErr == nil {
+									searchErr = fmt.Errorf("failed to search conversations: %w", err)
+								}
+								mu.Unlock()
+								return
 							}
-							mu.Unlock()
-							return
+							allConversations = append(allConversations, conversations.Data.Payload...)
+							// Stop if we have enough results or no more pages
+							if limit > 0 && len(allConversations) >= limit {
+								break
+							}
+							if len(conversations.Data.Payload) == 0 || int(conversations.Data.Meta.CurrentPage) >= int(conversations.Data.Meta.TotalPages) {
+								break
+							}
+							page++
 						}
 						mu.Lock()
 						// Apply limit
-						if limit > 0 && len(conversations.Data.Payload) > limit {
-							results.Conversations = conversations.Data.Payload[:limit]
+						if limit > 0 && len(allConversations) > limit {
+							results.Conversations = allConversations[:limit]
 						} else {
-							results.Conversations = conversations.Data.Payload
+							results.Conversations = allConversations
 						}
 						results.Summary["conversations"] = len(results.Conversations)
 						mu.Unlock()

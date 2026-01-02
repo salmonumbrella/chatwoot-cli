@@ -435,7 +435,7 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 				return err
 			}
 
-			contacts, err := client.SearchContacts(cmdContext(cmd), query)
+			contacts, err := client.SearchContacts(cmdContext(cmd), query, 1)
 			if err != nil {
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}
