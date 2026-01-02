@@ -12,12 +12,13 @@ import (
 
 func TestStatusCommand(t *testing.T) {
 	// Clear any existing env vars for clean test state
+	// Use a non-existent profile to ensure keychain lookup returns nothing
 	clearEnv := func(t *testing.T) {
 		t.Helper()
 		t.Setenv("CHATWOOT_BASE_URL", "")
 		t.Setenv("CHATWOOT_API_TOKEN", "")
 		t.Setenv("CHATWOOT_ACCOUNT_ID", "")
-		t.Setenv("CHATWOOT_PROFILE", "")
+		t.Setenv("CHATWOOT_PROFILE", "__test_nonexistent_profile__")
 	}
 
 	t.Run("shows unauthenticated status when no credentials", func(t *testing.T) {
