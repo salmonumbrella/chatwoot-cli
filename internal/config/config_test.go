@@ -3,37 +3,35 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/99designs/keyring"
 )
 
 // testKeyring creates a mock keyring for testing
-func testKeyring(initial []keyring.Item) *keyring.ArrayKeyring {
+func testKeyring(t *testing.T, initial []keyring.Item) *keyring.ArrayKeyring {
+	t.Helper()
 	return keyring.NewArrayKeyring(initial)
 }
 
 // withMockKeyring sets up a mock keyring for the duration of a test
-func withMockKeyring(t *testing.T, ring keyring.Keyring) func() {
+func withMockKeyring(t *testing.T, ring keyring.Keyring) {
+	t.Helper()
 	original := openKeyring
 	openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
 		return ring, nil
 	}
-	return func() {
-		openKeyring = original
-	}
+	t.Cleanup(func() { openKeyring = original })
 }
 
 // withFailingKeyring sets up a keyring that always fails to open
-func withFailingKeyring(t *testing.T, err error) func() {
+func withFailingKeyring(t *testing.T, err error) {
+	t.Helper()
 	original := openKeyring
 	openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
 		return nil, err
 	}
-	return func() {
-		openKeyring = original
-	}
+	t.Cleanup(func() { openKeyring = original })
 }
 
 func TestProfileKey(t *testing.T) {
@@ -192,7 +190,7 @@ func TestLoadProfileIndex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(tt.items)
+			ring := testKeyring(t, tt.items)
 			result, err := loadProfileIndex(ring)
 
 			if tt.expectError {
@@ -241,7 +239,7 @@ func TestSaveProfileIndex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
+			ring := testKeyring(t, nil)
 
 			err := saveProfileIndex(ring, tt.profiles)
 			if err != nil {
@@ -273,20 +271,6 @@ func TestSaveProfileIndex(t *testing.T) {
 }
 
 func TestLoadAccountFromEnv(t *testing.T) {
-	// Save original environment
-	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
-	origToken := os.Getenv("CHATWOOT_API_TOKEN")
-	origAccountID := os.Getenv("CHATWOOT_ACCOUNT_ID")
-	origProfile := os.Getenv("CHATWOOT_PROFILE")
-
-	// Restore environment after test
-	defer func() {
-		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
-		_ = os.Setenv("CHATWOOT_API_TOKEN", origToken)
-		_ = os.Setenv("CHATWOOT_ACCOUNT_ID", origAccountID)
-		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
-	}()
-
 	tests := []struct {
 		name        string
 		envVars     map[string]string
@@ -390,15 +374,9 @@ func TestLoadAccountFromEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear environment
-			_ = os.Unsetenv("CHATWOOT_BASE_URL")
-			_ = os.Unsetenv("CHATWOOT_API_TOKEN")
-			_ = os.Unsetenv("CHATWOOT_ACCOUNT_ID")
-			_ = os.Unsetenv("CHATWOOT_PROFILE")
-
-			// Set test environment
+			// Set test environment using t.Setenv (automatically cleaned up)
 			for k, v := range tt.envVars {
-				_ = os.Setenv(k, v)
+				t.Setenv(k, v)
 			}
 
 			result, err := LoadAccount()
@@ -584,9 +562,8 @@ func TestSaveProfile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
-			cleanup := withMockKeyring(t, ring)
-			defer cleanup()
+			ring := testKeyring(t, nil)
+			withMockKeyring(t, ring)
 
 			err := SaveProfile(tt.profile, tt.account)
 
@@ -631,8 +608,7 @@ func TestSaveProfile(t *testing.T) {
 }
 
 func TestSaveProfileKeyringError(t *testing.T) {
-	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
-	defer cleanup()
+	withFailingKeyring(t, errors.New("keyring unavailable"))
 
 	err := SaveProfile("test", Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1})
 	if err == nil {
@@ -680,10 +656,9 @@ func TestLoadProfile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
+			ring := testKeyring(t, nil)
 			tt.setup(ring)
-			cleanup := withMockKeyring(t, ring)
-			defer cleanup()
+			withMockKeyring(t, ring)
 
 			result, err := LoadProfile(tt.profile)
 
@@ -712,10 +687,9 @@ func TestLoadProfile(t *testing.T) {
 }
 
 func TestLoadProfileInvalidJSON(t *testing.T) {
-	ring := testKeyring(nil)
+	ring := testKeyring(t, nil)
 	_ = ring.Set(keyring.Item{Key: accountKey, Data: []byte("not valid json")})
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	withMockKeyring(t, ring)
 
 	_, err := LoadProfile("")
 	if err == nil {
@@ -724,8 +698,7 @@ func TestLoadProfileInvalidJSON(t *testing.T) {
 }
 
 func TestLoadProfileKeyringError(t *testing.T) {
-	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
-	defer cleanup()
+	withFailingKeyring(t, errors.New("keyring unavailable"))
 
 	_, err := LoadProfile("test")
 	if err == nil {
@@ -768,10 +741,9 @@ func TestDeleteProfile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
+			ring := testKeyring(t, nil)
 			tt.setup(ring)
-			cleanup := withMockKeyring(t, ring)
-			defer cleanup()
+			withMockKeyring(t, ring)
 
 			err := DeleteProfile(tt.profile)
 			if err != nil {
@@ -794,8 +766,7 @@ func TestDeleteProfile(t *testing.T) {
 }
 
 func TestDeleteProfileKeyringError(t *testing.T) {
-	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
-	defer cleanup()
+	withFailingKeyring(t, errors.New("keyring unavailable"))
 
 	err := DeleteProfile("test")
 	if err == nil {
@@ -804,7 +775,7 @@ func TestDeleteProfileKeyringError(t *testing.T) {
 }
 
 func TestDeleteProfileSwitchesCurrentProfile(t *testing.T) {
-	ring := testKeyring(nil)
+	ring := testKeyring(t, nil)
 
 	// Setup: create two profiles with "work" as current
 	defaultAccount := Account{BaseURL: "https://default.example.com", APIToken: "defaulttoken", AccountID: 1}
@@ -818,8 +789,7 @@ func TestDeleteProfileSwitchesCurrentProfile(t *testing.T) {
 	_ = saveProfileIndex(ring, []string{"default", "work"})
 	_ = ring.Set(keyring.Item{Key: currentProfileKey, Data: []byte("work")})
 
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	withMockKeyring(t, ring)
 
 	// Delete current profile
 	err := DeleteProfile("work")
@@ -868,10 +838,9 @@ func TestListProfiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
+			ring := testKeyring(t, nil)
 			tt.setup(ring)
-			cleanup := withMockKeyring(t, ring)
-			defer cleanup()
+			withMockKeyring(t, ring)
 
 			result, err := ListProfiles()
 			if err != nil {
@@ -892,8 +861,7 @@ func TestListProfiles(t *testing.T) {
 }
 
 func TestListProfilesKeyringError(t *testing.T) {
-	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
-	defer cleanup()
+	withFailingKeyring(t, errors.New("keyring unavailable"))
 
 	_, err := ListProfiles()
 	if err == nil {
@@ -923,10 +891,9 @@ func TestCurrentProfile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
+			ring := testKeyring(t, nil)
 			tt.setup(ring)
-			cleanup := withMockKeyring(t, ring)
-			defer cleanup()
+			withMockKeyring(t, ring)
 
 			result, err := CurrentProfile()
 			if err != nil {
@@ -941,8 +908,7 @@ func TestCurrentProfile(t *testing.T) {
 }
 
 func TestCurrentProfileKeyringError(t *testing.T) {
-	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
-	defer cleanup()
+	withFailingKeyring(t, errors.New("keyring unavailable"))
 
 	_, err := CurrentProfile()
 	if err == nil {
@@ -970,9 +936,8 @@ func TestSetCurrentProfile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ring := testKeyring(nil)
-			cleanup := withMockKeyring(t, ring)
-			defer cleanup()
+			ring := testKeyring(t, nil)
+			withMockKeyring(t, ring)
 
 			err := SetCurrentProfile(tt.profile)
 			if err != nil {
@@ -992,8 +957,7 @@ func TestSetCurrentProfile(t *testing.T) {
 }
 
 func TestSetCurrentProfileKeyringError(t *testing.T) {
-	cleanup := withFailingKeyring(t, errors.New("keyring unavailable"))
-	defer cleanup()
+	withFailingKeyring(t, errors.New("keyring unavailable"))
 
 	err := SetCurrentProfile("test")
 	if err == nil {
@@ -1002,9 +966,8 @@ func TestSetCurrentProfileKeyringError(t *testing.T) {
 }
 
 func TestSaveAccount(t *testing.T) {
-	ring := testKeyring(nil)
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	ring := testKeyring(t, nil)
+	withMockKeyring(t, ring)
 
 	account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
 	err := SaveAccount(account)
@@ -1029,7 +992,7 @@ func TestSaveAccount(t *testing.T) {
 }
 
 func TestDeleteAccount(t *testing.T) {
-	ring := testKeyring(nil)
+	ring := testKeyring(t, nil)
 
 	// Setup: save default account
 	account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
@@ -1037,8 +1000,7 @@ func TestDeleteAccount(t *testing.T) {
 	_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
 	_ = saveProfileIndex(ring, []string{"default"})
 
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	withMockKeyring(t, ring)
 
 	err := DeleteAccount()
 	if err != nil {
@@ -1053,27 +1015,10 @@ func TestDeleteAccount(t *testing.T) {
 }
 
 func TestHasAccountWithEnvVars(t *testing.T) {
-	// Save original environment
-	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
-	origToken := os.Getenv("CHATWOOT_API_TOKEN")
-	origAccountID := os.Getenv("CHATWOOT_ACCOUNT_ID")
-	origProfile := os.Getenv("CHATWOOT_PROFILE")
-
-	// Restore environment after test
-	defer func() {
-		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
-		_ = os.Setenv("CHATWOOT_API_TOKEN", origToken)
-		_ = os.Setenv("CHATWOOT_ACCOUNT_ID", origAccountID)
-		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
-	}()
-
-	// Clear profile env
-	_ = os.Unsetenv("CHATWOOT_PROFILE")
-
-	// Set valid env vars
-	_ = os.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
-	_ = os.Setenv("CHATWOOT_API_TOKEN", "test-token")
-	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	// Set valid env vars using t.Setenv (automatically cleaned up)
+	t.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
 
 	if !HasAccount() {
 		t.Error("HasAccount() = false, want true when env vars are set")
@@ -1081,27 +1026,10 @@ func TestHasAccountWithEnvVars(t *testing.T) {
 }
 
 func TestHasAccountWithInvalidEnvVars(t *testing.T) {
-	// Save original environment
-	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
-	origToken := os.Getenv("CHATWOOT_API_TOKEN")
-	origAccountID := os.Getenv("CHATWOOT_ACCOUNT_ID")
-	origProfile := os.Getenv("CHATWOOT_PROFILE")
-
-	// Restore environment after test
-	defer func() {
-		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
-		_ = os.Setenv("CHATWOOT_API_TOKEN", origToken)
-		_ = os.Setenv("CHATWOOT_ACCOUNT_ID", origAccountID)
-		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
-	}()
-
-	// Clear profile env
-	_ = os.Unsetenv("CHATWOOT_PROFILE")
-
-	// Set invalid env vars (missing token)
-	_ = os.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
-	_ = os.Setenv("CHATWOOT_API_TOKEN", "")
-	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	// Set invalid env vars (missing token) using t.Setenv (automatically cleaned up)
+	t.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
 
 	if HasAccount() {
 		t.Error("HasAccount() = true, want false when env vars are invalid")
@@ -1109,28 +1037,14 @@ func TestHasAccountWithInvalidEnvVars(t *testing.T) {
 }
 
 func TestHasAccountWithKeyring(t *testing.T) {
-	// Save original environment
-	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
-	origProfile := os.Getenv("CHATWOOT_PROFILE")
-
-	defer func() {
-		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
-		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
-	}()
-
-	// Clear env vars to force keyring lookup
-	_ = os.Unsetenv("CHATWOOT_BASE_URL")
-	_ = os.Unsetenv("CHATWOOT_PROFILE")
-
-	ring := testKeyring(nil)
+	ring := testKeyring(t, nil)
 
 	// Setup: save default account
 	account := Account{BaseURL: "https://example.com", APIToken: "token", AccountID: 1}
 	data, _ := json.Marshal(account)
 	_ = ring.Set(keyring.Item{Key: accountKey, Data: data})
 
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	withMockKeyring(t, ring)
 
 	if !HasAccount() {
 		t.Error("HasAccount() = false, want true when account in keyring")
@@ -1138,28 +1052,17 @@ func TestHasAccountWithKeyring(t *testing.T) {
 }
 
 func TestLoadAccountFromProfile(t *testing.T) {
-	// Save original environment
-	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
-	origProfile := os.Getenv("CHATWOOT_PROFILE")
+	// Set env vars using t.Setenv (automatically cleaned up)
+	t.Setenv("CHATWOOT_PROFILE", "work")
 
-	defer func() {
-		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
-		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
-	}()
-
-	// Clear base URL to force profile lookup
-	_ = os.Unsetenv("CHATWOOT_BASE_URL")
-	_ = os.Setenv("CHATWOOT_PROFILE", "work")
-
-	ring := testKeyring(nil)
+	ring := testKeyring(t, nil)
 
 	// Setup: save work profile
 	account := Account{BaseURL: "https://work.example.com", APIToken: "worktoken", AccountID: 2}
 	data, _ := json.Marshal(account)
 	_ = ring.Set(keyring.Item{Key: profilePrefix + "work", Data: data})
 
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	withMockKeyring(t, ring)
 
 	result, err := LoadAccount()
 	if err != nil {
@@ -1172,20 +1075,7 @@ func TestLoadAccountFromProfile(t *testing.T) {
 }
 
 func TestLoadAccountFromCurrentProfile(t *testing.T) {
-	// Save original environment
-	origBaseURL := os.Getenv("CHATWOOT_BASE_URL")
-	origProfile := os.Getenv("CHATWOOT_PROFILE")
-
-	defer func() {
-		_ = os.Setenv("CHATWOOT_BASE_URL", origBaseURL)
-		_ = os.Setenv("CHATWOOT_PROFILE", origProfile)
-	}()
-
-	// Clear all env vars
-	_ = os.Unsetenv("CHATWOOT_BASE_URL")
-	_ = os.Unsetenv("CHATWOOT_PROFILE")
-
-	ring := testKeyring(nil)
+	ring := testKeyring(t, nil)
 
 	// Setup: save production profile and set as current
 	account := Account{BaseURL: "https://prod.example.com", APIToken: "prodtoken", AccountID: 3}
@@ -1193,8 +1083,7 @@ func TestLoadAccountFromCurrentProfile(t *testing.T) {
 	_ = ring.Set(keyring.Item{Key: profilePrefix + "production", Data: data})
 	_ = ring.Set(keyring.Item{Key: currentProfileKey, Data: []byte("production")})
 
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	withMockKeyring(t, ring)
 
 	result, err := LoadAccount()
 	if err != nil {
@@ -1264,9 +1153,8 @@ func TestAccountJSONOmitEmpty(t *testing.T) {
 }
 
 func TestSaveProfileUpdatesIndex(t *testing.T) {
-	ring := testKeyring(nil)
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	ring := testKeyring(t, nil)
+	withMockKeyring(t, ring)
 
 	// Save first profile
 	err := SaveProfile("work", Account{BaseURL: "https://work.example.com", APIToken: "token1", AccountID: 1})
@@ -1309,9 +1197,8 @@ func TestSaveProfileUpdatesIndex(t *testing.T) {
 }
 
 func TestDeleteProfileRemovesFromIndex(t *testing.T) {
-	ring := testKeyring(nil)
-	cleanup := withMockKeyring(t, ring)
-	defer cleanup()
+	ring := testKeyring(t, nil)
+	withMockKeyring(t, ring)
 
 	// Setup: create profiles
 	_ = saveProfileIndex(ring, []string{"default", "work", "production"})
