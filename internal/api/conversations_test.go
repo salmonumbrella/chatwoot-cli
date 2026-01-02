@@ -1720,6 +1720,86 @@ func intPtr(i int) *int {
 	return &i
 }
 
+func TestMuteConversation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/conversations/123/mute" {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.MuteConversation(context.Background(), 123)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestUnmuteConversation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/1/conversations/123/unmute" {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.UnmuteConversation(context.Background(), 123)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestSendTranscript(t *testing.T) {
+	var capturedBody map[string]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.SendTranscript(context.Background(), 123, "test@example.com")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if capturedBody["email"] != "test@example.com" {
+		t.Errorf("Expected email test@example.com, got %v", capturedBody["email"])
+	}
+}
+
+func TestToggleTypingStatus(t *testing.T) {
+	var capturedBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	err := client.ToggleTypingStatus(context.Background(), 123, true, false)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if capturedBody["typing_status"] != "on" {
+		t.Errorf("Expected typing_status 'on', got %v", capturedBody["typing_status"])
+	}
+}
+
 func TestUpdateConversation(t *testing.T) {
 	tests := []struct {
 		name            string

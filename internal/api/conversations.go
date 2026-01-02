@@ -244,6 +244,35 @@ func (c *Client) ToggleMuteConversation(ctx context.Context, id int, mute bool) 
 	return c.Post(ctx, fmt.Sprintf("/conversations/%d/toggle_mute", id), payload, nil)
 }
 
+// MuteConversation mutes a conversation
+func (c *Client) MuteConversation(ctx context.Context, id int) error {
+	return c.Post(ctx, fmt.Sprintf("/conversations/%d/mute", id), nil, nil)
+}
+
+// UnmuteConversation unmutes a conversation
+func (c *Client) UnmuteConversation(ctx context.Context, id int) error {
+	return c.Post(ctx, fmt.Sprintf("/conversations/%d/unmute", id), nil, nil)
+}
+
+// SendTranscript sends conversation transcript via email
+func (c *Client) SendTranscript(ctx context.Context, id int, email string) error {
+	body := map[string]string{"email": email}
+	return c.Post(ctx, fmt.Sprintf("/conversations/%d/transcript", id), body, nil)
+}
+
+// ToggleTypingStatus toggles typing indicator for a conversation
+func (c *Client) ToggleTypingStatus(ctx context.Context, id int, typingOn bool, isPrivate bool) error {
+	status := "off"
+	if typingOn {
+		status = "on"
+	}
+	body := map[string]any{
+		"typing_status": status,
+		"is_private":    isPrivate,
+	}
+	return c.Post(ctx, fmt.Sprintf("/conversations/%d/toggle_typing_status", id), body, nil)
+}
+
 // UpdateConversation updates conversation attributes via PATCH endpoint
 // Both priority and slaPolicyID are optional, but at least one must be provided
 func (c *Client) UpdateConversation(ctx context.Context, id int, priority string, slaPolicyID int) (*Conversation, error) {
