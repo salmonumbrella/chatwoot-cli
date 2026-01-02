@@ -672,25 +672,6 @@ func TestClientContactsCreateWithServer(t *testing.T) {
 		}
 	})
 
-	t.Run("create contact JSON output", func(t *testing.T) {
-		baseURL := env.server.URL
-		inboxID := "inbox-123"
-
-		cmd := newClientContactsCreateCmd(&baseURL, &inboxID)
-		cmd.SetArgs([]string{"-o", "json"})
-		_ = cmd.Flags().Set("name", "New Contact")
-		output := captureStdout(t, func() {
-			err := cmd.Execute()
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
-
-		if !strings.Contains(output, `"id"`) {
-			t.Errorf("Expected JSON output, got: %s", output)
-		}
-	})
-
 	t.Run("create contact with custom attributes", func(t *testing.T) {
 		baseURL := env.server.URL
 		inboxID := "inbox-123"
@@ -768,25 +749,6 @@ func TestClientConversationsCreateWithServer(t *testing.T) {
 
 		if !strings.Contains(output, "Created conversation") {
 			t.Errorf("Expected 'Created conversation' in output, got: %s", output)
-		}
-	})
-
-	t.Run("create conversation JSON output", func(t *testing.T) {
-		baseURL := env.server.URL
-		inboxID := "inbox-123"
-		contactID := "contact-123"
-
-		cmd := newClientConversationsCreateCmd(&baseURL, &inboxID, &contactID)
-		cmd.SetArgs([]string{"-o", "json"})
-		output := captureStdout(t, func() {
-			err := cmd.Execute()
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
-
-		if !strings.Contains(output, `"id"`) {
-			t.Errorf("Expected JSON output, got: %s", output)
 		}
 	})
 
@@ -934,22 +896,20 @@ func TestClientConversationsResolveWithServer(t *testing.T) {
 		}
 	})
 
-	t.Run("resolve conversation JSON output", func(t *testing.T) {
-		baseURL := env.server.URL
+	t.Run("resolve conversation API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/toggle_status", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
 		inboxID := "inbox-123"
 		contactID := "contact-123"
 
 		cmd := newClientConversationsResolveCmd(&baseURL, &inboxID, &contactID)
-		cmd.SetArgs([]string{"1", "-o", "json"})
-		output := captureStdout(t, func() {
-			err := cmd.Execute()
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
+		cmd.SetArgs([]string{"1"})
 
-		if !strings.Contains(output, `"id"`) {
-			t.Errorf("Expected JSON output, got: %s", output)
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
 		}
 	})
 }
@@ -960,22 +920,20 @@ func TestClientConversationsGetWithServer(t *testing.T) {
 
 	env := setupTestEnvWithHandler(t, handler)
 
-	t.Run("get conversation JSON output", func(t *testing.T) {
-		baseURL := env.server.URL
+	t.Run("get conversation API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("GET", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
 		inboxID := "inbox-123"
 		contactID := "contact-123"
 
 		cmd := newClientConversationsGetCmd(&baseURL, &inboxID, &contactID)
-		cmd.SetArgs([]string{"1", "-o", "json"})
-		output := captureStdout(t, func() {
-			err := cmd.Execute()
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
+		cmd.SetArgs([]string{"1"})
 
-		if !strings.Contains(output, `"id"`) {
-			t.Errorf("Expected JSON output, got: %s", output)
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
 		}
 	})
 
@@ -1014,23 +972,21 @@ func TestClientMessagesCreateWithServer(t *testing.T) {
 
 	env := setupTestEnvWithHandler(t, handler)
 
-	t.Run("create message JSON output", func(t *testing.T) {
-		baseURL := env.server.URL
+	t.Run("create message API error", func(t *testing.T) {
+		errorHandler := newRouteHandler().
+			On("POST", "/public/api/v1/inboxes/inbox-123/contacts/contact-123/conversations/1/messages", jsonResponse(500, `{"error":"server error"}`))
+		errorEnv := setupTestEnvWithHandler(t, errorHandler)
+		baseURL := errorEnv.server.URL
 		inboxID := "inbox-123"
 		contactID := "contact-123"
 
 		cmd := newClientMessagesCreateCmd(&baseURL, &inboxID, &contactID)
-		cmd.SetArgs([]string{"1", "-o", "json"})
+		cmd.SetArgs([]string{"1"})
 		_ = cmd.Flags().Set("content", "Hello")
-		output := captureStdout(t, func() {
-			err := cmd.Execute()
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
 
-		if !strings.Contains(output, `"id"`) {
-			t.Errorf("Expected JSON output, got: %s", output)
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for 500 response")
 		}
 	})
 

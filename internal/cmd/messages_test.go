@@ -514,3 +514,113 @@ func TestMessagesListCommand_LongContent(t *testing.T) {
 		t.Errorf("expected truncated content with '...', got: %s", output)
 	}
 }
+
+func TestMessagesCreateCommand_AttachmentNotFound(t *testing.T) {
+	handler := newRouteHandler()
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"messages", "create", "123", "--attachment", "/nonexistent/file.pdf"})
+	if err == nil {
+		t.Error("expected error for nonexistent attachment")
+	}
+	if !strings.Contains(err.Error(), "failed to access attachment") {
+		t.Errorf("expected 'failed to access attachment' error, got: %v", err)
+	}
+}
+
+func TestMessagesCreateCommand_TooManyAttachments(t *testing.T) {
+	handler := newRouteHandler()
+	setupTestEnvWithHandler(t, handler)
+
+	// Create a temp file
+	tmpFile, err := os.CreateTemp("", "test-attachment-*.txt")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_, _ = tmpFile.WriteString("test content")
+	_ = tmpFile.Close()
+
+	// Build args with too many attachments (>10)
+	args := []string{"messages", "create", "123", "--content", "test"}
+	for i := 0; i < 15; i++ {
+		args = append(args, "--attachment", tmpFile.Name())
+	}
+
+	execErr := Execute(context.Background(), args)
+	if execErr == nil {
+		t.Error("expected error for too many attachments")
+	}
+	if !strings.Contains(execErr.Error(), "too many attachments") {
+		t.Errorf("expected 'too many attachments' error, got: %v", execErr)
+	}
+}
+
+func TestMessagesCreateCommand_WithAttachment(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"id": 789,
+			"content": "See attached",
+			"message_type": 1,
+			"private": false,
+			"attachments": [{"id": 1, "file_type": "file", "data_url": "https://example.com/file.txt"}]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	// Create a temp file
+	tmpFile, err := os.CreateTemp("", "test-attachment-*.txt")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_, _ = tmpFile.WriteString("test content for upload")
+	_ = tmpFile.Close()
+
+	output := captureStdout(t, func() {
+		execErr := Execute(context.Background(), []string{"messages", "create", "123", "--content", "See attached", "--attachment", tmpFile.Name()})
+		if execErr != nil {
+			t.Errorf("messages create with attachment failed: %v", execErr)
+		}
+	})
+
+	if !strings.Contains(output, "Message created successfully") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+}
+
+func TestMessagesCreateCommand_AttachmentOnly(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"id": 790,
+			"content": "",
+			"message_type": 1,
+			"private": false,
+			"attachments": [{"id": 1, "file_type": "image", "data_url": "https://example.com/image.png"}]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	// Create a temp file
+	tmpFile, err := os.CreateTemp("", "test-image-*.png")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_, _ = tmpFile.WriteString("fake image content")
+	_ = tmpFile.Close()
+
+	output := captureStdout(t, func() {
+		execErr := Execute(context.Background(), []string{"messages", "create", "123", "--attachment", tmpFile.Name()})
+		if execErr != nil {
+			t.Errorf("messages create with attachment only failed: %v", execErr)
+		}
+	})
+
+	if !strings.Contains(output, "Message created successfully") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+	if !strings.Contains(output, "Attachments: 1") {
+		t.Errorf("expected attachment info, got: %s", output)
+	}
+}

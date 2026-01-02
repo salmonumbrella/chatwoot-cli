@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"strconv"
@@ -322,5 +323,375 @@ func TestParseSnoozedUntil(t *testing.T) {
 				tt.validate(t, result)
 			}
 		})
+	}
+}
+
+func TestConversationsContextCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello, I have a question", "message_type": 0, "private": false},
+				{"id": 2, "content": "Sure, how can I help?", "message_type": 1, "private": false}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "John Doe",
+				"email": "john@example.com"
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "context", "123"})
+		if err != nil {
+			t.Errorf("conversations context failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Conversation #123") {
+		t.Errorf("output missing conversation ID: %s", output)
+	}
+	if !strings.Contains(output, "John Doe") {
+		t.Errorf("output missing contact name: %s", output)
+	}
+}
+
+func TestConversationsContextCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{"id": 123, "contact_id": 0}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"payload": []}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "context", "123", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations context --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"summary"`) {
+		t.Errorf("JSON output missing summary: %s", output)
+	}
+}
+
+func TestConversationsContextCommand_InvalidID(t *testing.T) {
+	handler := newRouteHandler()
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"conversations", "context", "invalid"})
+	if err == nil {
+		t.Error("expected error for invalid ID")
+	}
+}
+
+func TestConversationsAssignCommand_WithAssignee(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 123,
+			"meta": {"assignee": {"id": 5, "name": "Agent Smith"}}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"meta": {"assignee": {"id": 5, "name": "Agent Smith"}}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123", "--assignee-id", "5"})
+		if err != nil {
+			t.Errorf("conversations assign failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "assigned") {
+		t.Errorf("output missing assignment info: %s", output)
+	}
+}
+
+func TestConversationsAssignCommand_WithTeam(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 123,
+			"meta": {"team": {"id": 2, "name": "Support Team"}}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"meta": {"team": {"id": 2, "name": "Support Team"}}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123", "--team-id", "2"})
+		if err != nil {
+			t.Errorf("conversations assign --team-id failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "assigned") {
+		t.Errorf("output missing assignment info: %s", output)
+	}
+}
+
+func TestConversationsAssignCommand_WithInvalidID(t *testing.T) {
+	handler := newRouteHandler()
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"conversations", "assign", "invalid", "--assignee-id", "5"})
+	if err == nil {
+		t.Error("expected error for invalid ID")
+	}
+}
+
+func TestConversationsAssignCommand_MissingFlags(t *testing.T) {
+	handler := newRouteHandler()
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"conversations", "assign", "123"})
+	// Should fail - either with validation error or API error when interactive mode tries to prompt
+	if err == nil {
+		t.Error("expected error for missing flags")
+	}
+}
+
+func TestConversationsAssignCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 123,
+			"meta": {"assignee": {"id": 5, "name": "Agent Smith"}}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"status": "open",
+			"assignee_id": 5,
+			"meta": {"assignee": {"id": 5, "name": "Agent Smith"}}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123", "--assignee-id", "5", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations assign --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"id"`) {
+		t.Errorf("JSON output missing id: %s", output)
+	}
+}
+
+func TestConversationsMuteCommand_Execute(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_mute", jsonResponse(200, `{}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"muted": true,
+			"status": "open"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "mute", "123"})
+		if err != nil {
+			t.Errorf("conversations mute failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "muted") {
+		t.Errorf("output missing muted status: %s", output)
+	}
+}
+
+func TestConversationsMuteCommand_Execute_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_mute", jsonResponse(200, `{}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"muted": true,
+			"status": "open"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "mute", "123", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations mute --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"muted"`) {
+		t.Errorf("JSON output missing muted field: %s", output)
+	}
+}
+
+func TestConversationsUnmuteCommand_Execute(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_mute", jsonResponse(200, `{}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"muted": false,
+			"status": "open"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "unmute", "123"})
+		if err != nil {
+			t.Errorf("conversations unmute failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "unmuted") {
+		t.Errorf("output missing unmuted status: %s", output)
+	}
+}
+
+func TestConversationsMarkUnreadCommand_Execute(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"unread_count": 0,
+			"status": "open"
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/unread", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "mark-unread", "123"})
+		if err != nil {
+			t.Errorf("conversations mark-unread failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "marked as unread") {
+		t.Errorf("output missing mark-unread confirmation: %s", output)
+	}
+}
+
+func TestConversationsMarkUnreadCommand_Execute_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"unread_count": 1,
+			"status": "open"
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/unread", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "mark-unread", "123", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations mark-unread --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"id"`) {
+		t.Errorf("JSON output missing id: %s", output)
+	}
+}
+
+func TestConversationsSearchCommand_Execute(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 123, "inbox_id": 1, "status": "open", "unread_count": 2, "created_at": 1700000000}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "search", "test query"})
+		if err != nil {
+			t.Errorf("conversations search failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "123") {
+		t.Errorf("output missing conversation ID: %s", output)
+	}
+}
+
+func TestConversationsSearchCommand_Execute_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 123, "inbox_id": 1, "status": "open"}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "search", "test", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations search --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"id"`) {
+		t.Errorf("JSON output missing id: %s", output)
+	}
+}
+
+func TestConversationsAttachmentsCommand_Execute(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `[
+			{"id": 10, "file_type": "file", "data_url": "https://example.com/file.pdf", "file_size": 1024}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "attachments", "123"})
+		if err != nil {
+			t.Errorf("conversations attachments failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "file.pdf") {
+		t.Errorf("output missing attachment filename: %s", output)
+	}
+}
+
+func TestConversationsAttachmentsCommand_Execute_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `[
+			{"id": 10, "file_type": "image", "data_url": "https://example.com/image.png"}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "attachments", "123", "-o", "json"})
+		if err != nil {
+			t.Errorf("conversations attachments --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"file_type"`) {
+		t.Errorf("JSON output missing file_type: %s", output)
 	}
 }
