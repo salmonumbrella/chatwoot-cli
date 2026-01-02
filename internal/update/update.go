@@ -12,9 +12,13 @@ import (
 )
 
 const (
-	GitHubReleasesURL = "https://api.github.com/repos/chatwoot/chatwoot-cli/releases/latest"
-	CheckTimeout      = 5 * time.Second
+	// DefaultGitHubReleasesURL is the default URL for checking releases.
+	DefaultGitHubReleasesURL = "https://api.github.com/repos/chatwoot/chatwoot-cli/releases/latest"
+	CheckTimeout             = 5 * time.Second
 )
+
+// GitHubReleasesURL is the URL to check for releases. Can be overridden in tests.
+var GitHubReleasesURL = DefaultGitHubReleasesURL
 
 type Release struct {
 	TagName string `json:"tag_name"`
