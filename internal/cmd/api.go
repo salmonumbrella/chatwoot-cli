@@ -95,7 +95,7 @@ For example, "/conversations/123" becomes:
 
 			// Include headers
 			if includeHeaders {
-				fmt.Printf("HTTP/1.1 %d\n", statusCode)
+				fmt.Printf("HTTP %d\n", statusCode)
 				// Sort headers for consistent output
 				keys := make([]string, 0, len(headers))
 				for k := range headers {
