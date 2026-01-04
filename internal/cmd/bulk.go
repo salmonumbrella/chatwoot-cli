@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -24,15 +27,23 @@ func runBulkOperation[T any](
 	ctx context.Context,
 	ids []int,
 	concurrency int64,
+	progress bool,
+	errOut io.Writer,
 	operation func(ctx context.Context, id int) (T, error),
 ) []BulkResult {
 	if concurrency <= 0 {
 		concurrency = DefaultConcurrency
 	}
+	if errOut == nil {
+		errOut = io.Discard
+	}
 
 	sem := semaphore.NewWeighted(concurrency)
 	var mu sync.Mutex
+	var progressMu sync.Mutex
 	results := make([]BulkResult, 0, len(ids))
+	total := len(ids)
+	var done int64
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -71,12 +82,25 @@ func runBulkOperation[T any](
 			}
 			mu.Unlock()
 
+			if progress && total > 0 {
+				current := atomic.AddInt64(&done, 1)
+				progressMu.Lock()
+				_, _ = fmt.Fprintf(errOut, "\rProcessed %d/%d", current, total)
+				progressMu.Unlock()
+			}
+
 			return nil // don't fail the group on individual errors
 		})
 	}
 
 	// Wait for all goroutines
 	_ = g.Wait()
+
+	if progress && total > 0 {
+		progressMu.Lock()
+		_, _ = fmt.Fprintf(errOut, "\rProcessed %d/%d\n", atomic.LoadInt64(&done), total)
+		progressMu.Unlock()
+	}
 
 	return results
 }

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,6 +18,8 @@ func TestRunBulkOperation_Success(t *testing.T) {
 		context.Background(),
 		ids,
 		5,
+		false,
+		nil,
 		func(ctx context.Context, id int) (string, error) {
 			callCount.Add(1)
 			return "ok", nil
@@ -44,6 +48,8 @@ func TestRunBulkOperation_PartialFailure(t *testing.T) {
 		context.Background(),
 		ids,
 		5,
+		false,
+		nil,
 		func(ctx context.Context, id int) (string, error) {
 			if id == 2 {
 				return "", errors.New("failed")
@@ -79,6 +85,8 @@ func TestRunBulkOperation_Concurrency(t *testing.T) {
 		context.Background(),
 		ids,
 		3, // limit to 3 concurrent
+		false,
+		nil,
 		func(ctx context.Context, id int) (string, error) {
 			cur := current.Add(1)
 			// Track max concurrent
@@ -132,6 +140,8 @@ func TestRunBulkOperation_ContextCancellation(t *testing.T) {
 		ctx,
 		ids,
 		1, // sequential to make cancellation predictable
+		false,
+		nil,
 		func(ctx context.Context, id int) (string, error) {
 			callCount.Add(1)
 			time.Sleep(50 * time.Millisecond)
@@ -142,5 +152,22 @@ func TestRunBulkOperation_ContextCancellation(t *testing.T) {
 	// Should have processed fewer than all items due to cancellation
 	if callCount.Load() >= 5 {
 		t.Errorf("expected fewer than 5 calls due to cancellation, got %d", callCount.Load())
+	}
+}
+
+func TestRunBulkOperationProgress(t *testing.T) {
+	var buf bytes.Buffer
+	_ = runBulkOperation(
+		context.Background(),
+		[]int{1, 2},
+		1,
+		true,
+		&buf,
+		func(ctx context.Context, id int) (string, error) {
+			return "ok", nil
+		},
+	)
+	if !strings.Contains(buf.String(), "Processed 2/2") {
+		t.Fatalf("expected progress output, got %q", buf.String())
 	}
 }

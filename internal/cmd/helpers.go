@@ -148,6 +148,22 @@ func printIfNotQuiet(_ *cobra.Command, format string, args ...any) {
 	}
 }
 
+func bulkProgressEnabled(cmd *cobra.Command, progress, noProgress bool) bool {
+	if noProgress {
+		return false
+	}
+	if !progress {
+		return false
+	}
+	if isJSON(cmd) {
+		return false
+	}
+	if flags.Quiet || flags.Silent {
+		return false
+	}
+	return true
+}
+
 // cmdContext returns the command context
 func cmdContext(cmd *cobra.Command) context.Context {
 	return cmd.Context()

@@ -952,6 +952,8 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 		contactIDs  string
 		labels      string
 		concurrency int
+		progress    bool
+		noProgress  bool
 	)
 
 	cmd := &cobra.Command{
@@ -996,6 +998,8 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 				ctx,
 				ids,
 				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
 					_, err := client.AddContactLabels(ctx, id, labelList)
 					if err != nil {
@@ -1023,6 +1027,8 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
@@ -1034,6 +1040,8 @@ func newContactsBulkRemoveLabelCmd() *cobra.Command {
 		contactIDs  string
 		labels      string
 		concurrency int
+		progress    bool
+		noProgress  bool
 	)
 
 	cmd := &cobra.Command{
@@ -1081,6 +1089,8 @@ labels, and updates the contact with the remaining labels.`,
 				ctx,
 				ids,
 				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
 					// Get current labels
 					currentLabels, err := client.GetContactLabels(ctx, id)
@@ -1124,6 +1134,8 @@ labels, and updates the contact with the remaining labels.`,
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to remove (required)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 

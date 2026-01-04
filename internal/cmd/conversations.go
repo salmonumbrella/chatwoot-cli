@@ -1870,6 +1870,8 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 	var (
 		conversationIDs string
 		concurrency     int
+		progress        bool
+		noProgress      bool
 	)
 
 	cmd := &cobra.Command{
@@ -1903,6 +1905,8 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 				ctx,
 				ids,
 				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
 					result, err := client.ToggleConversationStatus(ctx, id, "resolved", 0)
 					if err != nil {
@@ -1943,6 +1947,8 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -1954,6 +1960,8 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 		agentID         int
 		teamID          int
 		concurrency     int
+		progress        bool
+		noProgress      bool
 	)
 
 	cmd := &cobra.Command{
@@ -1994,6 +2002,8 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 				ctx,
 				ids,
 				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
 					result, err := client.AssignConversation(ctx, id, agentID, teamID)
 					if err != nil {
@@ -2041,6 +2051,8 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign conversations to")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -2051,6 +2063,8 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 		conversationIDs string
 		labels          string
 		concurrency     int
+		progress        bool
+		noProgress      bool
 	)
 
 	cmd := &cobra.Command{
@@ -2098,6 +2112,8 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 				ctx,
 				ids,
 				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
 					resultLabels, err := client.AddConversationLabels(ctx, id, labelList)
 					if err != nil {
@@ -2139,6 +2155,8 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
