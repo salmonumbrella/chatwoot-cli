@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
+
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 )
+
+const maxEmbeddedAttachmentBytes = 5 * 1024 * 1024
 
 // ConversationContext contains full context for AI consumption
 type ConversationContext struct {
@@ -50,7 +54,7 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 	}
 
 	// Get messages
-	messages, err := c.ListMessages(ctx, conversationID)
+	messages, err := c.ListAllMessages(ctx, conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get messages: %w", err)
 	}
@@ -85,11 +89,18 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 
 			// Embed image data if requested
 			if embedImages && isImageType(att.FileType) {
+				if att.FileSize > 0 && att.FileSize > maxEmbeddedAttachmentBytes {
+					ioStreams := iocontext.GetIO(ctx)
+					_, _ = fmt.Fprintf(ioStreams.ErrOut, "Warning: skipping image embed (attachment %d exceeds %d bytes)\n", att.ID, maxEmbeddedAttachmentBytes)
+					mwe.Attachments = append(mwe.Attachments, ea)
+					continue
+				}
 				embedded, err := c.downloadAndEncode(ctx, att.DataURL, att.FileType)
 				if err == nil {
 					ea.Embedded = embedded
 				} else {
-					fmt.Fprintf(os.Stderr, "Warning: failed to embed image (attachment %d): %v\n", att.ID, err)
+					ioStreams := iocontext.GetIO(ctx)
+					_, _ = fmt.Fprintf(ioStreams.ErrOut, "Warning: failed to embed image (attachment %d): %v\n", att.ID, err)
 				}
 			}
 
@@ -113,6 +124,12 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 
 // downloadAndEncode downloads a URL and returns a base64 data URI
 func (c *Client) downloadAndEncode(ctx context.Context, url, fileType string) (string, error) {
+	if !c.skipURLValidation {
+		if err := validation.ValidateChatwootURL(url); err != nil {
+			return "", err
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
@@ -128,9 +145,17 @@ func (c *Client) downloadAndEncode(ctx context.Context, url, fileType string) (s
 		return "", fmt.Errorf("download failed: status %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxEmbeddedAttachmentBytes {
+		return "", fmt.Errorf("attachment too large to embed: %d bytes exceeds %d", resp.ContentLength, maxEmbeddedAttachmentBytes)
+	}
+
+	limited := io.LimitReader(resp.Body, maxEmbeddedAttachmentBytes+1)
+	data, err := io.ReadAll(limited)
 	if err != nil {
 		return "", err
+	}
+	if int64(len(data)) > maxEmbeddedAttachmentBytes {
+		return "", fmt.Errorf("attachment too large to embed: exceeds %d bytes", maxEmbeddedAttachmentBytes)
 	}
 
 	// Determine MIME type

@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -240,6 +242,69 @@ func TestGetConversationContext(t *testing.T) {
 	}
 }
 
+func TestGetConversationContextPaginatesMessages(t *testing.T) {
+	conversationResponse := `{
+		"id": 123,
+		"account_id": 1,
+		"inbox_id": 5,
+		"status": "open",
+		"contact_id": 0,
+		"created_at": 1700000000
+	}`
+
+	page1 := `{"payload":[{"id":3,"conversation_id":123,"content":"first","content_type":"text","message_type":0,"private":false,"created_at":1700000001},{"id":2,"conversation_id":123,"content":"second","content_type":"text","message_type":0,"private":false,"created_at":1700000002}]}`
+	page2 := `{"payload":[{"id":1,"conversation_id":123,"content":"third","content_type":"text","message_type":0,"private":false,"created_at":1700000003}]}`
+	empty := `{"payload":[]}`
+
+	var mu sync.Mutex
+	var befores []string
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case strings.Contains(r.URL.Path, "/messages"):
+			before := r.URL.Query().Get("before")
+			mu.Lock()
+			befores = append(befores, before)
+			mu.Unlock()
+			switch before {
+			case "":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(page1))
+			case "2":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(page2))
+			default:
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(empty))
+			}
+		case strings.Contains(r.URL.Path, "/conversations/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(conversationResponse))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer apiServer.Close()
+
+	client := newTestClient(apiServer.URL, "test-token", 1)
+	result, err := client.GetConversationContext(context.Background(), 123, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Messages) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(result.Messages))
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(befores) < 2 || befores[0] != "" || befores[1] != "2" {
+		t.Fatalf("unexpected pagination sequence: %v", befores)
+	}
+}
+
 func TestGetConversationContextWithImageEmbedding(t *testing.T) {
 	// Create a test image server
 	imageData := []byte("fake image data for testing")
@@ -438,6 +503,29 @@ func TestDownloadAndEncode(t *testing.T) {
 				tt.validateFunc(t, result)
 			}
 		})
+	}
+}
+
+func TestDownloadAndEncodeRejectsInvalidURL(t *testing.T) {
+	client := New("https://example.com", "test-token", 1)
+	_, err := client.downloadAndEncode(context.Background(), "http://127.0.0.1/image.jpg", "image")
+	if err == nil {
+		t.Fatal("expected error for invalid URL")
+	}
+}
+
+func TestDownloadAndEncodeRejectsLargeAttachment(t *testing.T) {
+	data := bytes.Repeat([]byte("a"), maxEmbeddedAttachmentBytes+1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(data)
+	}))
+	defer server.Close()
+
+	client := newTestClient("https://api.example.com", "test-token", 1)
+	_, err := client.downloadAndEncode(context.Background(), server.URL+"/image.jpg", "image")
+	if err == nil {
+		t.Fatal("expected error for oversized attachment")
 	}
 }
 
