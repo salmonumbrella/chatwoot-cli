@@ -73,19 +73,17 @@ func (c *Client) ensureBaseURLValidated() error {
 	}
 
 	c.validateMu.Lock()
+	defer c.validateMu.Unlock()
+
 	if c.validatedBaseURL {
-		c.validateMu.Unlock()
 		return nil
 	}
-	c.validateMu.Unlock()
 
 	if err := validateChatwootURL(c.BaseURL); err != nil {
 		return fmt.Errorf("URL validation failed: %w", err)
 	}
 
-	c.validateMu.Lock()
 	c.validatedBaseURL = true
-	c.validateMu.Unlock()
 	return nil
 }
 
