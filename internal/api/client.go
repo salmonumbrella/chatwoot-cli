@@ -16,7 +16,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 )
 
-const defaultTimeout = 30 * time.Second
+const DefaultTimeout = 30 * time.Second
 
 // Client is the Chatwoot API client
 type Client struct {
@@ -48,7 +48,7 @@ func New(baseURL, token string, accountID int) *Client {
 		AccountID:         accountID,
 		skipURLValidation: skipValidation,
 		HTTP: &http.Client{
-			Timeout:   defaultTimeout,
+			Timeout:   DefaultTimeout,
 			Transport: transport,
 		},
 		circuitBreaker: &circuitBreaker{},

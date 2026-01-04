@@ -36,7 +36,9 @@ func getClient() (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return api.New(account.BaseURL, account.APIToken, account.AccountID), nil
+	client := api.New(account.BaseURL, account.APIToken, account.AccountID)
+	applyTimeout(client)
+	return client, nil
 }
 
 // getPlatformClient creates a platform API client, allowing optional overrides
@@ -73,7 +75,9 @@ func getPlatformClient(baseURLOverride, tokenOverride string) (*api.Client, erro
 		return nil, fmt.Errorf("platform token not configured (set CHATWOOT_PLATFORM_TOKEN, use --token, or store in profile)")
 	}
 
-	return api.New(baseURL, platformToken, accountID), nil
+	client := api.New(baseURL, platformToken, accountID)
+	applyTimeout(client)
+	return client, nil
 }
 
 // getPublicClient creates a public client API instance, allowing optional overrides
@@ -95,7 +99,18 @@ func getPublicClient(baseURLOverride string) (*api.Client, error) {
 		return nil, fmt.Errorf("base URL not configured (set CHATWOOT_BASE_URL, run 'chatwoot auth login', or pass --base-url)")
 	}
 
-	return api.New(baseURL, "", 0), nil
+	client := api.New(baseURL, "", 0)
+	applyTimeout(client)
+	return client, nil
+}
+
+func applyTimeout(client *api.Client) {
+	if client == nil {
+		return
+	}
+	if flags.Timeout > 0 {
+		client.HTTP.Timeout = flags.Timeout
+	}
 }
 
 // newTabWriter creates a tabwriter for text output

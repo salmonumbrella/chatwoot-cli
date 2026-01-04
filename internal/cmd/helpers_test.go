@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
@@ -90,6 +91,24 @@ func TestPrintJSON(t *testing.T) {
 				t.Errorf("printJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestGetClientTimeoutOverride(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://example.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	original := flags.Timeout
+	flags.Timeout = 45 * time.Second
+	defer func() { flags.Timeout = original }()
+
+	client, err := getClient()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if client.HTTP.Timeout != 45*time.Second {
+		t.Fatalf("expected timeout 45s, got %s", client.HTTP.Timeout)
 	}
 }
 

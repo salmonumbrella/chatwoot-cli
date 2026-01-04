@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/debug"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
@@ -24,20 +26,23 @@ type rootFlags struct {
 	JQ       string
 	Fields   string
 	Template string
+	Timeout  time.Duration
 }
 
 // flags holds the global command flags, accessible to helper functions
 var flags = rootFlags{
-	Output: "text",
-	Color:  "auto",
+	Output:  "text",
+	Color:   "auto",
+	Timeout: api.DefaultTimeout,
 }
 
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
 	// Reset flags to defaults for each execution (important for tests)
 	flags = rootFlags{
-		Output: "text",
-		Color:  "auto",
+		Output:  "text",
+		Color:   "auto",
+		Timeout: api.DefaultTimeout,
 	}
 
 	root := &cobra.Command{
@@ -136,6 +141,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
+	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
 
 	// Add subcommands
 	root.AddCommand(newAuthCmd())
