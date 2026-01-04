@@ -63,6 +63,15 @@ func TestExecute_Version(t *testing.T) {
 	}
 }
 
+func TestExecute_QuietSuppressesTextOutput(t *testing.T) {
+	output := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"version", "--quiet"})
+	})
+	if output != "" {
+		t.Fatalf("expected no stdout with --quiet, got %q", output)
+	}
+}
+
 func TestExecute_InvalidCommand(t *testing.T) {
 	// Capture stderr
 	oldStderr := os.Stderr

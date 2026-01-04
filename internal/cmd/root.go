@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/debug"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 )
 
@@ -22,6 +24,7 @@ type rootFlags struct {
 	Debug    bool
 	DryRun   bool
 	Quiet    bool
+	Silent   bool
 	Query    string
 	JQ       string
 	Fields   string
@@ -36,6 +39,8 @@ var flags = rootFlags{
 	Timeout: api.DefaultTimeout,
 }
 
+var restoreStdout func()
+
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
 	// Reset flags to defaults for each execution (important for tests)
@@ -44,6 +49,7 @@ func Execute(ctx context.Context, args []string) error {
 		Color:   "auto",
 		Timeout: api.DefaultTimeout,
 	}
+	restoreStdout = nil
 
 	root := &cobra.Command{
 		Use:           "chatwoot",
@@ -93,6 +99,32 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			ctx = outfmt.WithMode(ctx, mode)
 
+			// Set up IO streams (allow silent/quiet to suppress stderr)
+			ioStreams := iocontext.DefaultIO()
+			if flags.Silent || flags.Quiet {
+				ioStreams.ErrOut = io.Discard
+			}
+			if flags.Quiet && mode == outfmt.Text {
+				ioStreams.Out = io.Discard
+			}
+			ctx = iocontext.WithIO(ctx, ioStreams)
+			cmd.SetOut(ioStreams.Out)
+			cmd.SetErr(ioStreams.ErrOut)
+
+			// Suppress stdout for text output when --quiet is set
+			if flags.Quiet && mode == outfmt.Text && restoreStdout == nil {
+				devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+				if err != nil {
+					return err
+				}
+				original := os.Stdout
+				os.Stdout = devNull
+				restoreStdout = func() {
+					os.Stdout = original
+					_ = devNull.Close()
+				}
+			}
+
 			// Set up debug logging
 			debug.SetupLogger(flags.Debug)
 			ctx = debug.WithDebug(ctx, flags.Debug)
@@ -140,6 +172,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "JQ expression to filter JSON output (alias for --query)")
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
+	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
 
@@ -183,6 +216,10 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newMentionsCmd())
 
 	err := root.Execute()
+	if restoreStdout != nil {
+		restoreStdout()
+		restoreStdout = nil
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return err

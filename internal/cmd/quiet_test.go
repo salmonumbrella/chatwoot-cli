@@ -38,6 +38,11 @@ func TestQuietFlagExists(t *testing.T) {
 	if !strings.Contains(output, "-q") {
 		t.Error("-q shorthand not found in help output")
 	}
+
+	// The help output should show "--silent"
+	if !strings.Contains(output, "--silent") {
+		t.Error("--silent persistent flag not found in help output")
+	}
 }
 
 func TestIsQuiet(t *testing.T) {

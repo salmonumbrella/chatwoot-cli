@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 )
 
@@ -54,7 +54,8 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				return err
 			}
 
-			f := outfmt.NewFormatter(cmd.Context(), os.Stdout, os.Stderr)
+			ioStreams := iocontext.GetIO(cmd.Context())
+			f := outfmt.NewFormatter(cmd.Context(), ioStreams.Out, ioStreams.ErrOut)
 
 			if isJSON(cmd) {
 				return f.Output(map[string]interface{}{
@@ -77,7 +78,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			}
 
 			if result.HasMore {
-				fmt.Fprintln(os.Stderr, "# More results available")
+				_, _ = fmt.Fprintln(ioStreams.ErrOut, "# More results available")
 			}
 			return nil
 		},
