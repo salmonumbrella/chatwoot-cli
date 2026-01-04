@@ -7,6 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// maxReasonableCategoryID is the upper bound for category IDs to catch likely input errors.
+const maxReasonableCategoryID = 1000000
+
 // validateArticleStatus validates that status is a valid article status value
 func validateArticleStatus(status int) error {
 	if status < 0 || status > 2 {
@@ -485,7 +488,7 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 				params["slug"] = slug
 			}
 			if categoryID > 0 {
-				if categoryID > 1000000 {
+				if categoryID > maxReasonableCategoryID {
 					return fmt.Errorf("invalid category-id %d: value seems unreasonably large", categoryID)
 				}
 				params["category_id"] = categoryID
