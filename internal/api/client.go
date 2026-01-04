@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -26,7 +27,11 @@ type Client struct {
 	HTTP              *http.Client
 	skipURLValidation bool            // internal flag for testing only
 	circuitBreaker    *circuitBreaker // circuit breaker for retry logic
+	validatedBaseURL  bool
+	validateMu        sync.Mutex
 }
+
+var validateChatwootURL = validation.ValidateChatwootURL
 
 // New creates a new Chatwoot API client
 func New(baseURL, token string, accountID int) *Client {
@@ -62,6 +67,28 @@ func newTestClient(baseURL, token string, accountID int) *Client {
 	return c
 }
 
+func (c *Client) ensureBaseURLValidated() error {
+	if c.skipURLValidation {
+		return nil
+	}
+
+	c.validateMu.Lock()
+	if c.validatedBaseURL {
+		c.validateMu.Unlock()
+		return nil
+	}
+	c.validateMu.Unlock()
+
+	if err := validateChatwootURL(c.BaseURL); err != nil {
+		return fmt.Errorf("URL validation failed: %w", err)
+	}
+
+	c.validateMu.Lock()
+	c.validatedBaseURL = true
+	c.validateMu.Unlock()
+	return nil
+}
+
 // accountPath returns the base path for account-scoped API calls
 func (c *Client) accountPath(path string) string {
 	return fmt.Sprintf("%s/api/v1/accounts/%d%s", c.BaseURL, c.AccountID, path)
@@ -79,132 +106,22 @@ func (c *Client) publicPath(path string) string {
 
 // do performs an HTTP request and decodes the response
 func (c *Client) do(ctx context.Context, method, url string, body any, result any) error {
-	// Check circuit breaker at start
-	if c.circuitBreaker != nil && c.circuitBreaker.isOpen() {
-		return &CircuitBreakerError{}
+	respBody, _, _, err := c.executeRequest(ctx, method, url, body)
+	if err != nil {
+		return err
 	}
-
-	// Validate BaseURL at request time to prevent DNS rebinding attacks
-	// Skip validation in tests to allow httptest.Server localhost URLs
-	if !c.skipURLValidation {
-		if err := validation.ValidateChatwootURL(c.BaseURL); err != nil {
-			return fmt.Errorf("URL validation failed: %w", err)
+	if result != nil && len(respBody) > 0 {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("unexpected API response format (JSON decode failed): %w", err)
 		}
 	}
-
-	// Marshal body to JSON once (will be reused for retries)
-	var jsonBody []byte
-	if body != nil {
-		var err error
-		jsonBody, err = json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("failed to marshal request body: %w", err)
-		}
-	}
-
-	// Determine if method is idempotent for retry logic
-	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
-
-	var retries429, retries5xx int
-
-	for {
-		// Create fresh body reader for each attempt
-		var bodyReader io.Reader
-		if jsonBody != nil {
-			bodyReader = bytes.NewReader(jsonBody)
-		}
-
-		req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
-		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
-		}
-
-		if c.APIToken != "" {
-			req.Header.Set("api_access_token", c.APIToken)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := c.HTTP.Do(req)
-		if err != nil {
-			return fmt.Errorf("request failed: %w", err)
-		}
-
-		respBody, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return fmt.Errorf("failed to read response: %w", err)
-		}
-
-		// Handle 429 rate limiting with exponential backoff
-		if resp.StatusCode == 429 {
-			if retries429 >= MaxRateLimitRetries {
-				return &RateLimitError{RetryAfter: RateLimitBaseDelay}
-			}
-			delay := RateLimitBaseDelay * time.Duration(1<<retries429)
-			slog.Info("rate limited, retrying", "delay", delay, "attempt", retries429+1)
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-			retries429++
-			continue
-		}
-
-		// Handle 5xx server errors
-		if resp.StatusCode >= 500 {
-			if c.circuitBreaker != nil {
-				c.circuitBreaker.recordFailure()
-			}
-			if isIdempotent && retries5xx < Max5xxRetries {
-				slog.Info("server error, retrying", "status", resp.StatusCode)
-				time.Sleep(ServerErrorRetryDelay)
-				retries5xx++
-				continue
-			}
-		}
-
-		// Handle other 4xx errors
-		if resp.StatusCode >= 400 {
-			return &APIError{
-				StatusCode: resp.StatusCode,
-				Body:       sanitizeErrorBody(string(respBody)),
-			}
-		}
-
-		// Success (2xx) - record to circuit breaker
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 && c.circuitBreaker != nil {
-			c.circuitBreaker.recordSuccess()
-		}
-
-		if result != nil && len(respBody) > 0 {
-			if err := json.Unmarshal(respBody, result); err != nil {
-				return fmt.Errorf("unexpected API response format (JSON decode failed): %w", err)
-			}
-		}
-
-		return nil
-	}
+	return nil
 }
 
 // executeRequest is the internal helper that performs HTTP requests with retry and circuit breaker logic.
 // It returns the response body, headers, status code, and any error.
 // Both doRaw and DoRaw delegate to this method.
 func (c *Client) executeRequest(ctx context.Context, method, url string, body any) ([]byte, http.Header, int, error) {
-	// Check circuit breaker at start
-	if c.circuitBreaker != nil && c.circuitBreaker.isOpen() {
-		return nil, nil, 0, &CircuitBreakerError{}
-	}
-
-	// Validate BaseURL at request time to prevent DNS rebinding attacks
-	// Skip validation in tests to allow httptest.Server localhost URLs
-	if !c.skipURLValidation {
-		if err := validation.ValidateChatwootURL(c.BaseURL); err != nil {
-			return nil, nil, 0, fmt.Errorf("URL validation failed: %w", err)
-		}
-	}
-
 	// Marshal body to JSON once (will be reused for retries)
 	var jsonBody []byte
 	if body != nil {
@@ -215,6 +132,23 @@ func (c *Client) executeRequest(ctx context.Context, method, url string, body an
 		}
 	}
 
+	return c.executeRequestWithBody(ctx, method, url, jsonBody, "application/json")
+}
+
+// executeRequestWithBody performs HTTP requests with retry logic for raw request bodies.
+// contentType can be empty to omit the Content-Type header.
+func (c *Client) executeRequestWithBody(ctx context.Context, method, url string, body []byte, contentType string) ([]byte, http.Header, int, error) {
+	// Check circuit breaker at start
+	if c.circuitBreaker != nil && c.circuitBreaker.isOpen() {
+		return nil, nil, 0, &CircuitBreakerError{}
+	}
+
+	// Validate BaseURL at request time to prevent DNS rebinding attacks
+	// Skip validation in tests to allow httptest.Server localhost URLs
+	if err := c.ensureBaseURLValidated(); err != nil {
+		return nil, nil, 0, err
+	}
+
 	// Determine if method is idempotent for retry logic
 	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 
@@ -223,8 +157,8 @@ func (c *Client) executeRequest(ctx context.Context, method, url string, body an
 	for {
 		// Create fresh body reader for each attempt
 		var bodyReader io.Reader
-		if jsonBody != nil {
-			bodyReader = bytes.NewReader(jsonBody)
+		if body != nil {
+			bodyReader = bytes.NewReader(body)
 		}
 
 		req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
@@ -235,7 +169,9 @@ func (c *Client) executeRequest(ctx context.Context, method, url string, body an
 		if c.APIToken != "" {
 			req.Header.Set("api_access_token", c.APIToken)
 		}
-		req.Header.Set("Content-Type", "application/json")
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
 		req.Header.Set("Accept", "application/json")
 
 		resp, err := c.HTTP.Do(req)
@@ -346,12 +282,6 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, body any) ([]by
 
 // PostMultipart performs a multipart POST request with files and form fields
 func (c *Client) PostMultipart(ctx context.Context, path string, fields map[string]string, files map[string][]byte, result any) error {
-	if !c.skipURLValidation {
-		if err := validation.ValidateChatwootURL(c.BaseURL); err != nil {
-			return fmt.Errorf("URL validation failed: %w", err)
-		}
-	}
-
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -378,31 +308,9 @@ func (c *Client) PostMultipart(ctx context.Context, path string, fields map[stri
 	}
 
 	url := c.accountPath(path)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	respBody, _, _, err := c.executeRequestWithBody(ctx, http.MethodPost, url, body.Bytes(), writer.FormDataContentType())
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("api_access_token", c.APIToken)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Body:       sanitizeErrorBody(string(respBody)),
-		}
+		return err
 	}
 
 	if result != nil && len(respBody) > 0 {

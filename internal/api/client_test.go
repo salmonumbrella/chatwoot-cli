@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -132,6 +133,69 @@ func TestPost(t *testing.T) {
 	}
 	if result["id"] != 1 {
 		t.Errorf("Expected id=1, got %v", result)
+	}
+}
+
+func TestPostMultipartRetriesOn429(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := atomic.AddInt32(&calls, 1)
+
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.Header.Get("api_access_token") != "test-token" {
+			t.Error("Missing or wrong api_access_token header")
+		}
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data;") {
+			t.Errorf("Expected multipart content-type, got %s", r.Header.Get("Content-Type"))
+		}
+
+		if call == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error": "rate limited"}`))
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 1}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	var result map[string]int
+	err := client.PostMultipart(context.Background(), "/test", map[string]string{"key": "value"}, map[string][]byte{"file.txt": []byte("hello")}, &result)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if result["id"] != 1 {
+		t.Fatalf("Expected id=1, got %v", result)
+	}
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Fatalf("Expected 2 attempts, got %d", calls)
+	}
+}
+
+func TestEnsureBaseURLValidatedCachesSuccess(t *testing.T) {
+	original := validateChatwootURL
+	var calls int
+	validateChatwootURL = func(rawURL string) error {
+		calls++
+		return nil
+	}
+	defer func() { validateChatwootURL = original }()
+
+	client := newTestClient("https://example.com", "token", 1)
+	client.skipURLValidation = false
+
+	if err := client.ensureBaseURLValidated(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := client.ensureBaseURLValidated(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected validation to run once, got %d calls", calls)
 	}
 }
 
