@@ -166,6 +166,9 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": accountID})
+			}
 			fmt.Printf("Deleted account %d\n", accountID)
 			return nil
 		},
@@ -414,6 +417,9 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": userID})
+			}
 			fmt.Printf("Deleted user %d\n", userID)
 			return nil
 		},
@@ -573,6 +579,9 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "account_id": accountID, "user_id": userID})
+			}
 			fmt.Printf("Removed user %d from account %d\n", userID, accountID)
 			return nil
 		},
@@ -784,6 +793,9 @@ func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": botID})
+			}
 			fmt.Printf("Deleted agent bot %d\n", botID)
 			return nil
 		},

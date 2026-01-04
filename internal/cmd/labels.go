@@ -251,6 +251,9 @@ func newLabelsDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete label %d: %w", id, err)
 			}
 
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
+			}
 			fmt.Printf("Deleted label #%d\n", id)
 			return nil
 		},

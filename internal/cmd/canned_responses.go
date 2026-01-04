@@ -218,9 +218,10 @@ func newCannedResponsesDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete canned response: %w", err)
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Deleted canned response #%d\n", id)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
+			fmt.Printf("Deleted canned response #%d\n", id)
 			return nil
 		},
 	}

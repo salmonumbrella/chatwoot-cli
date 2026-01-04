@@ -210,9 +210,10 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Deleted integration hook %d\n", hookID)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": hookID})
 			}
+			fmt.Printf("Deleted integration hook %d\n", hookID)
 			return nil
 		},
 	}
@@ -331,9 +332,10 @@ func newShopifyDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Println("Shopify integration deleted")
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "integration": "shopify"})
 			}
+			fmt.Println("Shopify integration deleted")
 			return nil
 		},
 	}
@@ -365,9 +367,10 @@ func newNotionDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Println("Notion integration deleted")
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "integration": "notion"})
 			}
+			fmt.Println("Notion integration deleted")
 			return nil
 		},
 	}

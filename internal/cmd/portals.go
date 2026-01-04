@@ -221,9 +221,10 @@ func newPortalsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Deleted portal %s\n", portalSlug)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "slug": portalSlug})
 			}
+			fmt.Printf("Deleted portal %s\n", portalSlug)
 			return nil
 		},
 	}
@@ -624,9 +625,10 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Deleted article %d\n", articleID)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": articleID})
 			}
+			fmt.Printf("Deleted article %d\n", articleID)
 			return nil
 		},
 	}
@@ -926,9 +928,10 @@ func newPortalsCategoriesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Deleted category %s\n", categorySlug)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "slug": categorySlug})
 			}
+			fmt.Printf("Deleted category %s\n", categorySlug)
 			return nil
 		},
 	}

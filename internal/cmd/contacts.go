@@ -401,10 +401,10 @@ func newContactsDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete contact %d: %w", id, err)
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Contact %d deleted successfully\n", id)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-
+			fmt.Printf("Contact %d deleted successfully\n", id)
 			return nil
 		},
 	}
@@ -928,6 +928,9 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete note %d from contact %d: %w", noteID, contactID, err)
 			}
 
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": noteID, "contact_id": contactID})
+			}
 			fmt.Printf("Deleted note #%d from contact %d\n", noteID, contactID)
 			return nil
 		},

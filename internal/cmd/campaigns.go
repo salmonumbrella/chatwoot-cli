@@ -408,10 +408,10 @@ func newCampaignsDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete campaign: %w", err)
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Campaign %d deleted successfully\n", id)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-
+			fmt.Printf("Campaign %d deleted successfully\n", id)
 			return nil
 		},
 	}

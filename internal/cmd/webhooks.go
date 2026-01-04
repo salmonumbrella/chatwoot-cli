@@ -271,10 +271,10 @@ func newWebhooksDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if !isJSON(cmd) {
-				fmt.Printf("Deleted webhook %d\n", id)
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-
+			fmt.Printf("Deleted webhook %d\n", id)
 			return nil
 		},
 	}
