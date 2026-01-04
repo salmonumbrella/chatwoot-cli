@@ -40,7 +40,6 @@ func runBulkOperation[T any](
 
 	sem := semaphore.NewWeighted(concurrency)
 	var mu sync.Mutex
-	var progressMu sync.Mutex
 	results := make([]BulkResult, 0, len(ids))
 	total := len(ids)
 	var done int64
@@ -84,9 +83,9 @@ func runBulkOperation[T any](
 
 			if progress && total > 0 {
 				current := atomic.AddInt64(&done, 1)
-				progressMu.Lock()
+				mu.Lock()
 				_, _ = fmt.Fprintf(errOut, "\rProcessed %d/%d", current, total)
-				progressMu.Unlock()
+				mu.Unlock()
 			}
 
 			return nil // don't fail the group on individual errors
@@ -97,9 +96,9 @@ func runBulkOperation[T any](
 	_ = g.Wait()
 
 	if progress && total > 0 {
-		progressMu.Lock()
+		mu.Lock()
 		_, _ = fmt.Fprintf(errOut, "\rProcessed %d/%d\n", atomic.LoadInt64(&done), total)
-		progressMu.Unlock()
+		mu.Unlock()
 	}
 
 	return results
