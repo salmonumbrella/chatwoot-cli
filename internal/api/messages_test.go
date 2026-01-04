@@ -268,6 +268,21 @@ func TestListAllMessages(t *testing.T) {
 	}
 }
 
+func TestListAllMessagesMaxPages(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"payload":[{"id":2,"conversation_id":1,"content":"one"},{"id":1,"conversation_id":1,"content":"two"}]}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	_, err := client.ListAllMessagesWithMaxPages(context.Background(), 1, 1)
+	if err == nil {
+		t.Fatal("expected error when max pages exceeded")
+	}
+}
+
 func TestListMessages(t *testing.T) {
 	tests := []struct {
 		name           string

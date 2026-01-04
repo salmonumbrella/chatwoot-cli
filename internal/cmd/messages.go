@@ -36,6 +36,7 @@ func newMessagesCmd() *cobra.Command {
 // newMessagesListCmd creates the list subcommand
 func newMessagesListCmd() *cobra.Command {
 	var all bool
+	var maxPages int
 
 	cmd := &cobra.Command{
 		Use:   "list <conversation-id>",
@@ -62,7 +63,7 @@ func newMessagesListCmd() *cobra.Command {
 
 			var messages []api.Message
 			if all {
-				messages, err = client.ListAllMessages(cmdContext(cmd), conversationID)
+				messages, err = client.ListAllMessagesWithMaxPages(cmdContext(cmd), conversationID, maxPages)
 			} else {
 				messages, err = client.ListMessages(cmdContext(cmd), conversationID)
 			}
@@ -101,6 +102,7 @@ func newMessagesListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
+	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all")
 
 	return cmd
 }

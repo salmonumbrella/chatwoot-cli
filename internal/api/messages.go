@@ -29,13 +29,21 @@ func (c *Client) ListMessagesBefore(ctx context.Context, conversationID, before 
 
 // ListAllMessages retrieves all messages for a conversation (paginated)
 func (c *Client) ListAllMessages(ctx context.Context, conversationID int) ([]Message, error) {
+	return c.ListAllMessagesWithMaxPages(ctx, conversationID, maxPaginationIterations)
+}
+
+// ListAllMessagesWithMaxPages retrieves all messages with a pagination cap.
+func (c *Client) ListAllMessagesWithMaxPages(ctx context.Context, conversationID, maxPages int) ([]Message, error) {
+	if maxPages <= 0 {
+		maxPages = maxPaginationIterations
+	}
 	var allMessages []Message
 	before := 0
 	lastMinID := 0
 
 	for iteration := 0; ; iteration++ {
-		if iteration >= maxPaginationIterations {
-			return nil, fmt.Errorf("pagination limit exceeded (%d iterations) - API may be returning duplicate data", maxPaginationIterations)
+		if iteration >= maxPages {
+			return nil, fmt.Errorf("pagination limit exceeded (%d iterations) - API may be returning duplicate data", maxPages)
 		}
 
 		messages, err := c.ListMessagesBefore(ctx, conversationID, before)
