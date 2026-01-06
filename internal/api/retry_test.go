@@ -126,3 +126,312 @@ func TestDefaultRetryConfig_InvalidEnvVars(t *testing.T) {
 		t.Errorf("RateLimitBaseDelay = %v, want %v (fallback)", cfg.RateLimitBaseDelay, DefaultRateLimitBaseDelay)
 	}
 }
+
+// TestCircuitBreaker_FullStateTransitionCycle verifies the complete
+// closed -> open -> half-open -> closed cycle.
+func TestCircuitBreaker_FullStateTransitionCycle(t *testing.T) {
+	cb := &circuitBreaker{threshold: 2, resetTime: 20 * time.Millisecond}
+
+	// Phase 1: Closed state (initial)
+	if cb.isOpen() {
+		t.Error("circuit should start closed")
+	}
+
+	// Phase 2: Transition to open after threshold failures
+	cb.recordFailure()
+	if cb.isOpen() {
+		t.Error("circuit should remain closed after 1 failure (threshold is 2)")
+	}
+
+	opened := cb.recordFailure()
+	if !opened {
+		t.Error("recordFailure should return true when circuit opens")
+	}
+	if !cb.isOpen() {
+		t.Error("circuit should be open after reaching threshold")
+	}
+
+	// Phase 3: Half-open state (after reset time passes)
+	time.Sleep(25 * time.Millisecond)
+
+	// isOpen() should return false and auto-close the circuit (half-open behavior)
+	if cb.isOpen() {
+		t.Error("circuit should auto-close (enter half-open) after reset time")
+	}
+
+	// Verify internal state was reset by isOpen()
+	cb.mu.Lock()
+	failures := cb.failures
+	open := cb.open
+	cb.mu.Unlock()
+
+	if failures != 0 {
+		t.Errorf("failures should be 0 after auto-close, got %d", failures)
+	}
+	if open {
+		t.Error("open flag should be false after auto-close")
+	}
+
+	// Phase 4: Transition back to closed on success
+	cb.recordSuccess()
+	if cb.isOpen() {
+		t.Error("circuit should remain closed after success")
+	}
+}
+
+// TestCircuitBreaker_Reset verifies the reset() method clears all state.
+func TestCircuitBreaker_Reset(t *testing.T) {
+	cb := &circuitBreaker{threshold: 2, resetTime: 10 * time.Millisecond}
+
+	// Open the circuit
+	cb.recordFailure()
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Fatal("circuit should be open after threshold failures")
+	}
+
+	// Verify state before reset
+	cb.mu.Lock()
+	if cb.failures != 2 {
+		t.Errorf("failures should be 2, got %d", cb.failures)
+	}
+	if !cb.open {
+		t.Error("open flag should be true")
+	}
+	if cb.lastFailure.IsZero() {
+		t.Error("lastFailure should be set")
+	}
+	cb.mu.Unlock()
+
+	// Reset the circuit
+	cb.reset()
+
+	// Verify all state is cleared
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if cb.failures != 0 {
+		t.Errorf("reset should clear failures, got %d", cb.failures)
+	}
+	if cb.open {
+		t.Error("reset should close the circuit")
+	}
+	if !cb.lastFailure.IsZero() {
+		t.Errorf("reset should clear lastFailure, got %v", cb.lastFailure)
+	}
+}
+
+// TestCircuitBreaker_ResetWhileClosed verifies reset() is safe when circuit is already closed.
+func TestCircuitBreaker_ResetWhileClosed(t *testing.T) {
+	cb := &circuitBreaker{threshold: 5}
+
+	// Record some failures but don't reach threshold
+	cb.recordFailure()
+	cb.recordFailure()
+
+	// Reset while still closed
+	cb.reset()
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if cb.failures != 0 {
+		t.Errorf("reset should clear failures even when closed, got %d", cb.failures)
+	}
+	if !cb.lastFailure.IsZero() {
+		t.Error("reset should clear lastFailure even when closed")
+	}
+}
+
+// TestClient_ResetCircuitBreaker verifies the Client method is nil-safe and works.
+func TestClient_ResetCircuitBreaker(t *testing.T) {
+	t.Run("nil circuit breaker", func(t *testing.T) {
+		c := &Client{} // circuitBreaker is nil
+		// Should not panic
+		c.ResetCircuitBreaker()
+	})
+
+	t.Run("with circuit breaker", func(t *testing.T) {
+		c := &Client{
+			circuitBreaker: &circuitBreaker{threshold: 2, resetTime: 10 * time.Millisecond},
+		}
+
+		// Open the circuit
+		c.circuitBreaker.recordFailure()
+		c.circuitBreaker.recordFailure()
+		if !c.circuitBreaker.isOpen() {
+			t.Fatal("circuit should be open")
+		}
+
+		// Reset via Client method
+		c.ResetCircuitBreaker()
+
+		if c.circuitBreaker.isOpen() {
+			t.Error("circuit should be closed after ResetCircuitBreaker")
+		}
+
+		c.circuitBreaker.mu.Lock()
+		failures := c.circuitBreaker.failures
+		c.circuitBreaker.mu.Unlock()
+
+		if failures != 0 {
+			t.Errorf("failures should be 0 after reset, got %d", failures)
+		}
+	})
+}
+
+// TestCircuitBreaker_SuccessAfterHalfOpenCloses verifies that a success
+// after the circuit enters half-open state properly closes the circuit.
+func TestCircuitBreaker_SuccessAfterHalfOpenCloses(t *testing.T) {
+	cb := &circuitBreaker{threshold: 1, resetTime: 15 * time.Millisecond}
+
+	// Open the circuit
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Fatal("circuit should be open")
+	}
+
+	// Wait for reset time to allow half-open
+	time.Sleep(20 * time.Millisecond)
+
+	// Check isOpen() - this triggers the half-open transition
+	if cb.isOpen() {
+		t.Error("circuit should be half-open (isOpen returns false)")
+	}
+
+	// Record a success - this should keep the circuit closed
+	cb.recordSuccess()
+
+	// Verify circuit is firmly closed
+	if cb.isOpen() {
+		t.Error("circuit should remain closed after success")
+	}
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if cb.failures != 0 {
+		t.Errorf("failures should be 0 after success, got %d", cb.failures)
+	}
+	if cb.open {
+		t.Error("open flag should be false after success")
+	}
+}
+
+// TestCircuitBreaker_FailureDuringHalfOpenReopens verifies that a failure
+// during half-open state re-opens the circuit.
+func TestCircuitBreaker_FailureDuringHalfOpenReopens(t *testing.T) {
+	cb := &circuitBreaker{threshold: 1, resetTime: 15 * time.Millisecond}
+
+	// Open the circuit
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Fatal("circuit should be open")
+	}
+
+	// Wait for reset time to allow half-open
+	time.Sleep(20 * time.Millisecond)
+
+	// Check isOpen() - this triggers the half-open transition and resets state
+	if cb.isOpen() {
+		t.Error("circuit should be half-open (isOpen returns false)")
+	}
+
+	// Now record a failure - with threshold=1, this should reopen immediately
+	opened := cb.recordFailure()
+	if !opened {
+		t.Error("recordFailure should return true when circuit reopens")
+	}
+	if !cb.isOpen() {
+		t.Error("circuit should be open again after failure during half-open")
+	}
+}
+
+// TestCircuitBreaker_RecordFailureReturnValue verifies recordFailure return values.
+func TestCircuitBreaker_RecordFailureReturnValue(t *testing.T) {
+	cb := &circuitBreaker{threshold: 3}
+
+	// Failures before threshold should return false
+	if cb.recordFailure() {
+		t.Error("recordFailure should return false for failure 1/3")
+	}
+	if cb.recordFailure() {
+		t.Error("recordFailure should return false for failure 2/3")
+	}
+
+	// Failure at threshold should return true
+	if !cb.recordFailure() {
+		t.Error("recordFailure should return true when circuit opens")
+	}
+
+	// Subsequent failures while open should return false (already open)
+	if cb.recordFailure() {
+		t.Error("recordFailure should return false when already open")
+	}
+}
+
+// TestCircuitBreaker_DefaultThresholdWhenZero verifies zero threshold uses default.
+func TestCircuitBreaker_DefaultThresholdWhenZero(t *testing.T) {
+	cb := &circuitBreaker{threshold: 0} // zero means use default
+
+	// Should use DefaultCircuitBreakerThreshold (5)
+	for i := 0; i < DefaultCircuitBreakerThreshold-1; i++ {
+		cb.recordFailure()
+	}
+	if cb.isOpen() {
+		t.Errorf("circuit should not be open after %d failures (default threshold is %d)",
+			DefaultCircuitBreakerThreshold-1, DefaultCircuitBreakerThreshold)
+	}
+
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Errorf("circuit should be open after %d failures", DefaultCircuitBreakerThreshold)
+	}
+}
+
+// TestCircuitBreaker_DefaultResetTimeWhenZero verifies zero resetTime uses default.
+func TestCircuitBreaker_DefaultResetTimeWhenZero(t *testing.T) {
+	cb := &circuitBreaker{threshold: 1, resetTime: 0}
+
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Fatal("circuit should be open")
+	}
+
+	// With resetTime=0, it should use DefaultCircuitBreakerResetTime (30s)
+	// We can't wait 30s in a test, so we verify it's still open after a short time
+	time.Sleep(10 * time.Millisecond)
+	if !cb.isOpen() {
+		t.Error("circuit should still be open (default reset time is 30s)")
+	}
+}
+
+// TestCircuitBreaker_ConcurrentAccess verifies thread safety.
+func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
+	cb := &circuitBreaker{threshold: 100, resetTime: 50 * time.Millisecond}
+
+	done := make(chan struct{})
+	const goroutines = 10
+	const iterations = 50
+
+	// Start goroutines that concurrently access the circuit breaker
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < iterations; j++ {
+				cb.recordFailure()
+				cb.isOpen()
+				cb.recordSuccess()
+				cb.reset()
+			}
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+
+	// If we got here without a race condition panic, the test passes
+	// The final state is indeterminate due to concurrent access, which is fine
+}
