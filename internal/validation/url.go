@@ -7,19 +7,24 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
-var allowPrivate = strings.TrimSpace(os.Getenv("CHATWOOT_ALLOW_PRIVATE")) == "1"
+var allowPrivate atomic.Bool
+
+func init() {
+	allowPrivate.Store(strings.TrimSpace(os.Getenv("CHATWOOT_ALLOW_PRIVATE")) == "1")
+}
 
 // SetAllowPrivate enables allowing private/localhost URLs (still blocks metadata endpoints).
 func SetAllowPrivate(enabled bool) {
-	allowPrivate = enabled
+	allowPrivate.Store(enabled)
 }
 
 // AllowPrivateEnabled returns true when private/localhost URLs are allowed.
 func AllowPrivateEnabled() bool {
-	return allowPrivate
+	return allowPrivate.Load()
 }
 
 // ValidateChatwootURL validates a Chatwoot instance URL to prevent SSRF attacks
@@ -46,7 +51,7 @@ func ValidateChatwootURL(rawURL string) error {
 	}
 
 	// Check for localhost variants
-	if !allowPrivate && isLocalhost(hostname) {
+	if !allowPrivate.Load() && isLocalhost(hostname) {
 		return fmt.Errorf("localhost URLs are not allowed")
 	}
 
@@ -132,7 +137,7 @@ func validateIPAddress(ip net.IP) error {
 		return fmt.Errorf("unspecified IP addresses are not allowed")
 	}
 
-	if allowPrivate {
+	if allowPrivate.Load() {
 		// Still block link-local and multicast even when allowing private IPs.
 		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 			return fmt.Errorf("link-local IP addresses are not allowed")
