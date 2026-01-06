@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -971,7 +970,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
   chatwoot contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIntList(contactIDs)
+			ids, err := ParseIntList(contactIDs)
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
 			}
@@ -1062,7 +1061,7 @@ labels, and updates the contact with the remaining labels.`,
   chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIntList(contactIDs)
+			ids, err := ParseIntList(contactIDs)
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
 			}
@@ -1280,28 +1279,4 @@ func formatContactSummary(c *api.Contact) string {
 	}
 
 	return summary
-}
-
-// parseIntList parses a comma-separated list of integers
-func parseIntList(s string) ([]int, error) {
-	parts := strings.Split(s, ",")
-	result := make([]int, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		id, err := strconv.Atoi(p)
-		if err != nil {
-			return nil, fmt.Errorf("invalid ID %q: %w", p, err)
-		}
-		if id <= 0 {
-			return nil, fmt.Errorf("ID must be positive: %d", id)
-		}
-		result = append(result, id)
-	}
-	if len(result) == 0 {
-		return nil, fmt.Errorf("no valid IDs provided")
-	}
-	return result, nil
 }

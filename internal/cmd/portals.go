@@ -653,7 +653,7 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 			}
 
 			// Parse comma-separated IDs
-			ids, err := parseIntList(articleIDs)
+			ids, err := ParseIntList(articleIDs)
 			if err != nil {
 				return fmt.Errorf("invalid article IDs: %w", err)
 			}

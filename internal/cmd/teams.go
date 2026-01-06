@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -268,7 +267,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 				return fmt.Errorf("--user-ids is required")
 			}
 
-			userIDs, err := parseIntSlice(userIDsStr)
+			userIDs, err := ParseIntList(userIDsStr)
 			if err != nil {
 				return fmt.Errorf("invalid user IDs: %w", err)
 			}
@@ -317,7 +316,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 				return fmt.Errorf("--user-ids is required")
 			}
 
-			userIDs, err := parseIntSlice(userIDsStr)
+			userIDs, err := ParseIntList(userIDsStr)
 			if err != nil {
 				return fmt.Errorf("invalid user IDs: %w", err)
 			}
@@ -347,28 +346,4 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated user IDs (required)")
 
 	return cmd
-}
-
-// parseIntSlice parses a comma-separated string into a slice of ints
-func parseIntSlice(s string) ([]int, error) {
-	parts := strings.Split(s, ",")
-	result := make([]int, 0, len(parts))
-
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		id, err := validation.ParsePositiveInt(part, "agent ID")
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, id)
-	}
-
-	if len(result) == 0 {
-		return nil, fmt.Errorf("no valid IDs provided")
-	}
-
-	return result, nil
 }

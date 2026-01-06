@@ -1929,7 +1929,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
   chatwoot conversations bulk resolve --ids 1,2,3 --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIntList(conversationIDs)
+			ids, err := ParseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -2026,7 +2026,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 				return fmt.Errorf("at least one of --agent-id or --team-id is required")
 			}
 
-			ids, err := parseIntList(conversationIDs)
+			ids, err := ParseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -2122,7 +2122,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
   chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
 `),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIntList(conversationIDs)
+			ids, err := ParseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}

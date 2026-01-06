@@ -29,19 +29,19 @@ func TestParseIntList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseIntList(tt.input)
+			got, err := ParseIntList(tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseIntList() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseIntList() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
 				if len(got) != len(tt.want) {
-					t.Errorf("parseIntList() = %v, want %v", got, tt.want)
+					t.Errorf("ParseIntList() = %v, want %v", got, tt.want)
 					return
 				}
 				for i := range got {
 					if got[i] != tt.want[i] {
-						t.Errorf("parseIntList() = %v, want %v", got, tt.want)
+						t.Errorf("ParseIntList() = %v, want %v", got, tt.want)
 						return
 					}
 				}

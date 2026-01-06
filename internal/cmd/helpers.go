@@ -425,6 +425,32 @@ func bold(text string) string {
 	return colorize(text, colorBold)
 }
 
+// ParseIntList parses a comma-separated string into a slice of positive integers.
+// It trims whitespace from each element and skips empty values.
+// Returns an error if the input is empty or contains invalid/non-positive integers.
+func ParseIntList(s string) ([]int, error) {
+	parts := strings.Split(s, ",")
+	result := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ID %q: %w", p, err)
+		}
+		if id <= 0 {
+			return nil, fmt.Errorf("ID must be positive: %d", id)
+		}
+		result = append(result, id)
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no valid IDs provided")
+	}
+	return result, nil
+}
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
