@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/debug"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 )
 
@@ -25,6 +26,7 @@ type Client struct {
 	APIToken          string
 	AccountID         int
 	HTTP              *http.Client
+	UserAgent         string
 	skipURLValidation bool            // internal flag for testing only
 	circuitBreaker    *circuitBreaker // circuit breaker for retry logic
 	validatedBaseURL  bool
@@ -35,14 +37,18 @@ var validateChatwootURL = validation.ValidateChatwootURL
 
 // New creates a new Chatwoot API client
 func New(baseURL, token string, accountID int) *Client {
-	tlsConfig := &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: false,
+	baseTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		baseTransport = &http.Transport{}
 	}
-
-	transport := &http.Transport{
-		TLSClientConfig: tlsConfig,
+	transport := baseTransport.Clone()
+	if transport.TLSClientConfig == nil {
+		transport.TLSClientConfig = &tls.Config{}
+	} else {
+		transport.TLSClientConfig = transport.TLSClientConfig.Clone()
 	}
+	transport.TLSClientConfig.MinVersion = tls.VersionTLS12
+	transport.TLSClientConfig.InsecureSkipVerify = false
 
 	// Allow localhost URLs when CHATWOOT_TESTING=1 is set (for integration tests)
 	skipValidation := os.Getenv("CHATWOOT_TESTING") == "1"
@@ -151,8 +157,11 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 
 	var retries429, retries5xx int
+	attempt := 0
 
 	for {
+		attempt++
+		start := time.Now()
 		// Create fresh body reader for each attempt
 		var bodyReader io.Reader
 		if body != nil {
@@ -167,6 +176,9 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 		if c.APIToken != "" {
 			req.Header.Set("api_access_token", c.APIToken)
 		}
+		if c.UserAgent != "" {
+			req.Header.Set("User-Agent", c.UserAgent)
+		}
 		if contentType != "" {
 			req.Header.Set("Content-Type", contentType)
 		}
@@ -174,6 +186,9 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 
 		resp, err := c.HTTP.Do(req)
 		if err != nil {
+			if debug.IsEnabled(ctx) {
+				slog.Debug("request failed", "method", method, "url", url, "attempt", attempt, "error", err)
+			}
 			return nil, nil, 0, fmt.Errorf("request failed: %w", err)
 		}
 
@@ -182,18 +197,32 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("failed to read response: %w", err)
 		}
+		if debug.IsEnabled(ctx) {
+			slog.Debug("request complete", "method", method, "url", url, "status", resp.StatusCode, "attempt", attempt, "duration", time.Since(start))
+		}
 
-		// Handle 429 rate limiting with exponential backoff
+		// Handle 429 rate limiting with exponential backoff (idempotent only)
 		if resp.StatusCode == 429 {
-			if retries429 >= MaxRateLimitRetries {
+			retryAfter, hasRetryAfter := retryAfterDuration(resp.Header)
+			if !isIdempotent {
+				if hasRetryAfter {
+					return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: retryAfter}
+				}
 				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: RateLimitBaseDelay}
 			}
-			delay := RateLimitBaseDelay * time.Duration(1<<retries429)
+			if retries429 >= MaxRateLimitRetries {
+				if hasRetryAfter {
+					return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: retryAfter}
+				}
+				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: RateLimitBaseDelay}
+			}
+			delay := retryAfter
+			if !hasRetryAfter {
+				delay = RateLimitBaseDelay * time.Duration(1<<retries429)
+			}
 			slog.Info("rate limited, retrying", "delay", delay, "attempt", retries429+1)
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return nil, nil, 0, ctx.Err()
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return nil, nil, 0, err
 			}
 			retries429++
 			continue
@@ -206,7 +235,9 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 			}
 			if isIdempotent && retries5xx < Max5xxRetries {
 				slog.Info("server error, retrying", "status", resp.StatusCode)
-				time.Sleep(ServerErrorRetryDelay)
+				if err := sleepWithContext(ctx, ServerErrorRetryDelay); err != nil {
+					return nil, nil, 0, err
+				}
 				retries5xx++
 				continue
 			}

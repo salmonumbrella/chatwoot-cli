@@ -63,22 +63,12 @@ func TestLabelsListCommand_Empty(t *testing.T) {
 	setupTestEnvWithHandler(t, handler)
 
 	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := Execute(context.Background(), []string{"labels", "list"})
-
-	_ = w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-
-	if err != nil {
-		t.Errorf("labels list failed: %v", err)
-	}
+	output := captureStderr(t, func() {
+		err := Execute(context.Background(), []string{"labels", "list"})
+		if err != nil {
+			t.Errorf("labels list failed: %v", err)
+		}
+	})
 
 	if !strings.Contains(output, "No labels found") {
 		t.Errorf("expected 'No labels found' message, got: %s", output)
@@ -113,12 +103,7 @@ func TestLabelsListCommand_JSON(t *testing.T) {
 		t.Errorf("labels list failed: %v", err)
 	}
 
-	// Verify it's valid JSON array
-	var labels []map[string]any
-	if err := json.Unmarshal([]byte(output), &labels); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	labels := decodeItems(t, output)
 	if len(labels) != 1 {
 		t.Errorf("expected 1 label, got %d", len(labels))
 	}

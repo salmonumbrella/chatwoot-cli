@@ -77,11 +77,7 @@ func TestMessagesListCommand_JSON(t *testing.T) {
 		t.Errorf("messages list failed: %v", err)
 	}
 
-	var messages []map[string]any
-	if err := json.Unmarshal([]byte(output), &messages); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	messages := decodeItems(t, output)
 	if len(messages) != 1 {
 		t.Errorf("expected 1 message, got %d", len(messages))
 	}

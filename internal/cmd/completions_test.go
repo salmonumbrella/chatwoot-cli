@@ -10,6 +10,17 @@ import (
 	"testing"
 )
 
+func decodeCompletionItems(t *testing.T, output string) []CompletionItem {
+	t.Helper()
+	var resp struct {
+		Items []CompletionItem `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	return resp.Items
+}
+
 func TestCompletionsInboxesCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
@@ -75,11 +86,7 @@ func TestCompletionsInboxesCommand_JSON(t *testing.T) {
 		t.Errorf("completions inboxes failed: %v", err)
 	}
 
-	// Verify it's valid JSON array
-	var items []CompletionItem
-	if err := json.Unmarshal([]byte(output), &items); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	items := decodeCompletionItems(t, output)
 
 	if len(items) != 2 {
 		t.Errorf("expected 2 items, got %d", len(items))
@@ -156,10 +163,7 @@ func TestCompletionsAgentsCommand_JSON(t *testing.T) {
 		t.Errorf("completions agents failed: %v", err)
 	}
 
-	var items []CompletionItem
-	if err := json.Unmarshal([]byte(output), &items); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	items := decodeCompletionItems(t, output)
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -239,10 +243,7 @@ func TestCompletionsLabelsCommand_JSON(t *testing.T) {
 		t.Errorf("completions labels failed: %v", err)
 	}
 
-	var items []CompletionItem
-	if err := json.Unmarshal([]byte(output), &items); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	items := decodeCompletionItems(t, output)
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -319,10 +320,7 @@ func TestCompletionsTeamsCommand_JSON(t *testing.T) {
 		t.Errorf("completions teams failed: %v", err)
 	}
 
-	var items []CompletionItem
-	if err := json.Unmarshal([]byte(output), &items); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	items := decodeCompletionItems(t, output)
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -399,10 +397,7 @@ func TestCompletionsStatusesCommand_JSON(t *testing.T) {
 		t.Errorf("completions statuses failed: %v", err)
 	}
 
-	var items []CompletionItem
-	if err := json.Unmarshal([]byte(output), &items); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	items := decodeCompletionItems(t, output)
 
 	if len(items) != 4 {
 		t.Errorf("expected 4 items, got %d", len(items))
@@ -452,10 +447,7 @@ func TestCompletionsInboxesCommand_Empty(t *testing.T) {
 		t.Errorf("completions inboxes failed: %v", err)
 	}
 
-	var items []CompletionItem
-	if err := json.Unmarshal([]byte(output), &items); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	items := decodeCompletionItems(t, output)
 
 	if len(items) != 0 {
 		t.Errorf("expected 0 items, got %d", len(items))

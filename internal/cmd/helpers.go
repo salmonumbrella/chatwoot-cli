@@ -38,6 +38,7 @@ func getClient() (*api.Client, error) {
 	}
 	client := api.New(account.BaseURL, account.APIToken, account.AccountID)
 	applyTimeout(client)
+	applyUserAgent(client)
 	return client, nil
 }
 
@@ -77,6 +78,7 @@ func getPlatformClient(baseURLOverride, tokenOverride string) (*api.Client, erro
 
 	client := api.New(baseURL, platformToken, accountID)
 	applyTimeout(client)
+	applyUserAgent(client)
 	return client, nil
 }
 
@@ -101,6 +103,7 @@ func getPublicClient(baseURLOverride string) (*api.Client, error) {
 
 	client := api.New(baseURL, "", 0)
 	applyTimeout(client)
+	applyUserAgent(client)
 	return client, nil
 }
 
@@ -111,6 +114,13 @@ func applyTimeout(client *api.Client) {
 	if flags.Timeout > 0 {
 		client.HTTP.Timeout = flags.Timeout
 	}
+}
+
+func applyUserAgent(client *api.Client) {
+	if client == nil {
+		return
+	}
+	client.UserAgent = fmt.Sprintf("chatwoot-cli/%s", version)
 }
 
 // newTabWriter creates a tabwriter for text output
@@ -189,6 +199,10 @@ func validateStatus(status string) error {
 		}
 	}
 	return fmt.Errorf("invalid status %q: must be one of %s", status, strings.Join(valid, ", "))
+}
+
+func registerStaticCompletions(cmd *cobra.Command, flagName string, values []string) {
+	_ = cmd.RegisterFlagCompletionFunc(flagName, cobra.FixedCompletions(values, cobra.ShellCompDirectiveNoFileComp))
 }
 
 // validateSlug validates a portal/article/category slug
@@ -416,8 +430,14 @@ func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Comm
 	return func(cmd *cobra.Command, args []string) error {
 		err := fn(cmd, args)
 		if err != nil {
-			// Print enhanced error to stderr
-			_, _ = fmt.Fprint(cmd.ErrOrStderr(), HandleError(err))
+			if isJSON(cmd) {
+				if structured := api.StructuredErrorFromError(err); structured != nil {
+					_ = printJSON(cmd, structured)
+				}
+			} else {
+				// Print enhanced error to stderr
+				_, _ = fmt.Fprint(cmd.ErrOrStderr(), HandleError(err))
+			}
 			// Return sentinel error to signal failure without Cobra printing again
 			return errAlreadyHandled
 		}

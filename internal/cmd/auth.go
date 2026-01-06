@@ -196,17 +196,26 @@ func newAuthStatusCmd() *cobra.Command {
 				return fmt.Errorf("failed to load credentials: %w", err)
 			}
 
+			var profile string
+			if !usingEnv {
+				if current, err := config.CurrentProfile(); err == nil {
+					profile = current
+				}
+			}
+
 			if isJSON(cmd) {
-				profile, _ := config.CurrentProfile()
-				return printJSON(cmd, map[string]any{
+				payload := map[string]any{
 					"authenticated":  true,
 					"base_url":       account.BaseURL,
 					"account_id":     account.AccountID,
 					"api_token":      maskToken(account.APIToken),
 					"platform_token": maskToken(account.PlatformToken),
-					"profile":        profile,
 					"source":         map[bool]string{true: "env", false: "keychain"}[usingEnv],
-				})
+				}
+				if profile != "" {
+					payload["profile"] = profile
+				}
+				return printJSON(cmd, payload)
 			}
 
 			fmt.Println("Authenticated")
@@ -216,7 +225,7 @@ func newAuthStatusCmd() *cobra.Command {
 			if account.PlatformToken != "" {
 				fmt.Printf("  Platform Token: %s\n", maskToken(account.PlatformToken))
 			}
-			if profile, err := config.CurrentProfile(); err == nil {
+			if profile != "" {
 				fmt.Printf("  Profile: %s\n", profile)
 			}
 			if usingEnv {

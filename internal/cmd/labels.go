@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -26,10 +28,12 @@ func newLabelsCmd() *cobra.Command {
 }
 
 func newLabelsListCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all labels",
-		Long:  "List all labels in the account",
+	cfg := ListConfig[api.Label]{
+		Use:               "list",
+		Short:             "List all labels",
+		Long:              "List all labels in the account",
+		DisablePagination: true,
+		EmptyMessage:      "No labels found",
 		Example: strings.TrimSpace(`
   # List all labels
   chatwoot labels list
@@ -37,42 +41,31 @@ func newLabelsListCmd() *cobra.Command {
   # JSON output
   chatwoot labels list -o json
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			client, err := getClient()
+		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Label], error) {
+			labels, err := client.ListLabels(ctx)
 			if err != nil {
-				return err
+				return ListResult[api.Label]{}, fmt.Errorf("failed to list labels: %w", err)
 			}
-
-			labels, err := client.ListLabels(cmdContext(cmd))
-			if err != nil {
-				return fmt.Errorf("failed to list labels: %w", err)
+			return ListResult[api.Label]{Items: labels, HasMore: false}, nil
+		},
+		Headers: []string{"ID", "TITLE", "COLOR", "DESCRIPTION"},
+		RowFunc: func(label api.Label) []string {
+			desc := label.Description
+			if len(desc) > 40 {
+				desc = desc[:37] + "..."
 			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, labels)
+			return []string{
+				fmt.Sprintf("%d", label.ID),
+				label.Title,
+				label.Color,
+				desc,
 			}
-
-			if len(labels) == 0 {
-				fmt.Println("No labels found")
-				return nil
-			}
-
-			w := newTabWriter()
-			_, _ = fmt.Fprintln(w, "ID\tTITLE\tCOLOR\tDESCRIPTION")
-			for _, label := range labels {
-				desc := label.Description
-				if len(desc) > 40 {
-					desc = desc[:37] + "..."
-				}
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", label.ID, label.Title, label.Color, desc)
-			}
-			_ = w.Flush()
-
-			return nil
 		},
 	}
 
-	return cmd
+	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+		return getClient()
+	})
 }
 
 func newLabelsGetCmd() *cobra.Command {

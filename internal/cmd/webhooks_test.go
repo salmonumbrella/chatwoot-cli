@@ -78,11 +78,7 @@ func TestWebhooksListCommand_JSON(t *testing.T) {
 		t.Errorf("webhooks list failed: %v", err)
 	}
 
-	var webhooks []map[string]any
-	if err := json.Unmarshal([]byte(output), &webhooks); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	webhooks := decodeItems(t, output)
 	if len(webhooks) != 1 {
 		t.Errorf("expected 1 webhook, got %d", len(webhooks))
 	}

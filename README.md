@@ -98,6 +98,7 @@ export CHATWOOT_API_TOKEN=your_api_token
 export CHATWOOT_ACCOUNT_ID=1
 export CHATWOOT_PROFILE=staging
 export CHATWOOT_PLATFORM_TOKEN=your_platform_token
+export CHATWOOT_ALLOW_PRIVATE=1
 ```
 
 ## Security
@@ -118,6 +119,14 @@ chatwoot auth login                                                 # Authentica
 chatwoot auth login --no-browser --url <url> --token <t> --account-id <id>  # CLI login
 chatwoot auth status                                                # Show current config
 chatwoot auth logout                                                # Remove credentials
+```
+
+## Extensions
+
+Executables on your PATH named `chatwoot-<name>` can be invoked as:
+
+```bash
+chatwoot <name> [args...]
 ```
 
 ### Conversations
@@ -469,21 +478,25 @@ Machine-readable output:
 
 ```bash
 $ chatwoot conversations list --output json
-[
-  {
-    "id": 123,
-    "status": "open",
-    "inbox_id": 1,
-    "contact": {"name": "John Doe"},
-    "messages_count": 5
-  }
-]
+{
+  "items": [
+    {
+      "id": 123,
+      "status": "open",
+      "inbox_id": 1,
+      "contact": {"name": "John Doe"},
+      "messages_count": 5
+    }
+  ]
+}
 ```
 
-**List commands return arrays directly**:
+Tip: `--json` is a shorthand for `--output json`.
+
+**List commands return an object with an "items" array**:
 ```bash
-chatwoot contacts list --output json | jq '.[0]'
-chatwoot conversations list --output json | jq '.[] | select(.status == "open")'
+chatwoot contacts list --output json | jq '.items[0]'
+chatwoot conversations list --output json | jq '.items[] | select(.status == "open")'
 ```
 
 **Get commands return single objects**:
@@ -501,7 +514,7 @@ Data goes to stdout, errors and progress to stderr for clean piping.
 ```bash
 # List all open conversations
 chatwoot conversations list --status open --output json | \
-  jq '.[] | {id, contact: .contact.name, messages: .messages_count}'
+  jq '.items[] | {id, contact: .contact.name, messages: .messages_count}'
 
 # Assign high-priority to agent
 chatwoot conversations assign 123 --agent-id 5
@@ -537,7 +550,7 @@ chatwoot messages create 123 --content "Your drafted response here"
 ```bash
 chatwoot contacts filter \
   --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@example.com"]}]' \
-  --output json | jq '.[].email'
+  --output json | jq '.items[].email'
 ```
 
 ### Export conversations for analysis
@@ -549,7 +562,7 @@ chatwoot conversations filter \
   --output json > resolved-conversations.json
 
 # Extract key metrics
-jq '[.[] | {id, resolved_at: .updated_at, messages: .messages_count, agent: .assignee.name}]' \
+jq '[.items[] | {id, resolved_at: .updated_at, messages: .messages_count, agent: .assignee.name}]' \
   resolved-conversations.json
 ```
 

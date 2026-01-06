@@ -98,7 +98,7 @@ func TestFormatter_Output_JSONWithTemplate(t *testing.T) {
 func TestFormatter_Output_JSONWithQueryAndTemplate(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := WithMode(context.Background(), JSON)
-	ctx = WithQuery(ctx, ".[0]")
+	ctx = WithQuery(ctx, ".items[0]")
 	ctx = WithTemplate(ctx, "First: {{.name}}")
 	f := NewFormatter(ctx, &buf, &buf)
 

@@ -72,10 +72,7 @@ func TestPortalsListCommand_JSON(t *testing.T) {
 		t.Errorf("portals list failed: %v", err)
 	}
 
-	var portals []map[string]any
-	if err := json.Unmarshal([]byte(output), &portals); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	_ = decodeItems(t, output)
 }
 
 func TestPortalsGetCommand(t *testing.T) {

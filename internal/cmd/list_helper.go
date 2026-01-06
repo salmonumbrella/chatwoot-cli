@@ -27,6 +27,8 @@ type ListConfig[T any] struct {
 	Headers      []string
 	RowFunc      func(T) []string
 	EmptyMessage string
+	// DisablePagination prevents adding page/limit flags for list commands without pagination.
+	DisablePagination bool
 }
 
 // NewListCommand creates a cobra command from ListConfig
@@ -40,6 +42,9 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 		Long:    cfg.Long,
 		Example: cfg.Example,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if page < 1 {
+				page = 1
+			}
 			if pageSize < 10 {
 				pageSize = 10
 			}
@@ -84,7 +89,9 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 		},
 	}
 
-	cmd.Flags().IntVar(&page, "page", 1, "Page number")
-	cmd.Flags().IntVar(&pageSize, "limit", 20, "Max results (min 10)")
+	if !cfg.DisablePagination {
+		cmd.Flags().IntVar(&page, "page", 1, "Page number")
+		cmd.Flags().IntVar(&pageSize, "limit", 20, "Max results (min 10)")
+	}
 	return cmd
 }

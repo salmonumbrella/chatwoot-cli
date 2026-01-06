@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -108,11 +107,7 @@ func TestMentionsListCommand_JSON(t *testing.T) {
 		}
 	})
 
-	var mentions []map[string]any
-	if err := json.Unmarshal([]byte(output), &mentions); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	mentions := decodeItems(t, output)
 	if len(mentions) != 1 {
 		t.Fatalf("expected 1 mention, got %d", len(mentions))
 	}

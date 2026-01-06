@@ -70,11 +70,7 @@ func TestAgentBotsListCommand_JSON(t *testing.T) {
 		t.Errorf("agent-bots list failed: %v", err)
 	}
 
-	var bots []map[string]any
-	if err := json.Unmarshal([]byte(output), &bots); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	bots := decodeItems(t, output)
 	if len(bots) != 1 {
 		t.Errorf("expected 1 bot, got %d", len(bots))
 	}

@@ -3,7 +3,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -23,8 +22,9 @@ func newVersionCmd() *cobra.Command {
 			// Check for updates (non-blocking, fails silently)
 			result := update.CheckForUpdate(cmd.Context(), version)
 			if result != nil && result.UpdateAvailable {
-				fmt.Fprintf(os.Stderr, "\nUpdate available: %s -> %s\n", result.CurrentVersion, result.LatestVersion)
-				fmt.Fprintf(os.Stderr, "Download: %s\n", result.UpdateURL)
+				errOut := cmd.ErrOrStderr()
+				_, _ = fmt.Fprintf(errOut, "\nUpdate available: %s -> %s\n", result.CurrentVersion, result.LatestVersion) //nolint:errcheck
+				_, _ = fmt.Fprintf(errOut, "Download: %s\n", result.UpdateURL)                                            //nolint:errcheck
 			}
 		},
 	}

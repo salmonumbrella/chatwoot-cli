@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -15,21 +17,24 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 )
 
 // rootFlags holds global CLI flags
 type rootFlags struct {
-	Output   string
-	Color    string
-	Debug    bool
-	DryRun   bool
-	Quiet    bool
-	Silent   bool
-	Query    string
-	JQ       string
-	Fields   string
-	Template string
-	Timeout  time.Duration
+	Output       string
+	Color        string
+	Debug        bool
+	DryRun       bool
+	Quiet        bool
+	Silent       bool
+	JSON         bool
+	AllowPrivate bool
+	Query        string
+	JQ           string
+	Fields       string
+	Template     string
+	Timeout      time.Duration
 }
 
 // flags holds the global command flags, accessible to helper functions
@@ -85,12 +90,27 @@ func Execute(ctx context.Context, args []string) error {
   # JSON output for scripting
   chatwoot conversations list --output json
 
-  # JSON with jq - list commands return arrays directly
-  chatwoot contacts list --output json | jq '.[0]'
-  chatwoot contacts search --query "test" --output json | jq '.[] | {id, name}'
+  # JSON with jq - list commands return an object with an "items" array
+  chatwoot contacts list --output json | jq '.items[0]'
+  chatwoot contacts search --query "test" --output json | jq '.items[] | {id, name}'
 `),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
+
+			// Ensure JSON output when requested or required
+			if flags.JSON {
+				if cmd.Flags().Changed("output") && flags.Output != "json" {
+					return fmt.Errorf("--json conflicts with --output %s", flags.Output)
+				}
+				flags.Output = "json"
+			}
+			needsJSON := flags.Query != "" || flags.JQ != "" || flags.Fields != "" || flags.Template != ""
+			if needsJSON && flags.Output != "json" {
+				if cmd.Flags().Changed("output") {
+					return fmt.Errorf("--jq/--query/--fields/--template require --output json (or --json)")
+				}
+				flags.Output = "json"
+			}
 
 			// Set up output mode
 			mode, err := outfmt.Parse(flags.Output)
@@ -110,6 +130,13 @@ func Execute(ctx context.Context, args []string) error {
 			ctx = iocontext.WithIO(ctx, ioStreams)
 			cmd.SetOut(ioStreams.Out)
 			cmd.SetErr(ioStreams.ErrOut)
+
+			if flags.AllowPrivate {
+				validation.SetAllowPrivate(true)
+			}
+			if validation.AllowPrivateEnabled() && !flags.Silent && !flags.Quiet {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: allowing private/localhost URLs (use only with trusted targets).") //nolint:errcheck
+			}
 
 			// Suppress stdout for text output when --quiet is set
 			if flags.Quiet && mode == outfmt.Text && restoreStdout == nil {
@@ -165,7 +192,9 @@ func Execute(ctx context.Context, args []string) error {
 	root.SetContext(ctx)
 	root.SetArgs(args)
 	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json")
+	root.PersistentFlags().BoolVar(&flags.JSON, "json", false, "Output JSON (alias for --output json)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
+	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", false, "Allow private/localhost URLs (unsafe)")
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")
 	root.PersistentFlags().StringVar(&flags.Query, "query", "", "JQ expression to filter JSON output")
@@ -215,16 +244,46 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newCompletionsCmd())
 	root.AddCommand(newMentionsCmd())
 
+	if len(args) > 0 {
+		if _, _, findErr := root.Find(args); findErr != nil {
+			if handled, execErr := tryExecExtension(args); handled {
+				return execErr
+			}
+		}
+	}
+
 	err := root.Execute()
 	if restoreStdout != nil {
 		restoreStdout()
 		restoreStdout = nil
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if !errors.Is(err, errAlreadyHandled) {
+			_, _ = fmt.Fprintln(root.ErrOrStderr(), err) //nolint:errcheck
+		}
 		return err
 	}
 	return nil
+}
+
+func tryExecExtension(args []string) (bool, error) {
+	if len(args) == 0 {
+		return false, nil
+	}
+	name := args[0]
+	if strings.HasPrefix(name, "-") {
+		return false, nil
+	}
+	bin := "chatwoot-" + name
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return false, nil
+	}
+	cmd := exec.Command(path, args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return true, cmd.Run()
 }
 
 func parseFields(input string) ([]string, error) {

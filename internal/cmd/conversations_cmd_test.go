@@ -142,6 +142,98 @@ func TestConversationsAssignCommand(t *testing.T) {
 	}
 }
 
+func TestConversationsListCommand_AllIncludesLastPage(t *testing.T) {
+	setupTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/accounts/1/conversations" {
+			http.NotFound(w, r)
+			return
+		}
+		page := r.URL.Query().Get("page")
+		if page == "2" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"payload": [
+						{"id": 2, "inbox_id": 1, "status": "open", "created_at": 1700001000}
+					],
+					"meta": {"total_pages": 2}
+				}
+			}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"data": {
+				"payload": [
+					{"id": 1, "inbox_id": 1, "status": "open", "created_at": 1700000000}
+				],
+				"meta": {"total_pages": 2}
+			}
+		}`))
+	})
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--all", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --all --output json failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 2 {
+		t.Fatalf("expected 2 conversations, got %d", len(items))
+	}
+}
+
+func TestConversationsSearchCommand_AllIncludesLastPage(t *testing.T) {
+	setupTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/accounts/1/conversations/search" {
+			http.NotFound(w, r)
+			return
+		}
+		page := r.URL.Query().Get("page")
+		if page == "2" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"payload": [
+						{"id": 11, "inbox_id": 1, "status": "open", "created_at": 1700001000}
+					],
+					"meta": {"total_pages": 2}
+				}
+			}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"data": {
+				"payload": [
+					{"id": 10, "inbox_id": 1, "status": "open", "created_at": 1700000000}
+				],
+				"meta": {"total_pages": 2}
+			}
+		}`))
+	})
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "search", "test", "--all", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations search --all --output json failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 2 {
+		t.Fatalf("expected 2 conversations, got %d", len(items))
+	}
+}
+
 func TestConversationsLabelsCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123/labels", jsonResponse(200, `{

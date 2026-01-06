@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -87,12 +86,7 @@ func TestAuditLogsListCommand_JSON(t *testing.T) {
 		t.Errorf("audit-logs list failed: %v", err)
 	}
 
-	// JSON output should be the payload array directly
-	var logs []map[string]any
-	if err := json.Unmarshal([]byte(output), &logs); err != nil {
-		t.Errorf("output is not valid JSON array: %v, output: %s", err, output)
-	}
-
+	logs := decodeItems(t, output)
 	if len(logs) != 1 {
 		t.Errorf("expected 1 log, got %d", len(logs))
 	}

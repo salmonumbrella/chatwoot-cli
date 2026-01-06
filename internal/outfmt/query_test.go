@@ -56,6 +56,18 @@ func TestWriteJSONFiltered_InvalidQuery(t *testing.T) {
 	}
 }
 
+func TestWriteJSONFiltered_WrapsSlice(t *testing.T) {
+	var buf bytes.Buffer
+	data := []string{"a", "b"}
+	err := WriteJSONFiltered(&buf, data, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "\"items\"") {
+		t.Errorf("expected items wrapper, got: %s", buf.String())
+	}
+}
+
 func TestApplyQuery_EmptyQuery(t *testing.T) {
 	data := map[string]string{"name": "test"}
 	result, err := ApplyQuery(data, "")
@@ -96,7 +108,7 @@ func TestApplyQuery_ArrayFilter(t *testing.T) {
 		{"name": "alice"},
 		{"name": "bob"},
 	}
-	result, err := ApplyQuery(data, ".[0].name")
+	result, err := ApplyQuery(data, ".items[0].name")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -96,8 +97,8 @@ func newConversationsListCmd() *cobra.Command {
   # List open conversations
   chatwoot conversations list --status open
 
-  # JSON output - returns array directly
-  chatwoot conversations list --output json | jq '.[0]'
+  # JSON output - returns an object with an "items" array
+  chatwoot conversations list --output json | jq '.items[0]'
 
   # Fetch all pages
   chatwoot conversations list --status open --all
@@ -124,7 +125,7 @@ func newConversationsListCmd() *cobra.Command {
 
 				// Show progress indicator when fetching multiple pages
 				if all && currentPage > page {
-					fmt.Fprintf(os.Stderr, "Fetching page %d...\n", currentPage)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Fetching page %d...\n", currentPage) //nolint:errcheck
 				}
 
 				params := api.ListConversationsParams{
@@ -148,18 +149,14 @@ func newConversationsListCmd() *cobra.Command {
 				conversations := result.Data.Payload
 				totalPages := int(result.Data.Meta.TotalPages)
 
-				// Stop if no results or if we've reached the total pages from API
-				if len(conversations) == 0 || (totalPages > 0 && currentPage >= totalPages) {
+				// Stop if no results
+				if len(conversations) == 0 {
 					break
 				}
-
-				allConversations = append(allConversations, conversations...)
-				totalFetched += len(conversations)
 
 				if !all {
 					// Single page mode - output and exit
 					if isJSON(cmd) {
-						// Return array directly for easier jq processing
 						return printJSON(cmd, conversations)
 					}
 
@@ -169,13 +166,20 @@ func newConversationsListCmd() *cobra.Command {
 					return nil
 				}
 
-				currentPage++
+				allConversations = append(allConversations, conversations...)
+				totalFetched += len(conversations)
 				pagesFetched++
+
+				// Stop if we've reached the total pages from API
+				if totalPages > 0 && currentPage >= totalPages {
+					break
+				}
+
+				currentPage++
 			}
 
 			// --all mode: output all fetched conversations
 			if isJSON(cmd) {
-				// Return array directly for easier jq processing
 				return printJSON(cmd, allConversations)
 			}
 
@@ -195,6 +199,8 @@ func newConversationsListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum number of pages to fetch when using --all")
+	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
+	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 
 	return cmd
 }
@@ -646,6 +652,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&status, "status", "", "New status (open|resolved|pending|snoozed) (required)")
 	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp or RFC3339 format)")
+	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed"})
 
 	return cmd
 }
@@ -713,6 +720,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&priority, "priority", "", "New priority (urgent|high|medium|low|none) (required)")
+	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
 }
@@ -787,6 +795,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&priority, "priority", "", "Priority (urgent|high|medium|low|none)")
 	cmd.Flags().IntVar(&slaPolicyID, "sla-policy-id", 0, "SLA policy ID (Enterprise feature)")
+	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
 }
@@ -885,7 +894,7 @@ func newConversationsLabelsCmd() *cobra.Command {
   # Get labels for a conversation
   chatwoot conversations labels 123
 
-  # JSON output - returns array directly
+  # JSON output - returns an object with an "items" array
   chatwoot conversations labels 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
@@ -1356,7 +1365,7 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 		}
 
 		if currentPage > 1 {
-			fmt.Fprintf(os.Stderr, "Fetching page %d...\n", currentPage)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Fetching page %d...\n", currentPage) //nolint:errcheck
 		}
 
 		result, err := client.SearchConversations(cmdContext(cmd), query, currentPage)
@@ -1367,13 +1376,18 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 		conversations := result.Data.Payload
 		totalPages := int(result.Data.Meta.TotalPages)
 
-		if len(conversations) == 0 || (totalPages > 0 && currentPage >= totalPages) {
+		if len(conversations) == 0 {
 			break
 		}
 
 		allConversations = append(allConversations, conversations...)
-		currentPage++
 		pagesFetched++
+
+		if totalPages > 0 && currentPage >= totalPages {
+			break
+		}
+
+		currentPage++
 	}
 
 	if isJSON(cmd) {
@@ -1768,7 +1782,9 @@ func newConversationsWatchCmd() *cobra.Command {
 
 			seen := make(map[int]int64) // ID -> last updated timestamp
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Watching conversations (interval: %ds, press Ctrl+C to stop)...\n\n", interval)
+			if !isJSON(cmd) {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Watching conversations (interval: %ds, press Ctrl+C to stop)...\n\n", interval)
+			}
 
 			ticker := time.NewTicker(time.Duration(interval) * time.Second)
 			defer ticker.Stop()
@@ -1781,7 +1797,9 @@ func newConversationsWatchCmd() *cobra.Command {
 			for {
 				select {
 				case <-ctx.Done():
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nStopped watching.")
+					if !isJSON(cmd) {
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nStopped watching.")
+					}
 					return nil // Not an error - user requested stop
 				case <-ticker.C:
 					if err := fetchAndDisplayConversations(ctx, cmd, client, status, inboxID, limit, seen); err != nil {
@@ -1797,6 +1815,7 @@ func newConversationsWatchCmd() *cobra.Command {
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
 	cmd.Flags().IntVar(&interval, "interval", 10, "Polling interval in seconds")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum conversations to display")
+	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 
 	return cmd
 }
@@ -1827,12 +1846,33 @@ func fetchAndDisplayConversations(ctx context.Context, cmd *cobra.Command, clien
 
 	if len(updated) > 0 {
 		timestamp := time.Now().Format("15:04:05")
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] %d update(s):\n", timestamp, len(updated))
-
 		if limit > 0 && len(updated) > limit {
 			updated = updated[:limit]
 		}
 
+		if isJSON(cmd) {
+			payload := map[string]any{
+				"timestamp": timestamp,
+				"items":     updated,
+			}
+			query := outfmt.GetQuery(cmd.Context())
+			payloadAny := any(payload)
+			if query != "" {
+				filtered, err := outfmt.ApplyQuery(payloadAny, query)
+				if err != nil {
+					return err
+				}
+				payloadAny = filtered
+			}
+			if tmpl := outfmt.GetTemplate(cmd.Context()); tmpl != "" {
+				return outfmt.WriteTemplate(cmd.OutOrStdout(), payloadAny, tmpl)
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetEscapeHTML(false)
+			return enc.Encode(payloadAny)
+		}
+
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] %d update(s):\n", timestamp, len(updated))
 		for _, conv := range updated {
 			displayID := conv.ID
 			if conv.DisplayID != nil {

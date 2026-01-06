@@ -242,6 +242,34 @@ func TestValidateChatwootURL(t *testing.T) {
 	}
 }
 
+func TestValidateChatwootURL_AllowPrivate(t *testing.T) {
+	SetAllowPrivate(true)
+	defer SetAllowPrivate(false)
+
+	tests := []struct {
+		name      string
+		url       string
+		wantError bool
+	}{
+		{name: "localhost allowed", url: "http://localhost:3000", wantError: false},
+		{name: "private IPv4 allowed", url: "http://192.168.0.10", wantError: false},
+		{name: "loopback IPv6 allowed", url: "http://[::1]", wantError: false},
+		{name: "metadata still blocked", url: "http://169.254.169.254", wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateChatwootURL(tt.url)
+			if tt.wantError && err == nil {
+				t.Fatalf("expected error for %s, got nil", tt.url)
+			}
+			if !tt.wantError && err != nil {
+				t.Fatalf("unexpected error for %s: %v", tt.url, err)
+			}
+		})
+	}
+}
+
 func TestIsLocalhost(t *testing.T) {
 	tests := []struct {
 		hostname string

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,23 @@ func captureStdout(t *testing.T, fn func()) string {
 
 	_ = w.Close()
 	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	return buf.String()
+}
+
+// captureStderr executes a function and captures its stderr output
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	fn()
+
+	_ = w.Close()
+	os.Stderr = old
 
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
@@ -177,4 +195,15 @@ func TestTestInfrastructure(t *testing.T) {
 			t.Errorf("expected status 404 for unknown route, got %d", resp.StatusCode)
 		}
 	})
+}
+
+func decodeItems(t *testing.T, output string) []map[string]any {
+	t.Helper()
+	var wrapper struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &wrapper); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	return wrapper.Items
 }

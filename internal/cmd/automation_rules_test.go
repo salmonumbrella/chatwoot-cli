@@ -77,11 +77,7 @@ func TestAutomationRulesListCommand_JSON(t *testing.T) {
 		t.Errorf("automation-rules list failed: %v", err)
 	}
 
-	var rules []map[string]any
-	if err := json.Unmarshal([]byte(output), &rules); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	rules := decodeItems(t, output)
 	if len(rules) != 1 {
 		t.Errorf("expected 1 rule, got %d", len(rules))
 	}

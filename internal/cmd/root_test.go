@@ -159,9 +159,11 @@ func TestExecute_GlobalFlags(t *testing.T) {
 	// Verify global flags exist in help output
 	flags := []string{
 		"--output",
+		"--json",
 		"--debug",
 		"--color",
 		"--dry-run",
+		"--allow-private",
 		"--query",
 		"--fields",
 		"--template",

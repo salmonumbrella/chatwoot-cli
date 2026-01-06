@@ -28,8 +28,8 @@ func newAuditLogsListCmd() *cobra.Command {
 		Example: `  # List audit logs
   chatwoot audit-logs list
 
-  # JSON output - returns array directly
-  chatwoot audit-logs list --output json | jq '.[0]'`,
+  # JSON output - returns an object with an "items" array
+  chatwoot audit-logs list --output json | jq '.items[0]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -42,7 +42,6 @@ func newAuditLogsListCmd() *cobra.Command {
 			}
 
 			if isJSON(cmd) {
-				// Return array directly for easier jq processing
 				return printJSON(cmd, logs.Payload)
 			}
 

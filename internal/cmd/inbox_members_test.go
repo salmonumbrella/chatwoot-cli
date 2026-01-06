@@ -77,11 +77,7 @@ func TestInboxMembersListCommand_JSON(t *testing.T) {
 		t.Errorf("inbox-members list failed: %v", err)
 	}
 
-	var members []map[string]any
-	if err := json.Unmarshal([]byte(output), &members); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	members := decodeItems(t, output)
 	if len(members) != 1 {
 		t.Errorf("expected 1 member, got %d", len(members))
 	}

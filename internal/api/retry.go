@@ -1,6 +1,10 @@
 package api
 
 import (
+	"context"
+	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,6 +23,43 @@ type circuitBreaker struct {
 	failures    int
 	lastFailure time.Time
 	open        bool
+}
+
+// sleepWithContext waits for the duration or returns early on context cancellation.
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// retryAfterDuration parses Retry-After header values (seconds or HTTP date).
+func retryAfterDuration(h http.Header) (time.Duration, bool) {
+	value := strings.TrimSpace(h.Get("Retry-After"))
+	if value == "" {
+		return 0, false
+	}
+	if secs, err := strconv.Atoi(value); err == nil {
+		if secs < 0 {
+			secs = 0
+		}
+		return time.Duration(secs) * time.Second, true
+	}
+	if t, err := http.ParseTime(value); err == nil {
+		d := time.Until(t)
+		if d < 0 {
+			d = 0
+		}
+		return d, true
+	}
+	return 0, false
 }
 
 // recordSuccess resets failures to 0 and sets open to false.

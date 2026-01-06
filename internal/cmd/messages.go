@@ -47,8 +47,8 @@ func newMessagesListCmd() *cobra.Command {
   # List all messages (paginated)
   chatwoot messages list 123 --all
 
-  # JSON output - returns array directly
-  chatwoot messages list 123 --all --output json | jq '[.[] | select(.private)]'`,
+  # JSON output - returns an object with an "items" array
+  chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")

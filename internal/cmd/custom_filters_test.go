@@ -107,11 +107,7 @@ func TestCustomFiltersListCommand_JSON(t *testing.T) {
 		t.Errorf("custom-filters list failed: %v", err)
 	}
 
-	var filters []map[string]any
-	if err := json.Unmarshal([]byte(output), &filters); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	filters := decodeItems(t, output)
 	if len(filters) != 1 {
 		t.Errorf("expected 1 filter, got %d", len(filters))
 	}

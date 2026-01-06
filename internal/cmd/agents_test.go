@@ -68,16 +68,15 @@ func TestAgentsListCommand_EmptyList(t *testing.T) {
 
 	setupTestEnvWithHandler(t, handler)
 
-	output := captureStdout(t, func() {
+	output := captureStderr(t, func() {
 		err := Execute(context.Background(), []string{"agents", "list"})
 		if err != nil {
 			t.Errorf("agents list failed: %v", err)
 		}
 	})
 
-	// Should still have headers
-	if !strings.Contains(output, "ID") {
-		t.Errorf("output missing column headers: %s", output)
+	if !strings.Contains(output, "No agents found") {
+		t.Errorf("expected 'No agents found' message, got: %s", output)
 	}
 }
 

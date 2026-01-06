@@ -73,11 +73,7 @@ func TestCannedResponsesListCommand_JSON(t *testing.T) {
 		t.Errorf("canned-responses list failed: %v", err)
 	}
 
-	var responses []map[string]any
-	if err := json.Unmarshal([]byte(output), &responses); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	responses := decodeItems(t, output)
 	if len(responses) != 1 {
 		t.Errorf("expected 1 response, got %d", len(responses))
 	}

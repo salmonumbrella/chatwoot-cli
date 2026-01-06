@@ -109,12 +109,7 @@ func TestTeamsListCommand_JSON(t *testing.T) {
 		t.Errorf("teams list failed: %v", err)
 	}
 
-	// Verify it's valid JSON array
-	var teams []map[string]any
-	if err := json.Unmarshal([]byte(output), &teams); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	teams := decodeItems(t, output)
 	if len(teams) != 1 {
 		t.Errorf("expected 1 team, got %d", len(teams))
 	}
@@ -630,12 +625,7 @@ func TestTeamsMembersCommand_JSON(t *testing.T) {
 		t.Errorf("teams members failed: %v", err)
 	}
 
-	// Verify it's valid JSON array
-	var members []map[string]any
-	if err := json.Unmarshal([]byte(output), &members); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	members := decodeItems(t, output)
 	if len(members) != 1 {
 		t.Errorf("expected 1 member, got %d", len(members))
 	}

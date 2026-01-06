@@ -316,10 +316,7 @@ func TestPublicConversationsListCommand_JSON(t *testing.T) {
 		t.Errorf("public conversations list failed: %v", err)
 	}
 
-	var conversations []map[string]any
-	if err := json.Unmarshal([]byte(output), &conversations); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	_ = decodeItems(t, output)
 }
 
 func TestPublicConversationsGetCommand(t *testing.T) {

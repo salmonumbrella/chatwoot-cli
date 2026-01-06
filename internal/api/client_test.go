@@ -136,10 +136,10 @@ func TestPost(t *testing.T) {
 	}
 }
 
-func TestPostMultipartRetriesOn429(t *testing.T) {
+func TestPostMultipartNoRetryOn429(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		call := atomic.AddInt32(&calls, 1)
+		atomic.AddInt32(&calls, 1)
 
 		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST, got %s", r.Method)
@@ -151,28 +151,21 @@ func TestPostMultipartRetriesOn429(t *testing.T) {
 			t.Errorf("Expected multipart content-type, got %s", r.Header.Get("Content-Type"))
 		}
 
-		if call == 1 {
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error": "rate limited"}`))
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"id": 1}`))
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error": "rate limited"}`))
 	}))
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	var result map[string]int
-	err := client.PostMultipart(context.Background(), "/test", map[string]string{"key": "value"}, map[string][]byte{"file.txt": []byte("hello")}, &result)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+	err := client.PostMultipart(context.Background(), "/test", map[string]string{"key": "value"}, map[string][]byte{"file.txt": []byte("hello")}, nil)
+	if err == nil {
+		t.Fatalf("Expected rate limit error, got nil")
 	}
-	if result["id"] != 1 {
-		t.Fatalf("Expected id=1, got %v", result)
+	if !IsRateLimitError(err) {
+		t.Fatalf("Expected RateLimitError, got %T", err)
 	}
-	if atomic.LoadInt32(&calls) != 2 {
-		t.Fatalf("Expected 2 attempts, got %d", calls)
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("Expected 1 attempt, got %d", calls)
 	}
 }
 

@@ -71,11 +71,7 @@ func TestSchemaListCommand_JSON(t *testing.T) {
 		t.Errorf("schema list failed: %v", err)
 	}
 
-	// Verify it's valid JSON array
-	var schemas []map[string]any
-	if err := json.Unmarshal([]byte(output), &schemas); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	schemas := decodeItems(t, output)
 
 	if len(schemas) < 7 {
 		t.Errorf("expected at least 7 schemas, got %d", len(schemas))

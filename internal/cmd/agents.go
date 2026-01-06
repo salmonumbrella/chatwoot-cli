@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -26,41 +28,33 @@ func newAgentsCmd() *cobra.Command {
 }
 
 func newAgentsListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List all agents",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient()
+	cfg := ListConfig[api.Agent]{
+		Use:               "list",
+		Short:             "List all agents",
+		DisablePagination: true,
+		EmptyMessage:      "No agents found",
+		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Agent], error) {
+			agents, err := client.ListAgents(ctx)
 			if err != nil {
-				return err
+				return ListResult[api.Agent]{}, err
 			}
-
-			agents, err := client.ListAgents(cmdContext(cmd))
-			if err != nil {
-				return err
+			return ListResult[api.Agent]{Items: agents, HasMore: false}, nil
+		},
+		Headers: []string{"ID", "NAME", "EMAIL", "ROLE", "AVAILABILITY_STATUS"},
+		RowFunc: func(agent api.Agent) []string {
+			return []string{
+				fmt.Sprintf("%d", agent.ID),
+				agent.Name,
+				agent.Email,
+				agent.Role,
+				agent.AvailabilityStatus,
 			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, agents)
-			}
-
-			w := newTabWriter()
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tAVAILABILITY_STATUS")
-			for _, agent := range agents {
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-					agent.ID,
-					agent.Name,
-					agent.Email,
-					agent.Role,
-					agent.AvailabilityStatus,
-				)
-			}
-
-			return nil
 		},
 	}
+
+	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+		return getClient()
+	})
 }
 
 func newAgentsGetCmd() *cobra.Command {

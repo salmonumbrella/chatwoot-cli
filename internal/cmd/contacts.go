@@ -52,16 +52,16 @@ func newContactsListCmd() *cobra.Command {
 		Short: "List all contacts",
 		Long: `List all contacts in your Chatwoot account.
 
-JSON output returns an array of contacts directly for easy jq processing.`,
+JSON output returns an object with an "items" array for easy jq processing.`,
 		Example: `  # List contacts in table format
   chatwoot contacts list
 
   # List with pagination
   chatwoot contacts list --page 2
 
-  # JSON output - returns array directly
-  chatwoot contacts list --output json | jq '.[0]'
-  chatwoot contacts list --output json | jq '.[] | {id, name, email}'`,
+  # JSON output - returns an object with an "items" array
+  chatwoot contacts list --output json | jq '.items[0]'
+  chatwoot contacts list --output json | jq '.items[] | {id, name, email}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -83,7 +83,6 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 			}
 
 			if isJSON(cmd) {
-				// Return array directly for easier jq processing
 				return printJSON(cmd, contacts.Payload)
 			}
 
@@ -419,12 +418,12 @@ func newContactsSearchCmd() *cobra.Command {
 		Long: `Search for contacts by query string.
 
 The query matches against contact name, email, phone number, and identifier.
-JSON output returns an array of contacts directly for easy jq processing.`,
+JSON output returns an object with an "items" array for easy jq processing.`,
 		Example: `  # Search for contacts by name
   chatwoot contacts search --query "John"
 
   # Search and output as JSON
-  chatwoot contacts search --query "acme" --output json | jq '.[] | {id, name}'`,
+  chatwoot contacts search --query "acme" --output json | jq '.items[] | {id, name}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if query == "" {
 				return fmt.Errorf("--query is required")
@@ -441,7 +440,6 @@ JSON output returns an array of contacts directly for easy jq processing.`,
 			}
 
 			if isJSON(cmd) {
-				// Return array directly for easier jq processing
 				return printJSON(cmd, contacts.Payload)
 			}
 
@@ -517,7 +515,6 @@ Available query operators: and, or`,
 			}
 
 			if isJSON(cmd) {
-				// Return array directly for easier jq processing
 				return printJSON(cmd, contacts.Payload)
 			}
 

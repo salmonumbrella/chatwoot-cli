@@ -101,10 +101,7 @@ func TestCampaignsListCommand_JSON(t *testing.T) {
 		t.Errorf("campaigns list failed: %v", err)
 	}
 
-	var campaigns []map[string]any
-	if err := json.Unmarshal([]byte(output), &campaigns); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	_ = decodeItems(t, output)
 }
 
 func TestCampaignsGetCommand(t *testing.T) {

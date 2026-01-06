@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -28,39 +30,36 @@ func newTeamsCmd() *cobra.Command {
 }
 
 func newTeamsListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List all teams",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient()
+	cfg := ListConfig[api.Team]{
+		Use:               "list",
+		Short:             "List all teams",
+		DisablePagination: true,
+		EmptyMessage:      "No teams found",
+		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Team], error) {
+			teams, err := client.ListTeams(ctx)
 			if err != nil {
-				return err
+				return ListResult[api.Team]{}, err
 			}
-
-			teams, err := client.ListTeams(cmdContext(cmd))
-			if err != nil {
-				return err
+			return ListResult[api.Team]{Items: teams, HasMore: false}, nil
+		},
+		Headers: []string{"ID", "NAME", "DESCRIPTION", "AUTO-ASSIGN"},
+		RowFunc: func(team api.Team) []string {
+			autoAssign := "no"
+			if team.AllowAutoAssign {
+				autoAssign = "yes"
 			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, teams)
+			return []string{
+				fmt.Sprintf("%d", team.ID),
+				team.Name,
+				team.Description,
+				autoAssign,
 			}
-
-			w := newTabWriter()
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tDESCRIPTION\tAUTO-ASSIGN")
-			for _, t := range teams {
-				autoAssign := "no"
-				if t.AllowAutoAssign {
-					autoAssign = "yes"
-				}
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", t.ID, t.Name, t.Description, autoAssign)
-			}
-
-			return nil
 		},
 	}
+
+	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+		return getClient()
+	})
 }
 
 func newTeamsGetCmd() *cobra.Command {

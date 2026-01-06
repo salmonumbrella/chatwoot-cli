@@ -26,6 +26,7 @@ func GetQuery(ctx context.Context) string {
 
 // WriteJSONFiltered writes JSON with optional JQ filtering
 func WriteJSONFiltered(w io.Writer, v any, query string) error {
+	v = normalizeJSONOutput(v)
 	if query == "" {
 		return WriteJSON(w, v)
 	}
@@ -51,6 +52,7 @@ func WriteJSONFiltered(w io.Writer, v any, query string) error {
 
 // ApplyQuery applies a JQ query to structured data and returns the filtered value.
 func ApplyQuery(v any, query string) (any, error) {
+	v = normalizeJSONOutput(v)
 	if query == "" {
 		return v, nil
 	}

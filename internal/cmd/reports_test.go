@@ -244,11 +244,7 @@ func TestReportsDataCommand_JSON(t *testing.T) {
 		t.Errorf("reports data failed: %v", err)
 	}
 
-	var report []map[string]any
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
-
+	report := decodeItems(t, output)
 	if len(report) != 2 {
 		t.Errorf("expected 2 data points, got %d", len(report))
 	}
@@ -434,10 +430,7 @@ func TestReportsAgentsCommand_JSON(t *testing.T) {
 		t.Errorf("reports agents failed: %v", err)
 	}
 
-	var agents []map[string]any
-	if err := json.Unmarshal([]byte(output), &agents); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	_ = decodeItems(t, output)
 }
 
 func TestReportsAgentsCommand_Empty(t *testing.T) {

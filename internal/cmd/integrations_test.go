@@ -75,10 +75,7 @@ func TestIntegrationsAppsCommand_JSON(t *testing.T) {
 		t.Errorf("integrations apps failed: %v", err)
 	}
 
-	var apps []map[string]any
-	if err := json.Unmarshal([]byte(output), &apps); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	_ = decodeItems(t, output)
 }
 
 func TestIntegrationsHooksCommand(t *testing.T) {
@@ -153,10 +150,7 @@ func TestIntegrationsHooksCommand_JSON(t *testing.T) {
 		t.Errorf("integrations hooks failed: %v", err)
 	}
 
-	var hooks []map[string]any
-	if err := json.Unmarshal([]byte(output), &hooks); err != nil {
-		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-	}
+	_ = decodeItems(t, output)
 }
 
 func TestIntegrationsHookCreateCommand(t *testing.T) {
