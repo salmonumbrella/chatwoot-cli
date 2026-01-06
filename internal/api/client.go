@@ -20,7 +20,14 @@ import (
 
 const DefaultTimeout = 30 * time.Second
 
-// Client is the Chatwoot API client
+// Client is the Chatwoot API client.
+//
+// The client includes a circuit breaker that tracks server failures across requests.
+// Circuit breaker state persists for the lifetime of the client, which may affect
+// unrelated requests if the client is reused across different logical sessions.
+//
+// Use ResetCircuitBreaker() to clear the circuit breaker state when reusing a client
+// between test runs, logical sessions, or after recovering from a known transient failure.
 type Client struct {
 	BaseURL           string
 	APIToken          string
@@ -71,6 +78,16 @@ func newTestClient(baseURL, token string, accountID int) *Client {
 	c := New(baseURL, token, accountID)
 	c.skipURLValidation = true
 	return c
+}
+
+// ResetCircuitBreaker clears the circuit breaker state, resetting failure counts
+// and closing the circuit. This is useful when reusing a client across logical
+// sessions (e.g., between test runs) to prevent stale failure state from affecting
+// new requests.
+func (c *Client) ResetCircuitBreaker() {
+	if c.circuitBreaker != nil {
+		c.circuitBreaker.reset()
+	}
 }
 
 func (c *Client) ensureBaseURLValidated() error {

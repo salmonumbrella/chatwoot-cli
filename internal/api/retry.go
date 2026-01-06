@@ -107,3 +107,14 @@ func (cb *circuitBreaker) isOpen() bool {
 
 	return true
 }
+
+// reset clears all failure state and closes the circuit.
+// This is useful when reusing a client across logical sessions.
+func (cb *circuitBreaker) reset() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failures = 0
+	cb.open = false
+	cb.lastFailure = time.Time{}
+}
