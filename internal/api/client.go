@@ -34,6 +34,7 @@ type Client struct {
 	AccountID         int
 	HTTP              *http.Client
 	UserAgent         string
+	RetryConfig       RetryConfig     // retry and circuit breaker configuration
 	skipURLValidation bool            // internal flag for testing only
 	circuitBreaker    *circuitBreaker // circuit breaker for retry logic
 	validatedBaseURL  bool
@@ -60,16 +61,21 @@ func New(baseURL, token string, accountID int) *Client {
 	// Allow localhost URLs when CHATWOOT_TESTING=1 is set (for integration tests)
 	skipValidation := os.Getenv("CHATWOOT_TESTING") == "1"
 
+	retryCfg := DefaultRetryConfig()
 	return &Client{
 		BaseURL:           baseURL,
 		APIToken:          token,
 		AccountID:         accountID,
+		RetryConfig:       retryCfg,
 		skipURLValidation: skipValidation,
 		HTTP: &http.Client{
 			Timeout:   DefaultTimeout,
 			Transport: transport,
 		},
-		circuitBreaker: &circuitBreaker{},
+		circuitBreaker: &circuitBreaker{
+			threshold: retryCfg.CircuitBreakerThreshold,
+			resetTime: retryCfg.CircuitBreakerResetTime,
+		},
 	}
 }
 
@@ -221,21 +227,22 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 		// Handle 429 rate limiting with exponential backoff (idempotent only)
 		if resp.StatusCode == 429 {
 			retryAfter, hasRetryAfter := retryAfterDuration(resp.Header)
+			baseDelay := c.RetryConfig.RateLimitBaseDelay
 			if !isIdempotent {
 				if hasRetryAfter {
 					return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: retryAfter}
 				}
-				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: RateLimitBaseDelay}
+				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: baseDelay}
 			}
-			if retries429 >= MaxRateLimitRetries {
+			if retries429 >= c.RetryConfig.MaxRateLimitRetries {
 				if hasRetryAfter {
 					return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: retryAfter}
 				}
-				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: RateLimitBaseDelay}
+				return nil, nil, resp.StatusCode, &RateLimitError{RetryAfter: baseDelay}
 			}
 			delay := retryAfter
 			if !hasRetryAfter {
-				delay = RateLimitBaseDelay * time.Duration(1<<retries429)
+				delay = baseDelay * time.Duration(1<<retries429)
 			}
 			slog.Info("rate limited, retrying", "delay", delay, "attempt", retries429+1)
 			if err := sleepWithContext(ctx, delay); err != nil {
@@ -250,9 +257,9 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 			if c.circuitBreaker != nil {
 				c.circuitBreaker.recordFailure()
 			}
-			if isIdempotent && retries5xx < Max5xxRetries {
+			if isIdempotent && retries5xx < c.RetryConfig.Max5xxRetries {
 				slog.Info("server error, retrying", "status", resp.StatusCode)
-				if err := sleepWithContext(ctx, ServerErrorRetryDelay); err != nil {
+				if err := sleepWithContext(ctx, c.RetryConfig.ServerErrorRetryDelay); err != nil {
 					return nil, nil, 0, err
 				}
 				retries5xx++
