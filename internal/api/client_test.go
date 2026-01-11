@@ -234,6 +234,31 @@ func TestPost_RetriesOn429WithIdempotencyKey(t *testing.T) {
 	}
 }
 
+func TestPost_NoRetryOn429WithoutIdempotencyKey(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.RetryConfig.MaxRateLimitRetries = 1
+	client.RetryConfig.RateLimitBaseDelay = 0
+
+	var result map[string]any
+	err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, &result)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !IsRateLimitError(err) {
+		t.Fatalf("expected RateLimitError, got %T", err)
+	}
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", calls)
+	}
+}
+
 func TestGet_RetriesOn5xx(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
