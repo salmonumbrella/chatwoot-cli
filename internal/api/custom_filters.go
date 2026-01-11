@@ -7,13 +7,22 @@ import (
 
 // ListCustomFilters retrieves all custom filters for a filter type
 func (c *Client) ListCustomFilters(ctx context.Context, filterType string) ([]CustomFilter, error) {
+	return listCustomFilters(ctx, c, filterType)
+}
+
+// List retrieves all custom filters for a filter type.
+func (s CustomFiltersService) List(ctx context.Context, filterType string) ([]CustomFilter, error) {
+	return listCustomFilters(ctx, s, filterType)
+}
+
+func listCustomFilters(ctx context.Context, r Requester, filterType string) ([]CustomFilter, error) {
 	path := "/custom_filters"
 	if filterType != "" {
 		path = fmt.Sprintf("/custom_filters?filter_type=%s", filterType)
 	}
 
 	var filters []CustomFilter
-	if err := c.Get(ctx, path, &filters); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &filters); err != nil {
 		return nil, err
 	}
 	return filters, nil
@@ -21,9 +30,18 @@ func (c *Client) ListCustomFilters(ctx context.Context, filterType string) ([]Cu
 
 // GetCustomFilter retrieves a single custom filter by ID
 func (c *Client) GetCustomFilter(ctx context.Context, id int) (*CustomFilter, error) {
+	return getCustomFilter(ctx, c, id)
+}
+
+// Get retrieves a single custom filter by ID.
+func (s CustomFiltersService) Get(ctx context.Context, id int) (*CustomFilter, error) {
+	return getCustomFilter(ctx, s, id)
+}
+
+func getCustomFilter(ctx context.Context, r Requester, id int) (*CustomFilter, error) {
 	path := fmt.Sprintf("/custom_filters/%d", id)
 	var filter CustomFilter
-	if err := c.Get(ctx, path, &filter); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &filter); err != nil {
 		return nil, err
 	}
 	return &filter, nil
@@ -31,6 +49,15 @@ func (c *Client) GetCustomFilter(ctx context.Context, id int) (*CustomFilter, er
 
 // CreateCustomFilter creates a new custom filter
 func (c *Client) CreateCustomFilter(ctx context.Context, name, filterType string, query map[string]any) (*CustomFilter, error) {
+	return createCustomFilter(ctx, c, name, filterType, query)
+}
+
+// Create creates a new custom filter.
+func (s CustomFiltersService) Create(ctx context.Context, name, filterType string, query map[string]any) (*CustomFilter, error) {
+	return createCustomFilter(ctx, s, name, filterType, query)
+}
+
+func createCustomFilter(ctx context.Context, r Requester, name, filterType string, query map[string]any) (*CustomFilter, error) {
 	body := map[string]any{
 		"name":        name,
 		"filter_type": filterType,
@@ -38,7 +65,7 @@ func (c *Client) CreateCustomFilter(ctx context.Context, name, filterType string
 	}
 
 	var filter CustomFilter
-	if err := c.Post(ctx, "/custom_filters", body, &filter); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/custom_filters"), body, &filter); err != nil {
 		return nil, err
 	}
 	return &filter, nil
@@ -46,6 +73,15 @@ func (c *Client) CreateCustomFilter(ctx context.Context, name, filterType string
 
 // UpdateCustomFilter updates an existing custom filter
 func (c *Client) UpdateCustomFilter(ctx context.Context, id int, name string, query map[string]any) (*CustomFilter, error) {
+	return updateCustomFilter(ctx, c, id, name, query)
+}
+
+// Update updates an existing custom filter.
+func (s CustomFiltersService) Update(ctx context.Context, id int, name string, query map[string]any) (*CustomFilter, error) {
+	return updateCustomFilter(ctx, s, id, name, query)
+}
+
+func updateCustomFilter(ctx context.Context, r Requester, id int, name string, query map[string]any) (*CustomFilter, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
@@ -56,7 +92,7 @@ func (c *Client) UpdateCustomFilter(ctx context.Context, id int, name string, qu
 
 	path := fmt.Sprintf("/custom_filters/%d", id)
 	var filter CustomFilter
-	if err := c.Patch(ctx, path, body, &filter); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &filter); err != nil {
 		return nil, err
 	}
 	return &filter, nil
@@ -64,6 +100,15 @@ func (c *Client) UpdateCustomFilter(ctx context.Context, id int, name string, qu
 
 // DeleteCustomFilter deletes a custom filter
 func (c *Client) DeleteCustomFilter(ctx context.Context, id int) error {
+	return deleteCustomFilter(ctx, c, id)
+}
+
+// Delete deletes a custom filter.
+func (s CustomFiltersService) Delete(ctx context.Context, id int) error {
+	return deleteCustomFilter(ctx, s, id)
+}
+
+func deleteCustomFilter(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/custom_filters/%d", id)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
