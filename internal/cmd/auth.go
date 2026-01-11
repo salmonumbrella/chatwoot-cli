@@ -174,6 +174,9 @@ func newAuthStatusCmd() *cobra.Command {
 		Example: strings.TrimSpace(`
   # Check authentication status
   chatwoot auth status
+
+  # JSON output for scripting
+  chatwoot auth status --json
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			envBaseURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL"))

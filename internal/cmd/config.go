@@ -56,12 +56,19 @@ func newProfilesListCmd() *cobra.Command {
 				return nil
 			}
 
+			w := newTabWriterFromCmd(cmd)
+			defer func() { _ = w.Flush() }()
+			_, _ = fmt.Fprintln(w, "CURRENT\tPROFILE\tBASE_URL")
 			for _, profile := range profiles {
 				marker := ""
 				if profile == current {
 					marker = "*"
 				}
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s%s\n", marker, profile)
+				baseURL := "-"
+				if account, err := config.LoadProfile(profile); err == nil && account.BaseURL != "" {
+					baseURL = account.BaseURL
+				}
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", marker, profile, baseURL)
 			}
 
 			return nil
@@ -77,13 +84,14 @@ func newProfilesUseCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			if _, err := config.LoadProfile(name); err != nil {
+			account, err := config.LoadProfile(name)
+			if err != nil {
 				return fmt.Errorf("profile %q not found: %w", name, err)
 			}
 			if err := config.SetCurrentProfile(name); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Current profile set to %s\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Current profile: %s (%s)\n", name, account.BaseURL)
 			return nil
 		}),
 	}

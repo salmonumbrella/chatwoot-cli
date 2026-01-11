@@ -67,12 +67,14 @@ chatwoot conversations list --status open
 ### Authentication
 
 Credentials are checked in this order:
-1. Environment variables (if set)
-2. Keychain profiles (set via `chatwoot auth login`)
+1. Environment variables (`CHATWOOT_BASE_URL`, `CHATWOOT_API_TOKEN`, `CHATWOOT_ACCOUNT_ID`)
+2. `CHATWOOT_PROFILE` (if set)
+3. Current profile in keychain (defaults to `default`)
 
 Check current configuration:
 ```bash
 chatwoot auth status
+chatwoot auth status --json
 ```
 
 Remove stored credentials:
