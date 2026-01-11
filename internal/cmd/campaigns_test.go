@@ -270,7 +270,7 @@ func TestCampaignsCreateCommand(t *testing.T) {
 		t.Errorf("campaigns create failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Campaign created successfully") {
+	if !strings.Contains(output, "Created campaign 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -515,7 +515,7 @@ func TestCampaignsUpdateCommand(t *testing.T) {
 		t.Errorf("campaigns update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Campaign updated successfully") {
+	if !strings.Contains(output, "Updated campaign 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }
@@ -634,7 +634,7 @@ func TestCampaignsDeleteCommand_Force(t *testing.T) {
 		t.Errorf("campaigns delete failed: %v", err)
 	}
 
-	if !strings.Contains(output, "deleted successfully") {
+	if !strings.Contains(output, "Deleted campaign 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }

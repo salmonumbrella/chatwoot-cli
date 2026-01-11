@@ -132,7 +132,7 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 				return printJSON(cmd, hook)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created integration hook %d\n", hook.ID)
+			printAction(cmd, "Created", "integration hook", hook.ID, "")
 			return nil
 		}),
 	}
@@ -179,7 +179,7 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 				return printJSON(cmd, hook)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated integration hook %d\n", hook.ID)
+			printAction(cmd, "Updated", "integration hook", hook.ID, "")
 			return nil
 		}),
 	}
@@ -213,7 +213,7 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": hookID})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted integration hook %d\n", hookID)
+			printAction(cmd, "Deleted", "integration hook", hookID, "")
 			return nil
 		}),
 	}

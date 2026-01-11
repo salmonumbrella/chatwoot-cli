@@ -245,7 +245,7 @@ func newAgentsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Agent %d deleted successfully\n", id)
+			printAction(cmd, "Deleted", "agent", id, "")
 			return nil
 		}),
 	}

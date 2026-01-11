@@ -99,7 +99,7 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created account %d: %s\n", account.ID, account.Name)
+			printAction(cmd, "Created", "account", account.ID, account.Name)
 			return nil
 		}),
 	}
@@ -169,7 +169,7 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": accountID})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted account %d\n", accountID)
+			printAction(cmd, "Deleted", "account", accountID, "")
 			return nil
 		}),
 	}
@@ -216,7 +216,7 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated account %d: %s\n", account.ID, account.Name)
+			printAction(cmd, "Updated", "account", account.ID, account.Name)
 			return nil
 		}),
 	}
@@ -288,7 +288,7 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, user)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created user %d: %s\n", user.ID, user.Email)
+			printAction(cmd, "Created", "user", user.ID, user.Email)
 			return nil
 		}),
 	}
@@ -383,7 +383,7 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, user)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated user %d\n", user.ID)
+			printAction(cmd, "Updated", "user", user.ID, user.Email)
 			return nil
 		}),
 	}
@@ -420,7 +420,7 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": userID})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted user %d\n", userID)
+			printAction(cmd, "Deleted", "user", userID, "")
 			return nil
 		}),
 	}
@@ -710,7 +710,7 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created agent bot %d: %s\n", bot.ID, bot.Name)
+			printAction(cmd, "Created", "agent bot", bot.ID, bot.Name)
 			return nil
 		}),
 	}
@@ -761,7 +761,7 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated agent bot %d: %s\n", bot.ID, bot.Name)
+			printAction(cmd, "Updated", "agent bot", bot.ID, bot.Name)
 			return nil
 		}),
 	}
@@ -796,7 +796,7 @@ func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": botID})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted agent bot %d\n", botID)
+			printAction(cmd, "Deleted", "agent bot", botID, "")
 			return nil
 		}),
 	}

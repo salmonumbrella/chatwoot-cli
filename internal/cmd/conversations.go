@@ -324,7 +324,7 @@ func newConversationsCreateCmd() *cobra.Command {
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created conversation #%d\n", displayID)
+			printAction(cmd, "Created", "conversation", displayID, "")
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  ID:     %d\n", conv.ID)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Status: %s\n", conv.Status)
 			if conv.AssigneeID != nil {

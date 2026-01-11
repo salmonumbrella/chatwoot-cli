@@ -73,7 +73,7 @@ func newAccountUpdateCmd() *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated account: %s\n", account.Name)
+			printAction(cmd, "Updated", "account", account.ID, account.Name)
 			return nil
 		}),
 	}

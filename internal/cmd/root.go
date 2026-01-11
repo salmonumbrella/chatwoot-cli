@@ -90,6 +90,9 @@ func Execute(ctx context.Context, args []string) error {
   # JSON with jq - list commands return an object with an "items" array
   chatwoot contacts list --output json | jq '.items[0]'
   chatwoot contacts search --query "test" --output json | jq '.items[] | {id, name}'
+
+  # Generate shell completions
+  chatwoot completion zsh > "${fpath[1]}/_chatwoot"
 `),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()

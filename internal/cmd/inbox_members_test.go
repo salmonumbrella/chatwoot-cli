@@ -317,7 +317,7 @@ func TestInboxMembersUpdateCommand(t *testing.T) {
 		t.Errorf("inbox-members update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Updated inbox 1 members") {
+	if !strings.Contains(output, "Updated inbox members 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 

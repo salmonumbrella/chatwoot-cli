@@ -245,7 +245,7 @@ func TestCannedResponsesCreateCommand(t *testing.T) {
 		t.Errorf("canned-responses create failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Created canned response #456") {
+	if !strings.Contains(output, "Created canned response 456") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -372,7 +372,7 @@ func TestCannedResponsesUpdateCommand(t *testing.T) {
 		t.Errorf("canned-responses update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Updated canned response #123") {
+	if !strings.Contains(output, "Updated canned response 123") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -483,7 +483,7 @@ func TestCannedResponsesDeleteCommand(t *testing.T) {
 		t.Error("expected DELETE request to be made")
 	}
 
-	if !strings.Contains(output, "Deleted canned response #456") {
+	if !strings.Contains(output, "Deleted canned response 456") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }

@@ -270,7 +270,7 @@ func newMessagesCreateCmd() *cobra.Command {
 				return printJSON(cmd, message)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message created successfully (ID: %d)\n", message.ID)
+			printAction(cmd, "Created", "message", message.ID, "")
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Type: %s\n", message.MessageTypeName())
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Private: %t\n", message.Private)
 			if message.Content != "" {
@@ -341,7 +341,7 @@ func newMessagesDeleteCmd() *cobra.Command {
 				})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %d deleted successfully\n", messageID)
+			printAction(cmd, "Deleted", "message", messageID, "")
 
 			return nil
 		}),
@@ -406,7 +406,7 @@ func newMessagesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, message)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %d updated successfully\n", message.ID)
+			printAction(cmd, "Updated", "message", message.ID, "")
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Content: %s\n", message.Content)
 
 			return nil

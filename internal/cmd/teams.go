@@ -126,7 +126,7 @@ func newTeamsCreateCmd() *cobra.Command {
 				return printJSON(cmd, team)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created team: %s (ID: %d)\n", team.Name, team.ID)
+			printAction(cmd, "Created", "team", team.ID, team.Name)
 			return nil
 		}),
 	}
@@ -168,7 +168,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, team)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated team: %s (ID: %d)\n", team.Name, team.ID)
+			printAction(cmd, "Updated", "team", team.ID, team.Name)
 			return nil
 		}),
 	}
@@ -206,7 +206,7 @@ func newTeamsDeleteCmd() *cobra.Command {
 				})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted team ID: %d\n", id)
+			printAction(cmd, "Deleted", "team", id, "")
 			return nil
 		}),
 	}

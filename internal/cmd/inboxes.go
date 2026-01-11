@@ -191,7 +191,7 @@ func newInboxesCreateCmd() *cobra.Command {
 				return printJSON(cmd, inbox)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created inbox %d: %s (%s)\n", inbox.ID, inbox.Name, inbox.ChannelType)
+			printAction(cmd, "Created", "inbox", inbox.ID, fmt.Sprintf("%s (%s)", inbox.Name, inbox.ChannelType))
 			return nil
 		}),
 	}
@@ -317,7 +317,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, inbox)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated inbox %d: %s\n", inbox.ID, inbox.Name)
+			printAction(cmd, "Updated", "inbox", inbox.ID, inbox.Name)
 			return nil
 		}),
 	}
@@ -372,7 +372,7 @@ func newInboxesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted inbox %d\n", id)
+			printAction(cmd, "Deleted", "inbox", id, "")
 			return nil
 		}),
 	}
@@ -694,7 +694,7 @@ func newInboxesDeleteAvatarCmd() *cobra.Command {
 				return err
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted avatar for inbox %d\n", id)
+			printAction(cmd, "Deleted", "inbox avatar", id, "")
 			return nil
 		}),
 	}
@@ -864,7 +864,7 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 				return printJSON(cmd, template)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated CSAT template for inbox %d\n", id)
+			printAction(cmd, "Updated", "inbox CSAT template", id, "")
 			return nil
 		}),
 	}

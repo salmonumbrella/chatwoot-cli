@@ -88,6 +88,24 @@ func printIfNotQuiet(cmd *cobra.Command, format string, args ...any) {
 	}
 }
 
+func printAction(cmd *cobra.Command, action, resource string, id any, name string) {
+	if flags.Quiet || isJSON(cmd) {
+		return
+	}
+
+	ioStreams := iocontext.GetIO(cmd.Context())
+	message := fmt.Sprintf("%s %s", action, resource)
+	if id != nil {
+		if value, ok := id.(string); !ok || value != "" {
+			message = fmt.Sprintf("%s %v", message, id)
+		}
+	}
+	if name != "" {
+		message = fmt.Sprintf("%s: %s", message, name)
+	}
+	_, _ = fmt.Fprintln(ioStreams.Out, message)
+}
+
 func bulkProgressEnabled(cmd *cobra.Command, progress, noProgress bool) bool {
 	if noProgress {
 		return false

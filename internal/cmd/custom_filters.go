@@ -166,7 +166,7 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 				return printJSON(cmd, filter)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created custom filter %d: %s\n", filter.ID, filter.Name)
+			printAction(cmd, "Created", "custom filter", filter.ID, filter.Name)
 			return nil
 		}),
 	}
@@ -219,7 +219,7 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 				return printJSON(cmd, filter)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated custom filter %d: %s\n", filter.ID, filter.Name)
+			printAction(cmd, "Updated", "custom filter", filter.ID, filter.Name)
 			return nil
 		}),
 	}
@@ -253,7 +253,7 @@ func newCustomFiltersDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted custom filter %d\n", id)
+			printAction(cmd, "Deleted", "custom filter", id, "")
 			return nil
 		}),
 	}

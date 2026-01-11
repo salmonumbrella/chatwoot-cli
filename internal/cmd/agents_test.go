@@ -348,7 +348,7 @@ func TestAgentsDeleteCommand(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "deleted successfully") {
+	if !strings.Contains(output, "Deleted agent 1") {
 		t.Errorf("output missing success message: %s", output)
 	}
 }
@@ -385,7 +385,7 @@ func TestAgentsDeleteCommand_JSON(t *testing.T) {
 	})
 
 	// In JSON mode, no output is printed for delete
-	if strings.Contains(output, "deleted successfully") {
+	if strings.Contains(output, "Deleted agent") {
 		t.Errorf("JSON mode should not print success message: %s", output)
 	}
 }

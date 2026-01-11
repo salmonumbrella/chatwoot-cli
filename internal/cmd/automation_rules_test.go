@@ -244,7 +244,7 @@ func TestAutomationRulesCreateCommand(t *testing.T) {
 		t.Errorf("automation-rules create failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Created automation rule #1: New Rule") {
+	if !strings.Contains(output, "Created automation rule 1: New Rule") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -369,7 +369,7 @@ func TestAutomationRulesUpdateCommand(t *testing.T) {
 		t.Errorf("automation-rules update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Updated automation rule #1: Updated Rule") {
+	if !strings.Contains(output, "Updated automation rule 1: Updated Rule") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -471,7 +471,7 @@ func TestAutomationRulesDeleteCommand(t *testing.T) {
 		t.Errorf("automation-rules delete failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Deleted automation rule #1") {
+	if !strings.Contains(output, "Deleted automation rule 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }

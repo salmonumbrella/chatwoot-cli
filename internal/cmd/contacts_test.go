@@ -210,7 +210,7 @@ func TestContactsDeleteCommand(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "deleted successfully") {
+	if !strings.Contains(output, "Deleted contact 123") {
 		t.Errorf("output missing success message: %s", output)
 	}
 }
@@ -253,7 +253,7 @@ func TestContactsLabelsAddCommand(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Labels added successfully") {
+	if !strings.Contains(output, "Added labels to contact 123") {
 		t.Errorf("output missing success message: %s", output)
 	}
 }
@@ -407,7 +407,7 @@ func TestContactsNotesDeleteCommand(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Deleted note #5") {
+	if !strings.Contains(output, "Deleted contact note 5") {
 		t.Errorf("output missing success message: %s", output)
 	}
 }

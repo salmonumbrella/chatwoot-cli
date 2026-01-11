@@ -492,7 +492,7 @@ func TestTeamsDeleteCommand(t *testing.T) {
 		t.Error("expected DELETE request to be made")
 	}
 
-	if !strings.Contains(output, "Deleted team ID: 50") {
+	if !strings.Contains(output, "Deleted team 50") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }

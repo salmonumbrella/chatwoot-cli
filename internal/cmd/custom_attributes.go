@@ -174,7 +174,7 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 				return printJSON(cmd, attr)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
+			printAction(cmd, "Created", "custom attribute", attr.ID, attr.AttributeDisplayName)
 			return nil
 		}),
 	}
@@ -218,7 +218,7 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, attr)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
+			printAction(cmd, "Updated", "custom attribute", attr.ID, attr.AttributeDisplayName)
 			return nil
 		}),
 	}
@@ -251,7 +251,7 @@ func newCustomAttributesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted custom attribute %d\n", id)
+			printAction(cmd, "Deleted", "custom attribute", id, "")
 			return nil
 		}),
 	}

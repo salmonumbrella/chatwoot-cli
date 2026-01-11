@@ -402,7 +402,7 @@ func newContactsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact %d deleted successfully\n", id)
+			printAction(cmd, "Deleted", "contact", id, "")
 			return nil
 		}),
 	}
@@ -660,7 +660,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 				return printJSON(cmd, updatedLabels)
 			}
 
-			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Labels added successfully:")
+			printAction(cmd, "Added labels to", "contact", id, "")
 			for _, label := range updatedLabels {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), label)
 			}
@@ -927,7 +927,7 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": noteID, "contact_id": contactID})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted note #%d from contact %d\n", noteID, contactID)
+			printAction(cmd, "Deleted", "contact note", noteID, fmt.Sprintf("contact %d", contactID))
 			return nil
 		}),
 	}

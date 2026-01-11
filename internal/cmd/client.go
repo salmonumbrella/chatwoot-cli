@@ -93,7 +93,7 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 				return printJSON(cmd, contact)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created contact %d (%s)\n", contact.ID, contact.Name)
+			printAction(cmd, "Created", "contact", contact.ID, contact.Name)
 			return nil
 		}),
 	}
@@ -233,7 +233,7 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 				return printJSON(cmd, conversation)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created conversation %v\n", conversation["id"])
+			printAction(cmd, "Created", "conversation", conversation["id"], "")
 			return nil
 		}),
 	}

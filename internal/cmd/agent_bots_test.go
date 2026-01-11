@@ -227,7 +227,7 @@ func TestAgentBotsCreateCommand(t *testing.T) {
 		t.Errorf("agent-bots create failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Created agent bot #1: New Bot") {
+	if !strings.Contains(output, "Created agent bot 1: New Bot") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -328,7 +328,7 @@ func TestAgentBotsUpdateCommand(t *testing.T) {
 		t.Errorf("agent-bots update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Updated agent bot #1: Updated Bot") {
+	if !strings.Contains(output, "Updated agent bot 1: Updated Bot") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -411,7 +411,7 @@ func TestAgentBotsDeleteCommand(t *testing.T) {
 		t.Errorf("agent-bots delete failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Deleted agent bot #1") {
+	if !strings.Contains(output, "Deleted agent bot 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }

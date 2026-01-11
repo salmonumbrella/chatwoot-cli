@@ -153,7 +153,7 @@ Available subscription events:
 				return printJSON(cmd, webhook)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created webhook %d\n", webhook.ID)
+			printAction(cmd, "Created", "webhook", webhook.ID, "")
 			tw := newTabWriterFromCmd(cmd)
 			defer func() { _ = tw.Flush() }()
 
@@ -227,7 +227,7 @@ Available subscription events:
 				return printJSON(cmd, webhook)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated webhook %d\n", webhook.ID)
+			printAction(cmd, "Updated", "webhook", webhook.ID, "")
 			tw := newTabWriterFromCmd(cmd)
 			defer func() { _ = tw.Flush() }()
 
@@ -274,7 +274,7 @@ func newWebhooksDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted webhook %d\n", id)
+			printAction(cmd, "Deleted", "webhook", id, "")
 			return nil
 		}),
 	}

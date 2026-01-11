@@ -127,7 +127,7 @@ func newAgentBotsCreateCmd() *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created agent bot #%d: %s\n", bot.ID, bot.Name)
+			printAction(cmd, "Created", "agent bot", bot.ID, bot.Name)
 			return nil
 		}),
 	}
@@ -177,7 +177,7 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated agent bot #%d: %s\n", bot.ID, bot.Name)
+			printAction(cmd, "Updated", "agent bot", bot.ID, bot.Name)
 			return nil
 		}),
 	}
@@ -212,7 +212,7 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted agent bot #%d\n", id)
+			printAction(cmd, "Deleted", "agent bot", id, "")
 			return nil
 		}),
 	}
@@ -242,7 +242,7 @@ func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted avatar for agent bot #%d\n", id)
+			printAction(cmd, "Deleted", "agent bot avatar", id, "")
 			return nil
 		}),
 	}

@@ -234,7 +234,7 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 				return printJSON(cmd, campaign)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Campaign created successfully (ID: %d)\n", campaign.ID)
+			printAction(cmd, "Created", "campaign", campaign.ID, campaign.Title)
 			return nil
 		}),
 	}
@@ -354,7 +354,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 				return printJSON(cmd, campaign)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Campaign updated successfully (ID: %d)\n", campaign.ID)
+			printAction(cmd, "Updated", "campaign", campaign.ID, campaign.Title)
 			return nil
 		}),
 	}
@@ -431,7 +431,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Campaign %d deleted successfully\n", id)
+			printAction(cmd, "Deleted", "campaign", id, "")
 			return nil
 		}),
 	}

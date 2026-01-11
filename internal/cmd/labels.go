@@ -162,7 +162,7 @@ func newLabelsCreateCmd() *cobra.Command {
 				return printJSON(cmd, label)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created label #%d: %s\n", label.ID, label.Title)
+			printAction(cmd, "Created", "label", label.ID, label.Title)
 			return nil
 		}),
 	}
@@ -237,7 +237,7 @@ func newLabelsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, label)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated label #%d: %s\n", label.ID, label.Title)
+			printAction(cmd, "Updated", "label", label.ID, label.Title)
 			return nil
 		}),
 	}
@@ -286,7 +286,7 @@ func newLabelsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted label #%d\n", id)
+			printAction(cmd, "Deleted", "label", id, "")
 			return nil
 		}),
 	}

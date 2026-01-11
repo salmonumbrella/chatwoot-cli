@@ -147,7 +147,7 @@ func newProfilesDeleteCmd() *cobra.Command {
 			if err := config.DeleteProfile(name); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted profile %s\n", name)
+			printAction(cmd, "Deleted", "profile", name, "")
 			return nil
 		}),
 	}

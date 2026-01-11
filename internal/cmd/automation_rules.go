@@ -138,7 +138,7 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 				return printJSON(cmd, rule)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created automation rule #%d: %s\n", rule.ID, rule.Name)
+			printAction(cmd, "Created", "automation rule", rule.ID, rule.Name)
 			return nil
 		}),
 	}
@@ -200,7 +200,7 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, rule)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated automation rule #%d: %s\n", rule.ID, rule.Name)
+			printAction(cmd, "Updated", "automation rule", rule.ID, rule.Name)
 			return nil
 		}),
 	}
@@ -236,7 +236,7 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted automation rule #%d\n", id)
+			printAction(cmd, "Deleted", "automation rule", id, "")
 			return nil
 		}),
 	}

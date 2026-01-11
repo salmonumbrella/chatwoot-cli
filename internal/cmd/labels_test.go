@@ -256,7 +256,7 @@ func TestLabelsCreateCommand(t *testing.T) {
 	}
 
 	// Verify output
-	if !strings.Contains(output, "Created label #3") {
+	if !strings.Contains(output, "Created label 3") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -397,7 +397,7 @@ func TestLabelsUpdateCommand(t *testing.T) {
 	}
 
 	// Verify output
-	if !strings.Contains(output, "Updated label #10") {
+	if !strings.Contains(output, "Updated label 10") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -513,7 +513,7 @@ func TestLabelsDeleteCommand(t *testing.T) {
 		t.Error("expected DELETE request to be made")
 	}
 
-	if !strings.Contains(output, "Deleted label #50") {
+	if !strings.Contains(output, "Deleted label 50") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }

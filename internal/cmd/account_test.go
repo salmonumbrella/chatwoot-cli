@@ -117,7 +117,7 @@ func TestAccountUpdateCommand(t *testing.T) {
 		t.Errorf("account update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Updated account: Updated Account") {
+	if !strings.Contains(output, "Updated account 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 

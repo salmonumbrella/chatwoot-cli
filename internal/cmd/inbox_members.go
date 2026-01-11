@@ -187,7 +187,7 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated inbox %d members\n", inboxID)
+			printAction(cmd, "Updated", "inbox members", inboxID, "")
 			return nil
 		}),
 	}

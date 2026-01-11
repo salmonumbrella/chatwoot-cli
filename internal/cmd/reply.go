@@ -198,7 +198,7 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 	}
 
 	// Text output
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message sent successfully (ID: %d)\n", message.ID)
+	printAction(cmd, "Sent", "message", message.ID, "")
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation: %d\n", conversationID)
 	if contact != nil {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact: %s", contact.Name)

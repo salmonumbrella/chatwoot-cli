@@ -142,7 +142,7 @@ func TestMessagesCreateCommand(t *testing.T) {
 		t.Errorf("messages create failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Message created successfully") {
+	if !strings.Contains(output, "Created message 456") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 	if !strings.Contains(output, "456") {
@@ -290,7 +290,7 @@ func TestMessagesDeleteCommand(t *testing.T) {
 		t.Error("expected DELETE request to be made")
 	}
 
-	if !strings.Contains(output, "deleted successfully") {
+	if !strings.Contains(output, "Deleted message 456") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }
@@ -392,7 +392,7 @@ func TestMessagesUpdateCommand(t *testing.T) {
 		t.Errorf("messages update failed: %v", err)
 	}
 
-	if !strings.Contains(output, "updated successfully") {
+	if !strings.Contains(output, "Updated message 456") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 
@@ -580,7 +580,7 @@ func TestMessagesCreateCommand_WithAttachment(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Message created successfully") {
+	if !strings.Contains(output, "Created message 789") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }
@@ -613,7 +613,7 @@ func TestMessagesCreateCommand_AttachmentOnly(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Message created successfully") {
+	if !strings.Contains(output, "Created message 790") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 	if !strings.Contains(output, "Attachments: 1") {

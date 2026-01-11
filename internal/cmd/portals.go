@@ -153,7 +153,7 @@ func newPortalsCreateCmd() *cobra.Command {
 				return printJSON(cmd, portal)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created portal %d: %s\n", portal.ID, portal.Name)
+			printAction(cmd, "Created", "portal", portal.ID, portal.Name)
 			return nil
 		}),
 	}
@@ -217,7 +217,7 @@ func newPortalsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, portal)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated portal %d\n", portal.ID)
+			printAction(cmd, "Updated", "portal", portal.ID, portal.Name)
 			return nil
 		}),
 	}
@@ -261,7 +261,7 @@ func newPortalsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "slug": portalSlug})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted portal %s\n", portalSlug)
+			printAction(cmd, "Deleted", "portal", portalSlug, "")
 			return nil
 		}),
 	}
@@ -333,7 +333,7 @@ func newPortalsDeleteLogoCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted_logo": true, "slug": portalSlug})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted logo for portal %s\n", portalSlug)
+			printAction(cmd, "Deleted", "portal logo", portalSlug, "")
 			return nil
 		}),
 	}
@@ -571,7 +571,7 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 				return printJSON(cmd, article)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created article %d: %s\n", article.ID, article.Title)
+			printAction(cmd, "Created", "article", article.ID, article.Title)
 			return nil
 		}),
 	}
@@ -655,7 +655,7 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, article)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated article %d\n", article.ID)
+			printAction(cmd, "Updated", "article", article.ID, article.Title)
 			return nil
 		}),
 	}
@@ -707,7 +707,7 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": articleID})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted article %d\n", articleID)
+			printAction(cmd, "Deleted", "article", articleID, "")
 			return nil
 		}),
 	}
@@ -918,7 +918,7 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 				return printJSON(cmd, category)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created category %d: %s\n", category.ID, category.Name)
+			printAction(cmd, "Created", "category", category.ID, category.Name)
 			return nil
 		}),
 	}
@@ -992,7 +992,7 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, category)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated category %d\n", category.ID)
+			printAction(cmd, "Updated", "category", category.ID, category.Name)
 			return nil
 		}),
 	}
@@ -1042,7 +1042,7 @@ func newPortalsCategoriesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "slug": categorySlug})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted category %s\n", categorySlug)
+			printAction(cmd, "Deleted", "category", categorySlug, "")
 			return nil
 		}),
 	}

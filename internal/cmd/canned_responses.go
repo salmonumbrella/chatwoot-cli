@@ -126,7 +126,7 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 				return printJSON(cmd, response)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created canned response #%d: %s\n", response.ID, response.ShortCode)
+			printAction(cmd, "Created", "canned response", response.ID, response.ShortCode)
 			return nil
 		}),
 	}
@@ -186,7 +186,7 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, response)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated canned response #%d: %s\n", response.ID, response.ShortCode)
+			printAction(cmd, "Updated", "canned response", response.ID, response.ShortCode)
 			return nil
 		}),
 	}
@@ -221,7 +221,7 @@ func newCannedResponsesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted canned response #%d\n", id)
+			printAction(cmd, "Deleted", "canned response", id, "")
 			return nil
 		}),
 	}
