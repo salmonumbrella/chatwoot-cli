@@ -32,20 +32,48 @@ type Category struct {
 
 // ListPortals lists all portals
 func (c *Client) ListPortals(ctx context.Context) ([]Portal, error) {
+	return listPortals(ctx, c)
+}
+
+// List lists all portals.
+func (s PortalsService) List(ctx context.Context) ([]Portal, error) {
+	return listPortals(ctx, s)
+}
+
+func listPortals(ctx context.Context, r Requester) ([]Portal, error) {
 	var result PortalListResponse
-	err := c.Get(ctx, "/portals", &result)
+	err := r.do(ctx, "GET", r.accountPath("/portals"), nil, &result)
 	return result.Payload, err
 }
 
 // GetPortal gets a portal by slug
 func (c *Client) GetPortal(ctx context.Context, portalSlug string) (*Portal, error) {
+	return getPortal(ctx, c, portalSlug)
+}
+
+// Get gets a portal by slug.
+func (s PortalsService) Get(ctx context.Context, portalSlug string) (*Portal, error) {
+	return getPortal(ctx, s, portalSlug)
+}
+
+func getPortal(ctx context.Context, r Requester, portalSlug string) (*Portal, error) {
 	var result Portal
-	err := c.Get(ctx, fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug)), &result)
+	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
+	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
 	return &result, err
 }
 
 // CreatePortal creates a new portal
 func (c *Client) CreatePortal(ctx context.Context, name, slug string) (*Portal, error) {
+	return createPortal(ctx, c, name, slug)
+}
+
+// Create creates a new portal.
+func (s PortalsService) Create(ctx context.Context, name, slug string) (*Portal, error) {
+	return createPortal(ctx, s, name, slug)
+}
+
+func createPortal(ctx context.Context, r Requester, name, slug string) (*Portal, error) {
 	body := map[string]any{
 		"portal": map[string]any{
 			"name": name,
@@ -54,12 +82,21 @@ func (c *Client) CreatePortal(ctx context.Context, name, slug string) (*Portal, 
 	}
 
 	var result Portal
-	err := c.Post(ctx, "/portals", body, &result)
+	err := r.do(ctx, "POST", r.accountPath("/portals"), body, &result)
 	return &result, err
 }
 
 // UpdatePortal updates a portal
 func (c *Client) UpdatePortal(ctx context.Context, portalSlug string, name, slug string) (*Portal, error) {
+	return updatePortal(ctx, c, portalSlug, name, slug)
+}
+
+// Update updates a portal.
+func (s PortalsService) Update(ctx context.Context, portalSlug string, name, slug string) (*Portal, error) {
+	return updatePortal(ctx, s, portalSlug, name, slug)
+}
+
+func updatePortal(ctx context.Context, r Requester, portalSlug string, name, slug string) (*Portal, error) {
 	portalParams := map[string]any{}
 	if name != "" {
 		portalParams["name"] = name
@@ -73,34 +110,74 @@ func (c *Client) UpdatePortal(ctx context.Context, portalSlug string, name, slug
 	}
 
 	var result Portal
-	err := c.Patch(ctx, fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug)), body, &result)
+	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
+	err := r.do(ctx, "PATCH", r.accountPath(path), body, &result)
 	return &result, err
 }
 
 // DeletePortal deletes a portal
 func (c *Client) DeletePortal(ctx context.Context, portalSlug string) error {
-	return c.Delete(ctx, fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug)))
+	return deletePortal(ctx, c, portalSlug)
+}
+
+// Delete deletes a portal.
+func (s PortalsService) Delete(ctx context.Context, portalSlug string) error {
+	return deletePortal(ctx, s, portalSlug)
+}
+
+func deletePortal(ctx context.Context, r Requester, portalSlug string) error {
+	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // ListPortalArticles lists articles in a portal
 func (c *Client) ListPortalArticles(ctx context.Context, portalSlug string) ([]Article, error) {
+	return listPortalArticles(ctx, c, portalSlug)
+}
+
+// Articles lists articles in a portal.
+func (s PortalsService) Articles(ctx context.Context, portalSlug string) ([]Article, error) {
+	return listPortalArticles(ctx, s, portalSlug)
+}
+
+func listPortalArticles(ctx context.Context, r Requester, portalSlug string) ([]Article, error) {
 	var result []Article
-	err := c.Get(ctx, fmt.Sprintf("/portals/%s/articles", url.PathEscape(portalSlug)), &result)
+	path := fmt.Sprintf("/portals/%s/articles", url.PathEscape(portalSlug))
+	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
 	return result, err
 }
 
 // ListPortalCategories lists categories in a portal
 func (c *Client) ListPortalCategories(ctx context.Context, portalSlug string) ([]Category, error) {
+	return listPortalCategories(ctx, c, portalSlug)
+}
+
+// Categories lists categories in a portal.
+func (s PortalsService) Categories(ctx context.Context, portalSlug string) ([]Category, error) {
+	return listPortalCategories(ctx, s, portalSlug)
+}
+
+func listPortalCategories(ctx context.Context, r Requester, portalSlug string) ([]Category, error) {
 	var result []Category
-	err := c.Get(ctx, fmt.Sprintf("/portals/%s/categories", url.PathEscape(portalSlug)), &result)
+	path := fmt.Sprintf("/portals/%s/categories", url.PathEscape(portalSlug))
+	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
 	return result, err
 }
 
 // GetArticle gets a specific article
 func (c *Client) GetArticle(ctx context.Context, portalSlug string, articleID int) (*Article, error) {
+	return getArticle(ctx, c, portalSlug, articleID)
+}
+
+// Article gets a specific article.
+func (s PortalsService) Article(ctx context.Context, portalSlug string, articleID int) (*Article, error) {
+	return getArticle(ctx, s, portalSlug, articleID)
+}
+
+func getArticle(ctx context.Context, r Requester, portalSlug string, articleID int) (*Article, error) {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
 	var result Article
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -108,9 +185,18 @@ func (c *Client) GetArticle(ctx context.Context, portalSlug string, articleID in
 
 // CreateArticle creates a new article in a portal
 func (c *Client) CreateArticle(ctx context.Context, portalSlug string, params map[string]any) (*Article, error) {
+	return createArticle(ctx, c, portalSlug, params)
+}
+
+// CreateArticle creates a new article in a portal.
+func (s PortalsService) CreateArticle(ctx context.Context, portalSlug string, params map[string]any) (*Article, error) {
+	return createArticle(ctx, s, portalSlug, params)
+}
+
+func createArticle(ctx context.Context, r Requester, portalSlug string, params map[string]any) (*Article, error) {
 	path := fmt.Sprintf("/portals/%s/articles", url.PathEscape(portalSlug))
 	var result Article
-	if err := c.Post(ctx, path, params, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -118,9 +204,18 @@ func (c *Client) CreateArticle(ctx context.Context, portalSlug string, params ma
 
 // UpdateArticle updates an article
 func (c *Client) UpdateArticle(ctx context.Context, portalSlug string, articleID int, params map[string]any) (*Article, error) {
+	return updateArticle(ctx, c, portalSlug, articleID, params)
+}
+
+// UpdateArticle updates an article.
+func (s PortalsService) UpdateArticle(ctx context.Context, portalSlug string, articleID int, params map[string]any) (*Article, error) {
+	return updateArticle(ctx, s, portalSlug, articleID, params)
+}
+
+func updateArticle(ctx context.Context, r Requester, portalSlug string, articleID int, params map[string]any) (*Article, error) {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
 	var result Article
-	if err := c.Patch(ctx, path, params, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -128,15 +223,33 @@ func (c *Client) UpdateArticle(ctx context.Context, portalSlug string, articleID
 
 // DeleteArticle deletes an article
 func (c *Client) DeleteArticle(ctx context.Context, portalSlug string, articleID int) error {
+	return deleteArticle(ctx, c, portalSlug, articleID)
+}
+
+// DeleteArticle deletes an article.
+func (s PortalsService) DeleteArticle(ctx context.Context, portalSlug string, articleID int) error {
+	return deleteArticle(ctx, s, portalSlug, articleID)
+}
+
+func deleteArticle(ctx context.Context, r Requester, portalSlug string, articleID int) error {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // GetCategory gets a specific category
 func (c *Client) GetCategory(ctx context.Context, portalSlug string, categorySlug string) (*Category, error) {
+	return getCategory(ctx, c, portalSlug, categorySlug)
+}
+
+// Category gets a specific category.
+func (s PortalsService) Category(ctx context.Context, portalSlug string, categorySlug string) (*Category, error) {
+	return getCategory(ctx, s, portalSlug, categorySlug)
+}
+
+func getCategory(ctx context.Context, r Requester, portalSlug string, categorySlug string) (*Category, error) {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
 	var result Category
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -144,9 +257,18 @@ func (c *Client) GetCategory(ctx context.Context, portalSlug string, categorySlu
 
 // CreateCategory creates a new category in a portal
 func (c *Client) CreateCategory(ctx context.Context, portalSlug string, params map[string]any) (*Category, error) {
+	return createCategory(ctx, c, portalSlug, params)
+}
+
+// CreateCategory creates a new category in a portal.
+func (s PortalsService) CreateCategory(ctx context.Context, portalSlug string, params map[string]any) (*Category, error) {
+	return createCategory(ctx, s, portalSlug, params)
+}
+
+func createCategory(ctx context.Context, r Requester, portalSlug string, params map[string]any) (*Category, error) {
 	path := fmt.Sprintf("/portals/%s/categories", url.PathEscape(portalSlug))
 	var result Category
-	if err := c.Post(ctx, path, params, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -154,9 +276,18 @@ func (c *Client) CreateCategory(ctx context.Context, portalSlug string, params m
 
 // UpdateCategory updates a category
 func (c *Client) UpdateCategory(ctx context.Context, portalSlug, categorySlug string, params map[string]any) (*Category, error) {
+	return updateCategory(ctx, c, portalSlug, categorySlug, params)
+}
+
+// UpdateCategory updates a category.
+func (s PortalsService) UpdateCategory(ctx context.Context, portalSlug, categorySlug string, params map[string]any) (*Category, error) {
+	return updateCategory(ctx, s, portalSlug, categorySlug, params)
+}
+
+func updateCategory(ctx context.Context, r Requester, portalSlug, categorySlug string, params map[string]any) (*Category, error) {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
 	var result Category
-	if err := c.Patch(ctx, path, params, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -164,30 +295,78 @@ func (c *Client) UpdateCategory(ctx context.Context, portalSlug, categorySlug st
 
 // DeleteCategory deletes a category
 func (c *Client) DeleteCategory(ctx context.Context, portalSlug, categorySlug string) error {
+	return deleteCategory(ctx, c, portalSlug, categorySlug)
+}
+
+// DeleteCategory deletes a category.
+func (s PortalsService) DeleteCategory(ctx context.Context, portalSlug, categorySlug string) error {
+	return deleteCategory(ctx, s, portalSlug, categorySlug)
+}
+
+func deleteCategory(ctx context.Context, r Requester, portalSlug, categorySlug string) error {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // ArchivePortal archives a portal
 func (c *Client) ArchivePortal(ctx context.Context, portalSlug string) error {
-	return c.Patch(ctx, fmt.Sprintf("/portals/%s/archive", url.PathEscape(portalSlug)), nil, nil)
+	return archivePortal(ctx, c, portalSlug)
+}
+
+// Archive archives a portal.
+func (s PortalsService) Archive(ctx context.Context, portalSlug string) error {
+	return archivePortal(ctx, s, portalSlug)
+}
+
+func archivePortal(ctx context.Context, r Requester, portalSlug string) error {
+	path := fmt.Sprintf("/portals/%s/archive", url.PathEscape(portalSlug))
+	return r.do(ctx, "PATCH", r.accountPath(path), nil, nil)
 }
 
 // DeletePortalLogo removes the logo from a portal
 func (c *Client) DeletePortalLogo(ctx context.Context, portalSlug string) error {
-	return c.Delete(ctx, fmt.Sprintf("/portals/%s/logo", url.PathEscape(portalSlug)))
+	return deletePortalLogo(ctx, c, portalSlug)
+}
+
+// DeleteLogo removes the logo from a portal.
+func (s PortalsService) DeleteLogo(ctx context.Context, portalSlug string) error {
+	return deletePortalLogo(ctx, s, portalSlug)
+}
+
+func deletePortalLogo(ctx context.Context, r Requester, portalSlug string) error {
+	path := fmt.Sprintf("/portals/%s/logo", url.PathEscape(portalSlug))
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // SendPortalInstructions sends CNAME setup instructions for a portal
 func (c *Client) SendPortalInstructions(ctx context.Context, portalSlug string) error {
-	return c.Post(ctx, fmt.Sprintf("/portals/%s/send_instructions", url.PathEscape(portalSlug)), nil, nil)
+	return sendPortalInstructions(ctx, c, portalSlug)
+}
+
+// SendInstructions sends CNAME setup instructions for a portal.
+func (s PortalsService) SendInstructions(ctx context.Context, portalSlug string) error {
+	return sendPortalInstructions(ctx, s, portalSlug)
+}
+
+func sendPortalInstructions(ctx context.Context, r Requester, portalSlug string) error {
+	path := fmt.Sprintf("/portals/%s/send_instructions", url.PathEscape(portalSlug))
+	return r.do(ctx, "POST", r.accountPath(path), nil, nil)
 }
 
 // GetPortalSSLStatus gets the SSL status for a portal
 func (c *Client) GetPortalSSLStatus(ctx context.Context, portalSlug string) (map[string]any, error) {
+	return getPortalSSLStatus(ctx, c, portalSlug)
+}
+
+// SSLStatus gets the SSL status for a portal.
+func (s PortalsService) SSLStatus(ctx context.Context, portalSlug string) (map[string]any, error) {
+	return getPortalSSLStatus(ctx, s, portalSlug)
+}
+
+func getPortalSSLStatus(ctx context.Context, r Requester, portalSlug string) (map[string]any, error) {
 	path := fmt.Sprintf("/portals/%s/ssl_status", url.PathEscape(portalSlug))
 	var result map[string]any
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -195,6 +374,16 @@ func (c *Client) GetPortalSSLStatus(ctx context.Context, portalSlug string) (map
 
 // ReorderArticles reorders articles in a portal
 func (c *Client) ReorderArticles(ctx context.Context, portalSlug string, articleIDs []int) error {
+	return reorderArticles(ctx, c, portalSlug, articleIDs)
+}
+
+// ReorderArticles reorders articles in a portal.
+func (s PortalsService) ReorderArticles(ctx context.Context, portalSlug string, articleIDs []int) error {
+	return reorderArticles(ctx, s, portalSlug, articleIDs)
+}
+
+func reorderArticles(ctx context.Context, r Requester, portalSlug string, articleIDs []int) error {
 	body := map[string][]int{"article_ids": articleIDs}
-	return c.Post(ctx, fmt.Sprintf("/portals/%s/articles/reorder", url.PathEscape(portalSlug)), body, nil)
+	path := fmt.Sprintf("/portals/%s/articles/reorder", url.PathEscape(portalSlug))
+	return r.do(ctx, "POST", r.accountPath(path), body, nil)
 }
