@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListCannedResponses retrieves all canned responses for the account
+// Deprecated: Use client.CannedResponses().List() instead.
 func (c *Client) ListCannedResponses(ctx context.Context) ([]CannedResponse, error) {
 	return listCannedResponses(ctx, c)
 }
@@ -23,9 +23,7 @@ func listCannedResponses(ctx context.Context, r Requester) ([]CannedResponse, er
 	return responses, nil
 }
 
-// GetCannedResponse retrieves a single canned response by ID
-// Note: Chatwoot API doesn't have a dedicated show endpoint for canned responses,
-// so we fetch the list and filter client-side
+// Deprecated: Use client.CannedResponses().Get() instead.
 func (c *Client) GetCannedResponse(ctx context.Context, id int) (*CannedResponse, error) {
 	return getCannedResponse(ctx, c, id)
 }
@@ -53,7 +51,7 @@ func getCannedResponse(ctx context.Context, r Requester, id int) (*CannedRespons
 	}
 }
 
-// CreateCannedResponse creates a new canned response
+// Deprecated: Use client.CannedResponses().Create() instead.
 func (c *Client) CreateCannedResponse(ctx context.Context, shortCode, content string) (*CannedResponse, error) {
 	return createCannedResponse(ctx, c, shortCode, content)
 }
@@ -77,7 +75,7 @@ func createCannedResponse(ctx context.Context, r Requester, shortCode, content s
 	return &response, nil
 }
 
-// UpdateCannedResponse updates an existing canned response
+// Deprecated: Use client.CannedResponses().Update() instead.
 func (c *Client) UpdateCannedResponse(ctx context.Context, id int, shortCode, content string) (*CannedResponse, error) {
 	return updateCannedResponse(ctx, c, id, shortCode, content)
 }
@@ -102,7 +100,7 @@ func updateCannedResponse(ctx context.Context, r Requester, id int, shortCode, c
 	return &response, nil
 }
 
-// DeleteCannedResponse deletes a canned response
+// Deprecated: Use client.CannedResponses().Delete() instead.
 func (c *Client) DeleteCannedResponse(ctx context.Context, id int) error {
 	return deleteCannedResponse(ctx, c, id)
 }

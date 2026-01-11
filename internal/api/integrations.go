@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListIntegrationApps lists available integration apps
+// Deprecated: Use client.Integrations().ListApps() instead.
 func (c *Client) ListIntegrationApps(ctx context.Context) ([]Integration, error) {
 	return listIntegrationApps(ctx, c)
 }
@@ -23,9 +23,7 @@ func listIntegrationApps(ctx context.Context, r Requester) ([]Integration, error
 	return result.Payload, nil
 }
 
-// ListIntegrationHooks lists all integration hooks by extracting them from the apps response.
-// The Chatwoot API does not have a dedicated list endpoint for hooks; they are
-// returned nested within each app in the /integrations/apps response.
+// Deprecated: Use client.Integrations().ListHooks() instead.
 func (c *Client) ListIntegrationHooks(ctx context.Context) ([]IntegrationHook, error) {
 	return listIntegrationHooks(ctx, c)
 }
@@ -48,7 +46,7 @@ func listIntegrationHooks(ctx context.Context, r Requester) ([]IntegrationHook, 
 	return hooks, nil
 }
 
-// CreateIntegrationHook creates a new integration hook
+// Deprecated: Use client.Integrations().CreateHook() instead.
 func (c *Client) CreateIntegrationHook(ctx context.Context, appID string, inboxID int, settings map[string]any) (*IntegrationHook, error) {
 	return createIntegrationHook(ctx, c, appID, inboxID, settings)
 }
@@ -74,7 +72,7 @@ func createIntegrationHook(ctx context.Context, r Requester, appID string, inbox
 	return &result, err
 }
 
-// UpdateIntegrationHook updates an integration hook
+// Deprecated: Use client.Integrations().UpdateHook() instead.
 func (c *Client) UpdateIntegrationHook(ctx context.Context, hookID int, settings map[string]any) (*IntegrationHook, error) {
 	return updateIntegrationHook(ctx, c, hookID, settings)
 }
@@ -95,7 +93,7 @@ func updateIntegrationHook(ctx context.Context, r Requester, hookID int, setting
 	return &result, err
 }
 
-// DeleteIntegrationHook deletes an integration hook
+// Deprecated: Use client.Integrations().DeleteHook() instead.
 func (c *Client) DeleteIntegrationHook(ctx context.Context, hookID int) error {
 	return deleteIntegrationHook(ctx, c, hookID)
 }

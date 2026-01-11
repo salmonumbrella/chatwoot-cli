@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListCustomFilters retrieves all custom filters for a filter type
+// Deprecated: Use client.CustomFilters().List() instead.
 func (c *Client) ListCustomFilters(ctx context.Context, filterType string) ([]CustomFilter, error) {
 	return listCustomFilters(ctx, c, filterType)
 }
@@ -28,7 +28,7 @@ func listCustomFilters(ctx context.Context, r Requester, filterType string) ([]C
 	return filters, nil
 }
 
-// GetCustomFilter retrieves a single custom filter by ID
+// Deprecated: Use client.CustomFilters().Get() instead.
 func (c *Client) GetCustomFilter(ctx context.Context, id int) (*CustomFilter, error) {
 	return getCustomFilter(ctx, c, id)
 }
@@ -47,7 +47,7 @@ func getCustomFilter(ctx context.Context, r Requester, id int) (*CustomFilter, e
 	return &filter, nil
 }
 
-// CreateCustomFilter creates a new custom filter
+// Deprecated: Use client.CustomFilters().Create() instead.
 func (c *Client) CreateCustomFilter(ctx context.Context, name, filterType string, query map[string]any) (*CustomFilter, error) {
 	return createCustomFilter(ctx, c, name, filterType, query)
 }
@@ -71,7 +71,7 @@ func createCustomFilter(ctx context.Context, r Requester, name, filterType strin
 	return &filter, nil
 }
 
-// UpdateCustomFilter updates an existing custom filter
+// Deprecated: Use client.CustomFilters().Update() instead.
 func (c *Client) UpdateCustomFilter(ctx context.Context, id int, name string, query map[string]any) (*CustomFilter, error) {
 	return updateCustomFilter(ctx, c, id, name, query)
 }
@@ -98,7 +98,7 @@ func updateCustomFilter(ctx context.Context, r Requester, id int, name string, q
 	return &filter, nil
 }
 
-// DeleteCustomFilter deletes a custom filter
+// Deprecated: Use client.CustomFilters().Delete() instead.
 func (c *Client) DeleteCustomFilter(ctx context.Context, id int) error {
 	return deleteCustomFilter(ctx, c, id)
 }

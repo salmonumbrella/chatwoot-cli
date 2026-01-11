@@ -46,7 +46,7 @@ type PublicCreateContactRequest struct {
 	CustomAttributes map[string]any `json:"custom_attributes,omitempty"`
 }
 
-// PublicCreateContact creates a contact via public API
+// Deprecated: Use client.Public().CreateContact() instead.
 func (c *Client) PublicCreateContact(ctx context.Context, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
 	return publicCreateContact(ctx, c, inboxIdentifier, req)
 }
@@ -65,7 +65,7 @@ func publicCreateContact(ctx context.Context, r Requester, inboxIdentifier strin
 	return &result, nil
 }
 
-// PublicGetContact retrieves a contact via public API
+// Deprecated: Use client.Public().GetContact() instead.
 func (c *Client) PublicGetContact(ctx context.Context, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
 	return publicGetContact(ctx, c, inboxIdentifier, contactIdentifier)
 }
@@ -84,7 +84,7 @@ func publicGetContact(ctx context.Context, r Requester, inboxIdentifier, contact
 	return &result, nil
 }
 
-// PublicCreateConversation creates a conversation via public API
+// Deprecated: Use client.Public().CreateConversation() instead.
 func (c *Client) PublicCreateConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, customAttributes map[string]any) (map[string]any, error) {
 	return publicCreateConversation(ctx, c, inboxIdentifier, contactIdentifier, customAttributes)
 }
@@ -108,7 +108,7 @@ func publicCreateConversation(ctx context.Context, r Requester, inboxIdentifier,
 	return result, nil
 }
 
-// PublicListConversations lists conversations via public API
+// Deprecated: Use client.Public().ListConversations() instead.
 func (c *Client) PublicListConversations(ctx context.Context, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
 	return publicListConversations(ctx, c, inboxIdentifier, contactIdentifier)
 }
@@ -127,7 +127,7 @@ func publicListConversations(ctx context.Context, r Requester, inboxIdentifier, 
 	return result, nil
 }
 
-// PublicGetConversation retrieves a single conversation via public API
+// Deprecated: Use client.Public().GetConversation() instead.
 func (c *Client) PublicGetConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
 	return publicGetConversation(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
 }
@@ -146,7 +146,7 @@ func publicGetConversation(ctx context.Context, r Requester, inboxIdentifier, co
 	return result, nil
 }
 
-// PublicResolveConversation resolves a conversation via public API
+// Deprecated: Use client.Public().ResolveConversation() instead.
 func (c *Client) PublicResolveConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
 	return publicResolveConversation(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
 }
@@ -165,7 +165,7 @@ func publicResolveConversation(ctx context.Context, r Requester, inboxIdentifier
 	return result, nil
 }
 
-// PublicToggleTyping toggles typing status via public API
+// Deprecated: Use client.Public().ToggleTyping() instead.
 func (c *Client) PublicToggleTyping(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
 	return publicToggleTyping(ctx, c, inboxIdentifier, contactIdentifier, conversationID, status)
 }
@@ -181,7 +181,7 @@ func publicToggleTyping(ctx context.Context, r Requester, inboxIdentifier, conta
 	return r.do(ctx, "POST", r.publicPath(path), body, nil)
 }
 
-// PublicUpdateLastSeen updates last seen via public API
+// Deprecated: Use client.Public().UpdateLastSeen() instead.
 func (c *Client) PublicUpdateLastSeen(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) error {
 	return publicUpdateLastSeen(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
 }
@@ -196,7 +196,7 @@ func publicUpdateLastSeen(ctx context.Context, r Requester, inboxIdentifier, con
 	return r.do(ctx, "POST", r.publicPath(path), nil, nil)
 }
 
-// PublicCreateMessage creates a message via public API
+// Deprecated: Use client.Public().CreateMessage() instead.
 func (c *Client) PublicCreateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, content, echoID string) (map[string]any, error) {
 	return publicCreateMessage(ctx, c, inboxIdentifier, contactIdentifier, conversationID, content, echoID)
 }
@@ -221,7 +221,7 @@ func publicCreateMessage(ctx context.Context, r Requester, inboxIdentifier, cont
 	return result, nil
 }
 
-// PublicGetInbox retrieves inbox info via public API
+// Deprecated: Use client.Public().GetInbox() instead.
 func (c *Client) PublicGetInbox(ctx context.Context, inboxIdentifier string) (*PublicInbox, error) {
 	return publicGetInbox(ctx, c, inboxIdentifier)
 }
@@ -240,7 +240,7 @@ func publicGetInbox(ctx context.Context, r Requester, inboxIdentifier string) (*
 	return &result, nil
 }
 
-// PublicUpdateContact updates a contact via public API
+// Deprecated: Use client.Public().UpdateContact() instead.
 func (c *Client) PublicUpdateContact(ctx context.Context, inboxIdentifier, contactIdentifier string, req PublicUpdateContactRequest) (*PublicContact, error) {
 	return publicUpdateContact(ctx, c, inboxIdentifier, contactIdentifier, req)
 }
@@ -259,7 +259,7 @@ func publicUpdateContact(ctx context.Context, r Requester, inboxIdentifier, cont
 	return &result, nil
 }
 
-// PublicListMessages lists messages via public API
+// Deprecated: Use client.Public().ListMessages() instead.
 func (c *Client) PublicListMessages(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
 	return publicListMessages(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
 }
@@ -278,7 +278,7 @@ func publicListMessages(ctx context.Context, r Requester, inboxIdentifier, conta
 	return result, nil
 }
 
-// PublicUpdateMessage updates a message via public API
+// Deprecated: Use client.Public().UpdateMessage() instead.
 func (c *Client) PublicUpdateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID, messageID int, content string) (map[string]any, error) {
 	return publicUpdateMessage(ctx, c, inboxIdentifier, contactIdentifier, conversationID, messageID, content)
 }

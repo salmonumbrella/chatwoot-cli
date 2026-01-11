@@ -2,7 +2,7 @@ package api
 
 import "context"
 
-// DeleteNotionIntegration removes the Notion integration
+// Deprecated: Use client.Notion().Delete() instead.
 func (c *Client) DeleteNotionIntegration(ctx context.Context) error {
 	return deleteNotionIntegration(ctx, c)
 }

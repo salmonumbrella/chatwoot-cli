@@ -45,7 +45,12 @@ type EmbeddedAttachment struct {
 	Embedded string `json:"embedded,omitempty"`
 }
 
-// GetConversationContext retrieves full conversation context for AI consumption
+// GetConversation retrieves full conversation context for AI consumption
+func (s ContextService) GetConversation(ctx context.Context, conversationID int, embedImages bool) (*ConversationContext, error) {
+	return s.GetConversationContext(ctx, conversationID, embedImages)
+}
+
+// Deprecated: Use client.Context().GetConversation() instead.
 func (c *Client) GetConversationContext(ctx context.Context, conversationID int, embedImages bool) (*ConversationContext, error) {
 	// Get conversation details
 	conv, err := c.GetConversation(ctx, conversationID)

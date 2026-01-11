@@ -9,7 +9,7 @@ import (
 // Chatwoot endpoints that wrap responses in {"payload": ...}.
 // This was verified by testing against the actual API.
 
-// ListCampaigns returns all campaigns for the account.
+// Deprecated: Use client.Campaigns().List() instead.
 func (c *Client) ListCampaigns(ctx context.Context, page int) ([]Campaign, error) {
 	return listCampaigns(ctx, c, page)
 }
@@ -31,7 +31,7 @@ func listCampaigns(ctx context.Context, r Requester, page int) ([]Campaign, erro
 	return campaigns, nil
 }
 
-// GetCampaign returns a single campaign by ID.
+// Deprecated: Use client.Campaigns().Get() instead.
 func (c *Client) GetCampaign(ctx context.Context, id int) (*Campaign, error) {
 	return getCampaign(ctx, c, id)
 }
@@ -63,7 +63,7 @@ type CreateCampaignRequest struct {
 	TriggerRules                   map[string]any     `json:"trigger_rules,omitempty"`
 }
 
-// CreateCampaign creates a new campaign.
+// Deprecated: Use client.Campaigns().Create() instead.
 func (c *Client) CreateCampaign(ctx context.Context, req CreateCampaignRequest) (*Campaign, error) {
 	return createCampaign(ctx, c, req)
 }
@@ -94,7 +94,7 @@ type UpdateCampaignRequest struct {
 	TriggerRules                   map[string]any     `json:"trigger_rules,omitempty"`
 }
 
-// UpdateCampaign updates an existing campaign.
+// Deprecated: Use client.Campaigns().Update() instead.
 func (c *Client) UpdateCampaign(ctx context.Context, id int, req UpdateCampaignRequest) (*Campaign, error) {
 	return updateCampaign(ctx, c, id, req)
 }
@@ -112,7 +112,7 @@ func updateCampaign(ctx context.Context, r Requester, id int, req UpdateCampaign
 	return &campaign, nil
 }
 
-// DeleteCampaign deletes a campaign by ID.
+// Deprecated: Use client.Campaigns().Delete() instead.
 func (c *Client) DeleteCampaign(ctx context.Context, id int) error {
 	return deleteCampaign(ctx, c, id)
 }

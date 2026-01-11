@@ -19,6 +19,8 @@ type CannedResponsesService struct{ *Client }
 
 type ContactsService struct{ *Client }
 
+type ContextService struct{ *Client }
+
 type ConversationsService struct{ *Client }
 
 type CSATService struct{ *Client }
@@ -89,6 +91,10 @@ func (c *Client) CannedResponses() CannedResponsesService {
 
 func (c *Client) Contacts() ContactsService {
 	return ContactsService{c}
+}
+
+func (c *Client) Context() ContextService {
+	return ContextService{c}
 }
 
 func (c *Client) Conversations() ConversationsService {

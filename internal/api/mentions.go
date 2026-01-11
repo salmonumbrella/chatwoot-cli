@@ -15,9 +15,7 @@ type FindMentionsParams struct {
 	Limit          int        // Maximum number of mentions to return
 }
 
-// FindMentions searches for mentions of a user in private notes across conversations.
-// It iterates through conversations and their messages, looking for the mention pattern
-// in private notes (message_type=2 with private=true).
+// Deprecated: Use client.Mentions().Find() instead.
 func (c *Client) FindMentions(ctx context.Context, params FindMentionsParams) ([]Mention, error) {
 	if params.UserID == 0 {
 		return nil, fmt.Errorf("user ID is required")

@@ -30,7 +30,7 @@ type Category struct {
 	AccountID   int    `json:"account_id"`
 }
 
-// ListPortals lists all portals
+// Deprecated: Use client.Portals().List() instead.
 func (c *Client) ListPortals(ctx context.Context) ([]Portal, error) {
 	return listPortals(ctx, c)
 }
@@ -46,7 +46,7 @@ func listPortals(ctx context.Context, r Requester) ([]Portal, error) {
 	return result.Payload, err
 }
 
-// GetPortal gets a portal by slug
+// Deprecated: Use client.Portals().Get() instead.
 func (c *Client) GetPortal(ctx context.Context, portalSlug string) (*Portal, error) {
 	return getPortal(ctx, c, portalSlug)
 }
@@ -63,7 +63,7 @@ func getPortal(ctx context.Context, r Requester, portalSlug string) (*Portal, er
 	return &result, err
 }
 
-// CreatePortal creates a new portal
+// Deprecated: Use client.Portals().Create() instead.
 func (c *Client) CreatePortal(ctx context.Context, name, slug string) (*Portal, error) {
 	return createPortal(ctx, c, name, slug)
 }
@@ -86,7 +86,7 @@ func createPortal(ctx context.Context, r Requester, name, slug string) (*Portal,
 	return &result, err
 }
 
-// UpdatePortal updates a portal
+// Deprecated: Use client.Portals().Update() instead.
 func (c *Client) UpdatePortal(ctx context.Context, portalSlug string, name, slug string) (*Portal, error) {
 	return updatePortal(ctx, c, portalSlug, name, slug)
 }
@@ -115,7 +115,7 @@ func updatePortal(ctx context.Context, r Requester, portalSlug string, name, slu
 	return &result, err
 }
 
-// DeletePortal deletes a portal
+// Deprecated: Use client.Portals().Delete() instead.
 func (c *Client) DeletePortal(ctx context.Context, portalSlug string) error {
 	return deletePortal(ctx, c, portalSlug)
 }
@@ -130,7 +130,7 @@ func deletePortal(ctx context.Context, r Requester, portalSlug string) error {
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// ListPortalArticles lists articles in a portal
+// Deprecated: Use client.Portals().Articles() instead.
 func (c *Client) ListPortalArticles(ctx context.Context, portalSlug string) ([]Article, error) {
 	return listPortalArticles(ctx, c, portalSlug)
 }
@@ -147,7 +147,7 @@ func listPortalArticles(ctx context.Context, r Requester, portalSlug string) ([]
 	return result, err
 }
 
-// ListPortalCategories lists categories in a portal
+// Deprecated: Use client.Portals().Categories() instead.
 func (c *Client) ListPortalCategories(ctx context.Context, portalSlug string) ([]Category, error) {
 	return listPortalCategories(ctx, c, portalSlug)
 }
@@ -164,7 +164,7 @@ func listPortalCategories(ctx context.Context, r Requester, portalSlug string) (
 	return result, err
 }
 
-// GetArticle gets a specific article
+// Deprecated: Use client.Portals().Article() instead.
 func (c *Client) GetArticle(ctx context.Context, portalSlug string, articleID int) (*Article, error) {
 	return getArticle(ctx, c, portalSlug, articleID)
 }
@@ -183,7 +183,7 @@ func getArticle(ctx context.Context, r Requester, portalSlug string, articleID i
 	return &result, nil
 }
 
-// CreateArticle creates a new article in a portal
+// Deprecated: Use client.Portals().CreateArticle() instead.
 func (c *Client) CreateArticle(ctx context.Context, portalSlug string, params map[string]any) (*Article, error) {
 	return createArticle(ctx, c, portalSlug, params)
 }
@@ -202,7 +202,7 @@ func createArticle(ctx context.Context, r Requester, portalSlug string, params m
 	return &result, nil
 }
 
-// UpdateArticle updates an article
+// Deprecated: Use client.Portals().UpdateArticle() instead.
 func (c *Client) UpdateArticle(ctx context.Context, portalSlug string, articleID int, params map[string]any) (*Article, error) {
 	return updateArticle(ctx, c, portalSlug, articleID, params)
 }
@@ -221,7 +221,7 @@ func updateArticle(ctx context.Context, r Requester, portalSlug string, articleI
 	return &result, nil
 }
 
-// DeleteArticle deletes an article
+// Deprecated: Use client.Portals().DeleteArticle() instead.
 func (c *Client) DeleteArticle(ctx context.Context, portalSlug string, articleID int) error {
 	return deleteArticle(ctx, c, portalSlug, articleID)
 }
@@ -236,7 +236,7 @@ func deleteArticle(ctx context.Context, r Requester, portalSlug string, articleI
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// GetCategory gets a specific category
+// Deprecated: Use client.Portals().Category() instead.
 func (c *Client) GetCategory(ctx context.Context, portalSlug string, categorySlug string) (*Category, error) {
 	return getCategory(ctx, c, portalSlug, categorySlug)
 }
@@ -255,7 +255,7 @@ func getCategory(ctx context.Context, r Requester, portalSlug string, categorySl
 	return &result, nil
 }
 
-// CreateCategory creates a new category in a portal
+// Deprecated: Use client.Portals().CreateCategory() instead.
 func (c *Client) CreateCategory(ctx context.Context, portalSlug string, params map[string]any) (*Category, error) {
 	return createCategory(ctx, c, portalSlug, params)
 }
@@ -274,7 +274,7 @@ func createCategory(ctx context.Context, r Requester, portalSlug string, params 
 	return &result, nil
 }
 
-// UpdateCategory updates a category
+// Deprecated: Use client.Portals().UpdateCategory() instead.
 func (c *Client) UpdateCategory(ctx context.Context, portalSlug, categorySlug string, params map[string]any) (*Category, error) {
 	return updateCategory(ctx, c, portalSlug, categorySlug, params)
 }
@@ -293,7 +293,7 @@ func updateCategory(ctx context.Context, r Requester, portalSlug, categorySlug s
 	return &result, nil
 }
 
-// DeleteCategory deletes a category
+// Deprecated: Use client.Portals().DeleteCategory() instead.
 func (c *Client) DeleteCategory(ctx context.Context, portalSlug, categorySlug string) error {
 	return deleteCategory(ctx, c, portalSlug, categorySlug)
 }
@@ -308,7 +308,7 @@ func deleteCategory(ctx context.Context, r Requester, portalSlug, categorySlug s
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// ArchivePortal archives a portal
+// Deprecated: Use client.Portals().Archive() instead.
 func (c *Client) ArchivePortal(ctx context.Context, portalSlug string) error {
 	return archivePortal(ctx, c, portalSlug)
 }
@@ -323,7 +323,7 @@ func archivePortal(ctx context.Context, r Requester, portalSlug string) error {
 	return r.do(ctx, "PATCH", r.accountPath(path), nil, nil)
 }
 
-// DeletePortalLogo removes the logo from a portal
+// Deprecated: Use client.Portals().DeleteLogo() instead.
 func (c *Client) DeletePortalLogo(ctx context.Context, portalSlug string) error {
 	return deletePortalLogo(ctx, c, portalSlug)
 }
@@ -338,7 +338,7 @@ func deletePortalLogo(ctx context.Context, r Requester, portalSlug string) error
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// SendPortalInstructions sends CNAME setup instructions for a portal
+// Deprecated: Use client.Portals().SendInstructions() instead.
 func (c *Client) SendPortalInstructions(ctx context.Context, portalSlug string) error {
 	return sendPortalInstructions(ctx, c, portalSlug)
 }
@@ -353,7 +353,7 @@ func sendPortalInstructions(ctx context.Context, r Requester, portalSlug string)
 	return r.do(ctx, "POST", r.accountPath(path), nil, nil)
 }
 
-// GetPortalSSLStatus gets the SSL status for a portal
+// Deprecated: Use client.Portals().SSLStatus() instead.
 func (c *Client) GetPortalSSLStatus(ctx context.Context, portalSlug string) (map[string]any, error) {
 	return getPortalSSLStatus(ctx, c, portalSlug)
 }
@@ -372,7 +372,7 @@ func getPortalSSLStatus(ctx context.Context, r Requester, portalSlug string) (ma
 	return result, nil
 }
 
-// ReorderArticles reorders articles in a portal
+// Deprecated: Use client.Portals().ReorderArticles() instead.
 func (c *Client) ReorderArticles(ctx context.Context, portalSlug string, articleIDs []int) error {
 	return reorderArticles(ctx, c, portalSlug, articleIDs)
 }

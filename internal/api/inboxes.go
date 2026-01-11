@@ -82,7 +82,7 @@ func applyInboxSettings(body map[string]any, settings InboxSettings) {
 	}
 }
 
-// ListInboxes retrieves all inboxes for the account
+// Deprecated: Use client.Inboxes().List() instead.
 func (c *Client) ListInboxes(ctx context.Context) ([]Inbox, error) {
 	return listInboxes(ctx, c)
 }
@@ -102,7 +102,7 @@ func listInboxes(ctx context.Context, r Requester) ([]Inbox, error) {
 	return result.Payload, nil
 }
 
-// GetInbox retrieves a specific inbox by ID
+// Deprecated: Use client.Inboxes().Get() instead.
 func (c *Client) GetInbox(ctx context.Context, id int) (*Inbox, error) {
 	return getInbox(ctx, c, id)
 }
@@ -120,7 +120,7 @@ func getInbox(ctx context.Context, r Requester, id int) (*Inbox, error) {
 	return &result, nil
 }
 
-// CreateInbox creates a new inbox
+// Deprecated: Use client.Inboxes().Create() instead.
 func (c *Client) CreateInbox(ctx context.Context, req CreateInboxRequest) (*Inbox, error) {
 	return createInbox(ctx, c, req)
 }
@@ -148,7 +148,7 @@ func createInbox(ctx context.Context, r Requester, req CreateInboxRequest) (*Inb
 	return &result, nil
 }
 
-// UpdateInbox updates an existing inbox
+// Deprecated: Use client.Inboxes().Update() instead.
 func (c *Client) UpdateInbox(ctx context.Context, id int, req UpdateInboxRequest) (*Inbox, error) {
 	return updateInbox(ctx, c, id, req)
 }
@@ -171,7 +171,7 @@ func updateInbox(ctx context.Context, r Requester, id int, req UpdateInboxReques
 	return &result, nil
 }
 
-// DeleteInbox deletes an inbox
+// Deprecated: Use client.Inboxes().Delete() instead.
 func (c *Client) DeleteInbox(ctx context.Context, id int) error {
 	return deleteInbox(ctx, c, id)
 }
@@ -185,7 +185,7 @@ func deleteInbox(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, nil)
 }
 
-// GetInboxAgentBot retrieves the agent bot assigned to an inbox
+// Deprecated: Use client.Inboxes().GetAgentBot() instead.
 func (c *Client) GetInboxAgentBot(ctx context.Context, id int) (*AgentBot, error) {
 	return getInboxAgentBot(ctx, c, id)
 }
@@ -203,7 +203,7 @@ func getInboxAgentBot(ctx context.Context, r Requester, id int) (*AgentBot, erro
 	return &result, nil
 }
 
-// SetInboxAgentBot assigns an agent bot to an inbox
+// Deprecated: Use client.Inboxes().SetAgentBot() instead.
 func (c *Client) SetInboxAgentBot(ctx context.Context, inboxID, botID int) error {
 	return setInboxAgentBot(ctx, c, inboxID, botID)
 }
@@ -220,7 +220,7 @@ func setInboxAgentBot(ctx context.Context, r Requester, inboxID, botID int) erro
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/inboxes/%d/set_agent_bot", inboxID)), body, nil)
 }
 
-// ListInboxMembers retrieves all agents assigned to an inbox
+// Deprecated: Use client.Inboxes().ListMembers() instead.
 func (c *Client) ListInboxMembers(ctx context.Context, inboxID int) ([]Agent, error) {
 	return listInboxMembers(ctx, c, inboxID)
 }
@@ -240,7 +240,7 @@ func listInboxMembers(ctx context.Context, r Requester, inboxID int) ([]Agent, e
 	return result.Payload, nil
 }
 
-// AddInboxMembers adds agents to an inbox
+// Deprecated: Use client.Inboxes().AddMembers() instead.
 func (c *Client) AddInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
 	return addInboxMembers(ctx, c, inboxID, userIDs)
 }
@@ -258,7 +258,7 @@ func addInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs []in
 	return r.do(ctx, "POST", r.accountPath("/inbox_members"), body, nil)
 }
 
-// RemoveInboxMembers removes agents from an inbox
+// Deprecated: Use client.Inboxes().RemoveMembers() instead.
 func (c *Client) RemoveInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
 	return removeInboxMembers(ctx, c, inboxID, userIDs)
 }
@@ -276,7 +276,7 @@ func removeInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs [
 	return r.do(ctx, "DELETE", r.accountPath("/inbox_members"), body, nil)
 }
 
-// UpdateInboxMembers updates inbox members (replaces the list)
+// Deprecated: Use client.Inboxes().UpdateMembers() instead.
 func (c *Client) UpdateInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
 	return updateInboxMembers(ctx, c, inboxID, userIDs)
 }
@@ -301,7 +301,7 @@ type triageResult struct {
 	message *Message
 }
 
-// GetInboxTriage retrieves conversations for an inbox with enriched context for triage
+// Deprecated: Use client.Inboxes().Triage() instead.
 func (c *Client) GetInboxTriage(ctx context.Context, inboxID int, status string, limit int) (*InboxTriage, error) {
 	// Get inbox info
 	inbox, err := c.GetInbox(ctx, inboxID)
@@ -449,7 +449,7 @@ func (s InboxesService) Triage(ctx context.Context, inboxID int, status string, 
 	return s.GetInboxTriage(ctx, inboxID, status, limit)
 }
 
-// GetInboxCampaigns retrieves campaigns for an inbox
+// Deprecated: Use client.Inboxes().Campaigns() instead.
 func (c *Client) GetInboxCampaigns(ctx context.Context, inboxID int) ([]Campaign, error) {
 	return getInboxCampaigns(ctx, c, inboxID)
 }
@@ -468,7 +468,7 @@ func getInboxCampaigns(ctx context.Context, r Requester, inboxID int) ([]Campaig
 	return result, nil
 }
 
-// SyncInboxTemplates syncs WhatsApp templates for an inbox
+// Deprecated: Use client.Inboxes().SyncTemplates() instead.
 func (c *Client) SyncInboxTemplates(ctx context.Context, inboxID int) error {
 	return syncInboxTemplates(ctx, c, inboxID)
 }
@@ -482,7 +482,7 @@ func syncInboxTemplates(ctx context.Context, r Requester, inboxID int) error {
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/inboxes/%d/sync_templates", inboxID)), nil, nil)
 }
 
-// GetInboxHealth gets WhatsApp Cloud API health for an inbox
+// Deprecated: Use client.Inboxes().Health() instead.
 func (c *Client) GetInboxHealth(ctx context.Context, inboxID int) (map[string]any, error) {
 	return getInboxHealth(ctx, c, inboxID)
 }
@@ -501,7 +501,7 @@ func getInboxHealth(ctx context.Context, r Requester, inboxID int) (map[string]a
 	return result, nil
 }
 
-// DeleteInboxAvatar removes the inbox avatar
+// Deprecated: Use client.Inboxes().DeleteAvatar() instead.
 func (c *Client) DeleteInboxAvatar(ctx context.Context, inboxID int) error {
 	return deleteInboxAvatar(ctx, c, inboxID)
 }
@@ -522,7 +522,7 @@ type CSATTemplate struct {
 	Message  string `json:"message"`
 }
 
-// GetInboxCSATTemplate gets the CSAT template for an inbox
+// Deprecated: Use client.Inboxes().CSATTemplate() instead.
 func (c *Client) GetInboxCSATTemplate(ctx context.Context, inboxID int) (*CSATTemplate, error) {
 	return getInboxCSATTemplate(ctx, c, inboxID)
 }
@@ -541,7 +541,7 @@ func getInboxCSATTemplate(ctx context.Context, r Requester, inboxID int) (*CSATT
 	return &result, nil
 }
 
-// CreateInboxCSATTemplate creates or updates CSAT template for an inbox
+// Deprecated: Use client.Inboxes().CreateCSATTemplate() instead.
 func (c *Client) CreateInboxCSATTemplate(ctx context.Context, inboxID int, question, message string) (*CSATTemplate, error) {
 	return createInboxCSATTemplate(ctx, c, inboxID, question, message)
 }

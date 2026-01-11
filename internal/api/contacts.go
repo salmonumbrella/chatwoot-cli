@@ -13,7 +13,7 @@ type ListContactsParams struct {
 	Order string
 }
 
-// ListContacts retrieves contacts with pagination
+// Deprecated: Use client.Contacts().List() instead.
 func (c *Client) ListContacts(ctx context.Context, params ListContactsParams) (*ContactList, error) {
 	return listContacts(ctx, c, params)
 }
@@ -47,7 +47,7 @@ func listContacts(ctx context.Context, r Requester, params ListContactsParams) (
 	return &result, nil
 }
 
-// GetContact retrieves a specific contact by ID
+// Deprecated: Use client.Contacts().Get() instead.
 func (c *Client) GetContact(ctx context.Context, id int) (*Contact, error) {
 	return getContact(ctx, c, id)
 }
@@ -66,7 +66,7 @@ func getContact(ctx context.Context, r Requester, id int) (*Contact, error) {
 	return &result.Payload, nil
 }
 
-// CreateContact creates a new contact
+// Deprecated: Use client.Contacts().Create() instead.
 func (c *Client) CreateContact(ctx context.Context, name, email, phone string) (*Contact, error) {
 	return createContact(ctx, c, name, email, phone)
 }
@@ -95,8 +95,7 @@ func createContact(ctx context.Context, r Requester, name, email, phone string) 
 	return &result.Payload.Contact, nil
 }
 
-// CreateContactFromMap creates a new contact using a map of fields.
-// This allows passing arbitrary fields like identifier, custom_attributes, etc.
+// Deprecated: Use client.Contacts().CreateFromMap() instead.
 func (c *Client) CreateContactFromMap(ctx context.Context, body map[string]any) (*Contact, error) {
 	return createContactFromMap(ctx, c, body)
 }
@@ -114,7 +113,7 @@ func createContactFromMap(ctx context.Context, r Requester, body map[string]any)
 	return &result.Payload.Contact, nil
 }
 
-// UpdateContact updates an existing contact
+// Deprecated: Use client.Contacts().Update() instead.
 func (c *Client) UpdateContact(ctx context.Context, id int, name, email, phone string) (*Contact, error) {
 	return updateContact(ctx, c, id, name, email, phone)
 }
@@ -144,7 +143,7 @@ func updateContact(ctx context.Context, r Requester, id int, name, email, phone 
 	return &result.Payload, nil
 }
 
-// DeleteContact deletes a contact
+// Deprecated: Use client.Contacts().Delete() instead.
 func (c *Client) DeleteContact(ctx context.Context, id int) error {
 	return deleteContact(ctx, c, id)
 }
@@ -159,8 +158,7 @@ func deleteContact(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// SearchContacts searches for contacts by query string
-// The page parameter controls pagination (1-indexed). Page size is fixed at 15 by the API.
+// Deprecated: Use client.Contacts().Search() instead.
 func (c *Client) SearchContacts(ctx context.Context, query string, page int) (*ContactList, error) {
 	return searchContacts(ctx, c, query, page)
 }
@@ -182,7 +180,7 @@ func searchContacts(ctx context.Context, r Requester, query string, page int) (*
 	return &result, nil
 }
 
-// FilterContacts filters contacts based on custom query payload
+// Deprecated: Use client.Contacts().Filter() instead.
 func (c *Client) FilterContacts(ctx context.Context, payload map[string]any) (*ContactList, error) {
 	return filterContacts(ctx, c, payload)
 }
@@ -200,7 +198,7 @@ func filterContacts(ctx context.Context, r Requester, payload map[string]any) (*
 	return &result, nil
 }
 
-// GetContactConversations retrieves all conversations for a contact
+// Deprecated: Use client.Contacts().Conversations() instead.
 func (c *Client) GetContactConversations(ctx context.Context, id int) ([]Conversation, error) {
 	return getContactConversations(ctx, c, id)
 }
@@ -221,7 +219,7 @@ func getContactConversations(ctx context.Context, r Requester, id int) ([]Conver
 	return result.Payload, nil
 }
 
-// GetContactLabels retrieves labels for a contact
+// Deprecated: Use client.Contacts().Labels() instead.
 func (c *Client) GetContactLabels(ctx context.Context, id int) ([]string, error) {
 	return getContactLabels(ctx, c, id)
 }
@@ -242,7 +240,7 @@ func getContactLabels(ctx context.Context, r Requester, id int) ([]string, error
 	return result.Labels, nil
 }
 
-// AddContactLabels adds labels to a contact
+// Deprecated: Use client.Contacts().AddLabels() instead.
 func (c *Client) AddContactLabels(ctx context.Context, id int, labels []string) ([]string, error) {
 	return addContactLabels(ctx, c, id, labels)
 }
@@ -264,7 +262,7 @@ func addContactLabels(ctx context.Context, r Requester, id int, labels []string)
 	return result.Labels, nil
 }
 
-// GetContactableInboxes retrieves contactable inboxes for a contact
+// Deprecated: Use client.Contacts().ContactableInboxes() instead.
 func (c *Client) GetContactableInboxes(ctx context.Context, id int) ([]Inbox, error) {
 	return getContactableInboxes(ctx, c, id)
 }
@@ -285,7 +283,7 @@ func getContactableInboxes(ctx context.Context, r Requester, id int) ([]Inbox, e
 	return result.Payload, nil
 }
 
-// CreateContactInbox associates a contact with an inbox
+// Deprecated: Use client.Contacts().CreateInbox() instead.
 func (c *Client) CreateContactInbox(ctx context.Context, contactID, inboxID int, sourceID string) (*ContactInbox, error) {
 	return createContactInbox(ctx, c, contactID, inboxID, sourceID)
 }
@@ -322,7 +320,7 @@ type ContactNote struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-// GetContactNotes retrieves notes for a contact
+// Deprecated: Use client.Contacts().Notes() instead.
 func (c *Client) GetContactNotes(ctx context.Context, contactID int) ([]ContactNote, error) {
 	return getContactNotes(ctx, c, contactID)
 }
@@ -341,7 +339,7 @@ func getContactNotes(ctx context.Context, r Requester, contactID int) ([]Contact
 	return result, nil
 }
 
-// CreateContactNote creates a new note on a contact
+// Deprecated: Use client.Contacts().CreateNote() instead.
 func (c *Client) CreateContactNote(ctx context.Context, contactID int, content string) (*ContactNote, error) {
 	return createContactNote(ctx, c, contactID, content)
 }
@@ -361,7 +359,7 @@ func createContactNote(ctx context.Context, r Requester, contactID int, content 
 	return &result, nil
 }
 
-// DeleteContactNote deletes a note from a contact
+// Deprecated: Use client.Contacts().DeleteNote() instead.
 func (c *Client) DeleteContactNote(ctx context.Context, contactID, noteID int) error {
 	return deleteContactNote(ctx, c, contactID, noteID)
 }
@@ -376,9 +374,7 @@ func deleteContactNote(ctx context.Context, r Requester, contactID, noteID int) 
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// MergeContacts merges two contacts into one.
-// The base contact survives and receives all data from the mergee contact.
-// The mergee contact is permanently deleted.
+// Deprecated: Use client.Contacts().Merge() instead.
 func (c *Client) MergeContacts(ctx context.Context, baseContactID, mergeeContactID int) (*Contact, error) {
 	return mergeContacts(ctx, c, baseContactID, mergeeContactID)
 }

@@ -29,7 +29,7 @@ type ListConversationsParams struct {
 	Page         int
 }
 
-// ListConversations retrieves conversations filtered by params
+// Deprecated: Use client.Conversations().List() instead.
 func (c *Client) ListConversations(ctx context.Context, params ListConversationsParams) (*ConversationList, error) {
 	return listConversations(ctx, c, params)
 }
@@ -76,7 +76,7 @@ func listConversations(ctx context.Context, r Requester, params ListConversation
 	return &result, nil
 }
 
-// GetConversation retrieves a specific conversation by ID
+// Deprecated: Use client.Conversations().Get() instead.
 func (c *Client) GetConversation(ctx context.Context, id int) (*Conversation, error) {
 	return getConversation(ctx, c, id)
 }
@@ -94,7 +94,7 @@ func getConversation(ctx context.Context, r Requester, id int) (*Conversation, e
 	return &result, nil
 }
 
-// CreateConversation creates a new conversation
+// Deprecated: Use client.Conversations().Create() instead.
 func (c *Client) CreateConversation(ctx context.Context, req CreateConversationRequest) (*Conversation, error) {
 	return createConversation(ctx, c, req)
 }
@@ -112,9 +112,7 @@ func createConversation(ctx context.Context, r Requester, req CreateConversation
 	return &result, nil
 }
 
-// FilterConversations filters conversations based on custom query payload
-// Note: The filter API returns {"meta": ..., "payload": [...]} without the "data" wrapper
-// that ListConversations returns, so we use a different response type
+// Deprecated: Use client.Conversations().Filter() instead.
 func (c *Client) FilterConversations(ctx context.Context, payload map[string]any) (*ConversationList, error) {
 	return filterConversations(ctx, c, payload)
 }
@@ -144,7 +142,7 @@ func filterConversations(ctx context.Context, r Requester, payload map[string]an
 	}, nil
 }
 
-// GetConversationsMeta retrieves metadata about conversations
+// Deprecated: Use client.Conversations().Meta() instead.
 func (c *Client) GetConversationsMeta(ctx context.Context, params ListConversationsParams) (map[string]any, error) {
 	return getConversationsMeta(ctx, c, params)
 }
@@ -185,8 +183,7 @@ func getConversationsMeta(ctx context.Context, r Requester, params ListConversat
 	return result, nil
 }
 
-// ToggleConversationStatus toggles the status of a conversation
-// If snoozedUntil is provided (non-zero), it will be included in the request when status is "snoozed"
+// Deprecated: Use client.Conversations().ToggleStatus() instead.
 func (c *Client) ToggleConversationStatus(ctx context.Context, id int, status string, snoozedUntil int64) (*ToggleStatusResponse, error) {
 	return toggleConversationStatus(ctx, c, id, status, snoozedUntil)
 }
@@ -208,8 +205,7 @@ func toggleConversationStatus(ctx context.Context, r Requester, id int, status s
 	return &result, nil
 }
 
-// ToggleConversationPriority toggles the priority of a conversation
-// Note: This endpoint returns HTTP 200 with no body, so we fetch the conversation after to get updated data
+// Deprecated: Use client.Conversations().TogglePriority() instead.
 func (c *Client) ToggleConversationPriority(ctx context.Context, id int, priority string) error {
 	return toggleConversationPriority(ctx, c, id, priority)
 }
@@ -224,8 +220,7 @@ func toggleConversationPriority(ctx context.Context, r Requester, id int, priori
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_priority", id)), payload, nil)
 }
 
-// AssignConversation assigns a conversation to an agent and/or team
-// Note: This endpoint returns the assigned agent/team object, not the conversation
+// Deprecated: Use client.Conversations().Assign() instead.
 func (c *Client) AssignConversation(ctx context.Context, id, agentID, teamID int) (any, error) {
 	return assignConversation(ctx, c, id, agentID, teamID)
 }
@@ -251,7 +246,7 @@ func assignConversation(ctx context.Context, r Requester, id, agentID, teamID in
 	return result, nil
 }
 
-// GetConversationLabels retrieves labels for a conversation
+// Deprecated: Use client.Conversations().Labels() instead.
 func (c *Client) GetConversationLabels(ctx context.Context, id int) ([]string, error) {
 	return getConversationLabels(ctx, c, id)
 }
@@ -271,7 +266,7 @@ func getConversationLabels(ctx context.Context, r Requester, id int) ([]string, 
 	return result.Payload, nil
 }
 
-// AddConversationLabels adds labels to a conversation
+// Deprecated: Use client.Conversations().AddLabels() instead.
 func (c *Client) AddConversationLabels(ctx context.Context, id int, labels []string) ([]string, error) {
 	return addConversationLabels(ctx, c, id, labels)
 }
@@ -292,7 +287,7 @@ func addConversationLabels(ctx context.Context, r Requester, id int, labels []st
 	return result.Payload, nil
 }
 
-// UpdateConversationCustomAttributes updates custom attributes for a conversation
+// Deprecated: Use client.Conversations().UpdateCustomAttributes() instead.
 func (c *Client) UpdateConversationCustomAttributes(ctx context.Context, id int, attrs map[string]any) error {
 	return updateConversationCustomAttributes(ctx, c, id, attrs)
 }
@@ -307,8 +302,7 @@ func updateConversationCustomAttributes(ctx context.Context, r Requester, id int
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/custom_attributes", id)), payload, nil)
 }
 
-// MarkConversationUnread marks a conversation as unread for all agents
-// This resets the agent_last_seen_at timestamp, making the conversation appear unread globally
+// Deprecated: Use client.Conversations().MarkUnread() instead.
 func (c *Client) MarkConversationUnread(ctx context.Context, id int) error {
 	return markConversationUnread(ctx, c, id)
 }
@@ -322,7 +316,7 @@ func markConversationUnread(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/unread", id)), nil, nil)
 }
 
-// SearchConversations searches conversations by message content
+// Deprecated: Use client.Conversations().Search() instead.
 func (c *Client) SearchConversations(ctx context.Context, query string, page int) (*ConversationList, error) {
 	return searchConversations(ctx, c, query, page)
 }
@@ -345,7 +339,7 @@ func searchConversations(ctx context.Context, r Requester, query string, page in
 	return &result, nil
 }
 
-// GetConversationAttachments retrieves all attachments for a conversation
+// Deprecated: Use client.Conversations().Attachments() instead.
 func (c *Client) GetConversationAttachments(ctx context.Context, id int) ([]Attachment, error) {
 	return getConversationAttachments(ctx, c, id)
 }
@@ -364,7 +358,7 @@ func getConversationAttachments(ctx context.Context, r Requester, id int) ([]Att
 	return result, nil
 }
 
-// ToggleMuteConversation sets the mute status of a conversation
+// Deprecated: Use client.Conversations().ToggleMute() instead.
 func (c *Client) ToggleMuteConversation(ctx context.Context, id int, mute bool) error {
 	return toggleMuteConversation(ctx, c, id, mute)
 }
@@ -379,7 +373,7 @@ func toggleMuteConversation(ctx context.Context, r Requester, id int, mute bool)
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_mute", id)), payload, nil)
 }
 
-// MuteConversation mutes a conversation
+// Deprecated: Use client.Conversations().Mute() instead.
 func (c *Client) MuteConversation(ctx context.Context, id int) error {
 	return muteConversation(ctx, c, id)
 }
@@ -393,7 +387,7 @@ func muteConversation(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/mute", id)), nil, nil)
 }
 
-// UnmuteConversation unmutes a conversation
+// Deprecated: Use client.Conversations().Unmute() instead.
 func (c *Client) UnmuteConversation(ctx context.Context, id int) error {
 	return unmuteConversation(ctx, c, id)
 }
@@ -407,7 +401,7 @@ func unmuteConversation(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/unmute", id)), nil, nil)
 }
 
-// SendTranscript sends conversation transcript via email
+// Deprecated: Use client.Conversations().Transcript() instead.
 func (c *Client) SendTranscript(ctx context.Context, id int, email string) error {
 	return sendTranscript(ctx, c, id, email)
 }
@@ -422,7 +416,7 @@ func sendTranscript(ctx context.Context, r Requester, id int, email string) erro
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/transcript", id)), body, nil)
 }
 
-// ToggleTypingStatus toggles typing indicator for a conversation
+// Deprecated: Use client.Conversations().ToggleTyping() instead.
 func (c *Client) ToggleTypingStatus(ctx context.Context, id int, typingOn bool, isPrivate bool) error {
 	return toggleTypingStatus(ctx, c, id, typingOn, isPrivate)
 }
@@ -444,8 +438,7 @@ func toggleTypingStatus(ctx context.Context, r Requester, id int, typingOn bool,
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_typing_status", id)), body, nil)
 }
 
-// UpdateConversation updates conversation attributes via PATCH endpoint
-// Both priority and slaPolicyID are optional, but at least one must be provided
+// Deprecated: Use client.Conversations().Update() instead.
 func (c *Client) UpdateConversation(ctx context.Context, id int, priority string, slaPolicyID int) (*Conversation, error) {
 	return updateConversation(ctx, c, id, priority, slaPolicyID)
 }

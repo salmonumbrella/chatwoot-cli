@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListWebhooks retrieves all webhooks for the account
+// Deprecated: Use client.Webhooks().List() instead.
 func (c *Client) ListWebhooks(ctx context.Context) ([]Webhook, error) {
 	return listWebhooks(ctx, c)
 }
@@ -23,9 +23,7 @@ func listWebhooks(ctx context.Context, r Requester) ([]Webhook, error) {
 	return result.Payload.Webhooks, nil
 }
 
-// GetWebhook retrieves a single webhook by ID
-// Note: The Chatwoot API doesn't have a show endpoint for webhooks,
-// so we list all webhooks and filter by ID
+// Deprecated: Use client.Webhooks().Get() instead.
 func (c *Client) GetWebhook(ctx context.Context, id int) (*Webhook, error) {
 	return getWebhook(ctx, c, id)
 }
@@ -53,7 +51,7 @@ func getWebhook(ctx context.Context, r Requester, id int) (*Webhook, error) {
 	}
 }
 
-// CreateWebhook creates a new webhook
+// Deprecated: Use client.Webhooks().Create() instead.
 func (c *Client) CreateWebhook(ctx context.Context, url string, subscriptions []string) (*Webhook, error) {
 	return createWebhook(ctx, c, url, subscriptions)
 }
@@ -75,7 +73,7 @@ func createWebhook(ctx context.Context, r Requester, url string, subscriptions [
 	return &result.Payload.Webhook, nil
 }
 
-// UpdateWebhook updates an existing webhook
+// Deprecated: Use client.Webhooks().Update() instead.
 func (c *Client) UpdateWebhook(ctx context.Context, id int, url string, subscriptions []string) (*Webhook, error) {
 	return updateWebhook(ctx, c, id, url, subscriptions)
 }
@@ -101,7 +99,7 @@ func updateWebhook(ctx context.Context, r Requester, id int, url string, subscri
 	return &result.Payload.Webhook, nil
 }
 
-// DeleteWebhook deletes a webhook
+// Deprecated: Use client.Webhooks().Delete() instead.
 func (c *Client) DeleteWebhook(ctx context.Context, id int) error {
 	return deleteWebhook(ctx, c, id)
 }

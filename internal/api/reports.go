@@ -49,9 +49,7 @@ func (c *Client) v2ReportPath(path string) string {
 	return fmt.Sprintf("%s/api/v2/accounts/%d%s", c.BaseURL, c.AccountID, path)
 }
 
-// GetReportSummary gets report summary
-// Valid types: account, agent, inbox, label, team
-// If type is agent/inbox/label, id parameter specifies which one
+// Deprecated: Use client.Reports().Summary() instead.
 func (c *Client) GetReportSummary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
 	params := url.Values{}
 	params.Set("type", reportType)
@@ -76,13 +74,7 @@ func (s ReportsService) Summary(ctx context.Context, reportType, since, until, i
 	return s.GetReportSummary(ctx, reportType, since, until, id)
 }
 
-// GetReportTimeSeries gets time-series report data for a specific metric
-// Valid metrics: conversations_count, incoming_messages_count, outgoing_messages_count,
-//
-//	avg_first_response_time, avg_resolution_time, resolutions_count
-//
-// Valid types: account, agent, inbox, label, team
-// If type is agent/inbox/label/team, id parameter specifies which one
+// Deprecated: Use client.Reports().TimeSeries() instead.
 func (c *Client) GetReportTimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
 	params := url.Values{}
 	params.Set("metric", metric)
@@ -108,7 +100,7 @@ func (s ReportsService) TimeSeries(ctx context.Context, metric, reportType, sinc
 	return s.GetReportTimeSeries(ctx, metric, reportType, since, until, id)
 }
 
-// GetConversationMetrics gets account-level conversation metrics (open/unattended/unassigned counts)
+// Deprecated: Use client.Reports().ConversationMetrics() instead.
 func (c *Client) GetConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
 	params := url.Values{}
 	params.Set("type", "account")
@@ -128,8 +120,7 @@ func (s ReportsService) ConversationMetrics(ctx context.Context) (*ConversationM
 	return s.GetConversationMetrics(ctx)
 }
 
-// GetAgentMetrics gets conversation metrics for all agents or a specific agent
-// Returns array of agents with their open/unattended conversation counts
+// Deprecated: Use client.Reports().AgentMetrics() instead.
 func (c *Client) GetAgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
 	params := url.Values{}
 	params.Set("type", "agent")
@@ -163,7 +154,7 @@ type ReportingEvent struct {
 	EventType string `json:"event_type,omitempty"`
 }
 
-// ListReportingEvents lists account-level reporting events
+// Deprecated: Use client.Reports().ListEvents() instead.
 func (c *Client) ListReportingEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
 	params := url.Values{}
 	if since != "" {
@@ -193,7 +184,7 @@ func (s ReportsService) ListEvents(ctx context.Context, since, until string, eve
 	return s.ListReportingEvents(ctx, since, until, eventType)
 }
 
-// GetConversationReportingEvents gets reporting events for a conversation
+// Deprecated: Use client.Reports().ConversationEvents() instead.
 func (c *Client) GetConversationReportingEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
 	path := c.accountPath(fmt.Sprintf("/conversations/%d/reporting_events", conversationID))
 

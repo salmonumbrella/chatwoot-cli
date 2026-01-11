@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListAutomationRules returns all automation rules for the account
+// Deprecated: Use client.AutomationRules().List() instead.
 func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRule, error) {
 	return listAutomationRules(ctx, c)
 }
@@ -23,7 +23,7 @@ func listAutomationRules(ctx context.Context, r Requester) ([]AutomationRule, er
 	return result.Payload, nil
 }
 
-// GetAutomationRule returns a specific automation rule by ID
+// Deprecated: Use client.AutomationRules().Get() instead.
 func (c *Client) GetAutomationRule(ctx context.Context, id int) (*AutomationRule, error) {
 	return getAutomationRule(ctx, c, id)
 }
@@ -42,7 +42,7 @@ func getAutomationRule(ctx context.Context, r Requester, id int) (*AutomationRul
 	return &result.Payload, nil
 }
 
-// CreateAutomationRule creates a new automation rule
+// Deprecated: Use client.AutomationRules().Create() instead.
 func (c *Client) CreateAutomationRule(ctx context.Context, name, eventName string, conditions, actions []map[string]any) (*AutomationRule, error) {
 	return createAutomationRule(ctx, c, name, eventName, conditions, actions)
 }
@@ -66,7 +66,7 @@ func createAutomationRule(ctx context.Context, r Requester, name, eventName stri
 	return &rule, nil
 }
 
-// UpdateAutomationRule updates an existing automation rule
+// Deprecated: Use client.AutomationRules().Update() instead.
 func (c *Client) UpdateAutomationRule(ctx context.Context, id int, name string, conditions, actions []map[string]any) (*AutomationRule, error) {
 	return updateAutomationRule(ctx, c, id, name, conditions, actions)
 }
@@ -96,7 +96,7 @@ func updateAutomationRule(ctx context.Context, r Requester, id int, name string,
 	return &result.Payload, nil
 }
 
-// DeleteAutomationRule deletes an automation rule
+// Deprecated: Use client.AutomationRules().Delete() instead.
 func (c *Client) DeleteAutomationRule(ctx context.Context, id int) error {
 	return deleteAutomationRule(ctx, c, id)
 }
@@ -111,7 +111,7 @@ func deleteAutomationRule(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// CloneAutomationRule clones an existing automation rule
+// Deprecated: Use client.AutomationRules().Clone() instead.
 func (c *Client) CloneAutomationRule(ctx context.Context, id int) (*AutomationRule, error) {
 	return cloneAutomationRule(ctx, c, id)
 }

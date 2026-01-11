@@ -17,7 +17,7 @@ type ShopifyOrder struct {
 	CreatedAt         string `json:"created_at"`
 }
 
-// ShopifyAuth authenticates with Shopify using OAuth code
+// Deprecated: Use client.Shopify().Auth() instead.
 func (c *Client) ShopifyAuth(ctx context.Context, shopDomain, code string) error {
 	return shopifyAuth(ctx, c, shopDomain, code)
 }
@@ -35,7 +35,7 @@ func shopifyAuth(ctx context.Context, r Requester, shopDomain, code string) erro
 	return r.do(ctx, "POST", r.accountPath("/integrations/shopify/auth"), body, nil)
 }
 
-// ListShopifyOrders retrieves Shopify orders for a contact
+// Deprecated: Use client.Shopify().ListOrders() instead.
 func (c *Client) ListShopifyOrders(ctx context.Context, contactID int) ([]ShopifyOrder, error) {
 	return listShopifyOrders(ctx, c, contactID)
 }
@@ -54,7 +54,7 @@ func listShopifyOrders(ctx context.Context, r Requester, contactID int) ([]Shopi
 	return result, nil
 }
 
-// DeleteShopifyIntegration removes the Shopify integration
+// Deprecated: Use client.Shopify().Delete() instead.
 func (c *Client) DeleteShopifyIntegration(ctx context.Context) error {
 	return deleteShopifyIntegration(ctx, c)
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListAgentBots returns all agent bots for the account
+// Deprecated: Use client.AgentBots().List() instead.
 func (c *Client) ListAgentBots(ctx context.Context) ([]AgentBot, error) {
 	return listAgentBots(ctx, c)
 }
@@ -23,7 +23,7 @@ func listAgentBots(ctx context.Context, r Requester) ([]AgentBot, error) {
 	return bots, nil
 }
 
-// GetAgentBot returns a specific agent bot by ID
+// Deprecated: Use client.AgentBots().Get() instead.
 func (c *Client) GetAgentBot(ctx context.Context, id int) (*AgentBot, error) {
 	return getAgentBot(ctx, c, id)
 }
@@ -42,7 +42,7 @@ func getAgentBot(ctx context.Context, r Requester, id int) (*AgentBot, error) {
 	return &bot, nil
 }
 
-// CreateAgentBot creates a new agent bot
+// Deprecated: Use client.AgentBots().Create() instead.
 func (c *Client) CreateAgentBot(ctx context.Context, name, outgoingURL string) (*AgentBot, error) {
 	return createAgentBot(ctx, c, name, outgoingURL)
 }
@@ -64,7 +64,7 @@ func createAgentBot(ctx context.Context, r Requester, name, outgoingURL string) 
 	return &bot, nil
 }
 
-// UpdateAgentBot updates an existing agent bot
+// Deprecated: Use client.AgentBots().Update() instead.
 func (c *Client) UpdateAgentBot(ctx context.Context, id int, name, outgoingURL string) (*AgentBot, error) {
 	return updateAgentBot(ctx, c, id, name, outgoingURL)
 }
@@ -91,7 +91,7 @@ func updateAgentBot(ctx context.Context, r Requester, id int, name, outgoingURL 
 	return &bot, nil
 }
 
-// DeleteAgentBot deletes an agent bot
+// Deprecated: Use client.AgentBots().Delete() instead.
 func (c *Client) DeleteAgentBot(ctx context.Context, id int) error {
 	return deleteAgentBot(ctx, c, id)
 }
@@ -106,7 +106,7 @@ func deleteAgentBot(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// DeleteAgentBotAvatar removes the avatar from an agent bot
+// Deprecated: Use client.AgentBots().DeleteAvatar() instead.
 func (c *Client) DeleteAgentBotAvatar(ctx context.Context, id int) error {
 	return deleteAgentBotAvatar(ctx, c, id)
 }
@@ -120,7 +120,7 @@ func deleteAgentBotAvatar(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/agent_bots/%d/avatar", id)), nil, nil)
 }
 
-// ResetAgentBotAccessToken resets the access token for an agent bot
+// Deprecated: Use client.AgentBots().ResetAccessToken() instead.
 func (c *Client) ResetAgentBotAccessToken(ctx context.Context, id int) (string, error) {
 	return resetAgentBotAccessToken(ctx, c, id)
 }

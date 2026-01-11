@@ -30,7 +30,7 @@ func translateModelToQueryParam(model string) string {
 	}
 }
 
-// ListCustomAttributes retrieves all custom attribute definitions for a model
+// Deprecated: Use client.CustomAttributes().List() instead.
 func (c *Client) ListCustomAttributes(ctx context.Context, model string) ([]CustomAttribute, error) {
 	return listCustomAttributes(ctx, c, model)
 }
@@ -54,7 +54,7 @@ func listCustomAttributes(ctx context.Context, r Requester, model string) ([]Cus
 	return attrs, nil
 }
 
-// GetCustomAttribute retrieves a single custom attribute by ID
+// Deprecated: Use client.CustomAttributes().Get() instead.
 func (c *Client) GetCustomAttribute(ctx context.Context, id int) (*CustomAttribute, error) {
 	return getCustomAttribute(ctx, c, id)
 }
@@ -73,7 +73,7 @@ func getCustomAttribute(ctx context.Context, r Requester, id int) (*CustomAttrib
 	return &attr, nil
 }
 
-// CreateCustomAttribute creates a new custom attribute definition
+// Deprecated: Use client.CustomAttributes().Create() instead.
 func (c *Client) CreateCustomAttribute(ctx context.Context, name, key, model, attrType string) (*CustomAttribute, error) {
 	return createCustomAttribute(ctx, c, name, key, model, attrType)
 }
@@ -98,7 +98,7 @@ func createCustomAttribute(ctx context.Context, r Requester, name, key, model, a
 	return &attr, nil
 }
 
-// UpdateCustomAttribute updates an existing custom attribute definition
+// Deprecated: Use client.CustomAttributes().Update() instead.
 func (c *Client) UpdateCustomAttribute(ctx context.Context, id int, name string) (*CustomAttribute, error) {
 	return updateCustomAttribute(ctx, c, id, name)
 }
@@ -121,7 +121,7 @@ func updateCustomAttribute(ctx context.Context, r Requester, id int, name string
 	return &attr, nil
 }
 
-// DeleteCustomAttribute deletes a custom attribute definition
+// Deprecated: Use client.CustomAttributes().Delete() instead.
 func (c *Client) DeleteCustomAttribute(ctx context.Context, id int) error {
 	return deleteCustomAttribute(ctx, c, id)
 }

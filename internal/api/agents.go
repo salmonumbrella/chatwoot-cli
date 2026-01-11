@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ListAgents retrieves all agents in the account
+// Deprecated: Use client.Agents().List() instead.
 func (c *Client) ListAgents(ctx context.Context) ([]Agent, error) {
 	return listAgents(ctx, c)
 }
@@ -24,9 +24,7 @@ func listAgents(ctx context.Context, r Requester) ([]Agent, error) {
 	return agents, nil
 }
 
-// GetAgent retrieves a specific agent by ID
-// Note: The Chatwoot API doesn't expose a show endpoint for individual agents,
-// so this fetches all agents and filters by ID client-side
+// Deprecated: Use client.Agents().Get() instead.
 func (c *Client) GetAgent(ctx context.Context, id int) (*Agent, error) {
 	return getAgent(ctx, c, id)
 }
@@ -54,7 +52,7 @@ func getAgent(ctx context.Context, r Requester, id int) (*Agent, error) {
 	}
 }
 
-// CreateAgent creates a new agent
+// Deprecated: Use client.Agents().Create() instead.
 func (c *Client) CreateAgent(ctx context.Context, name, email, role string) (*Agent, error) {
 	return createAgent(ctx, c, name, email, role)
 }
@@ -77,7 +75,7 @@ func createAgent(ctx context.Context, r Requester, name, email, role string) (*A
 	return &agent, nil
 }
 
-// UpdateAgent updates an existing agent
+// Deprecated: Use client.Agents().Update() instead.
 func (c *Client) UpdateAgent(ctx context.Context, id int, name, role string) (*Agent, error) {
 	return updateAgent(ctx, c, id, name, role)
 }
@@ -103,7 +101,7 @@ func updateAgent(ctx context.Context, r Requester, id int, name, role string) (*
 	return &agent, nil
 }
 
-// DeleteAgent deletes an agent
+// Deprecated: Use client.Agents().Delete() instead.
 func (c *Client) DeleteAgent(ctx context.Context, id int) error {
 	return deleteAgent(ctx, c, id)
 }
@@ -123,7 +121,7 @@ type BulkCreateAgentsRequest struct {
 	Emails []string `json:"emails"`
 }
 
-// BulkCreateAgents creates multiple agents at once
+// Deprecated: Use client.Agents().BulkCreate() instead.
 func (c *Client) BulkCreateAgents(ctx context.Context, emails []string) ([]Agent, error) {
 	return bulkCreateAgents(ctx, c, emails)
 }
@@ -142,8 +140,7 @@ func bulkCreateAgents(ctx context.Context, r Requester, emails []string) ([]Agen
 	return result, nil
 }
 
-// FindAgentByNameOrEmail searches for an agent by name or email (case-insensitive partial match)
-// Returns the first matching agent, or an error if no match or multiple ambiguous matches found
+// Deprecated: Use client.Agents().Find() instead.
 func (c *Client) FindAgentByNameOrEmail(ctx context.Context, query string) (*Agent, error) {
 	return findAgentByNameOrEmail(ctx, c, query)
 }

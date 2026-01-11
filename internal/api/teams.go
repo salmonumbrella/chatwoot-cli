@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ListTeams retrieves all teams for the account
+// Deprecated: Use client.Teams().List() instead.
 func (c *Client) ListTeams(ctx context.Context) ([]Team, error) {
 	return listTeams(ctx, c)
 }
@@ -21,7 +21,7 @@ func listTeams(ctx context.Context, r Requester) ([]Team, error) {
 	return teams, err
 }
 
-// GetTeam retrieves a specific team by ID
+// Deprecated: Use client.Teams().Get() instead.
 func (c *Client) GetTeam(ctx context.Context, id int) (*Team, error) {
 	return getTeam(ctx, c, id)
 }
@@ -40,7 +40,7 @@ func getTeam(ctx context.Context, r Requester, id int) (*Team, error) {
 	return &team, nil
 }
 
-// CreateTeam creates a new team
+// Deprecated: Use client.Teams().Create() instead.
 func (c *Client) CreateTeam(ctx context.Context, name, description string) (*Team, error) {
 	return createTeam(ctx, c, name, description)
 }
@@ -63,7 +63,7 @@ func createTeam(ctx context.Context, r Requester, name, description string) (*Te
 	return &team, nil
 }
 
-// UpdateTeam updates an existing team
+// Deprecated: Use client.Teams().Update() instead.
 func (c *Client) UpdateTeam(ctx context.Context, id int, name, description string) (*Team, error) {
 	return updateTeam(ctx, c, id, name, description)
 }
@@ -90,7 +90,7 @@ func updateTeam(ctx context.Context, r Requester, id int, name, description stri
 	return &team, nil
 }
 
-// DeleteTeam deletes a team by ID
+// Deprecated: Use client.Teams().Delete() instead.
 func (c *Client) DeleteTeam(ctx context.Context, id int) error {
 	return deleteTeam(ctx, c, id)
 }
@@ -104,7 +104,7 @@ func deleteTeam(ctx context.Context, r Requester, id int) error {
 	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, nil)
 }
 
-// ListTeamMembers retrieves all members of a team
+// Deprecated: Use client.Teams().ListMembers() instead.
 func (c *Client) ListTeamMembers(ctx context.Context, teamID int) ([]Agent, error) {
 	return listTeamMembers(ctx, c, teamID)
 }
@@ -120,7 +120,7 @@ func listTeamMembers(ctx context.Context, r Requester, teamID int) ([]Agent, err
 	return agents, err
 }
 
-// AddTeamMembers adds users to a team
+// Deprecated: Use client.Teams().AddMembers() instead.
 func (c *Client) AddTeamMembers(ctx context.Context, teamID int, userIDs []int) error {
 	return addTeamMembers(ctx, c, teamID, userIDs)
 }
@@ -137,7 +137,7 @@ func addTeamMembers(ctx context.Context, r Requester, teamID int, userIDs []int)
 	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
 }
 
-// RemoveTeamMembers removes users from a team
+// Deprecated: Use client.Teams().RemoveMembers() instead.
 func (c *Client) RemoveTeamMembers(ctx context.Context, teamID int, userIDs []int) error {
 	return removeTeamMembers(ctx, c, teamID, userIDs)
 }

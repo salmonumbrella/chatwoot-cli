@@ -19,7 +19,7 @@ type LabelListResponse struct {
 	Payload []Label `json:"payload"`
 }
 
-// ListLabels retrieves all labels for the account
+// Deprecated: Use client.Labels().List() instead.
 func (c *Client) ListLabels(ctx context.Context) ([]Label, error) {
 	return listLabels(ctx, c)
 }
@@ -37,7 +37,7 @@ func listLabels(ctx context.Context, r Requester) ([]Label, error) {
 	return result.Payload, nil
 }
 
-// GetLabel retrieves a specific label by ID
+// Deprecated: Use client.Labels().Get() instead.
 func (c *Client) GetLabel(ctx context.Context, id int) (*Label, error) {
 	return getLabel(ctx, c, id)
 }
@@ -56,7 +56,7 @@ func getLabel(ctx context.Context, r Requester, id int) (*Label, error) {
 	return &result, nil
 }
 
-// CreateLabel creates a new label
+// Deprecated: Use client.Labels().Create() instead.
 func (c *Client) CreateLabel(ctx context.Context, title, description, color string, showOnSidebar bool) (*Label, error) {
 	return createLabel(ctx, c, title, description, color, showOnSidebar)
 }
@@ -85,7 +85,7 @@ func createLabel(ctx context.Context, r Requester, title, description, color str
 	return &result, nil
 }
 
-// UpdateLabel updates an existing label
+// Deprecated: Use client.Labels().Update() instead.
 func (c *Client) UpdateLabel(ctx context.Context, id int, title, description, color string, showOnSidebar *bool) (*Label, error) {
 	return updateLabel(ctx, c, id, title, description, color, showOnSidebar)
 }
@@ -118,7 +118,7 @@ func updateLabel(ctx context.Context, r Requester, id int, title, description, c
 	return &result, nil
 }
 
-// DeleteLabel deletes a label
+// Deprecated: Use client.Labels().Delete() instead.
 func (c *Client) DeleteLabel(ctx context.Context, id int) error {
 	return deleteLabel(ctx, c, id)
 }

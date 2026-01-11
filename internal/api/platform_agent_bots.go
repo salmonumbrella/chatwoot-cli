@@ -30,7 +30,7 @@ type UpdatePlatformAgentBotRequest struct {
 	OutgoingURL string `json:"outgoing_url,omitempty"`
 }
 
-// ListPlatformAgentBots lists all platform agent bots
+// Deprecated: Use client.PlatformAgentBots().List() instead.
 func (c *Client) ListPlatformAgentBots(ctx context.Context) ([]PlatformAgentBot, error) {
 	return listPlatformAgentBots(ctx, c)
 }
@@ -48,7 +48,7 @@ func listPlatformAgentBots(ctx context.Context, r Requester) ([]PlatformAgentBot
 	return result, nil
 }
 
-// GetPlatformAgentBot retrieves a platform agent bot by ID
+// Deprecated: Use client.PlatformAgentBots().Get() instead.
 func (c *Client) GetPlatformAgentBot(ctx context.Context, id int) (*PlatformAgentBot, error) {
 	return getPlatformAgentBot(ctx, c, id)
 }
@@ -66,7 +66,7 @@ func getPlatformAgentBot(ctx context.Context, r Requester, id int) (*PlatformAge
 	return &result, nil
 }
 
-// CreatePlatformAgentBot creates a new platform agent bot
+// Deprecated: Use client.PlatformAgentBots().Create() instead.
 func (c *Client) CreatePlatformAgentBot(ctx context.Context, req CreatePlatformAgentBotRequest) (*PlatformAgentBot, error) {
 	return createPlatformAgentBot(ctx, c, req)
 }
@@ -84,7 +84,7 @@ func createPlatformAgentBot(ctx context.Context, r Requester, req CreatePlatform
 	return &result, nil
 }
 
-// UpdatePlatformAgentBot updates a platform agent bot
+// Deprecated: Use client.PlatformAgentBots().Update() instead.
 func (c *Client) UpdatePlatformAgentBot(ctx context.Context, id int, req UpdatePlatformAgentBotRequest) (*PlatformAgentBot, error) {
 	return updatePlatformAgentBot(ctx, c, id, req)
 }
@@ -102,7 +102,7 @@ func updatePlatformAgentBot(ctx context.Context, r Requester, id int, req Update
 	return &result, nil
 }
 
-// DeletePlatformAgentBot deletes a platform agent bot
+// Deprecated: Use client.PlatformAgentBots().Delete() instead.
 func (c *Client) DeletePlatformAgentBot(ctx context.Context, id int) error {
 	return deletePlatformAgentBot(ctx, c, id)
 }

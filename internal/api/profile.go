@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-// GetProfile gets the current user's profile
+// Deprecated: Use client.Profile().Get() instead.
 func (c *Client) GetProfile(ctx context.Context) (*Profile, error) {
 	url := fmt.Sprintf("%s/api/v1/profile", c.BaseURL)
 

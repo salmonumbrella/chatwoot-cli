@@ -7,7 +7,7 @@ import (
 
 const maxPaginationIterations = 1000
 
-// ListMessages retrieves messages for a conversation (first page)
+// Deprecated: Use client.Messages().List() instead.
 func (c *Client) ListMessages(ctx context.Context, conversationID int) ([]Message, error) {
 	return listMessages(ctx, c, conversationID)
 }
@@ -21,7 +21,7 @@ func listMessages(ctx context.Context, r Requester, conversationID int) ([]Messa
 	return listMessagesBefore(ctx, r, conversationID, 0)
 }
 
-// ListMessagesBefore retrieves messages before a given message ID (for pagination)
+// Deprecated: Use client.Messages().ListBefore() instead.
 func (c *Client) ListMessagesBefore(ctx context.Context, conversationID, before int) ([]Message, error) {
 	return listMessagesBefore(ctx, c, conversationID, before)
 }
@@ -45,7 +45,7 @@ func listMessagesBefore(ctx context.Context, r Requester, conversationID, before
 	return result.Payload, nil
 }
 
-// ListAllMessages retrieves all messages for a conversation (paginated)
+// Deprecated: Use client.Messages().ListAll() instead.
 func (c *Client) ListAllMessages(ctx context.Context, conversationID int) ([]Message, error) {
 	return listAllMessages(ctx, c, conversationID)
 }
@@ -59,7 +59,7 @@ func listAllMessages(ctx context.Context, r Requester, conversationID int) ([]Me
 	return listAllMessagesWithMaxPages(ctx, r, conversationID, maxPaginationIterations)
 }
 
-// ListAllMessagesWithMaxPages retrieves all messages with a pagination cap.
+// Deprecated: Use client.Messages().ListAllWithMaxPages() instead.
 func (c *Client) ListAllMessagesWithMaxPages(ctx context.Context, conversationID, maxPages int) ([]Message, error) {
 	return listAllMessagesWithMaxPages(ctx, c, conversationID, maxPages)
 }
@@ -117,7 +117,7 @@ type CreateMessageParams struct {
 	Private     bool   `json:"private"`
 }
 
-// CreateMessage sends a new message in a conversation
+// Deprecated: Use client.Messages().Create() instead.
 func (c *Client) CreateMessage(ctx context.Context, conversationID int, content string, private bool, messageType string) (*Message, error) {
 	return createMessage(ctx, c, conversationID, content, private, messageType)
 }
@@ -143,7 +143,7 @@ func createMessage(ctx context.Context, r Requester, conversationID int, content
 	return &message, nil
 }
 
-// DeleteMessage deletes a message from a conversation
+// Deprecated: Use client.Messages().Delete() instead.
 func (c *Client) DeleteMessage(ctx context.Context, conversationID, messageID int) error {
 	return deleteMessage(ctx, c, conversationID, messageID)
 }
@@ -158,7 +158,7 @@ func deleteMessage(ctx context.Context, r Requester, conversationID, messageID i
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// UpdateMessage updates a message's content
+// Deprecated: Use client.Messages().Update() instead.
 func (c *Client) UpdateMessage(ctx context.Context, conversationID, messageID int, content string) (*Message, error) {
 	return updateMessage(ctx, c, conversationID, messageID, content)
 }
@@ -181,7 +181,7 @@ func updateMessage(ctx context.Context, r Requester, conversationID, messageID i
 	return &message, nil
 }
 
-// CreateMessageWithAttachments sends a message with file attachments
+// Deprecated: Use client.Messages().CreateWithAttachments() instead.
 func (c *Client) CreateMessageWithAttachments(ctx context.Context, conversationID int, content string, private bool, messageType string, attachments map[string][]byte) (*Message, error) {
 	return createMessageWithAttachments(ctx, c, conversationID, content, private, messageType, attachments)
 }
@@ -209,7 +209,7 @@ func createMessageWithAttachments(ctx context.Context, r Requester, conversation
 	return &message, nil
 }
 
-// TranslateMessage translates a message to the specified language
+// Deprecated: Use client.Messages().Translate() instead.
 func (c *Client) TranslateMessage(ctx context.Context, conversationID, messageID int, targetLanguage string) (string, error) {
 	return translateMessage(ctx, c, conversationID, messageID, targetLanguage)
 }
@@ -231,7 +231,7 @@ func translateMessage(ctx context.Context, r Requester, conversationID, messageI
 	return result.Content, nil
 }
 
-// RetryMessage retries sending a failed message
+// Deprecated: Use client.Messages().Retry() instead.
 func (c *Client) RetryMessage(ctx context.Context, conversationID, messageID int) (*Message, error) {
 	return retryMessage(ctx, c, conversationID, messageID)
 }

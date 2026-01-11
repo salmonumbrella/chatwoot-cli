@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// GetAccount gets the account details
+// Deprecated: Use client.Account().Get() instead.
 func (c *Client) GetAccount(ctx context.Context) (*Account, error) {
 	return getAccount(ctx, c)
 }
@@ -24,7 +24,7 @@ func getAccount(ctx context.Context, r Requester) (*Account, error) {
 	return &result, nil
 }
 
-// UpdateAccount updates the account
+// Deprecated: Use client.Account().Update() instead.
 func (c *Client) UpdateAccount(ctx context.Context, name string) (*Account, error) {
 	return updateAccount(ctx, c, name)
 }

@@ -20,7 +20,7 @@ func (c *Client) surveyPath(path string) string {
 	return fmt.Sprintf("%s/survey%s", c.BaseURL, path)
 }
 
-// GetSurveyResponse retrieves a survey response by conversation UUID
+// Deprecated: Use client.Survey().GetResponse() instead.
 func (c *Client) GetSurveyResponse(ctx context.Context, conversationUUID string) (*SurveyResponse, error) {
 	var result SurveyResponse
 	path := c.surveyPath(fmt.Sprintf("/responses/%s", conversationUUID))
