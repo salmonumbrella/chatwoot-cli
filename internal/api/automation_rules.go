@@ -7,8 +7,17 @@ import (
 
 // ListAutomationRules returns all automation rules for the account
 func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRule, error) {
+	return listAutomationRules(ctx, c)
+}
+
+// List returns all automation rules for the account.
+func (s AutomationRulesService) List(ctx context.Context) ([]AutomationRule, error) {
+	return listAutomationRules(ctx, s)
+}
+
+func listAutomationRules(ctx context.Context, r Requester) ([]AutomationRule, error) {
 	var result AutomationRuleListResponse
-	if err := c.Get(ctx, "/automation_rules", &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath("/automation_rules"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -16,9 +25,18 @@ func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRule, err
 
 // GetAutomationRule returns a specific automation rule by ID
 func (c *Client) GetAutomationRule(ctx context.Context, id int) (*AutomationRule, error) {
+	return getAutomationRule(ctx, c, id)
+}
+
+// Get returns a specific automation rule by ID.
+func (s AutomationRulesService) Get(ctx context.Context, id int) (*AutomationRule, error) {
+	return getAutomationRule(ctx, s, id)
+}
+
+func getAutomationRule(ctx context.Context, r Requester, id int) (*AutomationRule, error) {
 	var result AutomationRuleResponse
 	path := fmt.Sprintf("/automation_rules/%d", id)
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
@@ -26,6 +44,15 @@ func (c *Client) GetAutomationRule(ctx context.Context, id int) (*AutomationRule
 
 // CreateAutomationRule creates a new automation rule
 func (c *Client) CreateAutomationRule(ctx context.Context, name, eventName string, conditions, actions []map[string]any) (*AutomationRule, error) {
+	return createAutomationRule(ctx, c, name, eventName, conditions, actions)
+}
+
+// Create creates a new automation rule.
+func (s AutomationRulesService) Create(ctx context.Context, name, eventName string, conditions, actions []map[string]any) (*AutomationRule, error) {
+	return createAutomationRule(ctx, s, name, eventName, conditions, actions)
+}
+
+func createAutomationRule(ctx context.Context, r Requester, name, eventName string, conditions, actions []map[string]any) (*AutomationRule, error) {
 	body := map[string]any{
 		"name":       name,
 		"event_name": eventName,
@@ -33,7 +60,7 @@ func (c *Client) CreateAutomationRule(ctx context.Context, name, eventName strin
 		"actions":    actions,
 	}
 	var rule AutomationRule
-	if err := c.Post(ctx, "/automation_rules", body, &rule); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/automation_rules"), body, &rule); err != nil {
 		return nil, err
 	}
 	return &rule, nil
@@ -41,6 +68,15 @@ func (c *Client) CreateAutomationRule(ctx context.Context, name, eventName strin
 
 // UpdateAutomationRule updates an existing automation rule
 func (c *Client) UpdateAutomationRule(ctx context.Context, id int, name string, conditions, actions []map[string]any) (*AutomationRule, error) {
+	return updateAutomationRule(ctx, c, id, name, conditions, actions)
+}
+
+// Update updates an existing automation rule.
+func (s AutomationRulesService) Update(ctx context.Context, id int, name string, conditions, actions []map[string]any) (*AutomationRule, error) {
+	return updateAutomationRule(ctx, s, id, name, conditions, actions)
+}
+
+func updateAutomationRule(ctx context.Context, r Requester, id int, name string, conditions, actions []map[string]any) (*AutomationRule, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
@@ -54,7 +90,7 @@ func (c *Client) UpdateAutomationRule(ctx context.Context, id int, name string, 
 
 	var result AutomationRuleResponse
 	path := fmt.Sprintf("/automation_rules/%d", id)
-	if err := c.Patch(ctx, path, body, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
@@ -62,15 +98,33 @@ func (c *Client) UpdateAutomationRule(ctx context.Context, id int, name string, 
 
 // DeleteAutomationRule deletes an automation rule
 func (c *Client) DeleteAutomationRule(ctx context.Context, id int) error {
+	return deleteAutomationRule(ctx, c, id)
+}
+
+// Delete deletes an automation rule.
+func (s AutomationRulesService) Delete(ctx context.Context, id int) error {
+	return deleteAutomationRule(ctx, s, id)
+}
+
+func deleteAutomationRule(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/automation_rules/%d", id)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // CloneAutomationRule clones an existing automation rule
 func (c *Client) CloneAutomationRule(ctx context.Context, id int) (*AutomationRule, error) {
+	return cloneAutomationRule(ctx, c, id)
+}
+
+// Clone clones an existing automation rule.
+func (s AutomationRulesService) Clone(ctx context.Context, id int) (*AutomationRule, error) {
+	return cloneAutomationRule(ctx, s, id)
+}
+
+func cloneAutomationRule(ctx context.Context, r Requester, id int) (*AutomationRule, error) {
 	path := fmt.Sprintf("/automation_rules/%d/clone", id)
 	var result AutomationRuleResponse
-	if err := c.Post(ctx, path, nil, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
