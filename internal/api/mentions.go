@@ -98,6 +98,11 @@ func (c *Client) FindMentions(ctx context.Context, params FindMentionsParams) ([
 	return mentions, nil
 }
 
+// Find searches for mentions of a user in private notes across conversations.
+func (s MentionsService) Find(ctx context.Context, params FindMentionsParams) ([]Mention, error) {
+	return s.FindMentions(ctx, params)
+}
+
 // findMentionsInConversation searches for mentions in a single conversation
 func (c *Client) findMentionsInConversation(ctx context.Context, conversationID int, userMentionPattern string, since *time.Time, limit int) ([]Mention, error) {
 	messages, err := c.ListAllMessages(ctx, conversationID)
