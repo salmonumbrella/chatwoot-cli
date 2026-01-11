@@ -17,6 +17,16 @@ type ListResult[T any] struct {
 	HasMore bool
 }
 
+// ListSummary describes the rendered list output.
+type ListSummary struct {
+	Page         int
+	PageSize     int
+	PagesFetched int
+	TotalItems   int
+	HasMore      bool
+	All          bool
+}
+
 // ListConfig defines how a list command behaves
 type ListConfig[T any] struct {
 	Use          string
@@ -29,24 +39,63 @@ type ListConfig[T any] struct {
 	EmptyMessage string
 	// DisablePagination prevents adding page/limit flags for list commands without pagination.
 	DisablePagination bool
+	// DisableLimit prevents adding the --limit flag (useful when the API doesn't support page size).
+	DisableLimit bool
+	// DefaultPage overrides the default page flag value (defaults to 1).
+	DefaultPage int
+	// DefaultLimit overrides the default limit flag value (defaults to 20).
+	DefaultLimit int
+	// MinLimit overrides the minimum limit value (defaults to 10).
+	MinLimit int
+	// DefaultMaxPages overrides the default max-pages flag value (defaults to 100).
+	DefaultMaxPages int
+	// AfterOutput runs after table output (text mode only).
+	AfterOutput func(cmd *cobra.Command, summary ListSummary) error
 }
 
 // NewListCommand creates a cobra command from ListConfig
 func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*api.Client, error)) *cobra.Command {
 	var page int
 	var pageSize int
+	var all bool
+	var maxPages int
+
+	defaultPage := cfg.DefaultPage
+	if defaultPage == 0 {
+		defaultPage = 1
+	}
+	defaultLimit := cfg.DefaultLimit
+	if defaultLimit == 0 {
+		defaultLimit = 20
+	}
+	minLimit := cfg.MinLimit
+	if minLimit == 0 {
+		minLimit = 10
+	}
+	defaultMaxPages := cfg.DefaultMaxPages
+	if defaultMaxPages == 0 {
+		defaultMaxPages = 100
+	}
 
 	cmd := &cobra.Command{
 		Use:     cfg.Use,
 		Short:   cfg.Short,
 		Long:    cfg.Long,
 		Example: cfg.Example,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if page < 1 {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			if !cfg.DisablePagination {
+				if page < 1 {
+					return fmt.Errorf("page must be >= 1")
+				}
+				if pageSize < minLimit {
+					pageSize = minLimit
+				}
+				if all && maxPages < 1 {
+					return fmt.Errorf("max-pages must be >= 1")
+				}
+			} else {
 				page = 1
-			}
-			if pageSize < 10 {
-				pageSize = 10
+				pageSize = defaultLimit
 			}
 
 			client, err := getClient(cmd.Context())
@@ -54,44 +103,134 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				return err
 			}
 
-			result, err := cfg.Fetch(cmd.Context(), client, page, pageSize)
-			if err != nil {
-				return err
-			}
-
 			ioStreams := iocontext.GetIO(cmd.Context())
 			f := outfmt.NewFormatter(cmd.Context(), ioStreams.Out, ioStreams.ErrOut)
 
+			if cfg.DisablePagination || !all {
+				result, err := cfg.Fetch(cmd.Context(), client, page, pageSize)
+				if err != nil {
+					return err
+				}
+
+				if isJSON(cmd) {
+					return f.Output(map[string]interface{}{
+						"items":    result.Items,
+						"has_more": result.HasMore,
+					})
+				}
+
+				if len(result.Items) == 0 {
+					if cfg.EmptyMessage != "" {
+						f.Empty(cfg.EmptyMessage)
+					}
+					return nil
+				}
+
+				f.StartTable(cfg.Headers)
+				for _, item := range result.Items {
+					f.Row(cfg.RowFunc(item)...)
+				}
+				if err := f.EndTable(); err != nil {
+					return err
+				}
+
+				if cfg.AfterOutput != nil {
+					if err := cfg.AfterOutput(cmd, ListSummary{
+						Page:         page,
+						PageSize:     pageSize,
+						PagesFetched: 1,
+						TotalItems:   len(result.Items),
+						HasMore:      result.HasMore,
+						All:          false,
+					}); err != nil {
+						return err
+					}
+				}
+
+				if result.HasMore {
+					_, _ = fmt.Fprintln(ioStreams.ErrOut, "# More results available")
+				}
+				return nil
+			}
+
+			var allItems []T
+			currentPage := page
+			pagesFetched := 0
+
+			for {
+				if maxPages > 0 && pagesFetched >= maxPages {
+					return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, len(allItems))
+				}
+
+				if currentPage > page && !flags.Quiet && !flags.Silent && !isJSON(cmd) {
+					_, _ = fmt.Fprintf(ioStreams.ErrOut, "Fetching page %d...\n", currentPage) //nolint:errcheck
+				}
+
+				result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
+				if err != nil {
+					return err
+				}
+				if len(result.Items) == 0 {
+					break
+				}
+				allItems = append(allItems, result.Items...)
+				pagesFetched++
+
+				if !result.HasMore {
+					break
+				}
+
+				currentPage++
+			}
+
 			if isJSON(cmd) {
 				return f.Output(map[string]interface{}{
-					"items":    result.Items,
-					"has_more": result.HasMore,
+					"items":    allItems,
+					"has_more": false,
 				})
 			}
 
-			if len(result.Items) == 0 {
-				f.Empty(cfg.EmptyMessage)
+			if len(allItems) == 0 {
+				if cfg.EmptyMessage != "" {
+					f.Empty(cfg.EmptyMessage)
+				}
 				return nil
 			}
 
 			f.StartTable(cfg.Headers)
-			for _, item := range result.Items {
+			for _, item := range allItems {
 				f.Row(cfg.RowFunc(item)...)
 			}
 			if err := f.EndTable(); err != nil {
 				return err
 			}
 
-			if result.HasMore {
-				_, _ = fmt.Fprintln(ioStreams.ErrOut, "# More results available")
+			if cfg.AfterOutput != nil {
+				return cfg.AfterOutput(cmd, ListSummary{
+					Page:         page,
+					PageSize:     pageSize,
+					PagesFetched: pagesFetched,
+					TotalItems:   len(allItems),
+					HasMore:      false,
+					All:          true,
+				})
 			}
 			return nil
-		},
+		}),
 	}
 
 	if !cfg.DisablePagination {
-		cmd.Flags().IntVar(&page, "page", 1, "Page number")
-		cmd.Flags().IntVar(&pageSize, "limit", 20, "Max results (min 10)")
+		cmd.Flags().IntVar(&page, "page", defaultPage, "Page number")
+		if !cfg.DisableLimit {
+			cmd.Flags().IntVar(&pageSize, "limit", defaultLimit, fmt.Sprintf("Max results (min %d)", minLimit))
+		} else {
+			pageSize = defaultLimit
+		}
+		cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
+		cmd.Flags().IntVar(&maxPages, "max-pages", defaultMaxPages, "Maximum number of pages to fetch when using --all")
+	} else {
+		page = 1
+		pageSize = defaultLimit
 	}
 	return cmd
 }

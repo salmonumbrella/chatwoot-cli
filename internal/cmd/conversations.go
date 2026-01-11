@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strconv"
@@ -54,8 +55,8 @@ func newConversationsCmd() *cobra.Command {
 	return cmd
 }
 
-func printConversationsTable(conversations []api.Conversation) {
-	w := newTabWriter()
+func printConversationsTable(out io.Writer, conversations []api.Conversation) {
+	w := newTabWriter(out)
 	_, _ = fmt.Fprintln(w, "ID\tINBOX\tSTATUS\tPRIORITY\tUNREAD\tCREATED")
 	for _, conv := range conversations {
 		priority := "-"
@@ -85,14 +86,18 @@ func newConversationsListCmd() *cobra.Command {
 	var teamID int
 	var labels string
 	var search string
-	var page int
-	var all bool
-	var maxPages int
 
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List conversations",
-		Long:  "List conversations filtered by status and inbox",
+	cfg := ListConfig[api.Conversation]{
+		Use:               "list",
+		Short:             "List conversations",
+		Long:              "List conversations filtered by status and inbox",
+		EmptyMessage:      "",
+		DisableLimit:      true,
+		DefaultMaxPages:   100,
+		Headers:           []string{"ID", "INBOX", "STATUS", "PRIORITY", "UNREAD", "CREATED"},
+		RowFunc:           conversationRow,
+		AfterOutput:       conversationsListSummary,
+		DisablePagination: false,
 		Example: strings.TrimSpace(`
   # List open conversations
   chatwoot conversations list --status open
@@ -103,92 +108,34 @@ func newConversationsListCmd() *cobra.Command {
   # Fetch all pages
   chatwoot conversations list --status open --all
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if page < 1 {
-				return fmt.Errorf("page must be >= 1")
+		Fetch: func(ctx context.Context, client *api.Client, page, _ int) (ListResult[api.Conversation], error) {
+			params := api.ListConversationsParams{
+				Status:       status,
+				InboxID:      inboxID,
+				AssigneeType: assigneeType,
+				Query:        search,
+				Page:         page,
 			}
-
-			client, err := getClient()
+			if teamID > 0 {
+				params.TeamID = strconv.Itoa(teamID)
+			}
+			if labels != "" {
+				params.Labels = splitCommaList(labels)
+			}
+			result, err := client.ListConversations(ctx, params)
 			if err != nil {
-				return err
+				return ListResult[api.Conversation]{}, fmt.Errorf("failed to list conversations: %w", err)
 			}
 
-			var allConversations []api.Conversation
-			currentPage := page
-			totalFetched := 0
-			pagesFetched := 0
-
-			for {
-				if all && pagesFetched >= maxPages {
-					return fmt.Errorf("safety limit reached: fetched %d pages (%d conversations). Use --max-pages to increase the limit", maxPages, totalFetched)
-				}
-
-				// Show progress indicator when fetching multiple pages
-				if all && currentPage > page {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Fetching page %d...\n", currentPage) //nolint:errcheck
-				}
-
-				params := api.ListConversationsParams{
-					Status:       status,
-					InboxID:      inboxID,
-					AssigneeType: assigneeType,
-					Query:        search,
-					Page:         currentPage,
-				}
-				if teamID > 0 {
-					params.TeamID = strconv.Itoa(teamID)
-				}
-				if labels != "" {
-					params.Labels = splitCommaList(labels)
-				}
-				result, err := client.ListConversations(cmdContext(cmd), params)
-				if err != nil {
-					return fmt.Errorf("failed to list conversations: %w", err)
-				}
-
-				conversations := result.Data.Payload
-				totalPages := int(result.Data.Meta.TotalPages)
-
-				// Stop if no results
-				if len(conversations) == 0 {
-					break
-				}
-
-				if !all {
-					// Single page mode - output and exit
-					if isJSON(cmd) {
-						return printJSON(cmd, conversations)
-					}
-
-					printConversationsTable(conversations)
-
-					fmt.Printf("\nPage %d (%d conversations)\n", currentPage, len(conversations))
-					return nil
-				}
-
-				allConversations = append(allConversations, conversations...)
-				totalFetched += len(conversations)
-				pagesFetched++
-
-				// Stop if we've reached the total pages from API
-				if totalPages > 0 && currentPage >= totalPages {
-					break
-				}
-
-				currentPage++
-			}
-
-			// --all mode: output all fetched conversations
-			if isJSON(cmd) {
-				return printJSON(cmd, allConversations)
-			}
-
-			printConversationsTable(allConversations)
-
-			fmt.Printf("\nTotal: %d conversations (%d pages)\n", totalFetched, pagesFetched)
-			return nil
+			totalPages := int(result.Data.Meta.TotalPages)
+			hasMore := totalPages > 0 && page < totalPages
+			return ListResult[api.Conversation]{Items: result.Data.Payload, HasMore: hasMore}, nil
 		},
 	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+		return getClient()
+	})
 
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
@@ -196,13 +143,39 @@ func newConversationsListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
-	cmd.Flags().IntVar(&page, "page", 1, "Page number")
-	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum number of pages to fetch when using --all")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 
 	return cmd
+}
+
+func conversationRow(conv api.Conversation) []string {
+	priority := "-"
+	if conv.Priority != nil {
+		priority = *conv.Priority
+	}
+	displayID := conv.ID
+	if conv.DisplayID != nil {
+		displayID = *conv.DisplayID
+	}
+	return []string{
+		fmt.Sprintf("%d", displayID),
+		fmt.Sprintf("%d", conv.InboxID),
+		conv.Status,
+		priority,
+		fmt.Sprintf("%d", conv.Unread),
+		conv.CreatedAtTime().Format("2006-01-02 15:04"),
+	}
+}
+
+func conversationsListSummary(cmd *cobra.Command, summary ListSummary) error {
+	if summary.All {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d conversations (%d pages)\n", summary.TotalItems, summary.PagesFetched)
+		return nil
+	}
+
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nPage %d (%d conversations)\n", summary.Page, summary.TotalItems)
+	return nil
 }
 
 func newConversationsGetCmd() *cobra.Command {
@@ -218,7 +191,7 @@ func newConversationsGetCmd() *cobra.Command {
   chatwoot conversations get 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -242,29 +215,29 @@ func newConversationsGetCmd() *cobra.Command {
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			fmt.Printf("Conversation #%d\n", displayID)
-			fmt.Printf("  ID:         %d\n", conv.ID)
-			fmt.Printf("  Inbox ID:   %d\n", conv.InboxID)
-			fmt.Printf("  Contact ID: %d\n", conv.ContactID)
-			fmt.Printf("  Status:     %s\n", conv.Status)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d\n", displayID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  ID:         %d\n", conv.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Inbox ID:   %d\n", conv.InboxID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Contact ID: %d\n", conv.ContactID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Status:     %s\n", conv.Status)
 			if conv.Priority != nil {
-				fmt.Printf("  Priority:   %s\n", *conv.Priority)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Priority:   %s\n", *conv.Priority)
 			}
 			if conv.AssigneeID != nil {
-				fmt.Printf("  Assignee:   %d\n", *conv.AssigneeID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Assignee:   %d\n", *conv.AssigneeID)
 			}
 			if conv.TeamID != nil {
-				fmt.Printf("  Team:       %d\n", *conv.TeamID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Team:       %d\n", *conv.TeamID)
 			}
-			fmt.Printf("  Unread:     %d\n", conv.Unread)
-			fmt.Printf("  Muted:      %t\n", conv.Muted)
-			fmt.Printf("  Created:    %s\n", conv.CreatedAtTime().Format("2006-01-02 15:04:05"))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Unread:     %d\n", conv.Unread)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Muted:      %t\n", conv.Muted)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Created:    %s\n", conv.CreatedAtTime().Format("2006-01-02 15:04:05"))
 			if len(conv.Labels) > 0 {
-				fmt.Printf("  Labels:     %s\n", strings.Join(conv.Labels, ", "))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Labels:     %s\n", strings.Join(conv.Labels, ", "))
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -292,7 +265,7 @@ func newConversationsCreateCmd() *cobra.Command {
   # Create a conversation with status and assignment
   chatwoot conversations create --inbox-id 1 --contact-id 123 --status open --assignee-id 5 --team-id 2
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if inboxID == 0 {
 				if isInteractive() {
 					client, err := getClient()
@@ -351,18 +324,18 @@ func newConversationsCreateCmd() *cobra.Command {
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			fmt.Printf("Created conversation #%d\n", displayID)
-			fmt.Printf("  ID:     %d\n", conv.ID)
-			fmt.Printf("  Status: %s\n", conv.Status)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created conversation #%d\n", displayID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  ID:     %d\n", conv.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Status: %s\n", conv.Status)
 			if conv.AssigneeID != nil {
-				fmt.Printf("  Assignee: %d\n", *conv.AssigneeID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Assignee: %d\n", *conv.AssigneeID)
 			}
 			if conv.TeamID != nil {
-				fmt.Printf("  Team: %d\n", *conv.TeamID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Team: %d\n", *conv.TeamID)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
@@ -397,7 +370,7 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 
   # Filter operators: equal_to, not_equal_to, contains, does_not_contain
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if payloadStr == "" {
 				return fmt.Errorf("--payload is required")
 			}
@@ -421,10 +394,10 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 				return printJSON(cmd, result.Data.Payload)
 			}
 
-			printConversationsTable(result.Data.Payload)
+			printConversationsTable(cmd.OutOrStdout(), result.Data.Payload)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&payloadStr, "payload", "", "JSON payload for filtering (required)")
@@ -447,7 +420,7 @@ func newConversationsMetaCmd() *cobra.Command {
   # Get conversations metadata
   chatwoot conversations meta
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -474,13 +447,13 @@ func newConversationsMetaCmd() *cobra.Command {
 				return printJSON(cmd, meta)
 			}
 
-			fmt.Println("Conversations Metadata:")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Conversations Metadata:")
 			for key, value := range meta {
-				fmt.Printf("  %s: %v\n", key, value)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s: %v\n", key, value)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
@@ -510,7 +483,7 @@ func newConversationsCountsCmd() *cobra.Command {
   # Get counts as JSON
   chatwoot conversations counts --output json
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -543,7 +516,7 @@ func newConversationsCountsCmd() *cobra.Command {
 				return fmt.Errorf("unexpected response format")
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "STATUS\tCOUNT")
@@ -561,7 +534,7 @@ func newConversationsCountsCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
@@ -598,7 +571,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
   chatwoot conversations toggle-status 123 --status snoozed --snoozed-until 1735689600
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -640,14 +613,14 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 				return printJSON(cmd, result.Payload)
 			}
 
-			fmt.Printf("Conversation #%d status updated to: %s\n", result.Payload.ConversationID, result.Payload.CurrentStatus)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d status updated to: %s\n", result.Payload.ConversationID, result.Payload.CurrentStatus)
 			if result.Payload.SnoozedUntil != nil && *result.Payload.SnoozedUntil > 0 {
 				snoozedTime := time.Unix(*result.Payload.SnoozedUntil, 0)
-				fmt.Printf("Snoozed until: %s\n", snoozedTime.Format("2006-01-02 15:04:05 MST"))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Snoozed until: %s\n", snoozedTime.Format("2006-01-02 15:04:05 MST"))
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&status, "status", "", "New status (open|resolved|pending|snoozed) (required)")
@@ -672,7 +645,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
   chatwoot conversations toggle-priority 123 --priority low
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -713,10 +686,10 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 			if conv.Priority != nil {
 				priorityValue = *conv.Priority
 			}
-			fmt.Printf("Conversation #%d priority updated to: %s\n", displayID, priorityValue)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d priority updated to: %s\n", displayID, priorityValue)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&priority, "priority", "", "New priority (urgent|high|medium|low|none) (required)")
@@ -744,7 +717,7 @@ func newConversationsUpdateCmd() *cobra.Command {
   chatwoot conversations update 123 --priority urgent --sla-policy-id 5
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -780,17 +753,17 @@ func newConversationsUpdateCmd() *cobra.Command {
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			fmt.Printf("Conversation #%d updated\n", displayID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d updated\n", displayID)
 			if conv.Priority != nil {
-				fmt.Printf("  Priority: %s\n", *conv.Priority)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Priority: %s\n", *conv.Priority)
 			}
 			// Note: SLA policy info may not be in standard conversation response
 			if slaPolicyID > 0 {
-				fmt.Printf("  SLA Policy ID: %d\n", slaPolicyID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  SLA Policy ID: %d\n", slaPolicyID)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&priority, "priority", "", "Priority (urgent|high|medium|low|none)")
@@ -819,7 +792,7 @@ func newConversationsAssignCmd() *cobra.Command {
   chatwoot conversations assign 123 --assignee-id 5 --team-id 2
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -867,16 +840,16 @@ func newConversationsAssignCmd() *cobra.Command {
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			fmt.Printf("Conversation #%d assigned\n", displayID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d assigned\n", displayID)
 			if conv.AssigneeID != nil {
-				fmt.Printf("  Agent: %d\n", *conv.AssigneeID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Agent: %d\n", *conv.AssigneeID)
 			}
 			if conv.TeamID != nil {
-				fmt.Printf("  Team:  %d\n", *conv.TeamID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Team:  %d\n", *conv.TeamID)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign")
@@ -898,7 +871,7 @@ func newConversationsLabelsCmd() *cobra.Command {
   chatwoot conversations labels 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -919,16 +892,16 @@ func newConversationsLabelsCmd() *cobra.Command {
 			}
 
 			if len(labels) == 0 {
-				fmt.Println("No labels")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No labels")
 			} else {
-				fmt.Println("Labels:")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Labels:")
 				for _, label := range labels {
-					fmt.Printf("  - %s\n", label)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", label)
 				}
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -946,7 +919,7 @@ func newConversationsLabelsAddCmd() *cobra.Command {
   chatwoot conversations labels-add 123 --labels "bug,urgent"
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -975,16 +948,16 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 				return printJSON(cmd, resultLabels)
 			}
 
-			fmt.Printf("Labels updated for conversation #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Labels updated for conversation #%d\n", id)
 			if len(resultLabels) > 0 {
-				fmt.Println("Current labels:")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Current labels:")
 				for _, label := range resultLabels {
-					fmt.Printf("  - %s\n", label)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", label)
 				}
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&labelsStr, "labels", "", "Comma-separated list of labels (required)")
@@ -1004,7 +977,7 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
   chatwoot conversations labels-remove 123 --labels "bug,urgent"
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1054,18 +1027,18 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 				return printJSON(cmd, resultLabels)
 			}
 
-			fmt.Printf("Labels updated for conversation #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Labels updated for conversation #%d\n", id)
 			if len(resultLabels) > 0 {
-				fmt.Println("Current labels:")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Current labels:")
 				for _, label := range resultLabels {
-					fmt.Printf("  - %s\n", label)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", label)
 				}
 			} else {
-				fmt.Println("No labels remaining")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No labels remaining")
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&labelsStr, "labels", "", "Comma-separated list of labels to remove (required)")
@@ -1088,7 +1061,7 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
   chatwoot conversations custom-attributes 123 --set priority=high --output json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1120,13 +1093,13 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 				return printJSON(cmd, attrs)
 			}
 
-			fmt.Printf("Custom attributes updated for conversation #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Custom attributes updated for conversation #%d\n", id)
 			for key, value := range attrs {
-				fmt.Printf("  %s = %v\n", key, value)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s = %v\n", key, value)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringArrayVar(&setAttrs, "set", nil, "Set custom attribute (key=value)")
@@ -1155,7 +1128,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
   chatwoot conversations context 123 --embed-images --output json | ai-tool
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1176,21 +1149,21 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 			}
 
 			// Human-readable output
-			fmt.Printf("=== Conversation #%d ===\n", id)
-			fmt.Printf("Summary: %s\n\n", ctx.Summary)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "=== Conversation #%d ===\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Summary: %s\n\n", ctx.Summary)
 
 			if ctx.Contact != nil {
-				fmt.Printf("Customer: %s\n", ctx.Contact.Name)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Customer: %s\n", ctx.Contact.Name)
 				if ctx.Contact.Email != "" {
-					fmt.Printf("Email: %s\n", ctx.Contact.Email)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Email: %s\n", ctx.Contact.Email)
 				}
 				if ctx.Contact.PhoneNumber != "" {
-					fmt.Printf("Phone: %s\n", ctx.Contact.PhoneNumber)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Phone: %s\n", ctx.Contact.PhoneNumber)
 				}
-				fmt.Println()
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
 			}
 
-			fmt.Println("--- Messages ---")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "--- Messages ---")
 			for _, msg := range ctx.Messages {
 				sender := "Customer"
 				if msg.MessageType == 1 {
@@ -1200,20 +1173,20 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 					sender = "Private Note"
 				}
 
-				fmt.Printf("[%s] %s\n", sender, msg.Content)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", sender, msg.Content)
 
 				for _, att := range msg.Attachments {
 					if att.Embedded != "" {
-						fmt.Printf("  📎 [%s - embedded as base64]\n", att.FileType)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  📎 [%s - embedded as base64]\n", att.FileType)
 					} else {
-						fmt.Printf("  📎 [%s - %s]\n", att.FileType, att.DataURL)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  📎 [%s - %s]\n", att.FileType, att.DataURL)
 					}
 				}
-				fmt.Println()
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
@@ -1237,7 +1210,7 @@ as unread in the inbox for all agents (not just the current user).`,
   for id in 123 124 125; do chatwoot conversations mark-unread $id; done
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1279,9 +1252,9 @@ as unread in the inbox for all agents (not just the current user).`,
 			if afterConv.DisplayID != nil {
 				displayID = *afterConv.DisplayID
 			}
-			fmt.Printf("Conversation #%d marked as unread (unread count: %d)\n", displayID, afterConv.Unread)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d marked as unread (unread count: %d)\n", displayID, afterConv.Unread)
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -1310,7 +1283,7 @@ func newConversationsSearchCmd() *cobra.Command {
   chatwoot conversations search "billing" -o json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			query := args[0]
 			if query == "" {
 				return fmt.Errorf("search query cannot be empty")
@@ -1337,14 +1310,14 @@ func newConversationsSearchCmd() *cobra.Command {
 			}
 
 			if len(conversations) == 0 {
-				fmt.Println("No conversations found matching your query")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No conversations found matching your query")
 				return nil
 			}
 
-			printConversationsTable(conversations)
-			fmt.Printf("\nPage %d (%d conversations)\n", page, len(conversations))
+			printConversationsTable(cmd.OutOrStdout(), conversations)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nPage %d (%d conversations)\n", page, len(conversations))
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
@@ -1395,12 +1368,12 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 	}
 
 	if len(allConversations) == 0 {
-		fmt.Println("No conversations found matching your query")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No conversations found matching your query")
 		return nil
 	}
 
-	printConversationsTable(allConversations)
-	fmt.Printf("\nTotal: %d conversations (%d pages)\n", len(allConversations), pagesFetched)
+	printConversationsTable(cmd.OutOrStdout(), allConversations)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d conversations (%d pages)\n", len(allConversations), pagesFetched)
 	return nil
 }
 
@@ -1417,7 +1390,7 @@ func newConversationsAttachmentsCmd() *cobra.Command {
   chatwoot conversations attachments 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1438,11 +1411,11 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 			}
 
 			if len(attachments) == 0 {
-				fmt.Println("No attachments found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No attachments found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tTYPE\tSIZE\tURL")
 			for _, att := range attachments {
 				size := formatFileSize(att.FileSize)
@@ -1450,9 +1423,9 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 			}
 			_ = w.Flush()
 
-			fmt.Printf("\nTotal: %d attachments\n", len(attachments))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d attachments\n", len(attachments))
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -1473,7 +1446,7 @@ Muted conversations will not trigger desktop or push notifications for new messa
   chatwoot conversations mute 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1507,9 +1480,9 @@ Muted conversations will not trigger desktop or push notifications for new messa
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			fmt.Printf("Conversation #%d muted (muted: %t)\n", displayID, conv.Muted)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d muted (muted: %t)\n", displayID, conv.Muted)
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -1530,7 +1503,7 @@ Unmuted conversations will trigger desktop and push notifications for new messag
   chatwoot conversations unmute 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1564,9 +1537,9 @@ Unmuted conversations will trigger desktop and push notifications for new messag
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			fmt.Printf("Conversation #%d unmuted (muted: %t)\n", displayID, conv.Muted)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d unmuted (muted: %t)\n", displayID, conv.Muted)
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -1587,7 +1560,7 @@ to the specified email address.`,
   chatwoot conversations transcript 123 --email user@example.com
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1614,9 +1587,9 @@ to the specified email address.`,
 				})
 			}
 
-			fmt.Printf("Transcript for conversation #%d sent to %s\n", id, email)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Transcript for conversation #%d sent to %s\n", id, email)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&email, "email", "", "Email address to send transcript to (required)")
@@ -1648,7 +1621,7 @@ Use --private to show the typing indicator only to other agents (for private not
   chatwoot conversations typing 123 --on --private
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -1679,9 +1652,9 @@ Use --private to show the typing indicator only to other agents (for private not
 			if isPrivate {
 				visibility = "private"
 			}
-			fmt.Printf("Typing indicator for conversation #%d: %s (%s)\n", id, status, visibility)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Typing indicator for conversation #%d: %s (%s)\n", id, status, visibility)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().BoolVar(&typingOn, "on", false, "Turn typing indicator on (default: off)")
@@ -1770,7 +1743,7 @@ func newConversationsWatchCmd() *cobra.Command {
   # Watch with custom limit
   chatwoot conversations watch --status open --limit 20
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -1808,7 +1781,7 @@ func newConversationsWatchCmd() *cobra.Command {
 					}
 				}
 			}
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&status, "status", "open", "Filter by status: open, resolved, pending, snoozed, all")
@@ -1928,7 +1901,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
   # Resolve with custom concurrency
   chatwoot conversations bulk resolve --ids 1,2,3 --concurrency 10
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
@@ -1982,7 +1955,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resolved %d conversations (%d failed)\n", successCount, failCount)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
@@ -2021,7 +1994,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
   # Assign with custom concurrency
   chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5 --concurrency 10
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if agentID == 0 && teamID == 0 {
 				return fmt.Errorf("at least one of --agent-id or --team-id is required")
 			}
@@ -2084,7 +2057,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Assigned %d conversations (%d failed)\n", successCount, failCount)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
@@ -2121,7 +2094,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
   # Add labels with custom concurrency
   chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseIntList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
@@ -2189,7 +2162,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d conversations (%d failed)\n", successCount, failCount)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
@@ -2254,7 +2227,7 @@ operations (status, priority, labels, assignment).`,
   # With custom concurrency
   cat updates.json | chatwoot conversations bulk batch-update --concurrency 10
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Read input from stdin
 			var items []BatchUpdateItem
 			decoder := json.NewDecoder(os.Stdin)
@@ -2388,18 +2361,18 @@ operations (status, priority, labels, assignment).`,
 			}
 
 			// Text output
-			fmt.Printf("Batch update complete: %d succeeded, %d failed (total: %d)\n", succeeded, failed, len(items))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Batch update complete: %d succeeded, %d failed (total: %d)\n", succeeded, failed, len(items))
 			if failed > 0 {
-				fmt.Println("\nFailed updates:")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nFailed updates:")
 				for _, r := range results {
 					if r.Status == "error" {
-						fmt.Printf("  Conversation %d: %s\n", r.ID, r.Error)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Conversation %d: %s\n", r.ID, r.Error)
 					}
 				}
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Maximum concurrent requests")
