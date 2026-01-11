@@ -757,6 +757,12 @@ make build
 make test
 ```
 
+Golden output fixtures for CLI JSON snapshots live in `internal/cmd/testdata/golden`. To refresh them:
+
+```bash
+UPDATE_GOLDEN=1 go test ./internal/cmd -run TestGolden
+```
+
 ## License
 
 MIT
