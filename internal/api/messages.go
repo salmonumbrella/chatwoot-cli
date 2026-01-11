@@ -9,11 +9,29 @@ const maxPaginationIterations = 1000
 
 // ListMessages retrieves messages for a conversation (first page)
 func (c *Client) ListMessages(ctx context.Context, conversationID int) ([]Message, error) {
-	return c.ListMessagesBefore(ctx, conversationID, 0)
+	return listMessages(ctx, c, conversationID)
+}
+
+// List retrieves messages for a conversation (first page).
+func (s MessagesService) List(ctx context.Context, conversationID int) ([]Message, error) {
+	return listMessages(ctx, s, conversationID)
+}
+
+func listMessages(ctx context.Context, r Requester, conversationID int) ([]Message, error) {
+	return listMessagesBefore(ctx, r, conversationID, 0)
 }
 
 // ListMessagesBefore retrieves messages before a given message ID (for pagination)
 func (c *Client) ListMessagesBefore(ctx context.Context, conversationID, before int) ([]Message, error) {
+	return listMessagesBefore(ctx, c, conversationID, before)
+}
+
+// ListBefore retrieves messages before a given message ID (for pagination).
+func (s MessagesService) ListBefore(ctx context.Context, conversationID, before int) ([]Message, error) {
+	return listMessagesBefore(ctx, s, conversationID, before)
+}
+
+func listMessagesBefore(ctx context.Context, r Requester, conversationID, before int) ([]Message, error) {
 	path := fmt.Sprintf("/conversations/%d/messages", conversationID)
 	if before > 0 {
 		path = fmt.Sprintf("%s?before=%d", path, before)
@@ -21,7 +39,7 @@ func (c *Client) ListMessagesBefore(ctx context.Context, conversationID, before 
 	var result struct {
 		Payload []Message `json:"payload"`
 	}
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -29,11 +47,29 @@ func (c *Client) ListMessagesBefore(ctx context.Context, conversationID, before 
 
 // ListAllMessages retrieves all messages for a conversation (paginated)
 func (c *Client) ListAllMessages(ctx context.Context, conversationID int) ([]Message, error) {
-	return c.ListAllMessagesWithMaxPages(ctx, conversationID, maxPaginationIterations)
+	return listAllMessages(ctx, c, conversationID)
+}
+
+// ListAll retrieves all messages for a conversation (paginated).
+func (s MessagesService) ListAll(ctx context.Context, conversationID int) ([]Message, error) {
+	return listAllMessages(ctx, s, conversationID)
+}
+
+func listAllMessages(ctx context.Context, r Requester, conversationID int) ([]Message, error) {
+	return listAllMessagesWithMaxPages(ctx, r, conversationID, maxPaginationIterations)
 }
 
 // ListAllMessagesWithMaxPages retrieves all messages with a pagination cap.
 func (c *Client) ListAllMessagesWithMaxPages(ctx context.Context, conversationID, maxPages int) ([]Message, error) {
+	return listAllMessagesWithMaxPages(ctx, c, conversationID, maxPages)
+}
+
+// ListAllWithMaxPages retrieves all messages with a pagination cap.
+func (s MessagesService) ListAllWithMaxPages(ctx context.Context, conversationID, maxPages int) ([]Message, error) {
+	return listAllMessagesWithMaxPages(ctx, s, conversationID, maxPages)
+}
+
+func listAllMessagesWithMaxPages(ctx context.Context, r Requester, conversationID, maxPages int) ([]Message, error) {
 	if maxPages <= 0 {
 		maxPages = maxPaginationIterations
 	}
@@ -46,7 +82,7 @@ func (c *Client) ListAllMessagesWithMaxPages(ctx context.Context, conversationID
 			return nil, fmt.Errorf("pagination limit exceeded (%d iterations) - API may be returning duplicate data", maxPages)
 		}
 
-		messages, err := c.ListMessagesBefore(ctx, conversationID, before)
+		messages, err := listMessagesBefore(ctx, r, conversationID, before)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch messages page (before=%d): %w", before, err)
 		}
@@ -83,6 +119,15 @@ type CreateMessageParams struct {
 
 // CreateMessage sends a new message in a conversation
 func (c *Client) CreateMessage(ctx context.Context, conversationID int, content string, private bool, messageType string) (*Message, error) {
+	return createMessage(ctx, c, conversationID, content, private, messageType)
+}
+
+// Create sends a new message in a conversation.
+func (s MessagesService) Create(ctx context.Context, conversationID int, content string, private bool, messageType string) (*Message, error) {
+	return createMessage(ctx, s, conversationID, content, private, messageType)
+}
+
+func createMessage(ctx context.Context, r Requester, conversationID int, content string, private bool, messageType string) (*Message, error) {
 	path := fmt.Sprintf("/conversations/%d/messages", conversationID)
 
 	params := CreateMessageParams{
@@ -92,7 +137,7 @@ func (c *Client) CreateMessage(ctx context.Context, conversationID int, content 
 	}
 
 	var message Message
-	if err := c.Post(ctx, path, params, &message); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), params, &message); err != nil {
 		return nil, err
 	}
 	return &message, nil
@@ -100,19 +145,37 @@ func (c *Client) CreateMessage(ctx context.Context, conversationID int, content 
 
 // DeleteMessage deletes a message from a conversation
 func (c *Client) DeleteMessage(ctx context.Context, conversationID, messageID int) error {
+	return deleteMessage(ctx, c, conversationID, messageID)
+}
+
+// Delete deletes a message from a conversation.
+func (s MessagesService) Delete(ctx context.Context, conversationID, messageID int) error {
+	return deleteMessage(ctx, s, conversationID, messageID)
+}
+
+func deleteMessage(ctx context.Context, r Requester, conversationID, messageID int) error {
 	path := fmt.Sprintf("/conversations/%d/messages/%d", conversationID, messageID)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // UpdateMessage updates a message's content
 func (c *Client) UpdateMessage(ctx context.Context, conversationID, messageID int, content string) (*Message, error) {
+	return updateMessage(ctx, c, conversationID, messageID, content)
+}
+
+// Update updates a message's content.
+func (s MessagesService) Update(ctx context.Context, conversationID, messageID int, content string) (*Message, error) {
+	return updateMessage(ctx, s, conversationID, messageID, content)
+}
+
+func updateMessage(ctx context.Context, r Requester, conversationID, messageID int, content string) (*Message, error) {
 	if content == "" {
 		return nil, fmt.Errorf("content cannot be empty")
 	}
 	path := fmt.Sprintf("/conversations/%d/messages/%d", conversationID, messageID)
 	params := map[string]string{"content": content}
 	var message Message
-	if err := c.Patch(ctx, path, params, &message); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), params, &message); err != nil {
 		return nil, err
 	}
 	return &message, nil
@@ -120,6 +183,15 @@ func (c *Client) UpdateMessage(ctx context.Context, conversationID, messageID in
 
 // CreateMessageWithAttachments sends a message with file attachments
 func (c *Client) CreateMessageWithAttachments(ctx context.Context, conversationID int, content string, private bool, messageType string, attachments map[string][]byte) (*Message, error) {
+	return createMessageWithAttachments(ctx, c, conversationID, content, private, messageType, attachments)
+}
+
+// CreateWithAttachments sends a message with file attachments.
+func (s MessagesService) CreateWithAttachments(ctx context.Context, conversationID int, content string, private bool, messageType string, attachments map[string][]byte) (*Message, error) {
+	return createMessageWithAttachments(ctx, s, conversationID, content, private, messageType, attachments)
+}
+
+func createMessageWithAttachments(ctx context.Context, r Requester, conversationID int, content string, private bool, messageType string, attachments map[string][]byte) (*Message, error) {
 	path := fmt.Sprintf("/conversations/%d/messages", conversationID)
 
 	fields := map[string]string{
@@ -131,7 +203,7 @@ func (c *Client) CreateMessageWithAttachments(ctx context.Context, conversationI
 	}
 
 	var message Message
-	if err := c.PostMultipart(ctx, path, fields, attachments, &message); err != nil {
+	if err := r.PostMultipart(ctx, r.accountPath(path), fields, attachments, &message); err != nil {
 		return nil, err
 	}
 	return &message, nil
@@ -139,12 +211,21 @@ func (c *Client) CreateMessageWithAttachments(ctx context.Context, conversationI
 
 // TranslateMessage translates a message to the specified language
 func (c *Client) TranslateMessage(ctx context.Context, conversationID, messageID int, targetLanguage string) (string, error) {
+	return translateMessage(ctx, c, conversationID, messageID, targetLanguage)
+}
+
+// Translate translates a message to the specified language.
+func (s MessagesService) Translate(ctx context.Context, conversationID, messageID int, targetLanguage string) (string, error) {
+	return translateMessage(ctx, s, conversationID, messageID, targetLanguage)
+}
+
+func translateMessage(ctx context.Context, r Requester, conversationID, messageID int, targetLanguage string) (string, error) {
 	path := fmt.Sprintf("/conversations/%d/messages/%d/translate", conversationID, messageID)
 	body := map[string]string{"target_language": targetLanguage}
 	var result struct {
 		Content string `json:"content"`
 	}
-	if err := c.Post(ctx, path, body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
 		return "", err
 	}
 	return result.Content, nil
@@ -152,9 +233,18 @@ func (c *Client) TranslateMessage(ctx context.Context, conversationID, messageID
 
 // RetryMessage retries sending a failed message
 func (c *Client) RetryMessage(ctx context.Context, conversationID, messageID int) (*Message, error) {
+	return retryMessage(ctx, c, conversationID, messageID)
+}
+
+// Retry retries sending a failed message.
+func (s MessagesService) Retry(ctx context.Context, conversationID, messageID int) (*Message, error) {
+	return retryMessage(ctx, s, conversationID, messageID)
+}
+
+func retryMessage(ctx context.Context, r Requester, conversationID, messageID int) (*Message, error) {
 	path := fmt.Sprintf("/conversations/%d/messages/%d/retry", conversationID, messageID)
 	var result Message
-	if err := c.Post(ctx, path, nil, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
