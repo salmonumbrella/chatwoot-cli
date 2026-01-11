@@ -2,33 +2,48 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 )
 
 // GetAccount gets the account details
 func (c *Client) GetAccount(ctx context.Context) (*Account, error) {
-	url := fmt.Sprintf("%s/api/v1/accounts/%d", c.BaseURL, c.AccountID)
+	return getAccount(ctx, c)
+}
 
+// Get gets the account details.
+func (s AccountService) Get(ctx context.Context) (*Account, error) {
+	return getAccount(ctx, s)
+}
+
+func getAccount(ctx context.Context, r Requester) (*Account, error) {
+	url := r.accountPath("")
 	var result Account
-	if err := c.do(ctx, http.MethodGet, url, nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, url, nil, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
 // UpdateAccount updates the account
 func (c *Client) UpdateAccount(ctx context.Context, name string) (*Account, error) {
+	return updateAccount(ctx, c, name)
+}
+
+// Update updates the account.
+func (s AccountService) Update(ctx context.Context, name string) (*Account, error) {
+	return updateAccount(ctx, s, name)
+}
+
+func updateAccount(ctx context.Context, r Requester, name string) (*Account, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
 	}
 
-	url := fmt.Sprintf("%s/api/v1/accounts/%d", c.BaseURL, c.AccountID)
+	url := r.accountPath("")
 
 	var result Account
-	if err := c.do(ctx, http.MethodPatch, url, body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, url, body, &result); err != nil {
 		return nil, err
 	}
 
