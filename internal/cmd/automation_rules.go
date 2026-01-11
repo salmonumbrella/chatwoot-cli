@@ -27,7 +27,7 @@ func newAutomationRulesCmd() *cobra.Command {
 }
 
 func newAutomationRulesListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all automation rules",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -63,10 +63,18 @@ func newAutomationRulesListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "event_name"},
+		"default": {"id", "name", "event_name", "active"},
+		"debug":   {"id", "name", "description", "event_name", "conditions", "actions", "active", "account_id"},
+	})
+
+	return cmd
 }
 
 func newAutomationRulesGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get automation rule by ID",
 		Args:  cobra.ExactArgs(1),
@@ -100,6 +108,14 @@ func newAutomationRulesGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "event_name"},
+		"default": {"id", "name", "event_name", "active"},
+		"debug":   {"id", "name", "description", "event_name", "conditions", "actions", "active", "account_id"},
+	})
+
+	return cmd
 }
 
 func newAutomationRulesCreateCmd() *cobra.Command {

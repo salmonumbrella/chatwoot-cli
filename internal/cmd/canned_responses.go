@@ -26,7 +26,7 @@ func newCannedResponsesCmd() *cobra.Command {
 }
 
 func newCannedResponsesListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all canned responses",
@@ -59,10 +59,18 @@ func newCannedResponsesListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "short_code"},
+		"default": {"id", "short_code", "content"},
+		"debug":   {"id", "short_code", "content", "account_id"},
+	})
+
+	return cmd
 }
 
 func newCannedResponsesGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a canned response by ID",
 		Args:  cobra.ExactArgs(1),
@@ -93,6 +101,14 @@ func newCannedResponsesGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "short_code"},
+		"default": {"id", "short_code", "content"},
+		"debug":   {"id", "short_code", "content", "account_id"},
+	})
+
+	return cmd
 }
 
 func newCannedResponsesCreateCmd() *cobra.Command {

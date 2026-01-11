@@ -42,7 +42,7 @@ func newPortalsCmd() *cobra.Command {
 }
 
 func newPortalsListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List all portals",
 		Example: "chatwoot portals list",
@@ -70,10 +70,18 @@ func newPortalsListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "slug"},
+		"default": {"id", "name", "slug", "custom_domain", "color", "homepage_link"},
+		"debug":   {"id", "name", "slug", "custom_domain", "color", "homepage_link", "page_title", "header_text", "account_id"},
+	})
+
+	return cmd
 }
 
 func newPortalsGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "get <portal-slug>",
 		Short:   "Get a portal by slug",
 		Example: "chatwoot portals get help-center",
@@ -106,6 +114,14 @@ func newPortalsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "slug"},
+		"default": {"id", "name", "slug", "custom_domain", "color", "homepage_link"},
+		"debug":   {"id", "name", "slug", "custom_domain", "color", "homepage_link", "page_title", "header_text", "account_id"},
+	})
+
+	return cmd
 }
 
 func newPortalsCreateCmd() *cobra.Command {

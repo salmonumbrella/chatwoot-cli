@@ -74,6 +74,29 @@ func newCampaignsListCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
 
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "title", "campaign_status"},
+		"default": {"id", "title", "campaign_status", "campaign_type", "enabled", "inbox_id", "created_at"},
+		"debug": {
+			"id",
+			"title",
+			"description",
+			"message",
+			"campaign_status",
+			"campaign_type",
+			"enabled",
+			"inbox_id",
+			"sender_id",
+			"scheduled_at",
+			"trigger_only_during_business_hours",
+			"audience",
+			"trigger_rules",
+			"created_at",
+			"updated_at",
+			"account_id",
+		},
+	})
+
 	return cmd
 }
 
@@ -124,6 +147,29 @@ func newCampaignsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "title", "campaign_status"},
+		"default": {"id", "title", "campaign_status", "campaign_type", "enabled", "inbox_id", "created_at"},
+		"debug": {
+			"id",
+			"title",
+			"description",
+			"message",
+			"campaign_status",
+			"campaign_type",
+			"enabled",
+			"inbox_id",
+			"sender_id",
+			"scheduled_at",
+			"trigger_only_during_business_hours",
+			"audience",
+			"trigger_rules",
+			"created_at",
+			"updated_at",
+			"account_id",
+		},
+	})
 
 	return cmd
 }

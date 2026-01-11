@@ -87,11 +87,17 @@ func newCustomFiltersListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by type: conversation or contact")
 
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "filter_type"},
+		"default": {"id", "name", "filter_type", "query"},
+		"debug":   {"id", "name", "filter_type", "query"},
+	})
+
 	return cmd
 }
 
 func newCustomFiltersGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a custom filter by ID",
 		Args:  cobra.ExactArgs(1),
@@ -124,6 +130,14 @@ func newCustomFiltersGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "filter_type"},
+		"default": {"id", "name", "filter_type", "query"},
+		"debug":   {"id", "name", "filter_type", "query"},
+	})
+
+	return cmd
 }
 
 func newCustomFiltersCreateCmd() *cobra.Command {

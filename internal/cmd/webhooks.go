@@ -27,7 +27,7 @@ func newWebhooksCmd() *cobra.Command {
 }
 
 func newWebhooksListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all webhooks",
@@ -62,10 +62,18 @@ func newWebhooksListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "url"},
+		"default": {"id", "url", "subscriptions"},
+		"debug":   {"id", "url", "subscriptions", "account_id"},
+	})
+
+	return cmd
 }
 
 func newWebhooksGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "get <id>",
 		Aliases: []string{"show"},
 		Short:   "Get a webhook by ID",
@@ -104,6 +112,14 @@ func newWebhooksGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "url"},
+		"default": {"id", "url", "subscriptions"},
+		"debug":   {"id", "url", "subscriptions", "account_id"},
+	})
+
+	return cmd
 }
 
 func newWebhooksCreateCmd() *cobra.Command {

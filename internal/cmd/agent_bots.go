@@ -28,7 +28,7 @@ func newAgentBotsCmd() *cobra.Command {
 }
 
 func newAgentBotsListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all agent bots",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -60,10 +60,18 @@ func newAgentBotsListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name"},
+		"default": {"id", "name", "outgoing_url"},
+		"debug":   {"id", "name", "description", "outgoing_url", "account_id"},
+	})
+
+	return cmd
 }
 
 func newAgentBotsGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get agent bot by ID",
 		Args:  cobra.ExactArgs(1),
@@ -94,6 +102,14 @@ func newAgentBotsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name"},
+		"default": {"id", "name", "outgoing_url"},
+		"debug":   {"id", "name", "description", "outgoing_url", "account_id"},
+	})
+
+	return cmd
 }
 
 func newAgentBotsCreateCmd() *cobra.Command {

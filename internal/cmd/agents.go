@@ -52,13 +52,21 @@ func newAgentsListCmd() *cobra.Command {
 		},
 	}
 
-	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "role"},
+		"debug":   {"id", "name", "email", "role", "availability_status", "thumbnail", "confirmed_at"},
+	})
+
+	return cmd
 }
 
 func newAgentsGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get agent by ID",
 		Args:  cobra.ExactArgs(1),
@@ -97,6 +105,14 @@ func newAgentsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "role"},
+		"debug":   {"id", "name", "email", "role", "availability_status", "thumbnail", "confirmed_at"},
+	})
+
+	return cmd
 }
 
 func newAgentsCreateCmd() *cobra.Command {

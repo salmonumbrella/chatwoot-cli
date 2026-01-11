@@ -88,11 +88,17 @@ func newCustomAttributesListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&model, "model", "", "Filter by model: contact or conversation")
 
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "attribute_display_name", "attribute_key"},
+		"default": {"id", "attribute_display_name", "attribute_key", "attribute_model", "attribute_display_type"},
+		"debug":   {"id", "attribute_display_name", "attribute_key", "attribute_model", "attribute_display_type", "default_value", "attribute_values"},
+	})
+
 	return cmd
 }
 
 func newCustomAttributesGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a custom attribute definition by ID",
 		Args:  cobra.ExactArgs(1),
@@ -131,6 +137,14 @@ func newCustomAttributesGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "attribute_display_name", "attribute_key"},
+		"default": {"id", "attribute_display_name", "attribute_key", "attribute_model", "attribute_display_type"},
+		"debug":   {"id", "attribute_display_name", "attribute_key", "attribute_model", "attribute_display_type", "default_value", "attribute_values"},
+	})
+
+	return cmd
 }
 
 func newCustomAttributesCreateCmd() *cobra.Command {
