@@ -21,8 +21,17 @@ type LabelListResponse struct {
 
 // ListLabels retrieves all labels for the account
 func (c *Client) ListLabels(ctx context.Context) ([]Label, error) {
+	return listLabels(ctx, c)
+}
+
+// List retrieves all labels for the account.
+func (s LabelsService) List(ctx context.Context) ([]Label, error) {
+	return listLabels(ctx, s)
+}
+
+func listLabels(ctx context.Context, r Requester) ([]Label, error) {
 	var result LabelListResponse
-	if err := c.Get(ctx, "/labels", &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath("/labels"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -30,9 +39,18 @@ func (c *Client) ListLabels(ctx context.Context) ([]Label, error) {
 
 // GetLabel retrieves a specific label by ID
 func (c *Client) GetLabel(ctx context.Context, id int) (*Label, error) {
+	return getLabel(ctx, c, id)
+}
+
+// Get retrieves a specific label by ID.
+func (s LabelsService) Get(ctx context.Context, id int) (*Label, error) {
+	return getLabel(ctx, s, id)
+}
+
+func getLabel(ctx context.Context, r Requester, id int) (*Label, error) {
 	path := fmt.Sprintf("/labels/%d", id)
 	var result Label
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -40,6 +58,15 @@ func (c *Client) GetLabel(ctx context.Context, id int) (*Label, error) {
 
 // CreateLabel creates a new label
 func (c *Client) CreateLabel(ctx context.Context, title, description, color string, showOnSidebar bool) (*Label, error) {
+	return createLabel(ctx, c, title, description, color, showOnSidebar)
+}
+
+// Create creates a new label.
+func (s LabelsService) Create(ctx context.Context, title, description, color string, showOnSidebar bool) (*Label, error) {
+	return createLabel(ctx, s, title, description, color, showOnSidebar)
+}
+
+func createLabel(ctx context.Context, r Requester, title, description, color string, showOnSidebar bool) (*Label, error) {
 	body := map[string]any{
 		"title":           title,
 		"show_on_sidebar": showOnSidebar,
@@ -52,7 +79,7 @@ func (c *Client) CreateLabel(ctx context.Context, title, description, color stri
 	}
 
 	var result Label
-	if err := c.Post(ctx, "/labels", body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/labels"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -60,6 +87,15 @@ func (c *Client) CreateLabel(ctx context.Context, title, description, color stri
 
 // UpdateLabel updates an existing label
 func (c *Client) UpdateLabel(ctx context.Context, id int, title, description, color string, showOnSidebar *bool) (*Label, error) {
+	return updateLabel(ctx, c, id, title, description, color, showOnSidebar)
+}
+
+// Update updates an existing label.
+func (s LabelsService) Update(ctx context.Context, id int, title, description, color string, showOnSidebar *bool) (*Label, error) {
+	return updateLabel(ctx, s, id, title, description, color, showOnSidebar)
+}
+
+func updateLabel(ctx context.Context, r Requester, id int, title, description, color string, showOnSidebar *bool) (*Label, error) {
 	body := map[string]any{}
 	if title != "" {
 		body["title"] = title
@@ -76,7 +112,7 @@ func (c *Client) UpdateLabel(ctx context.Context, id int, title, description, co
 
 	path := fmt.Sprintf("/labels/%d", id)
 	var result Label
-	if err := c.Patch(ctx, path, body, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -84,6 +120,15 @@ func (c *Client) UpdateLabel(ctx context.Context, id int, title, description, co
 
 // DeleteLabel deletes a label
 func (c *Client) DeleteLabel(ctx context.Context, id int) error {
+	return deleteLabel(ctx, c, id)
+}
+
+// Delete deletes a label.
+func (s LabelsService) Delete(ctx context.Context, id int) error {
+	return deleteLabel(ctx, s, id)
+}
+
+func deleteLabel(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/labels/%d", id)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
