@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": 2001,
+      "name": "Ada Lovelace",
+      "email": "ada@example.com",
+      "phone_number": "+15555550100",
+      "created_at": 1700001000
+    },
+    {
+      "id": 2002,
+      "name": "Grace Hopper",
+      "created_at": 1700002000
+    }
+  ]
+}
