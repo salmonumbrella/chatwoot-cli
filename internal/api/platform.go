@@ -30,8 +30,17 @@ type CreatePlatformAccountRequest struct {
 
 // CreatePlatformAccount creates a new account via platform API
 func (c *Client) CreatePlatformAccount(ctx context.Context, req CreatePlatformAccountRequest) (*PlatformAccount, error) {
+	return createPlatformAccount(ctx, c, req)
+}
+
+// CreateAccount creates a new account via platform API.
+func (s PlatformService) CreateAccount(ctx context.Context, req CreatePlatformAccountRequest) (*PlatformAccount, error) {
+	return createPlatformAccount(ctx, s, req)
+}
+
+func createPlatformAccount(ctx context.Context, r Requester, req CreatePlatformAccountRequest) (*PlatformAccount, error) {
 	var result PlatformAccount
-	if err := c.do(ctx, "POST", c.platformPath("/accounts"), req, &result); err != nil {
+	if err := r.do(ctx, "POST", r.platformPath("/accounts"), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -39,8 +48,17 @@ func (c *Client) CreatePlatformAccount(ctx context.Context, req CreatePlatformAc
 
 // GetPlatformAccount retrieves an account by ID via platform API
 func (c *Client) GetPlatformAccount(ctx context.Context, accountID int) (*PlatformAccount, error) {
+	return getPlatformAccount(ctx, c, accountID)
+}
+
+// GetAccount retrieves an account by ID via platform API.
+func (s PlatformService) GetAccount(ctx context.Context, accountID int) (*PlatformAccount, error) {
+	return getPlatformAccount(ctx, s, accountID)
+}
+
+func getPlatformAccount(ctx context.Context, r Requester, accountID int) (*PlatformAccount, error) {
 	var result PlatformAccount
-	if err := c.do(ctx, "GET", c.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -48,7 +66,16 @@ func (c *Client) GetPlatformAccount(ctx context.Context, accountID int) (*Platfo
 
 // DeletePlatformAccount deletes an account by ID via platform API
 func (c *Client) DeletePlatformAccount(ctx context.Context, accountID int) error {
-	return c.do(ctx, "DELETE", c.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, nil)
+	return deletePlatformAccount(ctx, c, accountID)
+}
+
+// DeleteAccount deletes an account by ID via platform API.
+func (s PlatformService) DeleteAccount(ctx context.Context, accountID int) error {
+	return deletePlatformAccount(ctx, s, accountID)
+}
+
+func deletePlatformAccount(ctx context.Context, r Requester, accountID int) error {
+	return r.do(ctx, "DELETE", r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, nil)
 }
 
 // UpdatePlatformAccountRequest represents a request to update an account
@@ -61,8 +88,17 @@ type UpdatePlatformAccountRequest struct {
 
 // UpdatePlatformAccount updates an account via platform API
 func (c *Client) UpdatePlatformAccount(ctx context.Context, accountID int, req UpdatePlatformAccountRequest) (*PlatformAccount, error) {
+	return updatePlatformAccount(ctx, c, accountID, req)
+}
+
+// UpdateAccount updates an account via platform API.
+func (s PlatformService) UpdateAccount(ctx context.Context, accountID int, req UpdatePlatformAccountRequest) (*PlatformAccount, error) {
+	return updatePlatformAccount(ctx, s, accountID, req)
+}
+
+func updatePlatformAccount(ctx context.Context, r Requester, accountID int, req UpdatePlatformAccountRequest) (*PlatformAccount, error) {
 	var result PlatformAccount
-	if err := c.do(ctx, "PATCH", c.platformPath(fmt.Sprintf("/accounts/%d", accountID)), req, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -100,8 +136,17 @@ type UpdatePlatformUserRequest struct {
 
 // CreatePlatformUser creates a new user via platform API
 func (c *Client) CreatePlatformUser(ctx context.Context, req CreatePlatformUserRequest) (*PlatformUser, error) {
+	return createPlatformUser(ctx, c, req)
+}
+
+// CreateUser creates a new user via platform API.
+func (s PlatformService) CreateUser(ctx context.Context, req CreatePlatformUserRequest) (*PlatformUser, error) {
+	return createPlatformUser(ctx, s, req)
+}
+
+func createPlatformUser(ctx context.Context, r Requester, req CreatePlatformUserRequest) (*PlatformUser, error) {
 	var result PlatformUser
-	if err := c.do(ctx, "POST", c.platformPath("/users"), req, &result); err != nil {
+	if err := r.do(ctx, "POST", r.platformPath("/users"), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -109,8 +154,17 @@ func (c *Client) CreatePlatformUser(ctx context.Context, req CreatePlatformUserR
 
 // GetPlatformUser retrieves a user by ID via platform API
 func (c *Client) GetPlatformUser(ctx context.Context, userID int) (*PlatformUser, error) {
+	return getPlatformUser(ctx, c, userID)
+}
+
+// GetUser retrieves a user by ID via platform API.
+func (s PlatformService) GetUser(ctx context.Context, userID int) (*PlatformUser, error) {
+	return getPlatformUser(ctx, s, userID)
+}
+
+func getPlatformUser(ctx context.Context, r Requester, userID int) (*PlatformUser, error) {
 	var result PlatformUser
-	if err := c.do(ctx, "GET", c.platformPath(fmt.Sprintf("/users/%d", userID)), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/users/%d", userID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -118,8 +172,17 @@ func (c *Client) GetPlatformUser(ctx context.Context, userID int) (*PlatformUser
 
 // UpdatePlatformUser updates a user via platform API
 func (c *Client) UpdatePlatformUser(ctx context.Context, userID int, req UpdatePlatformUserRequest) (*PlatformUser, error) {
+	return updatePlatformUser(ctx, c, userID, req)
+}
+
+// UpdateUser updates a user via platform API.
+func (s PlatformService) UpdateUser(ctx context.Context, userID int, req UpdatePlatformUserRequest) (*PlatformUser, error) {
+	return updatePlatformUser(ctx, s, userID, req)
+}
+
+func updatePlatformUser(ctx context.Context, r Requester, userID int, req UpdatePlatformUserRequest) (*PlatformUser, error) {
 	var result PlatformUser
-	if err := c.do(ctx, "PATCH", c.platformPath(fmt.Sprintf("/users/%d", userID)), req, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.platformPath(fmt.Sprintf("/users/%d", userID)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -127,7 +190,16 @@ func (c *Client) UpdatePlatformUser(ctx context.Context, userID int, req UpdateP
 
 // DeletePlatformUser deletes a user by ID via platform API
 func (c *Client) DeletePlatformUser(ctx context.Context, userID int) error {
-	return c.do(ctx, "DELETE", c.platformPath(fmt.Sprintf("/users/%d", userID)), nil, nil)
+	return deletePlatformUser(ctx, c, userID)
+}
+
+// DeleteUser deletes a user by ID via platform API.
+func (s PlatformService) DeleteUser(ctx context.Context, userID int) error {
+	return deletePlatformUser(ctx, s, userID)
+}
+
+func deletePlatformUser(ctx context.Context, r Requester, userID int) error {
+	return r.do(ctx, "DELETE", r.platformPath(fmt.Sprintf("/users/%d", userID)), nil, nil)
 }
 
 // PlatformUserLogin represents the SSO login response
@@ -137,8 +209,17 @@ type PlatformUserLogin struct {
 
 // GetPlatformUserLogin gets the SSO login URL for a user
 func (c *Client) GetPlatformUserLogin(ctx context.Context, userID int) (*PlatformUserLogin, error) {
+	return getPlatformUserLogin(ctx, c, userID)
+}
+
+// GetUserLogin gets the SSO login URL for a user.
+func (s PlatformService) GetUserLogin(ctx context.Context, userID int) (*PlatformUserLogin, error) {
+	return getPlatformUserLogin(ctx, s, userID)
+}
+
+func getPlatformUserLogin(ctx context.Context, r Requester, userID int) (*PlatformUserLogin, error) {
 	var result PlatformUserLogin
-	if err := c.do(ctx, "GET", c.platformPath(fmt.Sprintf("/users/%d/login", userID)), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/users/%d/login", userID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -162,8 +243,17 @@ type CreatePlatformAccountUserRequest struct {
 
 // ListPlatformAccountUsers lists account users via platform API
 func (c *Client) ListPlatformAccountUsers(ctx context.Context, accountID int) ([]PlatformAccountUser, error) {
+	return listPlatformAccountUsers(ctx, c, accountID)
+}
+
+// ListAccountUsers lists account users via platform API.
+func (s PlatformService) ListAccountUsers(ctx context.Context, accountID int) ([]PlatformAccountUser, error) {
+	return listPlatformAccountUsers(ctx, s, accountID)
+}
+
+func listPlatformAccountUsers(ctx context.Context, r Requester, accountID int) ([]PlatformAccountUser, error) {
 	var result []PlatformAccountUser
-	if err := c.do(ctx, "GET", c.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -171,8 +261,17 @@ func (c *Client) ListPlatformAccountUsers(ctx context.Context, accountID int) ([
 
 // CreatePlatformAccountUser creates an account user via platform API
 func (c *Client) CreatePlatformAccountUser(ctx context.Context, accountID int, req CreatePlatformAccountUserRequest) (*PlatformAccountUser, error) {
+	return createPlatformAccountUser(ctx, c, accountID, req)
+}
+
+// CreateAccountUser creates an account user via platform API.
+func (s PlatformService) CreateAccountUser(ctx context.Context, accountID int, req CreatePlatformAccountUserRequest) (*PlatformAccountUser, error) {
+	return createPlatformAccountUser(ctx, s, accountID, req)
+}
+
+func createPlatformAccountUser(ctx context.Context, r Requester, accountID int, req CreatePlatformAccountUserRequest) (*PlatformAccountUser, error) {
 	var result PlatformAccountUser
-	if err := c.do(ctx, "POST", c.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), req, &result); err != nil {
+	if err := r.do(ctx, "POST", r.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -180,9 +279,18 @@ func (c *Client) CreatePlatformAccountUser(ctx context.Context, accountID int, r
 
 // DeletePlatformAccountUser removes a user from an account via platform API
 func (c *Client) DeletePlatformAccountUser(ctx context.Context, accountID int, userID int) error {
+	return deletePlatformAccountUser(ctx, c, accountID, userID)
+}
+
+// DeleteAccountUser removes a user from an account via platform API.
+func (s PlatformService) DeleteAccountUser(ctx context.Context, accountID int, userID int) error {
+	return deletePlatformAccountUser(ctx, s, accountID, userID)
+}
+
+func deletePlatformAccountUser(ctx context.Context, r Requester, accountID int, userID int) error {
 	path := fmt.Sprintf("/accounts/%d/account_users", accountID)
 	if userID > 0 {
 		path = fmt.Sprintf("%s?user_id=%d", path, userID)
 	}
-	return c.do(ctx, "DELETE", c.platformPath(path), nil, nil)
+	return r.do(ctx, "DELETE", r.platformPath(path), nil, nil)
 }
