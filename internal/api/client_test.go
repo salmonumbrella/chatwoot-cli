@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -255,6 +256,38 @@ func TestGet_RetriesOn5xx(t *testing.T) {
 	}
 	if atomic.LoadInt32(&calls) != 2 {
 		t.Fatalf("expected 2 calls, got %d", calls)
+	}
+}
+
+func TestCircuitBreakerOpensAfterFailures(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.RetryConfig.Max5xxRetries = 0
+	client.RetryConfig.ServerErrorRetryDelay = 0
+	if client.circuitBreaker != nil {
+		client.circuitBreaker.threshold = 1
+		client.circuitBreaker.resetTime = time.Hour
+	}
+
+	var result map[string]any
+	if err := client.Get(context.Background(), "/test", &result); err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if err := client.Get(context.Background(), "/test", &result); err == nil {
+		t.Fatalf("expected error, got nil")
+	} else if !IsCircuitBreakerError(err) {
+		t.Fatalf("expected CircuitBreakerError, got %T", err)
+	}
+
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("expected 1 call before circuit opened, got %d", calls)
 	}
 }
 
