@@ -48,9 +48,18 @@ type PublicCreateContactRequest struct {
 
 // PublicCreateContact creates a contact via public API
 func (c *Client) PublicCreateContact(ctx context.Context, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
+	return publicCreateContact(ctx, c, inboxIdentifier, req)
+}
+
+// CreateContact creates a contact via public API.
+func (s PublicService) CreateContact(ctx context.Context, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
+	return publicCreateContact(ctx, s, inboxIdentifier, req)
+}
+
+func publicCreateContact(ctx context.Context, r Requester, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
 	var result PublicContact
 	path := fmt.Sprintf("/inboxes/%s/contacts", inboxIdentifier)
-	if err := c.do(ctx, "POST", c.publicPath(path), req, &result); err != nil {
+	if err := r.do(ctx, "POST", r.publicPath(path), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -58,9 +67,18 @@ func (c *Client) PublicCreateContact(ctx context.Context, inboxIdentifier string
 
 // PublicGetContact retrieves a contact via public API
 func (c *Client) PublicGetContact(ctx context.Context, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
+	return publicGetContact(ctx, c, inboxIdentifier, contactIdentifier)
+}
+
+// GetContact retrieves a contact via public API.
+func (s PublicService) GetContact(ctx context.Context, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
+	return publicGetContact(ctx, s, inboxIdentifier, contactIdentifier)
+}
+
+func publicGetContact(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
 	var result PublicContact
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s", inboxIdentifier, contactIdentifier)
-	if err := c.do(ctx, "GET", c.publicPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -68,6 +86,15 @@ func (c *Client) PublicGetContact(ctx context.Context, inboxIdentifier, contactI
 
 // PublicCreateConversation creates a conversation via public API
 func (c *Client) PublicCreateConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, customAttributes map[string]any) (map[string]any, error) {
+	return publicCreateConversation(ctx, c, inboxIdentifier, contactIdentifier, customAttributes)
+}
+
+// CreateConversation creates a conversation via public API.
+func (s PublicService) CreateConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, customAttributes map[string]any) (map[string]any, error) {
+	return publicCreateConversation(ctx, s, inboxIdentifier, contactIdentifier, customAttributes)
+}
+
+func publicCreateConversation(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, customAttributes map[string]any) (map[string]any, error) {
 	body := map[string]any{}
 	if customAttributes != nil {
 		body["custom_attributes"] = customAttributes
@@ -75,7 +102,7 @@ func (c *Client) PublicCreateConversation(ctx context.Context, inboxIdentifier, 
 
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations", inboxIdentifier, contactIdentifier)
 	var result map[string]any
-	if err := c.do(ctx, "POST", c.publicPath(path), body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.publicPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -83,9 +110,18 @@ func (c *Client) PublicCreateConversation(ctx context.Context, inboxIdentifier, 
 
 // PublicListConversations lists conversations via public API
 func (c *Client) PublicListConversations(ctx context.Context, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
+	return publicListConversations(ctx, c, inboxIdentifier, contactIdentifier)
+}
+
+// ListConversations lists conversations via public API.
+func (s PublicService) ListConversations(ctx context.Context, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
+	return publicListConversations(ctx, s, inboxIdentifier, contactIdentifier)
+}
+
+func publicListConversations(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations", inboxIdentifier, contactIdentifier)
 	var result []map[string]any
-	if err := c.do(ctx, "GET", c.publicPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -93,9 +129,18 @@ func (c *Client) PublicListConversations(ctx context.Context, inboxIdentifier, c
 
 // PublicGetConversation retrieves a single conversation via public API
 func (c *Client) PublicGetConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
+	return publicGetConversation(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+// GetConversation retrieves a single conversation via public API.
+func (s PublicService) GetConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
+	return publicGetConversation(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+func publicGetConversation(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d", inboxIdentifier, contactIdentifier, conversationID)
 	var result map[string]any
-	if err := c.do(ctx, "GET", c.publicPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -103,9 +148,18 @@ func (c *Client) PublicGetConversation(ctx context.Context, inboxIdentifier, con
 
 // PublicResolveConversation resolves a conversation via public API
 func (c *Client) PublicResolveConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
+	return publicResolveConversation(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+// ResolveConversation resolves a conversation via public API.
+func (s PublicService) ResolveConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
+	return publicResolveConversation(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+func publicResolveConversation(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/toggle_status", inboxIdentifier, contactIdentifier, conversationID)
 	var result map[string]any
-	if err := c.do(ctx, "POST", c.publicPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, "POST", r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -113,19 +167,46 @@ func (c *Client) PublicResolveConversation(ctx context.Context, inboxIdentifier,
 
 // PublicToggleTyping toggles typing status via public API
 func (c *Client) PublicToggleTyping(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
+	return publicToggleTyping(ctx, c, inboxIdentifier, contactIdentifier, conversationID, status)
+}
+
+// ToggleTyping toggles typing status via public API.
+func (s PublicService) ToggleTyping(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
+	return publicToggleTyping(ctx, s, inboxIdentifier, contactIdentifier, conversationID, status)
+}
+
+func publicToggleTyping(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/toggle_typing", inboxIdentifier, contactIdentifier, conversationID)
 	body := map[string]string{"typing_status": status}
-	return c.do(ctx, "POST", c.publicPath(path), body, nil)
+	return r.do(ctx, "POST", r.publicPath(path), body, nil)
 }
 
 // PublicUpdateLastSeen updates last seen via public API
 func (c *Client) PublicUpdateLastSeen(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) error {
+	return publicUpdateLastSeen(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+// UpdateLastSeen updates last seen via public API.
+func (s PublicService) UpdateLastSeen(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) error {
+	return publicUpdateLastSeen(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+func publicUpdateLastSeen(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) error {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/update_last_seen", inboxIdentifier, contactIdentifier, conversationID)
-	return c.do(ctx, "POST", c.publicPath(path), nil, nil)
+	return r.do(ctx, "POST", r.publicPath(path), nil, nil)
 }
 
 // PublicCreateMessage creates a message via public API
 func (c *Client) PublicCreateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, content, echoID string) (map[string]any, error) {
+	return publicCreateMessage(ctx, c, inboxIdentifier, contactIdentifier, conversationID, content, echoID)
+}
+
+// CreateMessage creates a message via public API.
+func (s PublicService) CreateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, content, echoID string) (map[string]any, error) {
+	return publicCreateMessage(ctx, s, inboxIdentifier, contactIdentifier, conversationID, content, echoID)
+}
+
+func publicCreateMessage(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int, content, echoID string) (map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages", inboxIdentifier, contactIdentifier, conversationID)
 	body := map[string]any{
 		"content": content,
@@ -134,7 +215,7 @@ func (c *Client) PublicCreateMessage(ctx context.Context, inboxIdentifier, conta
 		body["echo_id"] = echoID
 	}
 	var result map[string]any
-	if err := c.do(ctx, "POST", c.publicPath(path), body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.publicPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -142,9 +223,18 @@ func (c *Client) PublicCreateMessage(ctx context.Context, inboxIdentifier, conta
 
 // PublicGetInbox retrieves inbox info via public API
 func (c *Client) PublicGetInbox(ctx context.Context, inboxIdentifier string) (*PublicInbox, error) {
+	return publicGetInbox(ctx, c, inboxIdentifier)
+}
+
+// GetInbox retrieves inbox info via public API.
+func (s PublicService) GetInbox(ctx context.Context, inboxIdentifier string) (*PublicInbox, error) {
+	return publicGetInbox(ctx, s, inboxIdentifier)
+}
+
+func publicGetInbox(ctx context.Context, r Requester, inboxIdentifier string) (*PublicInbox, error) {
 	var result PublicInbox
 	path := fmt.Sprintf("/inboxes/%s", inboxIdentifier)
-	if err := c.do(ctx, "GET", c.publicPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -152,9 +242,18 @@ func (c *Client) PublicGetInbox(ctx context.Context, inboxIdentifier string) (*P
 
 // PublicUpdateContact updates a contact via public API
 func (c *Client) PublicUpdateContact(ctx context.Context, inboxIdentifier, contactIdentifier string, req PublicUpdateContactRequest) (*PublicContact, error) {
+	return publicUpdateContact(ctx, c, inboxIdentifier, contactIdentifier, req)
+}
+
+// UpdateContact updates a contact via public API.
+func (s PublicService) UpdateContact(ctx context.Context, inboxIdentifier, contactIdentifier string, req PublicUpdateContactRequest) (*PublicContact, error) {
+	return publicUpdateContact(ctx, s, inboxIdentifier, contactIdentifier, req)
+}
+
+func publicUpdateContact(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, req PublicUpdateContactRequest) (*PublicContact, error) {
 	var result PublicContact
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s", inboxIdentifier, contactIdentifier)
-	if err := c.do(ctx, "PATCH", c.publicPath(path), req, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.publicPath(path), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -162,9 +261,18 @@ func (c *Client) PublicUpdateContact(ctx context.Context, inboxIdentifier, conta
 
 // PublicListMessages lists messages via public API
 func (c *Client) PublicListMessages(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
+	return publicListMessages(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+// ListMessages lists messages via public API.
+func (s PublicService) ListMessages(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
+	return publicListMessages(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
+}
+
+func publicListMessages(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages", inboxIdentifier, contactIdentifier, conversationID)
 	var result []map[string]any
-	if err := c.do(ctx, "GET", c.publicPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, "GET", r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -172,10 +280,19 @@ func (c *Client) PublicListMessages(ctx context.Context, inboxIdentifier, contac
 
 // PublicUpdateMessage updates a message via public API
 func (c *Client) PublicUpdateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID, messageID int, content string) (map[string]any, error) {
+	return publicUpdateMessage(ctx, c, inboxIdentifier, contactIdentifier, conversationID, messageID, content)
+}
+
+// UpdateMessage updates a message via public API.
+func (s PublicService) UpdateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID, messageID int, content string) (map[string]any, error) {
+	return publicUpdateMessage(ctx, s, inboxIdentifier, contactIdentifier, conversationID, messageID, content)
+}
+
+func publicUpdateMessage(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID, messageID int, content string) (map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages/%d", inboxIdentifier, contactIdentifier, conversationID, messageID)
 	body := map[string]any{"content": content}
 	var result map[string]any
-	if err := c.do(ctx, "PATCH", c.publicPath(path), body, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.publicPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
