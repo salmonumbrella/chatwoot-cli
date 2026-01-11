@@ -45,6 +45,13 @@ type Client struct {
 	validateMu         sync.Mutex
 }
 
+// Compile-time interface implementation checks
+var (
+	_ Requester    = (*Client)(nil)
+	_ PathResolver = (*Client)(nil)
+	_ HTTPExecutor = (*Client)(nil)
+)
+
 var validateChatwootURL = validation.ValidateChatwootURL
 
 // New creates a new Chatwoot API client
