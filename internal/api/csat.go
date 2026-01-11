@@ -22,6 +22,15 @@ type CSATListParams struct {
 
 // ListCSATResponses retrieves CSAT survey responses with optional filters
 func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) ([]CSATResponse, error) {
+	return listCSATResponses(ctx, c, params)
+}
+
+// List retrieves CSAT survey responses with optional filters.
+func (s CSATService) List(ctx context.Context, params CSATListParams) ([]CSATResponse, error) {
+	return listCSATResponses(ctx, s, params)
+}
+
+func listCSATResponses(ctx context.Context, r Requester, params CSATListParams) ([]CSATResponse, error) {
 	query := url.Values{}
 	if params.Page > 0 {
 		query.Set("page", strconv.Itoa(params.Page))
@@ -53,7 +62,7 @@ func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) (
 		path = path + "?" + query.Encode()
 	}
 
-	body, err := c.GetRaw(ctx, path)
+	body, err := r.doRaw(ctx, "GET", r.accountPath(path), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,11 +83,20 @@ func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) (
 
 // GetConversationCSAT retrieves CSAT for a specific conversation
 func (c *Client) GetConversationCSAT(ctx context.Context, conversationID int) (*CSATResponse, error) {
+	return getConversationCSAT(ctx, c, conversationID)
+}
+
+// Conversation retrieves CSAT for a specific conversation.
+func (s CSATService) Conversation(ctx context.Context, conversationID int) (*CSATResponse, error) {
+	return getConversationCSAT(ctx, s, conversationID)
+}
+
+func getConversationCSAT(ctx context.Context, r Requester, conversationID int) (*CSATResponse, error) {
 	// The API doesn't have a direct endpoint for conversation CSAT,
 	// so we filter the list by conversation (not ideal but works)
 	path := fmt.Sprintf("/csat_survey_responses?conversation_id=%d", conversationID)
 
-	body, err := c.GetRaw(ctx, path)
+	body, err := r.doRaw(ctx, "GET", r.accountPath(path), nil)
 	if err != nil {
 		return nil, err
 	}
