@@ -625,6 +625,39 @@ chatwoot conversations search --query "refund request"
 chatwoot contacts search --query "john smith"
 ```
 
+## Common Workflows
+
+### Inbox → Conversation → Message
+
+```bash
+# Pick an inbox
+chatwoot inboxes list
+
+# List open conversations in an inbox
+chatwoot conversations list --status open --inbox-id 1
+
+# Send a message in a conversation
+chatwoot messages create 123 --content "Hello! How can I help?"
+```
+
+### Contacts → Conversations
+
+```bash
+# Find a contact
+chatwoot contacts search --query "john@example.com"
+
+# Get the conversations for a contact
+chatwoot contacts conversations 123
+```
+
+## Troubleshooting
+
+- **401 Unauthorized**: run `chatwoot auth login` and verify your token.
+- **403 Forbidden**: check your account role and permissions.
+- **404 Not Found**: verify the resource ID (it may have been deleted).
+- **URL validation failed**: ensure the base URL is public, or use `--allow-private` only if you trust the target.
+- **Base URL not configured**: set `CHATWOOT_BASE_URL` / `CHATWOOT_API_TOKEN` / `CHATWOOT_ACCOUNT_ID` or run `chatwoot auth login`.
+
 ## Global Flags
 
 All commands support these flags:
