@@ -457,3 +457,124 @@ func TestGoldenCampaignsGetJSON(t *testing.T) {
 
 	assertGolden(t, "campaigns_get.json", output)
 }
+
+func TestGoldenLabelsCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/labels", jsonResponse(200, `{
+			"id": 301,
+			"title": "Urgent",
+			"description": "High priority issues",
+			"color": "#ff0000",
+			"show_on_sidebar": true
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"labels", "create", "--title", "Urgent", "--color", "#ff0000", "--description", "High priority issues", "--show-on-sidebar", "-o", "json"}); err != nil {
+			t.Fatalf("labels create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "labels_create.json", output)
+}
+
+func TestGoldenLabelsUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/labels/301", jsonResponse(200, `{
+			"id": 301,
+			"title": "Urgent",
+			"description": "High priority issues",
+			"color": "#00ff00",
+			"show_on_sidebar": true
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"labels", "update", "301", "--color", "#00ff00", "-o", "json"}); err != nil {
+			t.Fatalf("labels update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "labels_update.json", output)
+}
+
+func TestGoldenLabelsDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/labels/301", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"labels", "delete", "301", "-o", "json"}); err != nil {
+			t.Fatalf("labels delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "labels_delete.json", output)
+}
+
+func TestGoldenContactsCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/contacts", jsonResponse(200, `{
+			"payload": {
+				"contact": {
+					"id": 4001,
+					"name": "Jane Doe",
+					"email": "jane@example.com",
+					"phone_number": "+15555550123",
+					"created_at": 1700007000
+				},
+				"contact_inbox": {}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"contacts", "create", "--name", "Jane Doe", "--email", "jane@example.com", "--phone", "+15555550123", "-o", "json"}); err != nil {
+			t.Fatalf("contacts create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "contacts_create.json", output)
+}
+
+func TestGoldenContactsUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/contacts/4001", jsonResponse(200, `{
+			"payload": {
+				"id": 4001,
+				"name": "Jane Doe",
+				"email": "jane@example.com",
+				"phone_number": "+15555550123",
+				"created_at": 1700007000
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"contacts", "update", "4001", "--email", "jane@example.com", "-o", "json"}); err != nil {
+			t.Fatalf("contacts update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "contacts_update.json", output)
+}
+
+func TestGoldenContactsDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/contacts/4001", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"contacts", "delete", "4001", "-o", "json"}); err != nil {
+			t.Fatalf("contacts delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "contacts_delete.json", output)
+}
