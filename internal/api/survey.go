@@ -29,3 +29,8 @@ func (c *Client) GetSurveyResponse(ctx context.Context, conversationUUID string)
 	}
 	return &result, nil
 }
+
+// GetResponse retrieves a survey response by conversation UUID.
+func (s SurveyService) GetResponse(ctx context.Context, conversationUUID string) (*SurveyResponse, error) {
+	return s.GetSurveyResponse(ctx, conversationUUID)
+}
