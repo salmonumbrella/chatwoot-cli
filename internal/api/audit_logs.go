@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // AuditLogList is a paginated list of audit logs
@@ -23,6 +24,6 @@ func listAuditLogs(ctx context.Context, r Requester, page int) (*AuditLogList, e
 	}
 
 	var result AuditLogList
-	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
+	err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result)
 	return &result, err
 }

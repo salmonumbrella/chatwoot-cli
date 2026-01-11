@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // SurveyResponse represents a CSAT survey response from the survey API
@@ -24,7 +25,7 @@ func (c *Client) surveyPath(path string) string {
 func (s SurveyService) GetResponse(ctx context.Context, conversationUUID string) (*SurveyResponse, error) {
 	var result SurveyResponse
 	path := s.surveyPath(fmt.Sprintf("/responses/%s", conversationUUID))
-	if err := s.do(ctx, "GET", path, nil, &result); err != nil {
+	if err := s.do(ctx, http.MethodGet, path, nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

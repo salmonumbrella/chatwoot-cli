@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 const maxPaginationIterations = 1000
@@ -29,7 +30,7 @@ func listMessagesBefore(ctx context.Context, r Requester, conversationID, before
 	var result struct {
 		Payload []Message `json:"payload"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -112,7 +113,7 @@ func createMessage(ctx context.Context, r Requester, conversationID int, content
 	}
 
 	var message Message
-	if err := r.do(ctx, "POST", r.accountPath(path), params, &message); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), params, &message); err != nil {
 		return nil, err
 	}
 	return &message, nil
@@ -125,7 +126,7 @@ func (s MessagesService) Delete(ctx context.Context, conversationID, messageID i
 
 func deleteMessage(ctx context.Context, r Requester, conversationID, messageID int) error {
 	path := fmt.Sprintf("/conversations/%d/messages/%d", conversationID, messageID)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Update updates a message's content.
@@ -140,7 +141,7 @@ func updateMessage(ctx context.Context, r Requester, conversationID, messageID i
 	path := fmt.Sprintf("/conversations/%d/messages/%d", conversationID, messageID)
 	params := map[string]string{"content": content}
 	var message Message
-	if err := r.do(ctx, "PATCH", r.accountPath(path), params, &message); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), params, &message); err != nil {
 		return nil, err
 	}
 	return &message, nil
@@ -180,7 +181,7 @@ func translateMessage(ctx context.Context, r Requester, conversationID, messageI
 	var result struct {
 		Content string `json:"content"`
 	}
-	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), body, &result); err != nil {
 		return "", err
 	}
 	return result.Content, nil
@@ -194,7 +195,7 @@ func (s MessagesService) Retry(ctx context.Context, conversationID, messageID in
 func retryMessage(ctx context.Context, r Requester, conversationID, messageID int) (*Message, error) {
 	path := fmt.Sprintf("/conversations/%d/messages/%d/retry", conversationID, messageID)
 	var result Message
-	if err := r.do(ctx, "POST", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

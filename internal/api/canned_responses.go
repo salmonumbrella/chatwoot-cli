@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // List retrieves all canned responses for the account.
@@ -12,7 +13,7 @@ func (s CannedResponsesService) List(ctx context.Context) ([]CannedResponse, err
 
 func listCannedResponses(ctx context.Context, r Requester) ([]CannedResponse, error) {
 	var responses []CannedResponse
-	if err := r.do(ctx, "GET", r.accountPath("/canned_responses"), nil, &responses); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/canned_responses"), nil, &responses); err != nil {
 		return nil, err
 	}
 	return responses, nil
@@ -54,7 +55,7 @@ func createCannedResponse(ctx context.Context, r Requester, shortCode, content s
 		},
 	}
 	var response CannedResponse
-	if err := r.do(ctx, "POST", r.accountPath("/canned_responses"), payload, &response); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/canned_responses"), payload, &response); err != nil {
 		return nil, err
 	}
 	return &response, nil
@@ -74,7 +75,7 @@ func updateCannedResponse(ctx context.Context, r Requester, id int, shortCode, c
 	}
 	var response CannedResponse
 	path := fmt.Sprintf("/canned_responses/%d", id)
-	if err := r.do(ctx, "PATCH", r.accountPath(path), payload, &response); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), payload, &response); err != nil {
 		return nil, err
 	}
 	return &response, nil
@@ -87,5 +88,5 @@ func (s CannedResponsesService) Delete(ctx context.Context, id int) error {
 
 func deleteCannedResponse(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/canned_responses/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }

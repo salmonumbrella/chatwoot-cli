@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // PlatformAgentBot represents a platform-level agent bot
@@ -37,7 +38,7 @@ func (s PlatformAgentBotsService) List(ctx context.Context) ([]PlatformAgentBot,
 
 func listPlatformAgentBots(ctx context.Context, r Requester) ([]PlatformAgentBot, error) {
 	var result []PlatformAgentBot
-	if err := r.do(ctx, "GET", r.platformPath("/agent_bots"), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.platformPath("/agent_bots"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -50,7 +51,7 @@ func (s PlatformAgentBotsService) Get(ctx context.Context, id int) (*PlatformAge
 
 func getPlatformAgentBot(ctx context.Context, r Requester, id int) (*PlatformAgentBot, error) {
 	var result PlatformAgentBot
-	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/agent_bots/%d", id)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.platformPath(fmt.Sprintf("/agent_bots/%d", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -63,7 +64,7 @@ func (s PlatformAgentBotsService) Create(ctx context.Context, req CreatePlatform
 
 func createPlatformAgentBot(ctx context.Context, r Requester, req CreatePlatformAgentBotRequest) (*PlatformAgentBot, error) {
 	var result PlatformAgentBot
-	if err := r.do(ctx, "POST", r.platformPath("/agent_bots"), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.platformPath("/agent_bots"), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -76,7 +77,7 @@ func (s PlatformAgentBotsService) Update(ctx context.Context, id int, req Update
 
 func updatePlatformAgentBot(ctx context.Context, r Requester, id int, req UpdatePlatformAgentBotRequest) (*PlatformAgentBot, error) {
 	var result PlatformAgentBot
-	if err := r.do(ctx, "PATCH", r.platformPath(fmt.Sprintf("/agent_bots/%d", id)), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.platformPath(fmt.Sprintf("/agent_bots/%d", id)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -88,5 +89,5 @@ func (s PlatformAgentBotsService) Delete(ctx context.Context, id int) error {
 }
 
 func deletePlatformAgentBot(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "DELETE", r.platformPath(fmt.Sprintf("/agent_bots/%d", id)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.platformPath(fmt.Sprintf("/agent_bots/%d", id)), nil, nil)
 }

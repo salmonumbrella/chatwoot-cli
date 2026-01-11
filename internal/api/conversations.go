@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -65,7 +66,7 @@ func listConversations(ctx context.Context, r Requester, params ListConversation
 	}
 
 	var result ConversationList
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -78,7 +79,7 @@ func (s ConversationsService) Get(ctx context.Context, id int) (*Conversation, e
 
 func getConversation(ctx context.Context, r Requester, id int) (*Conversation, error) {
 	var result Conversation
-	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/conversations/%d", id)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/conversations/%d", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -91,7 +92,7 @@ func (s ConversationsService) Create(ctx context.Context, req CreateConversation
 
 func createConversation(ctx context.Context, r Requester, req CreateConversationRequest) (*Conversation, error) {
 	var result Conversation
-	if err := r.do(ctx, "POST", r.accountPath("/conversations"), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/conversations"), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -107,7 +108,7 @@ func filterConversations(ctx context.Context, r Requester, payload map[string]an
 		Meta    PaginationMeta `json:"meta"`
 		Payload []Conversation `json:"payload"`
 	}
-	if err := r.do(ctx, "POST", r.accountPath("/conversations/filter"), payload, &raw); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/conversations/filter"), payload, &raw); err != nil {
 		return nil, err
 	}
 	// Convert to ConversationList format for consistency
@@ -152,7 +153,7 @@ func getConversationsMeta(ctx context.Context, r Requester, params ListConversat
 	}
 
 	var result map[string]any
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -169,7 +170,7 @@ func toggleConversationStatus(ctx context.Context, r Requester, id int, status s
 		payload["snoozed_until"] = snoozedUntil
 	}
 	var result ToggleStatusResponse
-	if err := r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_status", id)), payload, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/toggle_status", id)), payload, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -182,7 +183,7 @@ func (s ConversationsService) TogglePriority(ctx context.Context, id int, priori
 
 func toggleConversationPriority(ctx context.Context, r Requester, id int, priority string) error {
 	payload := map[string]string{"priority": priority}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_priority", id)), payload, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/toggle_priority", id)), payload, nil)
 }
 
 // Assign assigns a conversation to an agent and/or team.
@@ -200,7 +201,7 @@ func assignConversation(ctx context.Context, r Requester, id, agentID, teamID in
 	}
 
 	var result any
-	if err := r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/assignments", id)), payload, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/assignments", id)), payload, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -215,7 +216,7 @@ func getConversationLabels(ctx context.Context, r Requester, id int) ([]string, 
 	var result struct {
 		Payload []string `json:"payload"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/conversations/%d/labels", id)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/conversations/%d/labels", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -231,7 +232,7 @@ func addConversationLabels(ctx context.Context, r Requester, id int, labels []st
 	var result struct {
 		Payload []string `json:"payload"`
 	}
-	if err := r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/labels", id)), payload, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/labels", id)), payload, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -244,7 +245,7 @@ func (s ConversationsService) UpdateCustomAttributes(ctx context.Context, id int
 
 func updateConversationCustomAttributes(ctx context.Context, r Requester, id int, attrs map[string]any) error {
 	payload := map[string]any{"custom_attributes": attrs}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/custom_attributes", id)), payload, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/custom_attributes", id)), payload, nil)
 }
 
 // MarkUnread marks a conversation as unread for all agents.
@@ -253,7 +254,7 @@ func (s ConversationsService) MarkUnread(ctx context.Context, id int) error {
 }
 
 func markConversationUnread(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/unread", id)), nil, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/unread", id)), nil, nil)
 }
 
 // Search searches conversations by message content.
@@ -268,7 +269,7 @@ func searchConversations(ctx context.Context, r Requester, query string, page in
 	}
 
 	var result ConversationList
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -282,7 +283,7 @@ func (s ConversationsService) Attachments(ctx context.Context, id int) ([]Attach
 func getConversationAttachments(ctx context.Context, r Requester, id int) ([]Attachment, error) {
 	path := fmt.Sprintf("/conversations/%d/attachments", id)
 	var result []Attachment
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -295,7 +296,7 @@ func (s ConversationsService) ToggleMute(ctx context.Context, id int, mute bool)
 
 func toggleMuteConversation(ctx context.Context, r Requester, id int, mute bool) error {
 	payload := map[string]bool{"status": mute}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_mute", id)), payload, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/toggle_mute", id)), payload, nil)
 }
 
 // Mute mutes a conversation.
@@ -304,7 +305,7 @@ func (s ConversationsService) Mute(ctx context.Context, id int) error {
 }
 
 func muteConversation(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/mute", id)), nil, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/mute", id)), nil, nil)
 }
 
 // Unmute unmutes a conversation.
@@ -313,7 +314,7 @@ func (s ConversationsService) Unmute(ctx context.Context, id int) error {
 }
 
 func unmuteConversation(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/unmute", id)), nil, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/unmute", id)), nil, nil)
 }
 
 // Transcript sends conversation transcript via email.
@@ -323,7 +324,7 @@ func (s ConversationsService) Transcript(ctx context.Context, id int, email stri
 
 func sendTranscript(ctx context.Context, r Requester, id int, email string) error {
 	body := map[string]string{"email": email}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/transcript", id)), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/transcript", id)), body, nil)
 }
 
 // ToggleTyping toggles typing indicator for a conversation.
@@ -340,7 +341,7 @@ func toggleTypingStatus(ctx context.Context, r Requester, id int, typingOn bool,
 		"typing_status": status,
 		"is_private":    isPrivate,
 	}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/conversations/%d/toggle_typing_status", id)), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/conversations/%d/toggle_typing_status", id)), body, nil)
 }
 
 // Update updates conversation attributes via PATCH endpoint.
@@ -359,7 +360,7 @@ func updateConversation(ctx context.Context, r Requester, id int, priority strin
 	}
 
 	var result Conversation
-	if err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/conversations/%d", id)), payload, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(fmt.Sprintf("/conversations/%d", id)), payload, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 )
 
@@ -36,7 +37,7 @@ func listContacts(ctx context.Context, r Requester, params ListContactsParams) (
 	}
 
 	var result ContactList
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -50,7 +51,7 @@ func (s ContactsService) Get(ctx context.Context, id int) (*Contact, error) {
 func getContact(ctx context.Context, r Requester, id int) (*Contact, error) {
 	var result ContactResponse
 	path := fmt.Sprintf("/contacts/%d", id)
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
@@ -74,7 +75,7 @@ func createContact(ctx context.Context, r Requester, name, email, phone string) 
 	}
 
 	var result ContactCreateResponse
-	if err := r.do(ctx, "POST", r.accountPath("/contacts"), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/contacts"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload.Contact, nil
@@ -87,7 +88,7 @@ func (s ContactsService) CreateFromMap(ctx context.Context, body map[string]any)
 
 func createContactFromMap(ctx context.Context, r Requester, body map[string]any) (*Contact, error) {
 	var result ContactCreateResponse
-	if err := r.do(ctx, "POST", r.accountPath("/contacts"), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/contacts"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload.Contact, nil
@@ -112,7 +113,7 @@ func updateContact(ctx context.Context, r Requester, id int, name, email, phone 
 
 	var result ContactResponse
 	path := fmt.Sprintf("/contacts/%d", id)
-	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
@@ -125,7 +126,7 @@ func (s ContactsService) Delete(ctx context.Context, id int) error {
 
 func deleteContact(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/contacts/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Search searches for contacts by query string.
@@ -139,7 +140,7 @@ func searchContacts(ctx context.Context, r Requester, query string, page int) (*
 		path = fmt.Sprintf("%s&page=%d", path, page)
 	}
 	var result ContactList
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -152,7 +153,7 @@ func (s ContactsService) Filter(ctx context.Context, payload map[string]any) (*C
 
 func filterContacts(ctx context.Context, r Requester, payload map[string]any) (*ContactList, error) {
 	var result ContactList
-	if err := r.do(ctx, "POST", r.accountPath("/contacts/filter"), payload, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/contacts/filter"), payload, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -168,7 +169,7 @@ func getContactConversations(ctx context.Context, r Requester, id int) ([]Conver
 	var result struct {
 		Payload []Conversation `json:"payload"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -184,7 +185,7 @@ func getContactLabels(ctx context.Context, r Requester, id int) ([]string, error
 	var result struct {
 		Labels []string `json:"labels"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Labels, nil
@@ -201,7 +202,7 @@ func addContactLabels(ctx context.Context, r Requester, id int, labels []string)
 	var result struct {
 		Labels []string `json:"labels"`
 	}
-	if err := r.do(ctx, "POST", r.accountPath(path), payload, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), payload, &result); err != nil {
 		return nil, err
 	}
 	return result.Labels, nil
@@ -217,7 +218,7 @@ func getContactableInboxes(ctx context.Context, r Requester, id int) ([]Inbox, e
 	var result struct {
 		Payload []Inbox `json:"payload"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -238,7 +239,7 @@ func createContactInbox(ctx context.Context, r Requester, contactID, inboxID int
 	}
 
 	var result ContactInbox
-	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -263,7 +264,7 @@ func (s ContactsService) Notes(ctx context.Context, contactID int) ([]ContactNot
 func getContactNotes(ctx context.Context, r Requester, contactID int) ([]ContactNote, error) {
 	path := fmt.Sprintf("/contacts/%d/notes", contactID)
 	var result []ContactNote
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -278,7 +279,7 @@ func createContactNote(ctx context.Context, r Requester, contactID int, content 
 	path := fmt.Sprintf("/contacts/%d/notes", contactID)
 	body := map[string]string{"content": content}
 	var result ContactNote
-	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -291,7 +292,7 @@ func (s ContactsService) DeleteNote(ctx context.Context, contactID, noteID int) 
 
 func deleteContactNote(ctx context.Context, r Requester, contactID, noteID int) error {
 	path := fmt.Sprintf("/contacts/%d/notes/%d", contactID, noteID)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Merge merges two contacts into one.
@@ -307,7 +308,7 @@ func mergeContacts(ctx context.Context, r Requester, baseContactID, mergeeContac
 	}
 
 	var result Contact
-	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

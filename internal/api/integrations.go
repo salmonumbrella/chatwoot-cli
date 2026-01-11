@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // ListApps lists available integration apps.
@@ -12,7 +13,7 @@ func (s IntegrationsService) ListApps(ctx context.Context) ([]Integration, error
 
 func listIntegrationApps(ctx context.Context, r Requester) ([]Integration, error) {
 	var result IntegrationAppsResponse
-	if err := r.do(ctx, "GET", r.accountPath("/integrations/apps"), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/integrations/apps"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -53,7 +54,7 @@ func createIntegrationHook(ctx context.Context, r Requester, appID string, inbox
 	}
 
 	var result IntegrationHook
-	err := r.do(ctx, "POST", r.accountPath("/integrations/hooks"), body, &result)
+	err := r.do(ctx, http.MethodPost, r.accountPath("/integrations/hooks"), body, &result)
 	return &result, err
 }
 
@@ -69,7 +70,7 @@ func updateIntegrationHook(ctx context.Context, r Requester, hookID int, setting
 	}
 
 	var result IntegrationHook
-	err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), body, &result)
+	err := r.do(ctx, http.MethodPatch, r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), body, &result)
 	return &result, err
 }
 
@@ -79,5 +80,5 @@ func (s IntegrationsService) DeleteHook(ctx context.Context, hookID int) error {
 }
 
 func deleteIntegrationHook(ctx context.Context, r Requester, hookID int) error {
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), nil, nil)
 }

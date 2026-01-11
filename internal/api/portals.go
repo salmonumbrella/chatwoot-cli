@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 )
 
@@ -37,7 +38,7 @@ func (s PortalsService) List(ctx context.Context) ([]Portal, error) {
 
 func listPortals(ctx context.Context, r Requester) ([]Portal, error) {
 	var result PortalListResponse
-	err := r.do(ctx, "GET", r.accountPath("/portals"), nil, &result)
+	err := r.do(ctx, http.MethodGet, r.accountPath("/portals"), nil, &result)
 	return result.Payload, err
 }
 
@@ -49,7 +50,7 @@ func (s PortalsService) Get(ctx context.Context, portalSlug string) (*Portal, er
 func getPortal(ctx context.Context, r Requester, portalSlug string) (*Portal, error) {
 	var result Portal
 	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
-	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
+	err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result)
 	return &result, err
 }
 
@@ -67,7 +68,7 @@ func createPortal(ctx context.Context, r Requester, name, slug string) (*Portal,
 	}
 
 	var result Portal
-	err := r.do(ctx, "POST", r.accountPath("/portals"), body, &result)
+	err := r.do(ctx, http.MethodPost, r.accountPath("/portals"), body, &result)
 	return &result, err
 }
 
@@ -91,7 +92,7 @@ func updatePortal(ctx context.Context, r Requester, portalSlug string, name, slu
 
 	var result Portal
 	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
-	err := r.do(ctx, "PATCH", r.accountPath(path), body, &result)
+	err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &result)
 	return &result, err
 }
 
@@ -102,7 +103,7 @@ func (s PortalsService) Delete(ctx context.Context, portalSlug string) error {
 
 func deletePortal(ctx context.Context, r Requester, portalSlug string) error {
 	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Articles lists articles in a portal.
@@ -113,7 +114,7 @@ func (s PortalsService) Articles(ctx context.Context, portalSlug string) ([]Arti
 func listPortalArticles(ctx context.Context, r Requester, portalSlug string) ([]Article, error) {
 	var result []Article
 	path := fmt.Sprintf("/portals/%s/articles", url.PathEscape(portalSlug))
-	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
+	err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result)
 	return result, err
 }
 
@@ -125,7 +126,7 @@ func (s PortalsService) Categories(ctx context.Context, portalSlug string) ([]Ca
 func listPortalCategories(ctx context.Context, r Requester, portalSlug string) ([]Category, error) {
 	var result []Category
 	path := fmt.Sprintf("/portals/%s/categories", url.PathEscape(portalSlug))
-	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
+	err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result)
 	return result, err
 }
 
@@ -137,7 +138,7 @@ func (s PortalsService) Article(ctx context.Context, portalSlug string, articleI
 func getArticle(ctx context.Context, r Requester, portalSlug string, articleID int) (*Article, error) {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
 	var result Article
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -151,7 +152,7 @@ func (s PortalsService) CreateArticle(ctx context.Context, portalSlug string, pa
 func createArticle(ctx context.Context, r Requester, portalSlug string, params map[string]any) (*Article, error) {
 	path := fmt.Sprintf("/portals/%s/articles", url.PathEscape(portalSlug))
 	var result Article
-	if err := r.do(ctx, "POST", r.accountPath(path), params, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -165,7 +166,7 @@ func (s PortalsService) UpdateArticle(ctx context.Context, portalSlug string, ar
 func updateArticle(ctx context.Context, r Requester, portalSlug string, articleID int, params map[string]any) (*Article, error) {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
 	var result Article
-	if err := r.do(ctx, "PATCH", r.accountPath(path), params, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -178,7 +179,7 @@ func (s PortalsService) DeleteArticle(ctx context.Context, portalSlug string, ar
 
 func deleteArticle(ctx context.Context, r Requester, portalSlug string, articleID int) error {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Category gets a specific category.
@@ -189,7 +190,7 @@ func (s PortalsService) Category(ctx context.Context, portalSlug string, categor
 func getCategory(ctx context.Context, r Requester, portalSlug string, categorySlug string) (*Category, error) {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
 	var result Category
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -203,7 +204,7 @@ func (s PortalsService) CreateCategory(ctx context.Context, portalSlug string, p
 func createCategory(ctx context.Context, r Requester, portalSlug string, params map[string]any) (*Category, error) {
 	path := fmt.Sprintf("/portals/%s/categories", url.PathEscape(portalSlug))
 	var result Category
-	if err := r.do(ctx, "POST", r.accountPath(path), params, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -217,7 +218,7 @@ func (s PortalsService) UpdateCategory(ctx context.Context, portalSlug, category
 func updateCategory(ctx context.Context, r Requester, portalSlug, categorySlug string, params map[string]any) (*Category, error) {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
 	var result Category
-	if err := r.do(ctx, "PATCH", r.accountPath(path), params, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -230,7 +231,7 @@ func (s PortalsService) DeleteCategory(ctx context.Context, portalSlug, category
 
 func deleteCategory(ctx context.Context, r Requester, portalSlug, categorySlug string) error {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Archive archives a portal.
@@ -240,7 +241,7 @@ func (s PortalsService) Archive(ctx context.Context, portalSlug string) error {
 
 func archivePortal(ctx context.Context, r Requester, portalSlug string) error {
 	path := fmt.Sprintf("/portals/%s/archive", url.PathEscape(portalSlug))
-	return r.do(ctx, "PATCH", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodPatch, r.accountPath(path), nil, nil)
 }
 
 // DeleteLogo removes the logo from a portal.
@@ -250,7 +251,7 @@ func (s PortalsService) DeleteLogo(ctx context.Context, portalSlug string) error
 
 func deletePortalLogo(ctx context.Context, r Requester, portalSlug string) error {
 	path := fmt.Sprintf("/portals/%s/logo", url.PathEscape(portalSlug))
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // SendInstructions sends CNAME setup instructions for a portal.
@@ -260,7 +261,7 @@ func (s PortalsService) SendInstructions(ctx context.Context, portalSlug string)
 
 func sendPortalInstructions(ctx context.Context, r Requester, portalSlug string) error {
 	path := fmt.Sprintf("/portals/%s/send_instructions", url.PathEscape(portalSlug))
-	return r.do(ctx, "POST", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(path), nil, nil)
 }
 
 // SSLStatus gets the SSL status for a portal.
@@ -271,7 +272,7 @@ func (s PortalsService) SSLStatus(ctx context.Context, portalSlug string) (map[s
 func getPortalSSLStatus(ctx context.Context, r Requester, portalSlug string) (map[string]any, error) {
 	path := fmt.Sprintf("/portals/%s/ssl_status", url.PathEscape(portalSlug))
 	var result map[string]any
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -285,5 +286,5 @@ func (s PortalsService) ReorderArticles(ctx context.Context, portalSlug string, 
 func reorderArticles(ctx context.Context, r Requester, portalSlug string, articleIDs []int) error {
 	body := map[string][]int{"article_ids": articleIDs}
 	path := fmt.Sprintf("/portals/%s/articles/reorder", url.PathEscape(portalSlug))
-	return r.do(ctx, "POST", r.accountPath(path), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(path), body, nil)
 }

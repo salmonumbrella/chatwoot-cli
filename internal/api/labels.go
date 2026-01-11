@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // Label represents an account-level label
@@ -26,7 +27,7 @@ func (s LabelsService) List(ctx context.Context) ([]Label, error) {
 
 func listLabels(ctx context.Context, r Requester) ([]Label, error) {
 	var result LabelListResponse
-	if err := r.do(ctx, "GET", r.accountPath("/labels"), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/labels"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -40,7 +41,7 @@ func (s LabelsService) Get(ctx context.Context, id int) (*Label, error) {
 func getLabel(ctx context.Context, r Requester, id int) (*Label, error) {
 	path := fmt.Sprintf("/labels/%d", id)
 	var result Label
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -64,7 +65,7 @@ func createLabel(ctx context.Context, r Requester, title, description, color str
 	}
 
 	var result Label
-	if err := r.do(ctx, "POST", r.accountPath("/labels"), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/labels"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -92,7 +93,7 @@ func updateLabel(ctx context.Context, r Requester, id int, title, description, c
 
 	path := fmt.Sprintf("/labels/%d", id)
 	var result Label
-	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -105,5 +106,5 @@ func (s LabelsService) Delete(ctx context.Context, id int) error {
 
 func deleteLabel(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/labels/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }

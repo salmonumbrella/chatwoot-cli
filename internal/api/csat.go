@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 )
@@ -57,7 +58,7 @@ func listCSATResponses(ctx context.Context, r Requester, params CSATListParams) 
 		path = path + "?" + query.Encode()
 	}
 
-	body, err := r.doRaw(ctx, "GET", r.accountPath(path), nil)
+	body, err := r.doRaw(ctx, http.MethodGet, r.accountPath(path), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +87,7 @@ func getConversationCSAT(ctx context.Context, r Requester, conversationID int) (
 	// so we filter the list by conversation (not ideal but works)
 	path := fmt.Sprintf("/csat_survey_responses?conversation_id=%d", conversationID)
 
-	body, err := r.doRaw(ctx, "GET", r.accountPath(path), nil)
+	body, err := r.doRaw(ctx, http.MethodGet, r.accountPath(path), nil)
 	if err != nil {
 		return nil, err
 	}

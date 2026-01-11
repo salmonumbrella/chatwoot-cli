@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // PlatformAccount represents a platform account
@@ -35,7 +36,7 @@ func (s PlatformService) CreateAccount(ctx context.Context, req CreatePlatformAc
 
 func createPlatformAccount(ctx context.Context, r Requester, req CreatePlatformAccountRequest) (*PlatformAccount, error) {
 	var result PlatformAccount
-	if err := r.do(ctx, "POST", r.platformPath("/accounts"), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.platformPath("/accounts"), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -48,7 +49,7 @@ func (s PlatformService) GetAccount(ctx context.Context, accountID int) (*Platfo
 
 func getPlatformAccount(ctx context.Context, r Requester, accountID int) (*PlatformAccount, error) {
 	var result PlatformAccount
-	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -60,7 +61,7 @@ func (s PlatformService) DeleteAccount(ctx context.Context, accountID int) error
 }
 
 func deletePlatformAccount(ctx context.Context, r Requester, accountID int) error {
-	return r.do(ctx, "DELETE", r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), nil, nil)
 }
 
 // UpdatePlatformAccountRequest represents a request to update an account
@@ -78,7 +79,7 @@ func (s PlatformService) UpdateAccount(ctx context.Context, accountID int, req U
 
 func updatePlatformAccount(ctx context.Context, r Requester, accountID int, req UpdatePlatformAccountRequest) (*PlatformAccount, error) {
 	var result PlatformAccount
-	if err := r.do(ctx, "PATCH", r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.platformPath(fmt.Sprintf("/accounts/%d", accountID)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -121,7 +122,7 @@ func (s PlatformService) CreateUser(ctx context.Context, req CreatePlatformUserR
 
 func createPlatformUser(ctx context.Context, r Requester, req CreatePlatformUserRequest) (*PlatformUser, error) {
 	var result PlatformUser
-	if err := r.do(ctx, "POST", r.platformPath("/users"), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.platformPath("/users"), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -134,7 +135,7 @@ func (s PlatformService) GetUser(ctx context.Context, userID int) (*PlatformUser
 
 func getPlatformUser(ctx context.Context, r Requester, userID int) (*PlatformUser, error) {
 	var result PlatformUser
-	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/users/%d", userID)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.platformPath(fmt.Sprintf("/users/%d", userID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -147,7 +148,7 @@ func (s PlatformService) UpdateUser(ctx context.Context, userID int, req UpdateP
 
 func updatePlatformUser(ctx context.Context, r Requester, userID int, req UpdatePlatformUserRequest) (*PlatformUser, error) {
 	var result PlatformUser
-	if err := r.do(ctx, "PATCH", r.platformPath(fmt.Sprintf("/users/%d", userID)), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.platformPath(fmt.Sprintf("/users/%d", userID)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -159,7 +160,7 @@ func (s PlatformService) DeleteUser(ctx context.Context, userID int) error {
 }
 
 func deletePlatformUser(ctx context.Context, r Requester, userID int) error {
-	return r.do(ctx, "DELETE", r.platformPath(fmt.Sprintf("/users/%d", userID)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.platformPath(fmt.Sprintf("/users/%d", userID)), nil, nil)
 }
 
 // PlatformUserLogin represents the SSO login response
@@ -174,7 +175,7 @@ func (s PlatformService) GetUserLogin(ctx context.Context, userID int) (*Platfor
 
 func getPlatformUserLogin(ctx context.Context, r Requester, userID int) (*PlatformUserLogin, error) {
 	var result PlatformUserLogin
-	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/users/%d/login", userID)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.platformPath(fmt.Sprintf("/users/%d/login", userID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -203,7 +204,7 @@ func (s PlatformService) ListAccountUsers(ctx context.Context, accountID int) ([
 
 func listPlatformAccountUsers(ctx context.Context, r Requester, accountID int) ([]PlatformAccountUser, error) {
 	var result []PlatformAccountUser
-	if err := r.do(ctx, "GET", r.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -216,7 +217,7 @@ func (s PlatformService) CreateAccountUser(ctx context.Context, accountID int, r
 
 func createPlatformAccountUser(ctx context.Context, r Requester, accountID int, req CreatePlatformAccountUserRequest) (*PlatformAccountUser, error) {
 	var result PlatformAccountUser
-	if err := r.do(ctx, "POST", r.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), req, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.platformPath(fmt.Sprintf("/accounts/%d/account_users", accountID)), req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -232,5 +233,5 @@ func deletePlatformAccountUser(ctx context.Context, r Requester, accountID int, 
 	if userID > 0 {
 		path = fmt.Sprintf("%s?user_id=%d", path, userID)
 	}
-	return r.do(ctx, "DELETE", r.platformPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.platformPath(path), nil, nil)
 }

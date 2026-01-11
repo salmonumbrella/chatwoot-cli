@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // List retrieves all custom filters for a filter type.
@@ -17,7 +18,7 @@ func listCustomFilters(ctx context.Context, r Requester, filterType string) ([]C
 	}
 
 	var filters []CustomFilter
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &filters); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &filters); err != nil {
 		return nil, err
 	}
 	return filters, nil
@@ -31,7 +32,7 @@ func (s CustomFiltersService) Get(ctx context.Context, id int) (*CustomFilter, e
 func getCustomFilter(ctx context.Context, r Requester, id int) (*CustomFilter, error) {
 	path := fmt.Sprintf("/custom_filters/%d", id)
 	var filter CustomFilter
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &filter); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &filter); err != nil {
 		return nil, err
 	}
 	return &filter, nil
@@ -50,7 +51,7 @@ func createCustomFilter(ctx context.Context, r Requester, name, filterType strin
 	}
 
 	var filter CustomFilter
-	if err := r.do(ctx, "POST", r.accountPath("/custom_filters"), body, &filter); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/custom_filters"), body, &filter); err != nil {
 		return nil, err
 	}
 	return &filter, nil
@@ -72,7 +73,7 @@ func updateCustomFilter(ctx context.Context, r Requester, id int, name string, q
 
 	path := fmt.Sprintf("/custom_filters/%d", id)
 	var filter CustomFilter
-	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &filter); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &filter); err != nil {
 		return nil, err
 	}
 	return &filter, nil
@@ -85,5 +86,5 @@ func (s CustomFiltersService) Delete(ctx context.Context, id int) error {
 
 func deleteCustomFilter(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/custom_filters/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }

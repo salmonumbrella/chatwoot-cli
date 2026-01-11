@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -13,7 +14,7 @@ func (s AgentsService) List(ctx context.Context) ([]Agent, error) {
 
 func listAgents(ctx context.Context, r Requester) ([]Agent, error) {
 	var agents []Agent
-	if err := r.do(ctx, "GET", r.accountPath("/agents"), nil, &agents); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/agents"), nil, &agents); err != nil {
 		return nil, err
 	}
 	return agents, nil
@@ -54,7 +55,7 @@ func createAgent(ctx context.Context, r Requester, name, email, role string) (*A
 		"role":  role,
 	}
 	var agent Agent
-	if err := r.do(ctx, "POST", r.accountPath("/agents"), body, &agent); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/agents"), body, &agent); err != nil {
 		return nil, err
 	}
 	return &agent, nil
@@ -75,7 +76,7 @@ func updateAgent(ctx context.Context, r Requester, id int, name, role string) (*
 	}
 	var agent Agent
 	path := fmt.Sprintf("/agents/%d", id)
-	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &agent); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &agent); err != nil {
 		return nil, err
 	}
 	return &agent, nil
@@ -88,7 +89,7 @@ func (s AgentsService) Delete(ctx context.Context, id int) error {
 
 func deleteAgent(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/agents/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // BulkCreateAgentsRequest represents a request to create multiple agents
@@ -104,7 +105,7 @@ func (s AgentsService) BulkCreate(ctx context.Context, emails []string) ([]Agent
 func bulkCreateAgents(ctx context.Context, r Requester, emails []string) ([]Agent, error) {
 	body := BulkCreateAgentsRequest{Emails: emails}
 	var result []Agent
-	if err := r.do(ctx, "POST", r.accountPath("/agents/bulk_create"), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/agents/bulk_create"), body, &result); err != nil {
 		return nil, err
 	}
 	return result, nil

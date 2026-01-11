@@ -1,6 +1,9 @@
 package api
 
-import "context"
+import (
+	"context"
+	"net/http"
+)
 
 // Delete removes the Notion integration.
 func (s NotionService) Delete(ctx context.Context) error {
@@ -8,5 +11,5 @@ func (s NotionService) Delete(ctx context.Context) error {
 }
 
 func deleteNotionIntegration(ctx context.Context, r Requester) error {
-	return r.do(ctx, "DELETE", r.accountPath("/integrations/notion"), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath("/integrations/notion"), nil, nil)
 }

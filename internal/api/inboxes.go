@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 )
 
@@ -91,7 +92,7 @@ func listInboxes(ctx context.Context, r Requester) ([]Inbox, error) {
 	var result struct {
 		Payload []Inbox `json:"payload"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath("/inboxes"), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/inboxes"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -104,7 +105,7 @@ func (s InboxesService) Get(ctx context.Context, id int) (*Inbox, error) {
 
 func getInbox(ctx context.Context, r Requester, id int) (*Inbox, error) {
 	var result Inbox
-	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -127,7 +128,7 @@ func createInbox(ctx context.Context, r Requester, req CreateInboxRequest) (*Inb
 	}
 	applyInboxSettings(body, req.InboxSettings)
 	var result Inbox
-	if err := r.do(ctx, "POST", r.accountPath("/inboxes"), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/inboxes"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -145,7 +146,7 @@ func updateInbox(ctx context.Context, r Requester, id int, req UpdateInboxReques
 	}
 	applyInboxSettings(body, req.InboxSettings)
 	var result Inbox
-	if err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(fmt.Sprintf("/inboxes/%d", id)), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -157,7 +158,7 @@ func (s InboxesService) Delete(ctx context.Context, id int) error {
 }
 
 func deleteInbox(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, nil)
 }
 
 // GetAgentBot retrieves the agent bot assigned to an inbox.
@@ -167,7 +168,7 @@ func (s InboxesService) GetAgentBot(ctx context.Context, id int) (*AgentBot, err
 
 func getInboxAgentBot(ctx context.Context, r Requester, id int) (*AgentBot, error) {
 	var result AgentBot
-	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/inboxes/%d/agent_bot", id)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/inboxes/%d/agent_bot", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -182,7 +183,7 @@ func setInboxAgentBot(ctx context.Context, r Requester, inboxID, botID int) erro
 	body := map[string]any{
 		"agent_bot_id": botID,
 	}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/inboxes/%d/set_agent_bot", inboxID)), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/inboxes/%d/set_agent_bot", inboxID)), body, nil)
 }
 
 // ListMembers retrieves all agents assigned to an inbox.
@@ -194,7 +195,7 @@ func listInboxMembers(ctx context.Context, r Requester, inboxID int) ([]Agent, e
 	var result struct {
 		Payload []Agent `json:"payload"`
 	}
-	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/inbox_members/%d", inboxID)), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/inbox_members/%d", inboxID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -210,7 +211,7 @@ func addInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs []in
 		"inbox_id": inboxID,
 		"user_ids": userIDs,
 	}
-	return r.do(ctx, "POST", r.accountPath("/inbox_members"), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath("/inbox_members"), body, nil)
 }
 
 // RemoveMembers removes agents from an inbox.
@@ -223,7 +224,7 @@ func removeInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs [
 		"inbox_id": inboxID,
 		"user_ids": userIDs,
 	}
-	return r.do(ctx, "DELETE", r.accountPath("/inbox_members"), body, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath("/inbox_members"), body, nil)
 }
 
 // UpdateMembers updates inbox members (replaces the list).
@@ -236,7 +237,7 @@ func updateInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs [
 		"inbox_id": inboxID,
 		"user_ids": userIDs,
 	}
-	return r.do(ctx, "PATCH", r.accountPath("/inbox_members"), body, nil)
+	return r.do(ctx, http.MethodPatch, r.accountPath("/inbox_members"), body, nil)
 }
 
 // triageResult holds the result of fetching enrichment data for a conversation
@@ -402,7 +403,7 @@ func (s InboxesService) Campaigns(ctx context.Context, inboxID int) ([]Campaign,
 func getInboxCampaigns(ctx context.Context, r Requester, inboxID int) ([]Campaign, error) {
 	path := fmt.Sprintf("/inboxes/%d/campaigns", inboxID)
 	var result []Campaign
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -414,7 +415,7 @@ func (s InboxesService) SyncTemplates(ctx context.Context, inboxID int) error {
 }
 
 func syncInboxTemplates(ctx context.Context, r Requester, inboxID int) error {
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/inboxes/%d/sync_templates", inboxID)), nil, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/inboxes/%d/sync_templates", inboxID)), nil, nil)
 }
 
 // Health gets WhatsApp Cloud API health for an inbox.
@@ -425,7 +426,7 @@ func (s InboxesService) Health(ctx context.Context, inboxID int) (map[string]any
 func getInboxHealth(ctx context.Context, r Requester, inboxID int) (map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%d/health", inboxID)
 	var result map[string]any
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -437,7 +438,7 @@ func (s InboxesService) DeleteAvatar(ctx context.Context, inboxID int) error {
 }
 
 func deleteInboxAvatar(ctx context.Context, r Requester, inboxID int) error {
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/inboxes/%d/avatar", inboxID)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/inboxes/%d/avatar", inboxID)), nil, nil)
 }
 
 // CSATTemplate represents a CSAT survey template
@@ -455,7 +456,7 @@ func (s InboxesService) CSATTemplate(ctx context.Context, inboxID int) (*CSATTem
 func getInboxCSATTemplate(ctx context.Context, r Requester, inboxID int) (*CSATTemplate, error) {
 	path := fmt.Sprintf("/inboxes/%d/csat_template", inboxID)
 	var result CSATTemplate
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -473,7 +474,7 @@ func createInboxCSATTemplate(ctx context.Context, r Requester, inboxID int, ques
 		"message":  message,
 	}
 	var result CSATTemplate
-	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

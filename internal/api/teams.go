@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // List retrieves all teams for the account.
@@ -12,7 +13,7 @@ func (s TeamsService) List(ctx context.Context) ([]Team, error) {
 
 func listTeams(ctx context.Context, r Requester) ([]Team, error) {
 	var teams []Team
-	err := r.do(ctx, "GET", r.accountPath("/teams"), nil, &teams)
+	err := r.do(ctx, http.MethodGet, r.accountPath("/teams"), nil, &teams)
 	return teams, err
 }
 
@@ -23,7 +24,7 @@ func (s TeamsService) Get(ctx context.Context, id int) (*Team, error) {
 
 func getTeam(ctx context.Context, r Requester, id int) (*Team, error) {
 	var team Team
-	err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, &team)
+	err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, &team)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +42,7 @@ func createTeam(ctx context.Context, r Requester, name, description string) (*Te
 		"description": description,
 	}
 	var team Team
-	err := r.do(ctx, "POST", r.accountPath("/teams"), body, &team)
+	err := r.do(ctx, http.MethodPost, r.accountPath("/teams"), body, &team)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +64,7 @@ func updateTeam(ctx context.Context, r Requester, id int, name, description stri
 	}
 
 	var team Team
-	err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/teams/%d", id)), body, &team)
+	err := r.do(ctx, http.MethodPatch, r.accountPath(fmt.Sprintf("/teams/%d", id)), body, &team)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func (s TeamsService) Delete(ctx context.Context, id int) error {
 }
 
 func deleteTeam(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, nil)
 }
 
 // ListMembers retrieves all members of a team.
@@ -86,7 +87,7 @@ func (s TeamsService) ListMembers(ctx context.Context, teamID int) ([]Agent, err
 
 func listTeamMembers(ctx context.Context, r Requester, teamID int) ([]Agent, error) {
 	var agents []Agent
-	err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), nil, &agents)
+	err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), nil, &agents)
 	return agents, err
 }
 
@@ -99,7 +100,7 @@ func addTeamMembers(ctx context.Context, r Requester, teamID int, userIDs []int)
 	body := map[string]any{
 		"user_ids": userIDs,
 	}
-	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
 }
 
 // RemoveMembers removes users from a team.
@@ -111,5 +112,5 @@ func removeTeamMembers(ctx context.Context, r Requester, teamID int, userIDs []i
 	body := map[string]any{
 		"user_ids": userIDs,
 	}
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
 }

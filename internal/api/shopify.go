@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // ShopifyOrder represents a Shopify order
@@ -27,7 +28,7 @@ func shopifyAuth(ctx context.Context, r Requester, shopDomain, code string) erro
 		"shop": shopDomain,
 		"code": code,
 	}
-	return r.do(ctx, "POST", r.accountPath("/integrations/shopify/auth"), body, nil)
+	return r.do(ctx, http.MethodPost, r.accountPath("/integrations/shopify/auth"), body, nil)
 }
 
 // ListOrders retrieves Shopify orders for a contact.
@@ -38,7 +39,7 @@ func (s ShopifyService) ListOrders(ctx context.Context, contactID int) ([]Shopif
 func listShopifyOrders(ctx context.Context, r Requester, contactID int) ([]ShopifyOrder, error) {
 	path := fmt.Sprintf("/integrations/shopify/orders?contact_id=%d", contactID)
 	var result []ShopifyOrder
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -50,5 +51,5 @@ func (s ShopifyService) Delete(ctx context.Context) error {
 }
 
 func deleteShopifyIntegration(ctx context.Context, r Requester) error {
-	return r.do(ctx, "DELETE", r.accountPath("/integrations/shopify"), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath("/integrations/shopify"), nil, nil)
 }

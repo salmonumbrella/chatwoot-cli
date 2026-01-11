@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // translateModelToAPIValue converts human-readable model names to API integer values.
@@ -43,7 +44,7 @@ func listCustomAttributes(ctx context.Context, r Requester, model string) ([]Cus
 	}
 
 	var attrs []CustomAttribute
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &attrs); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &attrs); err != nil {
 		return nil, err
 	}
 	return attrs, nil
@@ -57,7 +58,7 @@ func (s CustomAttributesService) Get(ctx context.Context, id int) (*CustomAttrib
 func getCustomAttribute(ctx context.Context, r Requester, id int) (*CustomAttribute, error) {
 	path := fmt.Sprintf("/custom_attribute_definitions/%d", id)
 	var attr CustomAttribute
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &attr); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &attr); err != nil {
 		return nil, err
 	}
 	return &attr, nil
@@ -77,7 +78,7 @@ func createCustomAttribute(ctx context.Context, r Requester, name, key, model, a
 	}
 
 	var attr CustomAttribute
-	if err := r.do(ctx, "POST", r.accountPath("/custom_attribute_definitions"), body, &attr); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/custom_attribute_definitions"), body, &attr); err != nil {
 		return nil, err
 	}
 	return &attr, nil
@@ -95,7 +96,7 @@ func updateCustomAttribute(ctx context.Context, r Requester, id int, name string
 
 	path := fmt.Sprintf("/custom_attribute_definitions/%d", id)
 	var attr CustomAttribute
-	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &attr); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &attr); err != nil {
 		return nil, err
 	}
 	return &attr, nil
@@ -108,5 +109,5 @@ func (s CustomAttributesService) Delete(ctx context.Context, id int) error {
 
 func deleteCustomAttribute(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/custom_attribute_definitions/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }

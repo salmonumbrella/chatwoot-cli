@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // List retrieves all webhooks for the account.
@@ -12,7 +13,7 @@ func (s WebhooksService) List(ctx context.Context) ([]Webhook, error) {
 
 func listWebhooks(ctx context.Context, r Requester) ([]Webhook, error) {
 	var result WebhookListResponse
-	if err := r.do(ctx, "GET", r.accountPath("/webhooks"), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/webhooks"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload.Webhooks, nil
@@ -52,7 +53,7 @@ func createWebhook(ctx context.Context, r Requester, url string, subscriptions [
 		"subscriptions": subscriptions,
 	}
 	var result WebhookResponse
-	if err := r.do(ctx, "POST", r.accountPath("/webhooks"), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/webhooks"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload.Webhook, nil
@@ -73,7 +74,7 @@ func updateWebhook(ctx context.Context, r Requester, id int, url string, subscri
 	}
 
 	var result WebhookResponse
-	if err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/webhooks/%d", id)), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(fmt.Sprintf("/webhooks/%d", id)), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload.Webhook, nil
@@ -85,5 +86,5 @@ func (s WebhooksService) Delete(ctx context.Context, id int) error {
 }
 
 func deleteWebhook(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/webhooks/%d", id)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/webhooks/%d", id)), nil, nil)
 }

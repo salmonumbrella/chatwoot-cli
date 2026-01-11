@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // List returns all automation rules for the account.
@@ -12,7 +13,7 @@ func (s AutomationRulesService) List(ctx context.Context) ([]AutomationRule, err
 
 func listAutomationRules(ctx context.Context, r Requester) ([]AutomationRule, error) {
 	var result AutomationRuleListResponse
-	if err := r.do(ctx, "GET", r.accountPath("/automation_rules"), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath("/automation_rules"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -26,7 +27,7 @@ func (s AutomationRulesService) Get(ctx context.Context, id int) (*AutomationRul
 func getAutomationRule(ctx context.Context, r Requester, id int) (*AutomationRule, error) {
 	var result AutomationRuleResponse
 	path := fmt.Sprintf("/automation_rules/%d", id)
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
@@ -45,7 +46,7 @@ func createAutomationRule(ctx context.Context, r Requester, name, eventName stri
 		"actions":    actions,
 	}
 	var rule AutomationRule
-	if err := r.do(ctx, "POST", r.accountPath("/automation_rules"), body, &rule); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/automation_rules"), body, &rule); err != nil {
 		return nil, err
 	}
 	return &rule, nil
@@ -70,7 +71,7 @@ func updateAutomationRule(ctx context.Context, r Requester, id int, name string,
 
 	var result AutomationRuleResponse
 	path := fmt.Sprintf("/automation_rules/%d", id)
-	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &result); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil
@@ -83,7 +84,7 @@ func (s AutomationRulesService) Delete(ctx context.Context, id int) error {
 
 func deleteAutomationRule(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/automation_rules/%d", id)
-	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(path), nil, nil)
 }
 
 // Clone clones an existing automation rule.
@@ -94,7 +95,7 @@ func (s AutomationRulesService) Clone(ctx context.Context, id int) (*AutomationR
 func cloneAutomationRule(ctx context.Context, r Requester, id int) (*AutomationRule, error) {
 	path := fmt.Sprintf("/automation_rules/%d/clone", id)
 	var result AutomationRuleResponse
-	if err := r.do(ctx, "POST", r.accountPath(path), nil, &result); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result.Payload, nil

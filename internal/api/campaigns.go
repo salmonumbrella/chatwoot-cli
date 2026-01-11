@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // Campaigns API returns raw arrays/objects directly, unlike some other
@@ -20,7 +21,7 @@ func listCampaigns(ctx context.Context, r Requester, page int) ([]Campaign, erro
 		path = fmt.Sprintf("%s?page=%d", path, page)
 	}
 	var campaigns []Campaign
-	if err := r.do(ctx, "GET", r.accountPath(path), nil, &campaigns); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &campaigns); err != nil {
 		return nil, err
 	}
 	return campaigns, nil
@@ -33,7 +34,7 @@ func (s CampaignsService) Get(ctx context.Context, id int) (*Campaign, error) {
 
 func getCampaign(ctx context.Context, r Requester, id int) (*Campaign, error) {
 	var campaign Campaign
-	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/campaigns/%d", id)), nil, &campaign); err != nil {
+	if err := r.do(ctx, http.MethodGet, r.accountPath(fmt.Sprintf("/campaigns/%d", id)), nil, &campaign); err != nil {
 		return nil, err
 	}
 	return &campaign, nil
@@ -60,7 +61,7 @@ func (s CampaignsService) Create(ctx context.Context, req CreateCampaignRequest)
 
 func createCampaign(ctx context.Context, r Requester, req CreateCampaignRequest) (*Campaign, error) {
 	var campaign Campaign
-	if err := r.do(ctx, "POST", r.accountPath("/campaigns"), req, &campaign); err != nil {
+	if err := r.do(ctx, http.MethodPost, r.accountPath("/campaigns"), req, &campaign); err != nil {
 		return nil, err
 	}
 	return &campaign, nil
@@ -86,7 +87,7 @@ func (s CampaignsService) Update(ctx context.Context, id int, req UpdateCampaign
 
 func updateCampaign(ctx context.Context, r Requester, id int, req UpdateCampaignRequest) (*Campaign, error) {
 	var campaign Campaign
-	if err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/campaigns/%d", id)), req, &campaign); err != nil {
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(fmt.Sprintf("/campaigns/%d", id)), req, &campaign); err != nil {
 		return nil, err
 	}
 	return &campaign, nil
@@ -98,5 +99,5 @@ func (s CampaignsService) Delete(ctx context.Context, id int) error {
 }
 
 func deleteCampaign(ctx context.Context, r Requester, id int) error {
-	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/campaigns/%d", id)), nil, nil)
+	return r.do(ctx, http.MethodDelete, r.accountPath(fmt.Sprintf("/campaigns/%d", id)), nil, nil)
 }
