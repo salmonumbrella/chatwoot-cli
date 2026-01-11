@@ -37,7 +37,7 @@ func newAgentBotsListCmd() *cobra.Command {
 				return err
 			}
 
-			bots, err := client.ListAgentBots(cmdContext(cmd))
+			bots, err := client.AgentBots().List(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -86,7 +86,7 @@ func newAgentBotsGetCmd() *cobra.Command {
 				return fmt.Errorf("invalid bot ID: %w", err)
 			}
 
-			bot, err := client.GetAgentBot(cmdContext(cmd), id)
+			bot, err := client.AgentBots().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -134,7 +134,7 @@ func newAgentBotsCreateCmd() *cobra.Command {
 				return err
 			}
 
-			bot, err := client.CreateAgentBot(cmdContext(cmd), name, outgoingURL)
+			bot, err := client.AgentBots().Create(cmdContext(cmd), name, outgoingURL)
 			if err != nil {
 				return err
 			}
@@ -184,7 +184,7 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 				return fmt.Errorf("invalid bot ID: %w", err)
 			}
 
-			bot, err := client.UpdateAgentBot(cmdContext(cmd), id, name, outgoingURL)
+			bot, err := client.AgentBots().Update(cmdContext(cmd), id, name, outgoingURL)
 			if err != nil {
 				return err
 			}
@@ -220,7 +220,7 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 				return fmt.Errorf("invalid bot ID: %w", err)
 			}
 
-			if err := client.DeleteAgentBot(cmdContext(cmd), id); err != nil {
+			if err := client.AgentBots().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -250,7 +250,7 @@ func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteAgentBotAvatar(cmdContext(cmd), id); err != nil {
+			if err := client.AgentBots().DeleteAvatar(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -280,7 +280,7 @@ func newAgentBotsResetTokenCmd() *cobra.Command {
 				return err
 			}
 
-			token, err := client.ResetAgentBotAccessToken(cmdContext(cmd), id)
+			token, err := client.AgentBots().ResetAccessToken(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}

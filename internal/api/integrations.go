@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-// Deprecated: Use client.Integrations().ListApps() instead.
-func (c *Client) ListIntegrationApps(ctx context.Context) ([]Integration, error) {
-	return listIntegrationApps(ctx, c)
-}
-
 // ListApps lists available integration apps.
 func (s IntegrationsService) ListApps(ctx context.Context) ([]Integration, error) {
 	return listIntegrationApps(ctx, s)
@@ -21,11 +16,6 @@ func listIntegrationApps(ctx context.Context, r Requester) ([]Integration, error
 		return nil, err
 	}
 	return result.Payload, nil
-}
-
-// Deprecated: Use client.Integrations().ListHooks() instead.
-func (c *Client) ListIntegrationHooks(ctx context.Context) ([]IntegrationHook, error) {
-	return listIntegrationHooks(ctx, c)
 }
 
 // ListHooks lists all integration hooks by extracting them from the apps response.
@@ -44,11 +34,6 @@ func listIntegrationHooks(ctx context.Context, r Requester) ([]IntegrationHook, 
 		hooks = append(hooks, app.Hooks...)
 	}
 	return hooks, nil
-}
-
-// Deprecated: Use client.Integrations().CreateHook() instead.
-func (c *Client) CreateIntegrationHook(ctx context.Context, appID string, inboxID int, settings map[string]any) (*IntegrationHook, error) {
-	return createIntegrationHook(ctx, c, appID, inboxID, settings)
 }
 
 // CreateHook creates a new integration hook.
@@ -72,11 +57,6 @@ func createIntegrationHook(ctx context.Context, r Requester, appID string, inbox
 	return &result, err
 }
 
-// Deprecated: Use client.Integrations().UpdateHook() instead.
-func (c *Client) UpdateIntegrationHook(ctx context.Context, hookID int, settings map[string]any) (*IntegrationHook, error) {
-	return updateIntegrationHook(ctx, c, hookID, settings)
-}
-
 // UpdateHook updates an integration hook.
 func (s IntegrationsService) UpdateHook(ctx context.Context, hookID int, settings map[string]any) (*IntegrationHook, error) {
 	return updateIntegrationHook(ctx, s, hookID, settings)
@@ -91,11 +71,6 @@ func updateIntegrationHook(ctx context.Context, r Requester, hookID int, setting
 	var result IntegrationHook
 	err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), body, &result)
 	return &result, err
-}
-
-// Deprecated: Use client.Integrations().DeleteHook() instead.
-func (c *Client) DeleteIntegrationHook(ctx context.Context, hookID int) error {
-	return deleteIntegrationHook(ctx, c, hookID)
 }
 
 // DeleteHook deletes an integration hook.

@@ -6,11 +6,6 @@ import (
 	"strings"
 )
 
-// Deprecated: Use client.Agents().List() instead.
-func (c *Client) ListAgents(ctx context.Context) ([]Agent, error) {
-	return listAgents(ctx, c)
-}
-
 // List retrieves all agents in the account.
 func (s AgentsService) List(ctx context.Context) ([]Agent, error) {
 	return listAgents(ctx, s)
@@ -22,11 +17,6 @@ func listAgents(ctx context.Context, r Requester) ([]Agent, error) {
 		return nil, err
 	}
 	return agents, nil
-}
-
-// Deprecated: Use client.Agents().Get() instead.
-func (c *Client) GetAgent(ctx context.Context, id int) (*Agent, error) {
-	return getAgent(ctx, c, id)
 }
 
 // Get retrieves a specific agent by ID.
@@ -52,11 +42,6 @@ func getAgent(ctx context.Context, r Requester, id int) (*Agent, error) {
 	}
 }
 
-// Deprecated: Use client.Agents().Create() instead.
-func (c *Client) CreateAgent(ctx context.Context, name, email, role string) (*Agent, error) {
-	return createAgent(ctx, c, name, email, role)
-}
-
 // Create creates a new agent.
 func (s AgentsService) Create(ctx context.Context, name, email, role string) (*Agent, error) {
 	return createAgent(ctx, s, name, email, role)
@@ -73,11 +58,6 @@ func createAgent(ctx context.Context, r Requester, name, email, role string) (*A
 		return nil, err
 	}
 	return &agent, nil
-}
-
-// Deprecated: Use client.Agents().Update() instead.
-func (c *Client) UpdateAgent(ctx context.Context, id int, name, role string) (*Agent, error) {
-	return updateAgent(ctx, c, id, name, role)
 }
 
 // Update updates an existing agent.
@@ -101,11 +81,6 @@ func updateAgent(ctx context.Context, r Requester, id int, name, role string) (*
 	return &agent, nil
 }
 
-// Deprecated: Use client.Agents().Delete() instead.
-func (c *Client) DeleteAgent(ctx context.Context, id int) error {
-	return deleteAgent(ctx, c, id)
-}
-
 // Delete deletes an agent.
 func (s AgentsService) Delete(ctx context.Context, id int) error {
 	return deleteAgent(ctx, s, id)
@@ -121,11 +96,6 @@ type BulkCreateAgentsRequest struct {
 	Emails []string `json:"emails"`
 }
 
-// Deprecated: Use client.Agents().BulkCreate() instead.
-func (c *Client) BulkCreateAgents(ctx context.Context, emails []string) ([]Agent, error) {
-	return bulkCreateAgents(ctx, c, emails)
-}
-
 // BulkCreate creates multiple agents at once.
 func (s AgentsService) BulkCreate(ctx context.Context, emails []string) ([]Agent, error) {
 	return bulkCreateAgents(ctx, s, emails)
@@ -138,11 +108,6 @@ func bulkCreateAgents(ctx context.Context, r Requester, emails []string) ([]Agen
 		return nil, err
 	}
 	return result, nil
-}
-
-// Deprecated: Use client.Agents().Find() instead.
-func (c *Client) FindAgentByNameOrEmail(ctx context.Context, query string) (*Agent, error) {
-	return findAgentByNameOrEmail(ctx, c, query)
 }
 
 // Find searches for an agent by name or email (case-insensitive partial match).

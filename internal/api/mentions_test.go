@@ -50,7 +50,7 @@ func TestFindMentions(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.FindMentions(context.Background(), FindMentionsParams{
+	result, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Limit:  50,
 	})
@@ -79,7 +79,7 @@ func TestFindMentions_RequiresUserID(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	_, err := client.FindMentions(context.Background(), FindMentionsParams{
+	_, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 0, // Zero user ID should fail
 	})
 
@@ -120,7 +120,7 @@ func TestFindMentions_WithConversationID(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.FindMentions(context.Background(), FindMentionsParams{
+	result, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID:         42,
 		ConversationID: 123,
 		Limit:          50,
@@ -180,7 +180,7 @@ func TestFindMentions_WithSinceFilter(t *testing.T) {
 
 	// Set since to filter out the old mention
 	sinceTime := time.Unix(1704150000, 0) // Between old and new
-	result, err := client.FindMentions(context.Background(), FindMentionsParams{
+	result, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Since:  &sinceTime,
 		Limit:  50,
@@ -229,7 +229,7 @@ func TestFindMentions_Limit(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.FindMentions(context.Background(), FindMentionsParams{
+	result, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Limit:  2, // Only want 2 mentions
 	})
@@ -263,7 +263,7 @@ func TestFindMentions_DefaultLimit(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	_, err := client.FindMentions(context.Background(), FindMentionsParams{
+	_, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Limit:  0, // Zero limit should default to 50
 	})
@@ -307,7 +307,7 @@ func TestFindMentions_IgnoresNonPrivateMessages(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.FindMentions(context.Background(), FindMentionsParams{
+	result, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Limit:  50,
 	})
@@ -331,7 +331,7 @@ func TestFindMentions_APIError(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	_, err := client.FindMentions(context.Background(), FindMentionsParams{
+	_, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Limit:  50,
 	})
@@ -375,7 +375,7 @@ func TestFindMentions_UnknownSender(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.FindMentions(context.Background(), FindMentionsParams{
+	result, err := client.Mentions().Find(context.Background(), FindMentionsParams{
 		UserID: 42,
 		Limit:  50,
 	})

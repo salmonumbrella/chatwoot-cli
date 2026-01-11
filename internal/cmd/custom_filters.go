@@ -53,7 +53,7 @@ func newCustomFiltersListCmd() *cobra.Command {
 				return err
 			}
 
-			filters, err := client.ListCustomFilters(cmdContext(cmd), filterType)
+			filters, err := client.CustomFilters().List(cmdContext(cmd), filterType)
 			if err != nil {
 				return err
 			}
@@ -112,7 +112,7 @@ func newCustomFiltersGetCmd() *cobra.Command {
 				return err
 			}
 
-			filter, err := client.GetCustomFilter(cmdContext(cmd), id)
+			filter, err := client.CustomFilters().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -171,7 +171,7 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 				return err
 			}
 
-			filter, err := client.CreateCustomFilter(cmdContext(cmd), name, filterType, query)
+			filter, err := client.CustomFilters().Create(cmdContext(cmd), name, filterType, query)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			filter, err := client.UpdateCustomFilter(cmdContext(cmd), id, name, query)
+			filter, err := client.CustomFilters().Update(cmdContext(cmd), id, name, query)
 			if err != nil {
 				return err
 			}
@@ -260,7 +260,7 @@ func newCustomFiltersDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteCustomFilter(cmdContext(cmd), id); err != nil {
+			if err := client.CustomFilters().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 

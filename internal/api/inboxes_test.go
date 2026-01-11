@@ -31,7 +31,7 @@ func TestListInboxes(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListInboxes(context.Background())
+	result, err := client.Inboxes().List(context.Background())
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -76,7 +76,7 @@ func TestGetInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInbox(context.Background(), 1)
+	result, err := client.Inboxes().Get(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -118,7 +118,7 @@ func TestCreateInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateInbox(context.Background(), CreateInboxRequest{
+	result, err := client.Inboxes().Create(context.Background(), CreateInboxRequest{
 		Name:        "New Inbox",
 		ChannelType: "api",
 	})
@@ -157,7 +157,7 @@ func TestUpdateInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateInbox(context.Background(), 1, UpdateInboxRequest{
+	result, err := client.Inboxes().Update(context.Background(), 1, UpdateInboxRequest{
 		Name: "Updated Inbox",
 	})
 
@@ -186,7 +186,7 @@ func TestDeleteInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteInbox(context.Background(), 1)
+	err := client.Inboxes().Delete(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -215,7 +215,7 @@ func TestGetInboxAgentBot(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxAgentBot(context.Background(), 1)
+	result, err := client.Inboxes().GetAgentBot(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -248,7 +248,7 @@ func TestSetInboxAgentBot(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.SetInboxAgentBot(context.Background(), 1, 10)
+	err := client.Inboxes().SetAgentBot(context.Background(), 1, 10)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -276,7 +276,7 @@ func TestListInboxMembers(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListInboxMembers(context.Background(), 1)
+	result, err := client.Inboxes().ListMembers(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -312,7 +312,7 @@ func TestAddInboxMembers(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.AddInboxMembers(context.Background(), 1, []int{10, 20})
+	err := client.Inboxes().AddMembers(context.Background(), 1, []int{10, 20})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -333,7 +333,7 @@ func TestRemoveInboxMembers(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.RemoveInboxMembers(context.Background(), 1, []int{10, 20})
+	err := client.Inboxes().RemoveMembers(context.Background(), 1, []int{10, 20})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -458,7 +458,7 @@ func TestGetInboxTriage(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxTriage(context.Background(), 1, "", 25)
+	result, err := client.Inboxes().Triage(context.Background(), 1, "", 25)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -571,7 +571,7 @@ func TestGetInboxTriageWithLimit(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxTriage(context.Background(), 1, "open", 2)
+	result, err := client.Inboxes().Triage(context.Background(), 1, "open", 2)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -606,7 +606,7 @@ func TestGetInboxTriageEmptyInbox(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxTriage(context.Background(), 1, "open", 25)
+	result, err := client.Inboxes().Triage(context.Background(), 1, "open", 25)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -628,7 +628,7 @@ func TestGetInboxTriageInboxNotFound(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	_, err := client.GetInboxTriage(context.Background(), 999, "", 25)
+	_, err := client.Inboxes().Triage(context.Background(), 999, "", 25)
 
 	if err == nil {
 		t.Error("Expected error, got nil")
@@ -671,7 +671,7 @@ func TestGetInboxTriageContactFetchFails(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxTriage(context.Background(), 1, "open", 25)
+	result, err := client.Inboxes().Triage(context.Background(), 1, "open", 25)
 
 	// Should not error - contact fetch failure is handled gracefully
 	if err != nil {
@@ -761,7 +761,7 @@ func TestUpdateInboxMembers(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.UpdateInboxMembers(context.Background(), tt.inboxID, tt.userIDs)
+			err := client.Inboxes().UpdateMembers(context.Background(), tt.inboxID, tt.userIDs)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -792,7 +792,7 @@ func TestGetInboxCampaigns(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxCampaigns(context.Background(), 1)
+	result, err := client.Inboxes().Campaigns(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -815,7 +815,7 @@ func TestSyncInboxTemplates(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.SyncInboxTemplates(context.Background(), 1)
+	err := client.Inboxes().SyncTemplates(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -838,7 +838,7 @@ func TestGetInboxHealth(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxHealth(context.Background(), 1)
+	result, err := client.Inboxes().Health(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -861,7 +861,7 @@ func TestDeleteInboxAvatar(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteInboxAvatar(context.Background(), 1)
+	err := client.Inboxes().DeleteAvatar(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -884,7 +884,7 @@ func TestGetInboxCSATTemplate(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetInboxCSATTemplate(context.Background(), 1)
+	result, err := client.Inboxes().CSATTemplate(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -916,7 +916,7 @@ func TestCreateInboxCSATTemplate(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateInboxCSATTemplate(context.Background(), 1, "Rate us!", "Thanks!")
+	result, err := client.Inboxes().CreateCSATTemplate(context.Background(), 1, "Rate us!", "Thanks!")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

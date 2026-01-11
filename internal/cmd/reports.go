@@ -87,7 +87,7 @@ Report types:
 				return err
 			}
 
-			report, err := client.GetReportSummary(cmdContext(cmd), reportType, sinceTS, untilTS, id)
+			report, err := client.Reports().Summary(cmdContext(cmd), reportType, sinceTS, untilTS, id)
 			if err != nil {
 				return err
 			}
@@ -177,7 +177,7 @@ Report types:
 				return err
 			}
 
-			report, err := client.GetReportTimeSeries(cmdContext(cmd), metric, reportType, sinceTS, untilTS, id)
+			report, err := client.Reports().TimeSeries(cmdContext(cmd), metric, reportType, sinceTS, untilTS, id)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func newReportsLiveCmd() *cobra.Command {
 				return err
 			}
 
-			metrics, err := client.GetConversationMetrics(cmdContext(cmd))
+			metrics, err := client.Reports().ConversationMetrics(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -259,7 +259,7 @@ func newReportsAgentsCmd() *cobra.Command {
 				return err
 			}
 
-			agents, err := client.GetAgentMetrics(cmdContext(cmd), userID)
+			agents, err := client.Reports().AgentMetrics(cmdContext(cmd), userID)
 			if err != nil {
 				return err
 			}
@@ -307,7 +307,7 @@ func newReportingEventsCmd() *cobra.Command {
 				return err
 			}
 
-			events, err := client.ListReportingEvents(cmdContext(cmd), since, until, eventType)
+			events, err := client.Reports().ListEvents(cmdContext(cmd), since, until, eventType)
 			if err != nil {
 				return err
 			}
@@ -346,7 +346,7 @@ func newReportingEventsCmd() *cobra.Command {
 				return err
 			}
 
-			events, err := client.GetConversationReportingEvents(cmdContext(cmd), conversationID)
+			events, err := client.Reports().ConversationEvents(cmdContext(cmd), conversationID)
 			if err != nil {
 				return err
 			}

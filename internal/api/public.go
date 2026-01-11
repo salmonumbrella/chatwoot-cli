@@ -46,11 +46,6 @@ type PublicCreateContactRequest struct {
 	CustomAttributes map[string]any `json:"custom_attributes,omitempty"`
 }
 
-// Deprecated: Use client.Public().CreateContact() instead.
-func (c *Client) PublicCreateContact(ctx context.Context, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
-	return publicCreateContact(ctx, c, inboxIdentifier, req)
-}
-
 // CreateContact creates a contact via public API.
 func (s PublicService) CreateContact(ctx context.Context, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
 	return publicCreateContact(ctx, s, inboxIdentifier, req)
@@ -65,11 +60,6 @@ func publicCreateContact(ctx context.Context, r Requester, inboxIdentifier strin
 	return &result, nil
 }
 
-// Deprecated: Use client.Public().GetContact() instead.
-func (c *Client) PublicGetContact(ctx context.Context, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
-	return publicGetContact(ctx, c, inboxIdentifier, contactIdentifier)
-}
-
 // GetContact retrieves a contact via public API.
 func (s PublicService) GetContact(ctx context.Context, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
 	return publicGetContact(ctx, s, inboxIdentifier, contactIdentifier)
@@ -82,11 +72,6 @@ func publicGetContact(ctx context.Context, r Requester, inboxIdentifier, contact
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Public().CreateConversation() instead.
-func (c *Client) PublicCreateConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, customAttributes map[string]any) (map[string]any, error) {
-	return publicCreateConversation(ctx, c, inboxIdentifier, contactIdentifier, customAttributes)
 }
 
 // CreateConversation creates a conversation via public API.
@@ -108,11 +93,6 @@ func publicCreateConversation(ctx context.Context, r Requester, inboxIdentifier,
 	return result, nil
 }
 
-// Deprecated: Use client.Public().ListConversations() instead.
-func (c *Client) PublicListConversations(ctx context.Context, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
-	return publicListConversations(ctx, c, inboxIdentifier, contactIdentifier)
-}
-
 // ListConversations lists conversations via public API.
 func (s PublicService) ListConversations(ctx context.Context, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
 	return publicListConversations(ctx, s, inboxIdentifier, contactIdentifier)
@@ -125,11 +105,6 @@ func publicListConversations(ctx context.Context, r Requester, inboxIdentifier, 
 		return nil, err
 	}
 	return result, nil
-}
-
-// Deprecated: Use client.Public().GetConversation() instead.
-func (c *Client) PublicGetConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
-	return publicGetConversation(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
 }
 
 // GetConversation retrieves a single conversation via public API.
@@ -146,11 +121,6 @@ func publicGetConversation(ctx context.Context, r Requester, inboxIdentifier, co
 	return result, nil
 }
 
-// Deprecated: Use client.Public().ResolveConversation() instead.
-func (c *Client) PublicResolveConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
-	return publicResolveConversation(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
-}
-
 // ResolveConversation resolves a conversation via public API.
 func (s PublicService) ResolveConversation(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
 	return publicResolveConversation(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
@@ -165,11 +135,6 @@ func publicResolveConversation(ctx context.Context, r Requester, inboxIdentifier
 	return result, nil
 }
 
-// Deprecated: Use client.Public().ToggleTyping() instead.
-func (c *Client) PublicToggleTyping(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
-	return publicToggleTyping(ctx, c, inboxIdentifier, contactIdentifier, conversationID, status)
-}
-
 // ToggleTyping toggles typing status via public API.
 func (s PublicService) ToggleTyping(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
 	return publicToggleTyping(ctx, s, inboxIdentifier, contactIdentifier, conversationID, status)
@@ -181,11 +146,6 @@ func publicToggleTyping(ctx context.Context, r Requester, inboxIdentifier, conta
 	return r.do(ctx, "POST", r.publicPath(path), body, nil)
 }
 
-// Deprecated: Use client.Public().UpdateLastSeen() instead.
-func (c *Client) PublicUpdateLastSeen(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) error {
-	return publicUpdateLastSeen(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
-}
-
 // UpdateLastSeen updates last seen via public API.
 func (s PublicService) UpdateLastSeen(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) error {
 	return publicUpdateLastSeen(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
@@ -194,11 +154,6 @@ func (s PublicService) UpdateLastSeen(ctx context.Context, inboxIdentifier, cont
 func publicUpdateLastSeen(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) error {
 	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/update_last_seen", inboxIdentifier, contactIdentifier, conversationID)
 	return r.do(ctx, "POST", r.publicPath(path), nil, nil)
-}
-
-// Deprecated: Use client.Public().CreateMessage() instead.
-func (c *Client) PublicCreateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int, content, echoID string) (map[string]any, error) {
-	return publicCreateMessage(ctx, c, inboxIdentifier, contactIdentifier, conversationID, content, echoID)
 }
 
 // CreateMessage creates a message via public API.
@@ -221,11 +176,6 @@ func publicCreateMessage(ctx context.Context, r Requester, inboxIdentifier, cont
 	return result, nil
 }
 
-// Deprecated: Use client.Public().GetInbox() instead.
-func (c *Client) PublicGetInbox(ctx context.Context, inboxIdentifier string) (*PublicInbox, error) {
-	return publicGetInbox(ctx, c, inboxIdentifier)
-}
-
 // GetInbox retrieves inbox info via public API.
 func (s PublicService) GetInbox(ctx context.Context, inboxIdentifier string) (*PublicInbox, error) {
 	return publicGetInbox(ctx, s, inboxIdentifier)
@@ -238,11 +188,6 @@ func publicGetInbox(ctx context.Context, r Requester, inboxIdentifier string) (*
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Public().UpdateContact() instead.
-func (c *Client) PublicUpdateContact(ctx context.Context, inboxIdentifier, contactIdentifier string, req PublicUpdateContactRequest) (*PublicContact, error) {
-	return publicUpdateContact(ctx, c, inboxIdentifier, contactIdentifier, req)
 }
 
 // UpdateContact updates a contact via public API.
@@ -259,11 +204,6 @@ func publicUpdateContact(ctx context.Context, r Requester, inboxIdentifier, cont
 	return &result, nil
 }
 
-// Deprecated: Use client.Public().ListMessages() instead.
-func (c *Client) PublicListMessages(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
-	return publicListMessages(ctx, c, inboxIdentifier, contactIdentifier, conversationID)
-}
-
 // ListMessages lists messages via public API.
 func (s PublicService) ListMessages(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
 	return publicListMessages(ctx, s, inboxIdentifier, contactIdentifier, conversationID)
@@ -276,11 +216,6 @@ func publicListMessages(ctx context.Context, r Requester, inboxIdentifier, conta
 		return nil, err
 	}
 	return result, nil
-}
-
-// Deprecated: Use client.Public().UpdateMessage() instead.
-func (c *Client) PublicUpdateMessage(ctx context.Context, inboxIdentifier, contactIdentifier string, conversationID, messageID int, content string) (map[string]any, error) {
-	return publicUpdateMessage(ctx, c, inboxIdentifier, contactIdentifier, conversationID, messageID, content)
 }
 
 // UpdateMessage updates a message via public API.

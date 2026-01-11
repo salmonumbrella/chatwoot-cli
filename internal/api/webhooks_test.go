@@ -31,7 +31,7 @@ func TestListWebhooks(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListWebhooks(context.Background())
+	result, err := client.Webhooks().List(context.Background())
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -63,7 +63,7 @@ func TestListWebhooksEmpty(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListWebhooks(context.Background())
+	result, err := client.Webhooks().List(context.Background())
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -93,7 +93,7 @@ func TestGetWebhook(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetWebhook(context.Background(), 2)
+	result, err := client.Webhooks().Get(context.Background(), 2)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -124,7 +124,7 @@ func TestGetWebhookNotFound(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetWebhook(context.Background(), 999)
+	result, err := client.Webhooks().Get(context.Background(), 999)
 
 	if err == nil {
 		t.Error("Expected error for non-existent webhook, got nil")
@@ -172,7 +172,7 @@ func TestCreateWebhook(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateWebhook(context.Background(), "https://example.com/webhook", []string{"message_created", "conversation_created"})
+	result, err := client.Webhooks().Create(context.Background(), "https://example.com/webhook", []string{"message_created", "conversation_created"})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -219,7 +219,7 @@ func TestUpdateWebhook(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateWebhook(context.Background(), 1, "https://example.com/updated", []string{"message_created"})
+	result, err := client.Webhooks().Update(context.Background(), 1, "https://example.com/updated", []string{"message_created"})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -258,7 +258,7 @@ func TestUpdateWebhookPartial(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateWebhook(context.Background(), 1, "", []string{"conversation_created"})
+	result, err := client.Webhooks().Update(context.Background(), 1, "", []string{"conversation_created"})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -284,7 +284,7 @@ func TestDeleteWebhook(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteWebhook(context.Background(), 1)
+	err := client.Webhooks().Delete(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -300,7 +300,7 @@ func TestDeleteWebhookNotFound(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteWebhook(context.Background(), 999)
+	err := client.Webhooks().Delete(context.Background(), 999)
 
 	if err == nil {
 		t.Error("Expected error for non-existent webhook, got nil")

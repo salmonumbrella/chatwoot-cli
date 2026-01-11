@@ -38,7 +38,7 @@ func newWebhooksListCmd() *cobra.Command {
 				return err
 			}
 
-			webhooks, err := client.ListWebhooks(cmdContext(cmd))
+			webhooks, err := client.Webhooks().List(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -90,7 +90,7 @@ func newWebhooksGetCmd() *cobra.Command {
 				return err
 			}
 
-			webhook, err := client.GetWebhook(cmdContext(cmd), id)
+			webhook, err := client.Webhooks().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ Available subscription events:
 				return err
 			}
 
-			webhook, err := client.CreateWebhook(cmdContext(cmd), url, subscriptions)
+			webhook, err := client.Webhooks().Create(cmdContext(cmd), url, subscriptions)
 			if err != nil {
 				return err
 			}
@@ -234,7 +234,7 @@ Available subscription events:
 				return err
 			}
 
-			webhook, err := client.UpdateWebhook(cmdContext(cmd), id, url, subscriptions)
+			webhook, err := client.Webhooks().Update(cmdContext(cmd), id, url, subscriptions)
 			if err != nil {
 				return err
 			}
@@ -282,7 +282,7 @@ func newWebhooksDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			err = client.DeleteWebhook(cmdContext(cmd), id)
+			err = client.Webhooks().Delete(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}

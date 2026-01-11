@@ -20,17 +20,12 @@ func (c *Client) surveyPath(path string) string {
 	return fmt.Sprintf("%s/survey%s", c.BaseURL, path)
 }
 
-// Deprecated: Use client.Survey().GetResponse() instead.
-func (c *Client) GetSurveyResponse(ctx context.Context, conversationUUID string) (*SurveyResponse, error) {
+// GetResponse retrieves a survey response by conversation UUID.
+func (s SurveyService) GetResponse(ctx context.Context, conversationUUID string) (*SurveyResponse, error) {
 	var result SurveyResponse
-	path := c.surveyPath(fmt.Sprintf("/responses/%s", conversationUUID))
-	if err := c.do(ctx, "GET", path, nil, &result); err != nil {
+	path := s.surveyPath(fmt.Sprintf("/responses/%s", conversationUUID))
+	if err := s.do(ctx, "GET", path, nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
-}
-
-// GetResponse retrieves a survey response by conversation UUID.
-func (s SurveyService) GetResponse(ctx context.Context, conversationUUID string) (*SurveyResponse, error) {
-	return s.GetSurveyResponse(ctx, conversationUUID)
 }

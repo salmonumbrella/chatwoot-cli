@@ -20,11 +20,6 @@ type CSATListParams struct {
 	SortOrder string // asc or desc
 }
 
-// Deprecated: Use client.CSAT().List() instead.
-func (c *Client) ListCSATResponses(ctx context.Context, params CSATListParams) ([]CSATResponse, error) {
-	return listCSATResponses(ctx, c, params)
-}
-
 // List retrieves CSAT survey responses with optional filters.
 func (s CSATService) List(ctx context.Context, params CSATListParams) ([]CSATResponse, error) {
 	return listCSATResponses(ctx, s, params)
@@ -79,11 +74,6 @@ func listCSATResponses(ctx context.Context, r Requester, params CSATListParams) 
 		return nil, fmt.Errorf("unexpected API response format: %w", err)
 	}
 	return wrapped.Payload, nil
-}
-
-// Deprecated: Use client.CSAT().Conversation() instead.
-func (c *Client) GetConversationCSAT(ctx context.Context, conversationID int) (*CSATResponse, error) {
-	return getConversationCSAT(ctx, c, conversationID)
 }
 
 // Conversation retrieves CSAT for a specific conversation.

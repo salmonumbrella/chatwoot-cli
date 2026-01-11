@@ -54,7 +54,7 @@ func newCustomAttributesListCmd() *cobra.Command {
 				return err
 			}
 
-			attrs, err := client.ListCustomAttributes(cmdContext(cmd), model)
+			attrs, err := client.CustomAttributes().List(cmdContext(cmd), model)
 			if err != nil {
 				return err
 			}
@@ -113,7 +113,7 @@ func newCustomAttributesGetCmd() *cobra.Command {
 				return err
 			}
 
-			attr, err := client.GetCustomAttribute(cmdContext(cmd), id)
+			attr, err := client.CustomAttributes().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -179,7 +179,7 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 				return err
 			}
 
-			attr, err := client.CreateCustomAttribute(cmdContext(cmd), name, key, model, attrType)
+			attr, err := client.CustomAttributes().Create(cmdContext(cmd), name, key, model, attrType)
 			if err != nil {
 				return err
 			}
@@ -223,7 +223,7 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			attr, err := client.UpdateCustomAttribute(cmdContext(cmd), id, name)
+			attr, err := client.CustomAttributes().Update(cmdContext(cmd), id, name)
 			if err != nil {
 				return err
 			}
@@ -258,7 +258,7 @@ func newCustomAttributesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteCustomAttribute(cmdContext(cmd), id); err != nil {
+			if err := client.CustomAttributes().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 

@@ -38,7 +38,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 				return err
 			}
 
-			apps, err := client.ListIntegrationApps(cmdContext(cmd))
+			apps, err := client.Integrations().ListApps(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func newIntegrationsHooksCmd() *cobra.Command {
 				return err
 			}
 
-			hooks, err := client.ListIntegrationHooks(cmdContext(cmd))
+			hooks, err := client.Integrations().ListHooks(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 				return err
 			}
 
-			hook, err := client.CreateIntegrationHook(cmdContext(cmd), appID, inboxID, settings)
+			hook, err := client.Integrations().CreateHook(cmdContext(cmd), appID, inboxID, settings)
 			if err != nil {
 				return err
 			}
@@ -170,7 +170,7 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			hook, err := client.UpdateIntegrationHook(cmdContext(cmd), hookID, settings)
+			hook, err := client.Integrations().UpdateHook(cmdContext(cmd), hookID, settings)
 			if err != nil {
 				return err
 			}
@@ -206,7 +206,7 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteIntegrationHook(cmdContext(cmd), hookID); err != nil {
+			if err := client.Integrations().DeleteHook(cmdContext(cmd), hookID); err != nil {
 				return err
 			}
 
@@ -253,7 +253,7 @@ func newShopifyAuthCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.ShopifyAuth(cmdContext(cmd), shopDomain, code); err != nil {
+			if err := client.Shopify().Auth(cmdContext(cmd), shopDomain, code); err != nil {
 				return err
 			}
 
@@ -287,7 +287,7 @@ func newShopifyOrdersCmd() *cobra.Command {
 				return err
 			}
 
-			orders, err := client.ListShopifyOrders(cmdContext(cmd), contactID)
+			orders, err := client.Shopify().ListOrders(cmdContext(cmd), contactID)
 			if err != nil {
 				return err
 			}
@@ -328,7 +328,7 @@ func newShopifyDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteShopifyIntegration(cmdContext(cmd)); err != nil {
+			if err := client.Shopify().Delete(cmdContext(cmd)); err != nil {
 				return err
 			}
 
@@ -363,7 +363,7 @@ func newNotionDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteNotionIntegration(cmdContext(cmd)); err != nil {
+			if err := client.Notion().Delete(cmdContext(cmd)); err != nil {
 				return err
 			}
 

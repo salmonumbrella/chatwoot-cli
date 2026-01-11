@@ -103,7 +103,7 @@ func TestGetSurveyResponse(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetSurveyResponse(context.Background(), tt.conversationUUID)
+			result, err := client.Survey().GetResponse(context.Background(), tt.conversationUUID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

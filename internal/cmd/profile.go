@@ -28,7 +28,7 @@ func newProfileGetCmd() *cobra.Command {
 				return err
 			}
 
-			profile, err := client.GetProfile(cmdContext(cmd))
+			profile, err := client.Profile().Get(cmdContext(cmd))
 			if err != nil {
 				return err
 			}

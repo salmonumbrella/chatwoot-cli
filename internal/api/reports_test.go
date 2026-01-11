@@ -178,7 +178,7 @@ func TestGetReportSummary(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetReportSummary(context.Background(), tt.reportType, tt.since, tt.until, tt.id)
+			result, err := client.Reports().Summary(context.Background(), tt.reportType, tt.since, tt.until, tt.id)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -322,7 +322,7 @@ func TestGetReportTimeSeries(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetReportTimeSeries(context.Background(), tt.metric, tt.reportType, tt.since, tt.until, tt.id)
+			result, err := client.Reports().TimeSeries(context.Background(), tt.metric, tt.reportType, tt.since, tt.until, tt.id)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -423,7 +423,7 @@ func TestGetConversationMetrics(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversationMetrics(context.Background())
+			result, err := client.Reports().ConversationMetrics(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -563,7 +563,7 @@ func TestGetAgentMetrics(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetAgentMetrics(context.Background(), tt.userID)
+			result, err := client.Reports().AgentMetrics(context.Background(), tt.userID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -651,7 +651,7 @@ func TestListReportingEvents(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListReportingEvents(context.Background(), tt.since, tt.until, tt.eventType)
+			result, err := client.Reports().ListEvents(context.Background(), tt.since, tt.until, tt.eventType)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -727,7 +727,7 @@ func TestGetConversationReportingEvents(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversationReportingEvents(context.Background(), tt.conversationID)
+			result, err := client.Reports().ConversationEvents(context.Background(), tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

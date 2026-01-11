@@ -36,7 +36,7 @@ func newAuditLogsListCmd() *cobra.Command {
 				return err
 			}
 
-			logs, err := client.ListAuditLogs(cmdContext(cmd), page)
+			logs, err := client.AuditLogs().List(cmdContext(cmd), page)
 			if err != nil {
 				return err
 			}

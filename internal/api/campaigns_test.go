@@ -137,7 +137,7 @@ func TestListCampaigns(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListCampaigns(context.Background(), tt.page)
+			result, err := client.Campaigns().List(context.Background(), tt.page)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -243,7 +243,7 @@ func TestGetCampaign(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetCampaign(context.Background(), tt.campaignID)
+			result, err := client.Campaigns().Get(context.Background(), tt.campaignID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -370,7 +370,7 @@ func TestCreateCampaign(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateCampaign(context.Background(), tt.request)
+			result, err := client.Campaigns().Create(context.Background(), tt.request)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -505,7 +505,7 @@ func TestUpdateCampaign(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateCampaign(context.Background(), tt.campaignID, tt.request)
+			result, err := client.Campaigns().Update(context.Background(), tt.campaignID, tt.request)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -564,7 +564,7 @@ func TestDeleteCampaign(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteCampaign(context.Background(), tt.campaignID)
+			err := client.Campaigns().Delete(context.Background(), tt.campaignID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

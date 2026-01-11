@@ -34,7 +34,7 @@ func newAgentsListCmd() *cobra.Command {
 		DisablePagination: true,
 		EmptyMessage:      "No agents found",
 		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Agent], error) {
-			agents, err := client.ListAgents(ctx)
+			agents, err := client.Agents().List(ctx)
 			if err != nil {
 				return ListResult[api.Agent]{}, err
 			}
@@ -81,7 +81,7 @@ func newAgentsGetCmd() *cobra.Command {
 				return err
 			}
 
-			agent, err := client.GetAgent(cmdContext(cmd), id)
+			agent, err := client.Agents().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,7 @@ func newAgentsCreateCmd() *cobra.Command {
 				return err
 			}
 
-			agent, err := client.CreateAgent(cmdContext(cmd), name, email, role)
+			agent, err := client.Agents().Create(cmdContext(cmd), name, email, role)
 			if err != nil {
 				return err
 			}
@@ -207,7 +207,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			agent, err := client.UpdateAgent(cmdContext(cmd), id, name, role)
+			agent, err := client.Agents().Update(cmdContext(cmd), id, name, role)
 			if err != nil {
 				return err
 			}
@@ -254,7 +254,7 @@ func newAgentsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteAgent(cmdContext(cmd), id); err != nil {
+			if err := client.Agents().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -302,7 +302,7 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 				return err
 			}
 
-			agents, err := client.BulkCreateAgents(cmdContext(cmd), validEmails)
+			agents, err := client.Agents().BulkCreate(cmdContext(cmd), validEmails)
 			if err != nil {
 				return err
 			}

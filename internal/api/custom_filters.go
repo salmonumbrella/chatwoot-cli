@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-// Deprecated: Use client.CustomFilters().List() instead.
-func (c *Client) ListCustomFilters(ctx context.Context, filterType string) ([]CustomFilter, error) {
-	return listCustomFilters(ctx, c, filterType)
-}
-
 // List retrieves all custom filters for a filter type.
 func (s CustomFiltersService) List(ctx context.Context, filterType string) ([]CustomFilter, error) {
 	return listCustomFilters(ctx, s, filterType)
@@ -28,11 +23,6 @@ func listCustomFilters(ctx context.Context, r Requester, filterType string) ([]C
 	return filters, nil
 }
 
-// Deprecated: Use client.CustomFilters().Get() instead.
-func (c *Client) GetCustomFilter(ctx context.Context, id int) (*CustomFilter, error) {
-	return getCustomFilter(ctx, c, id)
-}
-
 // Get retrieves a single custom filter by ID.
 func (s CustomFiltersService) Get(ctx context.Context, id int) (*CustomFilter, error) {
 	return getCustomFilter(ctx, s, id)
@@ -45,11 +35,6 @@ func getCustomFilter(ctx context.Context, r Requester, id int) (*CustomFilter, e
 		return nil, err
 	}
 	return &filter, nil
-}
-
-// Deprecated: Use client.CustomFilters().Create() instead.
-func (c *Client) CreateCustomFilter(ctx context.Context, name, filterType string, query map[string]any) (*CustomFilter, error) {
-	return createCustomFilter(ctx, c, name, filterType, query)
 }
 
 // Create creates a new custom filter.
@@ -69,11 +54,6 @@ func createCustomFilter(ctx context.Context, r Requester, name, filterType strin
 		return nil, err
 	}
 	return &filter, nil
-}
-
-// Deprecated: Use client.CustomFilters().Update() instead.
-func (c *Client) UpdateCustomFilter(ctx context.Context, id int, name string, query map[string]any) (*CustomFilter, error) {
-	return updateCustomFilter(ctx, c, id, name, query)
 }
 
 // Update updates an existing custom filter.
@@ -96,11 +76,6 @@ func updateCustomFilter(ctx context.Context, r Requester, id int, name string, q
 		return nil, err
 	}
 	return &filter, nil
-}
-
-// Deprecated: Use client.CustomFilters().Delete() instead.
-func (c *Client) DeleteCustomFilter(ctx context.Context, id int) error {
-	return deleteCustomFilter(ctx, c, id)
 }
 
 // Delete deletes a custom filter.

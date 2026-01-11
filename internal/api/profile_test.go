@@ -92,7 +92,7 @@ func TestGetProfile(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetProfile(context.Background())
+			result, err := client.Profile().Get(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

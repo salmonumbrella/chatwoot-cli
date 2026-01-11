@@ -104,7 +104,7 @@ of relevant resources with a single query.`,
 						var allContacts []api.Contact
 						page := 1
 						for {
-							contacts, err := client.SearchContacts(ctx, query, page)
+							contacts, err := client.Contacts().Search(ctx, query, page)
 							if err != nil {
 								mu.Lock()
 								if searchErr == nil {
@@ -139,7 +139,7 @@ of relevant resources with a single query.`,
 						var allConversations []api.Conversation
 						page := 1
 						for {
-							conversations, err := client.SearchConversations(ctx, query, page)
+							conversations, err := client.Conversations().Search(ctx, query, page)
 							if err != nil {
 								mu.Lock()
 								if searchErr == nil {

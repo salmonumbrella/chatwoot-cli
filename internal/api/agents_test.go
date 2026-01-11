@@ -65,7 +65,7 @@ func TestListAgents(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListAgents(context.Background())
+			result, err := client.Agents().List(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -137,7 +137,7 @@ func TestGetAgent(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetAgent(context.Background(), tt.agentID)
+			result, err := client.Agents().Get(context.Background(), tt.agentID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -223,7 +223,7 @@ func TestCreateAgent(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateAgent(context.Background(), tt.agentName, tt.email, tt.role)
+			result, err := client.Agents().Create(context.Background(), tt.agentName, tt.email, tt.role)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -331,7 +331,7 @@ func TestUpdateAgent(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateAgent(context.Background(), tt.agentID, tt.agentName, tt.role)
+			result, err := client.Agents().Update(context.Background(), tt.agentID, tt.agentName, tt.role)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -404,7 +404,7 @@ func TestDeleteAgent(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteAgent(context.Background(), tt.agentID)
+			err := client.Agents().Delete(context.Background(), tt.agentID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -474,7 +474,7 @@ func TestBulkCreateAgents(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.BulkCreateAgents(context.Background(), tt.emails)
+			result, err := client.Agents().BulkCreate(context.Background(), tt.emails)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

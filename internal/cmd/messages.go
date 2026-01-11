@@ -64,9 +64,9 @@ func newMessagesListCmd() *cobra.Command {
 
 			var messages []api.Message
 			if all {
-				messages, err = client.ListAllMessagesWithMaxPages(cmdContext(cmd), conversationID, maxPages)
+				messages, err = client.Messages().ListAllWithMaxPages(cmdContext(cmd), conversationID, maxPages)
 			} else {
-				messages, err = client.ListMessages(cmdContext(cmd), conversationID)
+				messages, err = client.Messages().List(cmdContext(cmd), conversationID)
 			}
 			if err != nil {
 				return fmt.Errorf("failed to list messages for conversation %d: %w", conversationID, err)
@@ -174,7 +174,7 @@ func newMessagesCreateCmd() *cobra.Command {
 				var mentionParts []string
 				ctx := cmdContext(cmd)
 				for _, m := range mentions {
-					agent, err := client.FindAgentByNameOrEmail(ctx, m)
+					agent, err := client.Agents().Find(ctx, m)
 					if err != nil {
 						return fmt.Errorf("failed to resolve mention '%s': %w", m, err)
 					}
@@ -243,7 +243,7 @@ func newMessagesCreateCmd() *cobra.Command {
 					return err
 				}
 
-				message, err = client.CreateMessageWithAttachments(
+				message, err = client.Messages().CreateWithAttachments(
 					cmdContext(cmd),
 					conversationID,
 					content,
@@ -265,7 +265,7 @@ func newMessagesCreateCmd() *cobra.Command {
 					return err
 				}
 
-				message, err = client.CreateMessage(cmdContext(cmd), conversationID, content, private, messageType)
+				message, err = client.Messages().Create(cmdContext(cmd), conversationID, content, private, messageType)
 			}
 
 			if err != nil {
@@ -335,7 +335,7 @@ func newMessagesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteMessage(cmdContext(cmd), conversationID, messageID); err != nil {
+			if err := client.Messages().Delete(cmdContext(cmd), conversationID, messageID); err != nil {
 				return fmt.Errorf("failed to delete message %d from conversation %d: %w", messageID, conversationID, err)
 			}
 
@@ -403,7 +403,7 @@ func newMessagesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			message, err := client.UpdateMessage(cmdContext(cmd), conversationID, messageID, content)
+			message, err := client.Messages().Update(cmdContext(cmd), conversationID, messageID, content)
 			if err != nil {
 				return fmt.Errorf("failed to update message %d: %w", messageID, err)
 			}
@@ -467,7 +467,7 @@ Requires an AI integration to be configured in your Chatwoot instance.`,
 				return err
 			}
 
-			content, err := client.TranslateMessage(cmdContext(cmd), conversationID, messageID, lang)
+			content, err := client.Messages().Translate(cmdContext(cmd), conversationID, messageID, lang)
 			if err != nil {
 				return fmt.Errorf("failed to translate message %d: %w", messageID, err)
 			}
@@ -524,7 +524,7 @@ temporary failures (e.g., network issues, rate limiting).`,
 				return err
 			}
 
-			message, err := client.RetryMessage(cmdContext(cmd), conversationID, messageID)
+			message, err := client.Messages().Retry(cmdContext(cmd), conversationID, messageID)
 			if err != nil {
 				return fmt.Errorf("failed to retry message %d: %w", messageID, err)
 			}
@@ -638,7 +638,7 @@ Messages are sent concurrently for efficiency.`,
 						ConversationID: item.ConversationID,
 					}
 
-					msg, err := client.CreateMessage(ctx, item.ConversationID, item.Content, item.Private, "outgoing")
+					msg, err := client.Messages().Create(ctx, item.ConversationID, item.Content, item.Private, "outgoing")
 					if err != nil {
 						result.Status = "error"
 						result.Error = err.Error()

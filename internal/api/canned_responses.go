@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-// Deprecated: Use client.CannedResponses().List() instead.
-func (c *Client) ListCannedResponses(ctx context.Context) ([]CannedResponse, error) {
-	return listCannedResponses(ctx, c)
-}
-
 // List retrieves all canned responses for the account.
 func (s CannedResponsesService) List(ctx context.Context) ([]CannedResponse, error) {
 	return listCannedResponses(ctx, s)
@@ -21,11 +16,6 @@ func listCannedResponses(ctx context.Context, r Requester) ([]CannedResponse, er
 		return nil, err
 	}
 	return responses, nil
-}
-
-// Deprecated: Use client.CannedResponses().Get() instead.
-func (c *Client) GetCannedResponse(ctx context.Context, id int) (*CannedResponse, error) {
-	return getCannedResponse(ctx, c, id)
 }
 
 // Get retrieves a single canned response by ID.
@@ -51,11 +41,6 @@ func getCannedResponse(ctx context.Context, r Requester, id int) (*CannedRespons
 	}
 }
 
-// Deprecated: Use client.CannedResponses().Create() instead.
-func (c *Client) CreateCannedResponse(ctx context.Context, shortCode, content string) (*CannedResponse, error) {
-	return createCannedResponse(ctx, c, shortCode, content)
-}
-
 // Create creates a new canned response.
 func (s CannedResponsesService) Create(ctx context.Context, shortCode, content string) (*CannedResponse, error) {
 	return createCannedResponse(ctx, s, shortCode, content)
@@ -73,11 +58,6 @@ func createCannedResponse(ctx context.Context, r Requester, shortCode, content s
 		return nil, err
 	}
 	return &response, nil
-}
-
-// Deprecated: Use client.CannedResponses().Update() instead.
-func (c *Client) UpdateCannedResponse(ctx context.Context, id int, shortCode, content string) (*CannedResponse, error) {
-	return updateCannedResponse(ctx, c, id, shortCode, content)
 }
 
 // Update updates an existing canned response.
@@ -98,11 +78,6 @@ func updateCannedResponse(ctx context.Context, r Requester, id int, shortCode, c
 		return nil, err
 	}
 	return &response, nil
-}
-
-// Deprecated: Use client.CannedResponses().Delete() instead.
-func (c *Client) DeleteCannedResponse(ctx context.Context, id int) error {
-	return deleteCannedResponse(ctx, c, id)
 }
 
 // Delete deletes a canned response.

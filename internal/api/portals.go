@@ -30,11 +30,6 @@ type Category struct {
 	AccountID   int    `json:"account_id"`
 }
 
-// Deprecated: Use client.Portals().List() instead.
-func (c *Client) ListPortals(ctx context.Context) ([]Portal, error) {
-	return listPortals(ctx, c)
-}
-
 // List lists all portals.
 func (s PortalsService) List(ctx context.Context) ([]Portal, error) {
 	return listPortals(ctx, s)
@@ -44,11 +39,6 @@ func listPortals(ctx context.Context, r Requester) ([]Portal, error) {
 	var result PortalListResponse
 	err := r.do(ctx, "GET", r.accountPath("/portals"), nil, &result)
 	return result.Payload, err
-}
-
-// Deprecated: Use client.Portals().Get() instead.
-func (c *Client) GetPortal(ctx context.Context, portalSlug string) (*Portal, error) {
-	return getPortal(ctx, c, portalSlug)
 }
 
 // Get gets a portal by slug.
@@ -61,11 +51,6 @@ func getPortal(ctx context.Context, r Requester, portalSlug string) (*Portal, er
 	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
 	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
 	return &result, err
-}
-
-// Deprecated: Use client.Portals().Create() instead.
-func (c *Client) CreatePortal(ctx context.Context, name, slug string) (*Portal, error) {
-	return createPortal(ctx, c, name, slug)
 }
 
 // Create creates a new portal.
@@ -84,11 +69,6 @@ func createPortal(ctx context.Context, r Requester, name, slug string) (*Portal,
 	var result Portal
 	err := r.do(ctx, "POST", r.accountPath("/portals"), body, &result)
 	return &result, err
-}
-
-// Deprecated: Use client.Portals().Update() instead.
-func (c *Client) UpdatePortal(ctx context.Context, portalSlug string, name, slug string) (*Portal, error) {
-	return updatePortal(ctx, c, portalSlug, name, slug)
 }
 
 // Update updates a portal.
@@ -115,11 +95,6 @@ func updatePortal(ctx context.Context, r Requester, portalSlug string, name, slu
 	return &result, err
 }
 
-// Deprecated: Use client.Portals().Delete() instead.
-func (c *Client) DeletePortal(ctx context.Context, portalSlug string) error {
-	return deletePortal(ctx, c, portalSlug)
-}
-
 // Delete deletes a portal.
 func (s PortalsService) Delete(ctx context.Context, portalSlug string) error {
 	return deletePortal(ctx, s, portalSlug)
@@ -128,11 +103,6 @@ func (s PortalsService) Delete(ctx context.Context, portalSlug string) error {
 func deletePortal(ctx context.Context, r Requester, portalSlug string) error {
 	path := fmt.Sprintf("/portals/%s", url.PathEscape(portalSlug))
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
-}
-
-// Deprecated: Use client.Portals().Articles() instead.
-func (c *Client) ListPortalArticles(ctx context.Context, portalSlug string) ([]Article, error) {
-	return listPortalArticles(ctx, c, portalSlug)
 }
 
 // Articles lists articles in a portal.
@@ -147,11 +117,6 @@ func listPortalArticles(ctx context.Context, r Requester, portalSlug string) ([]
 	return result, err
 }
 
-// Deprecated: Use client.Portals().Categories() instead.
-func (c *Client) ListPortalCategories(ctx context.Context, portalSlug string) ([]Category, error) {
-	return listPortalCategories(ctx, c, portalSlug)
-}
-
 // Categories lists categories in a portal.
 func (s PortalsService) Categories(ctx context.Context, portalSlug string) ([]Category, error) {
 	return listPortalCategories(ctx, s, portalSlug)
@@ -162,11 +127,6 @@ func listPortalCategories(ctx context.Context, r Requester, portalSlug string) (
 	path := fmt.Sprintf("/portals/%s/categories", url.PathEscape(portalSlug))
 	err := r.do(ctx, "GET", r.accountPath(path), nil, &result)
 	return result, err
-}
-
-// Deprecated: Use client.Portals().Article() instead.
-func (c *Client) GetArticle(ctx context.Context, portalSlug string, articleID int) (*Article, error) {
-	return getArticle(ctx, c, portalSlug, articleID)
 }
 
 // Article gets a specific article.
@@ -183,11 +143,6 @@ func getArticle(ctx context.Context, r Requester, portalSlug string, articleID i
 	return &result, nil
 }
 
-// Deprecated: Use client.Portals().CreateArticle() instead.
-func (c *Client) CreateArticle(ctx context.Context, portalSlug string, params map[string]any) (*Article, error) {
-	return createArticle(ctx, c, portalSlug, params)
-}
-
 // CreateArticle creates a new article in a portal.
 func (s PortalsService) CreateArticle(ctx context.Context, portalSlug string, params map[string]any) (*Article, error) {
 	return createArticle(ctx, s, portalSlug, params)
@@ -200,11 +155,6 @@ func createArticle(ctx context.Context, r Requester, portalSlug string, params m
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Portals().UpdateArticle() instead.
-func (c *Client) UpdateArticle(ctx context.Context, portalSlug string, articleID int, params map[string]any) (*Article, error) {
-	return updateArticle(ctx, c, portalSlug, articleID, params)
 }
 
 // UpdateArticle updates an article.
@@ -221,11 +171,6 @@ func updateArticle(ctx context.Context, r Requester, portalSlug string, articleI
 	return &result, nil
 }
 
-// Deprecated: Use client.Portals().DeleteArticle() instead.
-func (c *Client) DeleteArticle(ctx context.Context, portalSlug string, articleID int) error {
-	return deleteArticle(ctx, c, portalSlug, articleID)
-}
-
 // DeleteArticle deletes an article.
 func (s PortalsService) DeleteArticle(ctx context.Context, portalSlug string, articleID int) error {
 	return deleteArticle(ctx, s, portalSlug, articleID)
@@ -234,11 +179,6 @@ func (s PortalsService) DeleteArticle(ctx context.Context, portalSlug string, ar
 func deleteArticle(ctx context.Context, r Requester, portalSlug string, articleID int) error {
 	path := fmt.Sprintf("/portals/%s/articles/%d", url.PathEscape(portalSlug), articleID)
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
-}
-
-// Deprecated: Use client.Portals().Category() instead.
-func (c *Client) GetCategory(ctx context.Context, portalSlug string, categorySlug string) (*Category, error) {
-	return getCategory(ctx, c, portalSlug, categorySlug)
 }
 
 // Category gets a specific category.
@@ -255,11 +195,6 @@ func getCategory(ctx context.Context, r Requester, portalSlug string, categorySl
 	return &result, nil
 }
 
-// Deprecated: Use client.Portals().CreateCategory() instead.
-func (c *Client) CreateCategory(ctx context.Context, portalSlug string, params map[string]any) (*Category, error) {
-	return createCategory(ctx, c, portalSlug, params)
-}
-
 // CreateCategory creates a new category in a portal.
 func (s PortalsService) CreateCategory(ctx context.Context, portalSlug string, params map[string]any) (*Category, error) {
 	return createCategory(ctx, s, portalSlug, params)
@@ -272,11 +207,6 @@ func createCategory(ctx context.Context, r Requester, portalSlug string, params 
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Portals().UpdateCategory() instead.
-func (c *Client) UpdateCategory(ctx context.Context, portalSlug, categorySlug string, params map[string]any) (*Category, error) {
-	return updateCategory(ctx, c, portalSlug, categorySlug, params)
 }
 
 // UpdateCategory updates a category.
@@ -293,11 +223,6 @@ func updateCategory(ctx context.Context, r Requester, portalSlug, categorySlug s
 	return &result, nil
 }
 
-// Deprecated: Use client.Portals().DeleteCategory() instead.
-func (c *Client) DeleteCategory(ctx context.Context, portalSlug, categorySlug string) error {
-	return deleteCategory(ctx, c, portalSlug, categorySlug)
-}
-
 // DeleteCategory deletes a category.
 func (s PortalsService) DeleteCategory(ctx context.Context, portalSlug, categorySlug string) error {
 	return deleteCategory(ctx, s, portalSlug, categorySlug)
@@ -306,11 +231,6 @@ func (s PortalsService) DeleteCategory(ctx context.Context, portalSlug, category
 func deleteCategory(ctx context.Context, r Requester, portalSlug, categorySlug string) error {
 	path := fmt.Sprintf("/portals/%s/categories/%s", url.PathEscape(portalSlug), url.PathEscape(categorySlug))
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
-}
-
-// Deprecated: Use client.Portals().Archive() instead.
-func (c *Client) ArchivePortal(ctx context.Context, portalSlug string) error {
-	return archivePortal(ctx, c, portalSlug)
 }
 
 // Archive archives a portal.
@@ -323,11 +243,6 @@ func archivePortal(ctx context.Context, r Requester, portalSlug string) error {
 	return r.do(ctx, "PATCH", r.accountPath(path), nil, nil)
 }
 
-// Deprecated: Use client.Portals().DeleteLogo() instead.
-func (c *Client) DeletePortalLogo(ctx context.Context, portalSlug string) error {
-	return deletePortalLogo(ctx, c, portalSlug)
-}
-
 // DeleteLogo removes the logo from a portal.
 func (s PortalsService) DeleteLogo(ctx context.Context, portalSlug string) error {
 	return deletePortalLogo(ctx, s, portalSlug)
@@ -338,11 +253,6 @@ func deletePortalLogo(ctx context.Context, r Requester, portalSlug string) error
 	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
-// Deprecated: Use client.Portals().SendInstructions() instead.
-func (c *Client) SendPortalInstructions(ctx context.Context, portalSlug string) error {
-	return sendPortalInstructions(ctx, c, portalSlug)
-}
-
 // SendInstructions sends CNAME setup instructions for a portal.
 func (s PortalsService) SendInstructions(ctx context.Context, portalSlug string) error {
 	return sendPortalInstructions(ctx, s, portalSlug)
@@ -351,11 +261,6 @@ func (s PortalsService) SendInstructions(ctx context.Context, portalSlug string)
 func sendPortalInstructions(ctx context.Context, r Requester, portalSlug string) error {
 	path := fmt.Sprintf("/portals/%s/send_instructions", url.PathEscape(portalSlug))
 	return r.do(ctx, "POST", r.accountPath(path), nil, nil)
-}
-
-// Deprecated: Use client.Portals().SSLStatus() instead.
-func (c *Client) GetPortalSSLStatus(ctx context.Context, portalSlug string) (map[string]any, error) {
-	return getPortalSSLStatus(ctx, c, portalSlug)
 }
 
 // SSLStatus gets the SSL status for a portal.
@@ -370,11 +275,6 @@ func getPortalSSLStatus(ctx context.Context, r Requester, portalSlug string) (ma
 		return nil, err
 	}
 	return result, nil
-}
-
-// Deprecated: Use client.Portals().ReorderArticles() instead.
-func (c *Client) ReorderArticles(ctx context.Context, portalSlug string, articleIDs []int) error {
-	return reorderArticles(ctx, c, portalSlug, articleIDs)
 }
 
 // ReorderArticles reorders articles in a portal.

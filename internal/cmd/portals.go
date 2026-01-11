@@ -52,7 +52,7 @@ func newPortalsListCmd() *cobra.Command {
 				return err
 			}
 
-			portals, err := client.ListPortals(cmdContext(cmd))
+			portals, err := client.Portals().List(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -98,7 +98,7 @@ func newPortalsGetCmd() *cobra.Command {
 				return err
 			}
 
-			portal, err := client.GetPortal(cmdContext(cmd), portalSlug)
+			portal, err := client.Portals().Get(cmdContext(cmd), portalSlug)
 			if err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ func newPortalsCreateCmd() *cobra.Command {
 				return err
 			}
 
-			portal, err := client.CreatePortal(cmdContext(cmd), name, slug)
+			portal, err := client.Portals().Create(cmdContext(cmd), name, slug)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func newPortalsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			portal, err := client.UpdatePortal(cmdContext(cmd), portalSlug, name, slug)
+			portal, err := client.Portals().Update(cmdContext(cmd), portalSlug, name, slug)
 			if err != nil {
 				return err
 			}
@@ -270,7 +270,7 @@ func newPortalsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeletePortal(cmdContext(cmd), portalSlug); err != nil {
+			if err := client.Portals().Delete(cmdContext(cmd), portalSlug); err != nil {
 				return err
 			}
 
@@ -301,7 +301,7 @@ func newPortalsArchiveCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.ArchivePortal(cmdContext(cmd), portalSlug); err != nil {
+			if err := client.Portals().Archive(cmdContext(cmd), portalSlug); err != nil {
 				return err
 			}
 
@@ -341,7 +341,7 @@ func newPortalsDeleteLogoCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeletePortalLogo(cmdContext(cmd), portalSlug); err != nil {
+			if err := client.Portals().DeleteLogo(cmdContext(cmd), portalSlug); err != nil {
 				return err
 			}
 
@@ -373,7 +373,7 @@ func newPortalsSendInstructionsCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.SendPortalInstructions(cmdContext(cmd), portalSlug); err != nil {
+			if err := client.Portals().SendInstructions(cmdContext(cmd), portalSlug); err != nil {
 				return err
 			}
 
@@ -405,7 +405,7 @@ func newPortalsSSLStatusCmd() *cobra.Command {
 				return err
 			}
 
-			status, err := client.GetPortalSSLStatus(cmdContext(cmd), portalSlug)
+			status, err := client.Portals().SSLStatus(cmdContext(cmd), portalSlug)
 			if err != nil {
 				return err
 			}
@@ -454,7 +454,7 @@ func newPortalsArticlesListCmd() *cobra.Command {
 				return err
 			}
 
-			articles, err := client.ListPortalArticles(cmdContext(cmd), portalSlug)
+			articles, err := client.Portals().Articles(cmdContext(cmd), portalSlug)
 			if err != nil {
 				return err
 			}
@@ -495,7 +495,7 @@ func newPortalsArticlesGetCmd() *cobra.Command {
 				return err
 			}
 
-			article, err := client.GetArticle(cmdContext(cmd), portalSlug, articleID)
+			article, err := client.Portals().Article(cmdContext(cmd), portalSlug, articleID)
 			if err != nil {
 				return err
 			}
@@ -578,7 +578,7 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 				return err
 			}
 
-			article, err := client.CreateArticle(cmdContext(cmd), portalSlug, params)
+			article, err := client.Portals().CreateArticle(cmdContext(cmd), portalSlug, params)
 			if err != nil {
 				return err
 			}
@@ -662,7 +662,7 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			article, err := client.UpdateArticle(cmdContext(cmd), portalSlug, articleID, params)
+			article, err := client.Portals().UpdateArticle(cmdContext(cmd), portalSlug, articleID, params)
 			if err != nil {
 				return err
 			}
@@ -716,7 +716,7 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteArticle(cmdContext(cmd), portalSlug, articleID); err != nil {
+			if err := client.Portals().DeleteArticle(cmdContext(cmd), portalSlug, articleID); err != nil {
 				return err
 			}
 
@@ -758,7 +758,7 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.ReorderArticles(cmdContext(cmd), portalSlug, ids); err != nil {
+			if err := client.Portals().ReorderArticles(cmdContext(cmd), portalSlug, ids); err != nil {
 				return err
 			}
 
@@ -807,7 +807,7 @@ func newPortalsCategoriesListCmd() *cobra.Command {
 				return err
 			}
 
-			categories, err := client.ListPortalCategories(cmdContext(cmd), portalSlug)
+			categories, err := client.Portals().Categories(cmdContext(cmd), portalSlug)
 			if err != nil {
 				return err
 			}
@@ -847,7 +847,7 @@ func newPortalsCategoriesGetCmd() *cobra.Command {
 				return err
 			}
 
-			category, err := client.GetCategory(cmdContext(cmd), portalSlug, categorySlug)
+			category, err := client.Portals().Category(cmdContext(cmd), portalSlug, categorySlug)
 			if err != nil {
 				return err
 			}
@@ -925,7 +925,7 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 				return err
 			}
 
-			category, err := client.CreateCategory(cmdContext(cmd), portalSlug, params)
+			category, err := client.Portals().CreateCategory(cmdContext(cmd), portalSlug, params)
 			if err != nil {
 				return err
 			}
@@ -999,7 +999,7 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			category, err := client.UpdateCategory(cmdContext(cmd), portalSlug, categorySlug, params)
+			category, err := client.Portals().UpdateCategory(cmdContext(cmd), portalSlug, categorySlug, params)
 			if err != nil {
 				return err
 			}
@@ -1051,7 +1051,7 @@ func newPortalsCategoriesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteCategory(cmdContext(cmd), portalSlug, categorySlug); err != nil {
+			if err := client.Portals().DeleteCategory(cmdContext(cmd), portalSlug, categorySlug); err != nil {
 				return err
 			}
 

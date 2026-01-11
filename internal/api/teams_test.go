@@ -26,7 +26,7 @@ func TestListTeams(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListTeams(context.Background())
+	result, err := client.Teams().List(context.Background())
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -64,7 +64,7 @@ func TestGetTeam(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetTeam(context.Background(), 1)
+	result, err := client.Teams().Get(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -99,7 +99,7 @@ func TestCreateTeam(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateTeam(context.Background(), "New Team", "A new team")
+	result, err := client.Teams().Create(context.Background(), "New Team", "A new team")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -131,7 +131,7 @@ func TestUpdateTeam(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateTeam(context.Background(), 1, "Updated Team", "Updated description")
+	result, err := client.Teams().Update(context.Background(), 1, "Updated Team", "Updated description")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -160,7 +160,7 @@ func TestUpdateTeamPartial(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateTeam(context.Background(), 1, "Updated Name Only", "")
+	result, err := client.Teams().Update(context.Background(), 1, "Updated Name Only", "")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -184,7 +184,7 @@ func TestDeleteTeam(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteTeam(context.Background(), 1)
+	err := client.Teams().Delete(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -210,7 +210,7 @@ func TestListTeamMembers(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListTeamMembers(context.Background(), 1)
+	result, err := client.Teams().ListMembers(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -243,7 +243,7 @@ func TestAddTeamMembers(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.AddTeamMembers(context.Background(), 1, []int{10, 20})
+	err := client.Teams().AddMembers(context.Background(), 1, []int{10, 20})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -264,7 +264,7 @@ func TestRemoveTeamMembers(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.RemoveTeamMembers(context.Background(), 1, []int{10, 20})
+	err := client.Teams().RemoveMembers(context.Background(), 1, []int{10, 20})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

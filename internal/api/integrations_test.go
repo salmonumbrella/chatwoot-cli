@@ -76,7 +76,7 @@ func TestListIntegrationApps(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListIntegrationApps(context.Background())
+			result, err := client.Integrations().ListApps(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -152,7 +152,7 @@ func TestListIntegrationHooks(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListIntegrationHooks(context.Background())
+			result, err := client.Integrations().ListHooks(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -235,7 +235,7 @@ func TestCreateIntegrationHook(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateIntegrationHook(context.Background(), tt.appID, tt.inboxID, tt.settings)
+			result, err := client.Integrations().CreateHook(context.Background(), tt.appID, tt.inboxID, tt.settings)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -315,7 +315,7 @@ func TestUpdateIntegrationHook(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateIntegrationHook(context.Background(), tt.hookID, tt.settings)
+			result, err := client.Integrations().UpdateHook(context.Background(), tt.hookID, tt.settings)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -362,7 +362,7 @@ func TestDeleteIntegrationHook(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteIntegrationHook(context.Background(), tt.hookID)
+			err := client.Integrations().DeleteHook(context.Background(), tt.hookID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

@@ -50,7 +50,7 @@ func newInboxesListCmd() *cobra.Command {
 		},
 		EmptyMessage: "No inboxes found",
 		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[api.Inbox], error) {
-			inboxes, err := client.ListInboxes(ctx)
+			inboxes, err := client.Inboxes().List(ctx)
 			if err != nil {
 				return ListResult[api.Inbox]{}, err
 			}
@@ -87,7 +87,7 @@ func newInboxesGetCmd() *cobra.Command {
 				return err
 			}
 
-			inbox, err := client.GetInbox(cmdContext(cmd), id)
+			inbox, err := client.Inboxes().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -198,7 +198,7 @@ func newInboxesCreateCmd() *cobra.Command {
 				return err
 			}
 
-			inbox, err := client.CreateInbox(cmdContext(cmd), req)
+			inbox, err := client.Inboxes().Create(cmdContext(cmd), req)
 			if err != nil {
 				return err
 			}
@@ -324,7 +324,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			inbox, err := client.UpdateInbox(cmdContext(cmd), id, req)
+			inbox, err := client.Inboxes().Update(cmdContext(cmd), id, req)
 			if err != nil {
 				return err
 			}
@@ -381,7 +381,7 @@ func newInboxesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteInbox(cmdContext(cmd), id); err != nil {
+			if err := client.Inboxes().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -410,7 +410,7 @@ func newInboxesAgentBotCmd() *cobra.Command {
 				return err
 			}
 
-			bot, err := client.GetInboxAgentBot(cmdContext(cmd), id)
+			bot, err := client.Inboxes().GetAgentBot(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -469,7 +469,7 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.SetInboxAgentBot(cmdContext(cmd), id, botID); err != nil {
+			if err := client.Inboxes().SetAgentBot(cmdContext(cmd), id, botID); err != nil {
 				return err
 			}
 
@@ -506,7 +506,7 @@ func newInboxesTriageCmd() *cobra.Command {
 				return err
 			}
 
-			triage, err := client.GetInboxTriage(cmdContext(cmd), id, status, limit)
+			triage, err := client.Inboxes().Triage(cmdContext(cmd), id, status, limit)
 			if err != nil {
 				return err
 			}
@@ -583,7 +583,7 @@ func newInboxesCampaignsCmd() *cobra.Command {
 				return err
 			}
 
-			campaigns, err := client.GetInboxCampaigns(cmdContext(cmd), id)
+			campaigns, err := client.Inboxes().Campaigns(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -635,7 +635,7 @@ func newInboxesSyncTemplatesCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.SyncInboxTemplates(cmdContext(cmd), id); err != nil {
+			if err := client.Inboxes().SyncTemplates(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -661,7 +661,7 @@ func newInboxesHealthCmd() *cobra.Command {
 				return err
 			}
 
-			health, err := client.GetInboxHealth(cmdContext(cmd), id)
+			health, err := client.Inboxes().Health(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -706,7 +706,7 @@ func newInboxesDeleteAvatarCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteInboxAvatar(cmdContext(cmd), id); err != nil {
+			if err := client.Inboxes().DeleteAvatar(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -810,7 +810,7 @@ func newInboxesCSATTemplateGetCmd() *cobra.Command {
 				return err
 			}
 
-			template, err := client.GetInboxCSATTemplate(cmdContext(cmd), id)
+			template, err := client.Inboxes().CSATTemplate(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -871,7 +871,7 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 				return err
 			}
 
-			template, err := client.CreateInboxCSATTemplate(cmdContext(cmd), id, question, message)
+			template, err := client.Inboxes().CreateCSATTemplate(cmdContext(cmd), id, question, message)
 			if err != nil {
 				return err
 			}

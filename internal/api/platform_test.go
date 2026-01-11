@@ -63,7 +63,7 @@ func TestCreatePlatformAccount(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreatePlatformAccount(context.Background(), tt.req)
+			result, err := client.Platform().CreateAccount(context.Background(), tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -124,7 +124,7 @@ func TestGetPlatformAccount(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetPlatformAccount(context.Background(), tt.accountID)
+			result, err := client.Platform().GetAccount(context.Background(), tt.accountID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -181,7 +181,7 @@ func TestUpdatePlatformAccount(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdatePlatformAccount(context.Background(), tt.accountID, tt.req)
+			result, err := client.Platform().UpdateAccount(context.Background(), tt.accountID, tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -228,7 +228,7 @@ func TestDeletePlatformAccount(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeletePlatformAccount(context.Background(), tt.accountID)
+			err := client.Platform().DeleteAccount(context.Background(), tt.accountID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -286,7 +286,7 @@ func TestCreatePlatformUser(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreatePlatformUser(context.Background(), tt.req)
+			result, err := client.Platform().CreateUser(context.Background(), tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -347,7 +347,7 @@ func TestGetPlatformUser(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetPlatformUser(context.Background(), tt.userID)
+			result, err := client.Platform().GetUser(context.Background(), tt.userID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -402,7 +402,7 @@ func TestUpdatePlatformUser(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdatePlatformUser(context.Background(), tt.userID, tt.req)
+			result, err := client.Platform().UpdateUser(context.Background(), tt.userID, tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -449,7 +449,7 @@ func TestDeletePlatformUser(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeletePlatformUser(context.Background(), tt.userID)
+			err := client.Platform().DeleteUser(context.Background(), tt.userID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -507,7 +507,7 @@ func TestGetPlatformUserLogin(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetPlatformUserLogin(context.Background(), tt.userID)
+			result, err := client.Platform().GetUserLogin(context.Background(), tt.userID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -579,7 +579,7 @@ func TestListPlatformAccountUsers(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListPlatformAccountUsers(context.Background(), tt.accountID)
+			result, err := client.Platform().ListAccountUsers(context.Background(), tt.accountID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -638,7 +638,7 @@ func TestCreatePlatformAccountUser(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreatePlatformAccountUser(context.Background(), tt.accountID, tt.req)
+			result, err := client.Platform().CreateAccountUser(context.Background(), tt.accountID, tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -701,7 +701,7 @@ func TestDeletePlatformAccountUser(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeletePlatformAccountUser(context.Background(), tt.accountID, tt.userID)
+			err := client.Platform().DeleteAccountUser(context.Background(), tt.accountID, tt.userID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

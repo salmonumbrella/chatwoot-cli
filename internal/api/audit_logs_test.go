@@ -154,7 +154,7 @@ func TestListAuditLogs(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListAuditLogs(context.Background(), tt.page)
+			result, err := client.AuditLogs().List(context.Background(), tt.page)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

@@ -72,7 +72,7 @@ func TestListPortals(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListPortals(context.Background())
+			result, err := client.Portals().List(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -133,7 +133,7 @@ func TestGetPortal(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetPortal(context.Background(), tt.portalSlug)
+			result, err := client.Portals().Get(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -199,7 +199,7 @@ func TestCreatePortal(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreatePortal(context.Background(), tt.portalName, tt.portalSlug)
+			result, err := client.Portals().Create(context.Background(), tt.portalName, tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -271,7 +271,7 @@ func TestUpdatePortal(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdatePortal(context.Background(), tt.portalSlug, tt.newName, tt.newSlug)
+			result, err := client.Portals().Update(context.Background(), tt.portalSlug, tt.newName, tt.newSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -318,7 +318,7 @@ func TestDeletePortal(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeletePortal(context.Background(), tt.portalSlug)
+			err := client.Portals().Delete(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -387,7 +387,7 @@ func TestListPortalArticles(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListPortalArticles(context.Background(), tt.portalSlug)
+			result, err := client.Portals().Articles(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -447,7 +447,7 @@ func TestListPortalCategories(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListPortalCategories(context.Background(), tt.portalSlug)
+			result, err := client.Portals().Categories(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -511,7 +511,7 @@ func TestGetArticle(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetArticle(context.Background(), tt.portalSlug, tt.articleID)
+			result, err := client.Portals().Article(context.Background(), tt.portalSlug, tt.articleID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -568,7 +568,7 @@ func TestCreateArticle(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateArticle(context.Background(), tt.portalSlug, tt.params)
+			result, err := client.Portals().CreateArticle(context.Background(), tt.portalSlug, tt.params)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -625,7 +625,7 @@ func TestUpdateArticle(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateArticle(context.Background(), tt.portalSlug, tt.articleID, tt.params)
+			result, err := client.Portals().UpdateArticle(context.Background(), tt.portalSlug, tt.articleID, tt.params)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -675,7 +675,7 @@ func TestDeleteArticle(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteArticle(context.Background(), tt.portalSlug, tt.articleID)
+			err := client.Portals().DeleteArticle(context.Background(), tt.portalSlug, tt.articleID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -736,7 +736,7 @@ func TestGetCategory(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetCategory(context.Background(), tt.portalSlug, tt.categorySlug)
+			result, err := client.Portals().Category(context.Background(), tt.portalSlug, tt.categorySlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -793,7 +793,7 @@ func TestCreateCategory(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateCategory(context.Background(), tt.portalSlug, tt.params)
+			result, err := client.Portals().CreateCategory(context.Background(), tt.portalSlug, tt.params)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -850,7 +850,7 @@ func TestUpdateCategory(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateCategory(context.Background(), tt.portalSlug, tt.categorySlug, tt.params)
+			result, err := client.Portals().UpdateCategory(context.Background(), tt.portalSlug, tt.categorySlug, tt.params)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -900,7 +900,7 @@ func TestDeleteCategory(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteCategory(context.Background(), tt.portalSlug, tt.categorySlug)
+			err := client.Portals().DeleteCategory(context.Background(), tt.portalSlug, tt.categorySlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -947,7 +947,7 @@ func TestArchivePortal(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.ArchivePortal(context.Background(), tt.portalSlug)
+			err := client.Portals().Archive(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -994,7 +994,7 @@ func TestDeletePortalLogo(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeletePortalLogo(context.Background(), tt.portalSlug)
+			err := client.Portals().DeleteLogo(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1041,7 +1041,7 @@ func TestSendPortalInstructions(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.SendPortalInstructions(context.Background(), tt.portalSlug)
+			err := client.Portals().SendInstructions(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1099,7 +1099,7 @@ func TestGetPortalSSLStatus(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetPortalSSLStatus(context.Background(), tt.portalSlug)
+			result, err := client.Portals().SSLStatus(context.Background(), tt.portalSlug)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1154,7 +1154,7 @@ func TestReorderArticles(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.ReorderArticles(context.Background(), tt.portalSlug, tt.articleIDs)
+			err := client.Portals().ReorderArticles(context.Background(), tt.portalSlug, tt.articleIDs)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

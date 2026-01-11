@@ -95,13 +95,13 @@ mentioned so you can follow up on requests from teammates.`,
 			ctx := cmdContext(cmd)
 
 			// Get current user's profile to find their user ID
-			profile, err := client.GetProfile(ctx)
+			profile, err := client.Profile().Get(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get current user profile: %w", err)
 			}
 
 			// Find mentions
-			mentions, err := client.FindMentions(ctx, api.FindMentionsParams{
+			mentions, err := client.Mentions().Find(ctx, api.FindMentionsParams{
 				UserID:         profile.ID,
 				ConversationID: conversationID,
 				Since:          sinceTime,

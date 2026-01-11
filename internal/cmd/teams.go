@@ -35,7 +35,7 @@ func newTeamsListCmd() *cobra.Command {
 		DisablePagination: true,
 		EmptyMessage:      "No teams found",
 		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Team], error) {
-			teams, err := client.ListTeams(ctx)
+			teams, err := client.Teams().List(ctx)
 			if err != nil {
 				return ListResult[api.Team]{}, err
 			}
@@ -85,7 +85,7 @@ func newTeamsGetCmd() *cobra.Command {
 				return err
 			}
 
-			team, err := client.GetTeam(cmdContext(cmd), id)
+			team, err := client.Teams().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -133,7 +133,7 @@ func newTeamsCreateCmd() *cobra.Command {
 				return err
 			}
 
-			team, err := client.CreateTeam(cmdContext(cmd), name, description)
+			team, err := client.Teams().Create(cmdContext(cmd), name, description)
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			team, err := client.UpdateTeam(cmdContext(cmd), id, name, description)
+			team, err := client.Teams().Update(cmdContext(cmd), id, name, description)
 			if err != nil {
 				return err
 			}
@@ -211,7 +211,7 @@ func newTeamsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteTeam(cmdContext(cmd), id); err != nil {
+			if err := client.Teams().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -244,7 +244,7 @@ func newTeamsMembersCmd() *cobra.Command {
 				return err
 			}
 
-			members, err := client.ListTeamMembers(cmdContext(cmd), id)
+			members, err := client.Teams().ListMembers(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -293,7 +293,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.AddTeamMembers(cmdContext(cmd), id, userIDs); err != nil {
+			if err := client.Teams().AddMembers(cmdContext(cmd), id, userIDs); err != nil {
 				return err
 			}
 
@@ -342,7 +342,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.RemoveTeamMembers(cmdContext(cmd), id, userIDs); err != nil {
+			if err := client.Teams().RemoveMembers(cmdContext(cmd), id, userIDs); err != nil {
 				return err
 			}
 

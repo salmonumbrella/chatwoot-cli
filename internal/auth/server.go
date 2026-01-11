@@ -181,7 +181,7 @@ func (s *SetupServer) handleValidate(w http.ResponseWriter, r *http.Request) {
 
 	// Test the credentials by making an API call
 	client := api.New(req.BaseURL, req.APIToken, req.AccountID)
-	profile, err := client.GetProfile(r.Context())
+	profile, err := client.Profile().Get(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": false,
@@ -240,7 +240,7 @@ func (s *SetupServer) handleSubmit(w http.ResponseWriter, r *http.Request) {
 
 	// Validate first
 	client := api.New(req.BaseURL, req.APIToken, req.AccountID)
-	profile, err := client.GetProfile(r.Context())
+	profile, err := client.Profile().Get(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": false,

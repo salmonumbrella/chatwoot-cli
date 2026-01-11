@@ -11,11 +11,6 @@ type AuditLogList struct {
 	Meta    PaginationMeta `json:"meta"`
 }
 
-// Deprecated: Use client.AuditLogs().List() instead.
-func (c *Client) ListAuditLogs(ctx context.Context, page int) (*AuditLogList, error) {
-	return listAuditLogs(ctx, c, page)
-}
-
 // List lists audit logs.
 func (s AuditLogsService) List(ctx context.Context, page int) (*AuditLogList, error) {
 	return listAuditLogs(ctx, s, page)

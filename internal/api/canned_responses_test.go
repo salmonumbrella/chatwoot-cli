@@ -27,7 +27,7 @@ func TestListCannedResponses(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListCannedResponses(context.Background())
+	result, err := client.CannedResponses().List(context.Background())
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -55,7 +55,7 @@ func TestListCannedResponses_Empty(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.ListCannedResponses(context.Background())
+	result, err := client.CannedResponses().List(context.Background())
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -77,7 +77,7 @@ func TestGetCannedResponse(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetCannedResponse(context.Background(), 2)
+	result, err := client.CannedResponses().Get(context.Background(), 2)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -101,7 +101,7 @@ func TestGetCannedResponse_NotFound(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.GetCannedResponse(context.Background(), 999)
+	result, err := client.CannedResponses().Get(context.Background(), 999)
 
 	if err == nil {
 		t.Error("Expected error for non-existent canned response, got nil")
@@ -144,7 +144,7 @@ func TestCreateCannedResponse(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateCannedResponse(context.Background(), "test", "Test content")
+	result, err := client.CannedResponses().Create(context.Background(), "test", "Test content")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -187,7 +187,7 @@ func TestUpdateCannedResponse(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.UpdateCannedResponse(context.Background(), 1, "updated", "Updated content")
+	result, err := client.CannedResponses().Update(context.Background(), 1, "updated", "Updated content")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -216,7 +216,7 @@ func TestDeleteCannedResponse(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteCannedResponse(context.Background(), 1)
+	err := client.CannedResponses().Delete(context.Background(), 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -231,7 +231,7 @@ func TestDeleteCannedResponse_Error(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.DeleteCannedResponse(context.Background(), 999)
+	err := client.CannedResponses().Delete(context.Background(), 999)
 
 	if err == nil {
 		t.Error("Expected error for non-existent canned response, got nil")

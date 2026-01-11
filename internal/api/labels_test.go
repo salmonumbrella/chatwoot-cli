@@ -73,7 +73,7 @@ func TestListLabels(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListLabels(context.Background())
+			result, err := client.Labels().List(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -137,7 +137,7 @@ func TestGetLabel(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetLabel(context.Background(), tt.labelID)
+			result, err := client.Labels().Get(context.Background(), tt.labelID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -229,7 +229,7 @@ func TestCreateLabel(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateLabel(context.Background(), tt.title, tt.description, tt.color, tt.showOnSidebar)
+			result, err := client.Labels().Create(context.Background(), tt.title, tt.description, tt.color, tt.showOnSidebar)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -329,7 +329,7 @@ func TestUpdateLabel(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateLabel(context.Background(), tt.labelID, tt.title, tt.description, tt.color, tt.showOnSidebar)
+			result, err := client.Labels().Update(context.Background(), tt.labelID, tt.title, tt.description, tt.color, tt.showOnSidebar)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -376,7 +376,7 @@ func TestDeleteLabel(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteLabel(context.Background(), tt.labelID)
+			err := client.Labels().Delete(context.Background(), tt.labelID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

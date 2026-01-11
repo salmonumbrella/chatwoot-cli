@@ -67,7 +67,7 @@ Supported URL formats:
 			ctx := cmdContext(cmd)
 			switch parsed.ResourceType {
 			case "conversation":
-				conv, err := client.GetConversation(ctx, parsed.ResourceID)
+				conv, err := client.Conversations().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get conversation %d: %w", parsed.ResourceID, err)
 				}
@@ -77,7 +77,7 @@ Supported URL formats:
 				return printConversationDetails(cmd.OutOrStdout(), conv)
 
 			case "contact":
-				contact, err := client.GetContact(ctx, parsed.ResourceID)
+				contact, err := client.Contacts().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get contact %d: %w", parsed.ResourceID, err)
 				}
@@ -87,7 +87,7 @@ Supported URL formats:
 				return printContactDetails(cmd.OutOrStdout(), contact)
 
 			case "inbox":
-				inbox, err := client.GetInbox(ctx, parsed.ResourceID)
+				inbox, err := client.Inboxes().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get inbox %d: %w", parsed.ResourceID, err)
 				}
@@ -97,7 +97,7 @@ Supported URL formats:
 				return printInboxDetails(cmd.OutOrStdout(), inbox)
 
 			case "team":
-				team, err := client.GetTeam(ctx, parsed.ResourceID)
+				team, err := client.Teams().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get team %d: %w", parsed.ResourceID, err)
 				}
@@ -107,7 +107,7 @@ Supported URL formats:
 				return printTeamDetails(cmd.OutOrStdout(), team)
 
 			case "agent":
-				agent, err := client.GetAgent(ctx, parsed.ResourceID)
+				agent, err := client.Agents().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get agent %d: %w", parsed.ResourceID, err)
 				}
@@ -117,7 +117,7 @@ Supported URL formats:
 				return printAgentDetails(cmd.OutOrStdout(), agent)
 
 			case "campaign":
-				campaign, err := client.GetCampaign(ctx, parsed.ResourceID)
+				campaign, err := client.Campaigns().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get campaign %d: %w", parsed.ResourceID, err)
 				}

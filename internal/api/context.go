@@ -50,16 +50,16 @@ func (s ContextService) GetConversation(ctx context.Context, conversationID int,
 	return s.GetConversationContext(ctx, conversationID, embedImages)
 }
 
-// Deprecated: Use client.Context().GetConversation() instead.
+// GetConversationContext retrieves full conversation context for AI consumption (internal implementation)
 func (c *Client) GetConversationContext(ctx context.Context, conversationID int, embedImages bool) (*ConversationContext, error) {
 	// Get conversation details
-	conv, err := c.GetConversation(ctx, conversationID)
+	conv, err := getConversation(ctx, c, conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
 
 	// Get messages
-	messages, err := c.ListAllMessages(ctx, conversationID)
+	messages, err := listAllMessages(ctx, c, conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get messages: %w", err)
 	}
@@ -67,7 +67,7 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 	// Get contact if available
 	var contact *Contact
 	if conv.ContactID > 0 {
-		contact, _ = c.GetContact(ctx, conv.ContactID) // Ignore error, contact is optional
+		contact, _ = getContact(ctx, c, conv.ContactID) // Ignore error, contact is optional
 	}
 
 	// Build messages with embeddings

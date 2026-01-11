@@ -100,7 +100,7 @@ func TestListCustomFilters(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListCustomFilters(context.Background(), tt.filterType)
+			result, err := client.CustomFilters().List(context.Background(), tt.filterType)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -170,7 +170,7 @@ func TestGetCustomFilter(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetCustomFilter(context.Background(), tt.filterID)
+			result, err := client.CustomFilters().Get(context.Background(), tt.filterID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -242,7 +242,7 @@ func TestCreateCustomFilter(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateCustomFilter(context.Background(), tt.filterName, tt.filterType, tt.query)
+			result, err := client.CustomFilters().Create(context.Background(), tt.filterName, tt.filterType, tt.query)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -344,7 +344,7 @@ func TestUpdateCustomFilter(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateCustomFilter(context.Background(), tt.filterID, tt.filterName, tt.query)
+			result, err := client.CustomFilters().Update(context.Background(), tt.filterID, tt.filterName, tt.query)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -391,7 +391,7 @@ func TestDeleteCustomFilter(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteCustomFilter(context.Background(), tt.filterID)
+			err := client.CustomFilters().Delete(context.Background(), tt.filterID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

@@ -63,7 +63,7 @@ func newPublicInboxesGetCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			inbox, err := client.PublicGetInbox(cmdContext(cmd), args[0])
+			inbox, err := client.Public().GetInbox(cmdContext(cmd), args[0])
 			if err != nil {
 				return fmt.Errorf("failed to get inbox: %w", err)
 			}
@@ -128,7 +128,7 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 				Identifier:  identifier,
 			}
 
-			contact, err := client.PublicCreateContact(cmdContext(cmd), args[0], req)
+			contact, err := client.Public().CreateContact(cmdContext(cmd), args[0], req)
 			if err != nil {
 				return fmt.Errorf("failed to create contact: %w", err)
 			}
@@ -172,7 +172,7 @@ func newPublicContactsGetCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			contact, err := client.PublicGetContact(cmdContext(cmd), args[0], args[1])
+			contact, err := client.Public().GetContact(cmdContext(cmd), args[0], args[1])
 			if err != nil {
 				return fmt.Errorf("failed to get contact: %w", err)
 			}
@@ -225,7 +225,7 @@ func newPublicContactsUpdateCmd(baseURL *string) *cobra.Command {
 				PhoneNumber: phone,
 			}
 
-			contact, err := client.PublicUpdateContact(cmdContext(cmd), args[0], args[1], req)
+			contact, err := client.Public().UpdateContact(cmdContext(cmd), args[0], args[1], req)
 			if err != nil {
 				return fmt.Errorf("failed to update contact: %w", err)
 			}
@@ -283,7 +283,7 @@ func newPublicConversationsListCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			conversations, err := client.PublicListConversations(cmdContext(cmd), args[0], args[1])
+			conversations, err := client.Public().ListConversations(cmdContext(cmd), args[0], args[1])
 			if err != nil {
 				return fmt.Errorf("failed to list conversations: %w", err)
 			}
@@ -330,7 +330,7 @@ func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			conversation, err := client.PublicGetConversation(cmdContext(cmd), args[0], args[1], conversationID)
+			conversation, err := client.Public().GetConversation(cmdContext(cmd), args[0], args[1], conversationID)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation: %w", err)
 			}
@@ -370,7 +370,7 @@ func newPublicConversationsCreateCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			conversation, err := client.PublicCreateConversation(cmdContext(cmd), args[0], args[1], nil)
+			conversation, err := client.Public().CreateConversation(cmdContext(cmd), args[0], args[1], nil)
 			if err != nil {
 				return fmt.Errorf("failed to create conversation: %w", err)
 			}
@@ -415,7 +415,7 @@ func newPublicConversationsResolveCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			result, err := client.PublicResolveConversation(cmdContext(cmd), args[0], args[1], conversationID)
+			result, err := client.Public().ResolveConversation(cmdContext(cmd), args[0], args[1], conversationID)
 			if err != nil {
 				return fmt.Errorf("failed to resolve conversation: %w", err)
 			}
@@ -466,7 +466,7 @@ func newPublicMessagesListCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			messages, err := client.PublicListMessages(cmdContext(cmd), args[0], args[1], conversationID)
+			messages, err := client.Public().ListMessages(cmdContext(cmd), args[0], args[1], conversationID)
 			if err != nil {
 				return fmt.Errorf("failed to list messages: %w", err)
 			}
@@ -529,7 +529,7 @@ func newPublicMessagesCreateCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			message, err := client.PublicCreateMessage(cmdContext(cmd), args[0], args[1], conversationID, content, echoID)
+			message, err := client.Public().CreateMessage(cmdContext(cmd), args[0], args[1], conversationID, content, echoID)
 			if err != nil {
 				return fmt.Errorf("failed to create message: %w", err)
 			}
@@ -582,7 +582,7 @@ func newPublicMessagesUpdateCmd(baseURL *string) *cobra.Command {
 				return err
 			}
 
-			message, err := client.PublicUpdateMessage(cmdContext(cmd), args[0], args[1], conversationID, messageID, content)
+			message, err := client.Public().UpdateMessage(cmdContext(cmd), args[0], args[1], conversationID, messageID, content)
 			if err != nil {
 				return fmt.Errorf("failed to update message: %w", err)
 			}

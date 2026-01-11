@@ -77,7 +77,7 @@ func TestGetAccount(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetAccount(context.Background())
+			result, err := client.Account().Get(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -152,7 +152,7 @@ func TestUpdateAccount(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateAccount(context.Background(), tt.newName)
+			result, err := client.Account().Update(context.Background(), tt.newName)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

@@ -76,7 +76,7 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 				}
 			}
 
-			contact, err := client.PublicCreateContact(cmdContext(cmd), *inboxIdentifier, api.PublicCreateContactRequest{
+			contact, err := client.Public().CreateContact(cmdContext(cmd), *inboxIdentifier, api.PublicCreateContactRequest{
 				Identifier:       identifier,
 				IdentifierHash:   identifierHash,
 				Email:            email,
@@ -126,7 +126,7 @@ func newClientContactsGetCmd(baseURL, inboxIdentifier, contactIdentifier *string
 				return err
 			}
 
-			contact, err := client.PublicGetContact(cmdContext(cmd), *inboxIdentifier, *contactIdentifier)
+			contact, err := client.Public().GetContact(cmdContext(cmd), *inboxIdentifier, *contactIdentifier)
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ func newClientConversationsListCmd(baseURL, inboxIdentifier, contactIdentifier *
 				return err
 			}
 
-			conversations, err := client.PublicListConversations(cmdContext(cmd), *inboxIdentifier, *contactIdentifier)
+			conversations, err := client.Public().ListConversations(cmdContext(cmd), *inboxIdentifier, *contactIdentifier)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 				}
 			}
 
-			conversation, err := client.PublicCreateConversation(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, attrs)
+			conversation, err := client.Public().CreateConversation(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, attrs)
 			if err != nil {
 				return err
 			}
@@ -266,7 +266,7 @@ func newClientConversationsGetCmd(baseURL, inboxIdentifier, contactIdentifier *s
 				return err
 			}
 
-			conversation, err := client.PublicGetConversation(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID)
+			conversation, err := client.Public().GetConversation(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID)
 			if err != nil {
 				return err
 			}
@@ -304,7 +304,7 @@ func newClientConversationsResolveCmd(baseURL, inboxIdentifier, contactIdentifie
 				return err
 			}
 
-			conversation, err := client.PublicResolveConversation(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID)
+			conversation, err := client.Public().ResolveConversation(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID)
 			if err != nil {
 				return err
 			}
@@ -359,7 +359,7 @@ func newClientMessagesCreateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 				return err
 			}
 
-			message, err := client.PublicCreateMessage(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID, content, echoID)
+			message, err := client.Public().CreateMessage(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID, content, echoID)
 			if err != nil {
 				return err
 			}
@@ -408,7 +408,7 @@ func newClientTypingCmd(baseURL, inboxIdentifier, contactIdentifier *string) *co
 				return err
 			}
 
-			if err := client.PublicToggleTyping(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID, status); err != nil {
+			if err := client.Public().ToggleTyping(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID, status); err != nil {
 				return err
 			}
 
@@ -460,7 +460,7 @@ func newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 				return err
 			}
 
-			if err := client.PublicUpdateLastSeen(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID); err != nil {
+			if err := client.Public().UpdateLastSeen(cmdContext(cmd), *inboxIdentifier, *contactIdentifier, conversationID); err != nil {
 				return err
 			}
 

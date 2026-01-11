@@ -9,11 +9,6 @@ import (
 // Chatwoot endpoints that wrap responses in {"payload": ...}.
 // This was verified by testing against the actual API.
 
-// Deprecated: Use client.Campaigns().List() instead.
-func (c *Client) ListCampaigns(ctx context.Context, page int) ([]Campaign, error) {
-	return listCampaigns(ctx, c, page)
-}
-
 // List returns all campaigns for the account.
 func (s CampaignsService) List(ctx context.Context, page int) ([]Campaign, error) {
 	return listCampaigns(ctx, s, page)
@@ -29,11 +24,6 @@ func listCampaigns(ctx context.Context, r Requester, page int) ([]Campaign, erro
 		return nil, err
 	}
 	return campaigns, nil
-}
-
-// Deprecated: Use client.Campaigns().Get() instead.
-func (c *Client) GetCampaign(ctx context.Context, id int) (*Campaign, error) {
-	return getCampaign(ctx, c, id)
 }
 
 // Get returns a single campaign by ID.
@@ -63,11 +53,6 @@ type CreateCampaignRequest struct {
 	TriggerRules                   map[string]any     `json:"trigger_rules,omitempty"`
 }
 
-// Deprecated: Use client.Campaigns().Create() instead.
-func (c *Client) CreateCampaign(ctx context.Context, req CreateCampaignRequest) (*Campaign, error) {
-	return createCampaign(ctx, c, req)
-}
-
 // Create creates a new campaign.
 func (s CampaignsService) Create(ctx context.Context, req CreateCampaignRequest) (*Campaign, error) {
 	return createCampaign(ctx, s, req)
@@ -94,11 +79,6 @@ type UpdateCampaignRequest struct {
 	TriggerRules                   map[string]any     `json:"trigger_rules,omitempty"`
 }
 
-// Deprecated: Use client.Campaigns().Update() instead.
-func (c *Client) UpdateCampaign(ctx context.Context, id int, req UpdateCampaignRequest) (*Campaign, error) {
-	return updateCampaign(ctx, c, id, req)
-}
-
 // Update updates an existing campaign.
 func (s CampaignsService) Update(ctx context.Context, id int, req UpdateCampaignRequest) (*Campaign, error) {
 	return updateCampaign(ctx, s, id, req)
@@ -110,11 +90,6 @@ func updateCampaign(ctx context.Context, r Requester, id int, req UpdateCampaign
 		return nil, err
 	}
 	return &campaign, nil
-}
-
-// Deprecated: Use client.Campaigns().Delete() instead.
-func (c *Client) DeleteCampaign(ctx context.Context, id int) error {
-	return deleteCampaign(ctx, c, id)
 }
 
 // Delete deletes a campaign by ID.

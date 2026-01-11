@@ -41,7 +41,7 @@ func newCompletionsInboxesCmd() *cobra.Command {
 				return err
 			}
 
-			inboxes, err := client.ListInboxes(cmdContext(cmd))
+			inboxes, err := client.Inboxes().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list inboxes: %w", err)
 			}
@@ -81,7 +81,7 @@ func newCompletionsAgentsCmd() *cobra.Command {
 				return err
 			}
 
-			agents, err := client.ListAgents(cmdContext(cmd))
+			agents, err := client.Agents().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list agents: %w", err)
 			}
@@ -121,7 +121,7 @@ func newCompletionsLabelsCmd() *cobra.Command {
 				return err
 			}
 
-			labels, err := client.ListLabels(cmdContext(cmd))
+			labels, err := client.Labels().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list labels: %w", err)
 			}
@@ -161,7 +161,7 @@ func newCompletionsTeamsCmd() *cobra.Command {
 				return err
 			}
 
-			teams, err := client.ListTeams(cmdContext(cmd))
+			teams, err := client.Teams().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list teams: %w", err)
 			}

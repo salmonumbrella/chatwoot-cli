@@ -230,7 +230,7 @@ func TestListAllMessages(t *testing.T) {
 			client := newTestClient(server.URL, "test-token", 1)
 
 			// Execute
-			messages, err := client.ListAllMessages(context.Background(), tt.conversationID)
+			messages, err := client.Messages().ListAll(context.Background(), tt.conversationID)
 
 			// Verify error expectations
 			if tt.expectError && err == nil {
@@ -277,7 +277,7 @@ func TestListAllMessagesMaxPages(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	_, err := client.ListAllMessagesWithMaxPages(context.Background(), 1, 1)
+	_, err := client.Messages().ListAllWithMaxPages(context.Background(), 1, 1)
 	if err == nil {
 		t.Fatal("expected error when max pages exceeded")
 	}
@@ -355,7 +355,7 @@ func TestListMessages(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListMessages(context.Background(), tt.conversationID)
+			result, err := client.Messages().List(context.Background(), tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -429,7 +429,7 @@ func TestListMessagesBefore(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListMessagesBefore(context.Background(), tt.conversationID, tt.before)
+			result, err := client.Messages().ListBefore(context.Background(), tt.conversationID, tt.before)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -556,7 +556,7 @@ func TestCreateMessageWithAttachments(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			msg, err := client.CreateMessageWithAttachments(
+			msg, err := client.Messages().CreateWithAttachments(
 				context.Background(),
 				tt.conversationID,
 				tt.content,
@@ -663,7 +663,7 @@ func TestCreateMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			msg, err := client.CreateMessage(context.Background(), tt.conversationID, tt.content, tt.private, tt.messageType)
+			msg, err := client.Messages().Create(context.Background(), tt.conversationID, tt.content, tt.private, tt.messageType)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -724,7 +724,7 @@ func TestDeleteMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteMessage(context.Background(), tt.conversationID, tt.messageID)
+			err := client.Messages().Delete(context.Background(), tt.conversationID, tt.messageID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -799,7 +799,7 @@ func TestUpdateMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			msg, err := client.UpdateMessage(context.Background(), tt.conversationID, tt.messageID, tt.content)
+			msg, err := client.Messages().Update(context.Background(), tt.conversationID, tt.messageID, tt.content)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -875,7 +875,7 @@ func TestTranslateMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			content, err := client.TranslateMessage(context.Background(), tt.conversationID, tt.messageID, tt.targetLanguage)
+			content, err := client.Messages().Translate(context.Background(), tt.conversationID, tt.messageID, tt.targetLanguage)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -948,7 +948,7 @@ func TestRetryMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			msg, err := client.RetryMessage(context.Background(), tt.conversationID, tt.messageID)
+			msg, err := client.Messages().Retry(context.Background(), tt.conversationID, tt.messageID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

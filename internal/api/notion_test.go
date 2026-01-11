@@ -39,7 +39,7 @@ func TestDeleteNotionIntegration(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteNotionIntegration(context.Background())
+			err := client.Notion().Delete(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

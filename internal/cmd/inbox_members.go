@@ -40,7 +40,7 @@ func newInboxMembersListCmd() *cobra.Command {
 				return err
 			}
 
-			members, err := client.ListInboxMembers(cmdContext(cmd), inboxID)
+			members, err := client.Inboxes().ListMembers(cmdContext(cmd), inboxID)
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ func newInboxMembersAddCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.AddInboxMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
+			if err := client.Inboxes().AddMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
 				return err
 			}
 
@@ -141,7 +141,7 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.RemoveInboxMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
+			if err := client.Inboxes().RemoveMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
 				return err
 			}
 
@@ -183,7 +183,7 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.UpdateInboxMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
+			if err := client.Inboxes().UpdateMembers(cmdContext(cmd), inboxID, userIDs); err != nil {
 				return err
 			}
 

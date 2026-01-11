@@ -67,7 +67,7 @@ func TestPublicCreateContact(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicCreateContact(context.Background(), tt.inboxIdentifier, tt.req)
+			result, err := client.Public().CreateContact(context.Background(), tt.inboxIdentifier, tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -128,7 +128,7 @@ func TestPublicGetContact(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicGetContact(context.Background(), tt.inboxIdentifier, tt.contactIdentifier)
+			result, err := client.Public().GetContact(context.Background(), tt.inboxIdentifier, tt.contactIdentifier)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -185,7 +185,7 @@ func TestPublicUpdateContact(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicUpdateContact(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.req)
+			result, err := client.Public().UpdateContact(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.req)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -259,7 +259,7 @@ func TestPublicCreateConversation(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicCreateConversation(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.customAttributes)
+			result, err := client.Public().CreateConversation(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.customAttributes)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -325,7 +325,7 @@ func TestPublicListConversations(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicListConversations(context.Background(), tt.inboxIdentifier, tt.contactIdentifier)
+			result, err := client.Public().ListConversations(context.Background(), tt.inboxIdentifier, tt.contactIdentifier)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -389,7 +389,7 @@ func TestPublicGetConversation(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicGetConversation(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
+			result, err := client.Public().GetConversation(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -447,7 +447,7 @@ func TestPublicResolveConversation(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicResolveConversation(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
+			result, err := client.Public().ResolveConversation(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -519,7 +519,7 @@ func TestPublicToggleTyping(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.PublicToggleTyping(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID, tt.status)
+			err := client.Public().ToggleTyping(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID, tt.status)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -575,7 +575,7 @@ func TestPublicUpdateLastSeen(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.PublicUpdateLastSeen(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
+			err := client.Public().UpdateLastSeen(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -652,7 +652,7 @@ func TestPublicCreateMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicCreateMessage(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID, tt.content, tt.echoID)
+			result, err := client.Public().CreateMessage(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID, tt.content, tt.echoID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -716,7 +716,7 @@ func TestPublicGetInbox(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicGetInbox(context.Background(), tt.inboxIdentifier)
+			result, err := client.Public().GetInbox(context.Background(), tt.inboxIdentifier)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -785,7 +785,7 @@ func TestPublicListMessages(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicListMessages(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
+			result, err := client.Public().ListMessages(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -855,7 +855,7 @@ func TestPublicUpdateMessage(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.PublicUpdateMessage(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID, tt.messageID, tt.content)
+			result, err := client.Public().UpdateMessage(context.Background(), tt.inboxIdentifier, tt.contactIdentifier, tt.conversationID, tt.messageID, tt.content)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

@@ -54,7 +54,7 @@ func TestShopifyAuth(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.ShopifyAuth(context.Background(), tt.shopDomain, tt.code)
+			err := client.Shopify().Auth(context.Background(), tt.shopDomain, tt.code)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -117,7 +117,7 @@ func TestListShopifyOrders(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			orders, err := client.ListShopifyOrders(context.Background(), tt.contactID)
+			orders, err := client.Shopify().ListOrders(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -161,7 +161,7 @@ func TestDeleteShopifyIntegration(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteShopifyIntegration(context.Background())
+			err := client.Shopify().Delete(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

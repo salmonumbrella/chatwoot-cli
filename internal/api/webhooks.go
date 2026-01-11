@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-// Deprecated: Use client.Webhooks().List() instead.
-func (c *Client) ListWebhooks(ctx context.Context) ([]Webhook, error) {
-	return listWebhooks(ctx, c)
-}
-
 // List retrieves all webhooks for the account.
 func (s WebhooksService) List(ctx context.Context) ([]Webhook, error) {
 	return listWebhooks(ctx, s)
@@ -21,11 +16,6 @@ func listWebhooks(ctx context.Context, r Requester) ([]Webhook, error) {
 		return nil, err
 	}
 	return result.Payload.Webhooks, nil
-}
-
-// Deprecated: Use client.Webhooks().Get() instead.
-func (c *Client) GetWebhook(ctx context.Context, id int) (*Webhook, error) {
-	return getWebhook(ctx, c, id)
 }
 
 // Get retrieves a single webhook by ID.
@@ -51,11 +41,6 @@ func getWebhook(ctx context.Context, r Requester, id int) (*Webhook, error) {
 	}
 }
 
-// Deprecated: Use client.Webhooks().Create() instead.
-func (c *Client) CreateWebhook(ctx context.Context, url string, subscriptions []string) (*Webhook, error) {
-	return createWebhook(ctx, c, url, subscriptions)
-}
-
 // Create creates a new webhook.
 func (s WebhooksService) Create(ctx context.Context, url string, subscriptions []string) (*Webhook, error) {
 	return createWebhook(ctx, s, url, subscriptions)
@@ -71,11 +56,6 @@ func createWebhook(ctx context.Context, r Requester, url string, subscriptions [
 		return nil, err
 	}
 	return &result.Payload.Webhook, nil
-}
-
-// Deprecated: Use client.Webhooks().Update() instead.
-func (c *Client) UpdateWebhook(ctx context.Context, id int, url string, subscriptions []string) (*Webhook, error) {
-	return updateWebhook(ctx, c, id, url, subscriptions)
 }
 
 // Update updates an existing webhook.
@@ -97,11 +77,6 @@ func updateWebhook(ctx context.Context, r Requester, id int, url string, subscri
 		return nil, err
 	}
 	return &result.Payload.Webhook, nil
-}
-
-// Deprecated: Use client.Webhooks().Delete() instead.
-func (c *Client) DeleteWebhook(ctx context.Context, id int) error {
-	return deleteWebhook(ctx, c, id)
 }
 
 // Delete deletes a webhook.

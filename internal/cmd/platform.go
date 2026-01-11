@@ -82,7 +82,7 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 				}
 			}
 
-			account, err := client.CreatePlatformAccount(cmdContext(cmd), api.CreatePlatformAccountRequest{
+			account, err := client.Platform().CreateAccount(cmdContext(cmd), api.CreatePlatformAccountRequest{
 				Name:             name,
 				Locale:           locale,
 				Domain:           domain,
@@ -131,7 +131,7 @@ func newPlatformAccountsGetCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			account, err := client.GetPlatformAccount(cmdContext(cmd), accountID)
+			account, err := client.Platform().GetAccount(cmdContext(cmd), accountID)
 			if err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			if err := client.DeletePlatformAccount(cmdContext(cmd), accountID); err != nil {
+			if err := client.Platform().DeleteAccount(cmdContext(cmd), accountID); err != nil {
 				return err
 			}
 
@@ -202,7 +202,7 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			account, err := client.UpdatePlatformAccount(cmdContext(cmd), accountID, api.UpdatePlatformAccountRequest{
+			account, err := client.Platform().UpdateAccount(cmdContext(cmd), accountID, api.UpdatePlatformAccountRequest{
 				Name:   name,
 				Locale: locale,
 				Domain: domain,
@@ -273,7 +273,7 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 				}
 			}
 
-			user, err := client.CreatePlatformUser(cmdContext(cmd), api.CreatePlatformUserRequest{
+			user, err := client.Platform().CreateUser(cmdContext(cmd), api.CreatePlatformUserRequest{
 				Name:             name,
 				DisplayName:      displayName,
 				Email:            email,
@@ -318,7 +318,7 @@ func newPlatformUsersGetCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			user, err := client.GetPlatformUser(cmdContext(cmd), userID)
+			user, err := client.Platform().GetUser(cmdContext(cmd), userID)
 			if err != nil {
 				return err
 			}
@@ -368,7 +368,7 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 				}
 			}
 
-			user, err := client.UpdatePlatformUser(cmdContext(cmd), userID, api.UpdatePlatformUserRequest{
+			user, err := client.Platform().UpdateUser(cmdContext(cmd), userID, api.UpdatePlatformUserRequest{
 				Name:             name,
 				DisplayName:      displayName,
 				Email:            email,
@@ -413,7 +413,7 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			if err := client.DeletePlatformUser(cmdContext(cmd), userID); err != nil {
+			if err := client.Platform().DeleteUser(cmdContext(cmd), userID); err != nil {
 				return err
 			}
 
@@ -442,7 +442,7 @@ func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			login, err := client.GetPlatformUserLogin(cmdContext(cmd), userID)
+			login, err := client.Platform().GetUserLogin(cmdContext(cmd), userID)
 			if err != nil {
 				return err
 			}
@@ -486,7 +486,7 @@ func newPlatformAccountUsersListCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			users, err := client.ListPlatformAccountUsers(cmdContext(cmd), accountID)
+			users, err := client.Platform().ListAccountUsers(cmdContext(cmd), accountID)
 			if err != nil {
 				return err
 			}
@@ -531,7 +531,7 @@ func newPlatformAccountUsersCreateCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			accountUser, err := client.CreatePlatformAccountUser(cmdContext(cmd), accountID, api.CreatePlatformAccountUserRequest{
+			accountUser, err := client.Platform().CreateAccountUser(cmdContext(cmd), accountID, api.CreatePlatformAccountUserRequest{
 				UserID: userID,
 				Role:   role,
 			})
@@ -575,7 +575,7 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			if err := client.DeletePlatformAccountUser(cmdContext(cmd), accountID, userID); err != nil {
+			if err := client.Platform().DeleteAccountUser(cmdContext(cmd), accountID, userID); err != nil {
 				return err
 			}
 
@@ -617,7 +617,7 @@ func newPlatformAgentBotsListCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			bots, err := client.ListPlatformAgentBots(cmdContext(cmd))
+			bots, err := client.PlatformAgentBots().List(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -653,7 +653,7 @@ func newPlatformAgentBotsGetCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			bot, err := client.GetPlatformAgentBot(cmdContext(cmd), botID)
+			bot, err := client.PlatformAgentBots().Get(cmdContext(cmd), botID)
 			if err != nil {
 				return err
 			}
@@ -697,7 +697,7 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			bot, err := client.CreatePlatformAgentBot(cmdContext(cmd), api.CreatePlatformAgentBotRequest{
+			bot, err := client.PlatformAgentBots().Create(cmdContext(cmd), api.CreatePlatformAgentBotRequest{
 				Name:        name,
 				Description: description,
 				OutgoingURL: outgoingURL,
@@ -748,7 +748,7 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			bot, err := client.UpdatePlatformAgentBot(cmdContext(cmd), botID, api.UpdatePlatformAgentBotRequest{
+			bot, err := client.PlatformAgentBots().Update(cmdContext(cmd), botID, api.UpdatePlatformAgentBotRequest{
 				Name:        name,
 				Description: description,
 				OutgoingURL: outgoingURL,
@@ -789,7 +789,7 @@ func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 				return err
 			}
 
-			if err := client.DeletePlatformAgentBot(cmdContext(cmd), botID); err != nil {
+			if err := client.PlatformAgentBots().Delete(cmdContext(cmd), botID); err != nil {
 				return err
 			}
 

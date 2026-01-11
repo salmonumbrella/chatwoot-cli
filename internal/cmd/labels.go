@@ -43,7 +43,7 @@ func newLabelsListCmd() *cobra.Command {
   chatwoot labels list -o json
 `),
 		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Label], error) {
-			labels, err := client.ListLabels(ctx)
+			labels, err := client.Labels().List(ctx)
 			if err != nil {
 				return ListResult[api.Label]{}, fmt.Errorf("failed to list labels: %w", err)
 			}
@@ -101,7 +101,7 @@ func newLabelsGetCmd() *cobra.Command {
 				return err
 			}
 
-			label, err := client.GetLabel(cmdContext(cmd), id)
+			label, err := client.Labels().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get label %d: %w", id, err)
 			}
@@ -167,7 +167,7 @@ func newLabelsCreateCmd() *cobra.Command {
 				return err
 			}
 
-			label, err := client.CreateLabel(cmdContext(cmd), title, description, color, showOnSidebar)
+			label, err := client.Labels().Create(cmdContext(cmd), title, description, color, showOnSidebar)
 			if err != nil {
 				return fmt.Errorf("failed to create label: %w", err)
 			}
@@ -242,7 +242,7 @@ func newLabelsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			label, err := client.UpdateLabel(cmdContext(cmd), id, title, description, color, sidebarPtr)
+			label, err := client.Labels().Update(cmdContext(cmd), id, title, description, color, sidebarPtr)
 			if err != nil {
 				return fmt.Errorf("failed to update label %d: %w", id, err)
 			}
@@ -293,7 +293,7 @@ func newLabelsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteLabel(cmdContext(cmd), id); err != nil {
+			if err := client.Labels().Delete(cmdContext(cmd), id); err != nil {
 				return fmt.Errorf("failed to delete label %d: %w", id, err)
 			}
 

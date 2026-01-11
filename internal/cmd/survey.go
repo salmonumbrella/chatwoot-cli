@@ -22,7 +22,7 @@ func newSurveyCmd() *cobra.Command {
 				return err
 			}
 
-			response, err := client.GetSurveyResponse(cmdContext(cmd), args[0])
+			response, err := client.Survey().GetResponse(cmdContext(cmd), args[0])
 			if err != nil {
 				return err
 			}

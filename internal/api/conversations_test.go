@@ -80,7 +80,7 @@ func TestMarkConversationUnread(t *testing.T) {
 			client := newTestClient(server.URL, "test-token", 1)
 
 			// Execute
-			err := client.MarkConversationUnread(context.Background(), tt.conversationID)
+			err := client.Conversations().MarkUnread(context.Background(), tt.conversationID)
 
 			// Verify
 			if tt.expectError && err == nil {
@@ -258,7 +258,7 @@ func TestListConversations(t *testing.T) {
 			client := newTestClient(server.URL, "test-token", 1)
 
 			// Execute
-			result, err := client.ListConversations(context.Background(), ListConversationsParams{
+			result, err := client.Conversations().List(context.Background(), ListConversationsParams{
 				Status:  tt.status,
 				InboxID: tt.inboxID,
 				Page:    tt.page,
@@ -341,7 +341,7 @@ func TestGetConversation(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversation(context.Background(), tt.conversationID)
+			result, err := client.Conversations().Get(context.Background(), tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -493,7 +493,7 @@ func TestToggleConversationStatus(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ToggleConversationStatus(context.Background(), tt.convID, tt.status, tt.snoozedUntil)
+			result, err := client.Conversations().ToggleStatus(context.Background(), tt.convID, tt.status, tt.snoozedUntil)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -836,7 +836,7 @@ func TestToggleMuteConversation(t *testing.T) {
 			client := newTestClient(server.URL, "test-token", 1)
 
 			// Execute
-			err := client.ToggleMuteConversation(context.Background(), tt.conversationID, tt.mute)
+			err := client.Conversations().ToggleMute(context.Background(), tt.conversationID, tt.mute)
 
 			// Verify
 			if tt.expectError && err == nil {
@@ -987,7 +987,7 @@ func TestCreateConversation(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateConversation(context.Background(), tt.request)
+			result, err := client.Conversations().Create(context.Background(), tt.request)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1074,7 +1074,7 @@ func TestFilterConversations(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.FilterConversations(context.Background(), tt.payload)
+			result, err := client.Conversations().Filter(context.Background(), tt.payload)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1189,7 +1189,7 @@ func TestGetConversationsMeta(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversationsMeta(context.Background(), tt.params)
+			result, err := client.Conversations().Meta(context.Background(), tt.params)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1272,7 +1272,7 @@ func TestToggleConversationPriority(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.ToggleConversationPriority(context.Background(), tt.conversationID, tt.priority)
+			err := client.Conversations().TogglePriority(context.Background(), tt.conversationID, tt.priority)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1380,7 +1380,7 @@ func TestAssignConversation(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.AssignConversation(context.Background(), tt.conversationID, tt.agentID, tt.teamID)
+			result, err := client.Conversations().Assign(context.Background(), tt.conversationID, tt.agentID, tt.teamID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1446,7 +1446,7 @@ func TestGetConversationLabels(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversationLabels(context.Background(), tt.conversationID)
+			result, err := client.Conversations().Labels(context.Background(), tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1480,7 +1480,7 @@ func TestAddConversationLabels(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.AddConversationLabels(context.Background(), 123, []string{"new-label", "another"})
+	result, err := client.Conversations().AddLabels(context.Background(), 123, []string{"new-label", "another"})
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -1532,7 +1532,7 @@ func TestUpdateConversationCustomAttributes(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.UpdateConversationCustomAttributes(context.Background(), tt.conversationID, tt.attrs)
+			err := client.Conversations().UpdateCustomAttributes(context.Background(), tt.conversationID, tt.attrs)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1622,7 +1622,7 @@ func TestSearchConversations(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.SearchConversations(context.Background(), tt.query, tt.page)
+			result, err := client.Conversations().Search(context.Background(), tt.query, tt.page)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1691,7 +1691,7 @@ func TestGetConversationAttachments(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversationAttachments(context.Background(), tt.conversationID)
+			result, err := client.Conversations().Attachments(context.Background(), tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1725,7 +1725,7 @@ func TestMuteConversation(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/accounts/1/conversations/123/mute" {
+		if r.URL.Path != "/api/v1/accounts/1/conversations/123/toggle_mute" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
@@ -1733,7 +1733,7 @@ func TestMuteConversation(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.MuteConversation(context.Background(), 123)
+	err := client.Conversations().ToggleMute(context.Background(), 123, true)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -1744,7 +1744,7 @@ func TestUnmuteConversation(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/accounts/1/conversations/123/unmute" {
+		if r.URL.Path != "/api/v1/accounts/1/conversations/123/toggle_mute" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
@@ -1752,7 +1752,7 @@ func TestUnmuteConversation(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.UnmuteConversation(context.Background(), 123)
+	err := client.Conversations().ToggleMute(context.Background(), 123, false)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -1770,7 +1770,7 @@ func TestSendTranscript(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.SendTranscript(context.Background(), 123, "test@example.com")
+	err := client.Conversations().Transcript(context.Background(), 123, "test@example.com")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -1791,7 +1791,7 @@ func TestToggleTypingStatus(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	err := client.ToggleTypingStatus(context.Background(), 123, true, false)
+	err := client.Conversations().ToggleTyping(context.Background(), 123, true, false)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -2001,7 +2001,7 @@ func TestUpdateConversation(t *testing.T) {
 			client := newTestClient(server.URL, "test-token", 1)
 
 			// Execute
-			result, err := client.UpdateConversation(context.Background(), tt.conversationID, tt.priority, tt.slaPolicyID)
+			result, err := client.Conversations().Update(context.Background(), tt.conversationID, tt.priority, tt.slaPolicyID)
 
 			// Verify
 			if tt.expectError && err == nil {

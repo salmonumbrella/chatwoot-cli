@@ -36,7 +36,7 @@ func newAutomationRulesListCmd() *cobra.Command {
 				return err
 			}
 
-			rules, err := client.ListAutomationRules(cmdContext(cmd))
+			rules, err := client.AutomationRules().List(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -89,7 +89,7 @@ func newAutomationRulesGetCmd() *cobra.Command {
 				return fmt.Errorf("invalid rule ID: %w", err)
 			}
 
-			rule, err := client.GetAutomationRule(cmdContext(cmd), id)
+			rule, err := client.AutomationRules().Get(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,7 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 				return fmt.Errorf("invalid actions JSON: %w", err)
 			}
 
-			rule, err := client.CreateAutomationRule(cmdContext(cmd), name, eventName, conditionsData, actionsData)
+			rule, err := client.AutomationRules().Create(cmdContext(cmd), name, eventName, conditionsData, actionsData)
 			if err != nil {
 				return err
 			}
@@ -207,7 +207,7 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 				}
 			}
 
-			rule, err := client.UpdateAutomationRule(cmdContext(cmd), id, name, conditionsData, actionsData)
+			rule, err := client.AutomationRules().Update(cmdContext(cmd), id, name, conditionsData, actionsData)
 			if err != nil {
 				return err
 			}
@@ -244,7 +244,7 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 				return fmt.Errorf("invalid rule ID: %w", err)
 			}
 
-			if err := client.DeleteAutomationRule(cmdContext(cmd), id); err != nil {
+			if err := client.AutomationRules().Delete(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
@@ -275,7 +275,7 @@ func newAutomationRulesCloneCmd() *cobra.Command {
 				return err
 			}
 
-			rule, err := client.CloneAutomationRule(cmdContext(cmd), id)
+			rule, err := client.AutomationRules().Clone(cmdContext(cmd), id)
 			if err != nil {
 				return err
 			}

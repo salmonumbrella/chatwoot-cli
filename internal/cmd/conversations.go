@@ -122,7 +122,7 @@ func newConversationsListCmd() *cobra.Command {
 			if labels != "" {
 				params.Labels = splitCommaList(labels)
 			}
-			result, err := client.ListConversations(ctx, params)
+			result, err := client.Conversations().List(ctx, params)
 			if err != nil {
 				return ListResult[api.Conversation]{}, fmt.Errorf("failed to list conversations: %w", err)
 			}
@@ -208,7 +208,7 @@ func newConversationsGetCmd() *cobra.Command {
 				return err
 			}
 
-			conv, err := client.GetConversation(cmdContext(cmd), id)
+			conv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d: %w", id, err)
 			}
@@ -323,7 +323,7 @@ func newConversationsCreateCmd() *cobra.Command {
 				req.TeamID = &teamID
 			}
 
-			conv, err := client.CreateConversation(cmdContext(cmd), req)
+			conv, err := client.Conversations().Create(cmdContext(cmd), req)
 			if err != nil {
 				return fmt.Errorf("failed to create conversation: %w", err)
 			}
@@ -397,7 +397,7 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 				return err
 			}
 
-			result, err := client.FilterConversations(cmdContext(cmd), payload)
+			result, err := client.Conversations().Filter(cmdContext(cmd), payload)
 			if err != nil {
 				return fmt.Errorf("failed to filter conversations: %w", err)
 			}
@@ -450,7 +450,7 @@ func newConversationsMetaCmd() *cobra.Command {
 				params.Labels = splitCommaList(labels)
 			}
 
-			meta, err := client.GetConversationsMeta(cmdContext(cmd), params)
+			meta, err := client.Conversations().Meta(cmdContext(cmd), params)
 			if err != nil {
 				return fmt.Errorf("failed to get conversations metadata: %w", err)
 			}
@@ -513,7 +513,7 @@ func newConversationsCountsCmd() *cobra.Command {
 				params.Labels = splitCommaList(labels)
 			}
 
-			meta, err := client.GetConversationsMeta(cmdContext(cmd), params)
+			meta, err := client.Conversations().Meta(cmdContext(cmd), params)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation counts: %w", err)
 			}
@@ -615,7 +615,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 				return err
 			}
 
-			result, err := client.ToggleConversationStatus(cmdContext(cmd), id, status, snoozedUntil)
+			result, err := client.Conversations().ToggleStatus(cmdContext(cmd), id, status, snoozedUntil)
 			if err != nil {
 				return fmt.Errorf("failed to toggle status for conversation %d: %w", id, err)
 			}
@@ -676,12 +676,12 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.ToggleConversationPriority(cmdContext(cmd), id, priority); err != nil {
+			if err := client.Conversations().TogglePriority(cmdContext(cmd), id, priority); err != nil {
 				return fmt.Errorf("failed to toggle priority for conversation %d: %w", id, err)
 			}
 
 			// Fetch updated conversation since toggle_priority returns no body
-			conv, err := client.GetConversation(cmdContext(cmd), id)
+			conv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d after priority update: %w", id, err)
 			}
@@ -752,7 +752,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			conv, err := client.UpdateConversation(cmdContext(cmd), id, priority, slaPolicyID)
+			conv, err := client.Conversations().Update(cmdContext(cmd), id, priority, slaPolicyID)
 			if err != nil {
 				return fmt.Errorf("failed to update conversation %d: %w", id, err)
 			}
@@ -834,12 +834,12 @@ func newConversationsAssignCmd() *cobra.Command {
 				return fmt.Errorf("at least one of --assignee-id or --team-id is required")
 			}
 
-			if _, err := client.AssignConversation(cmdContext(cmd), id, assigneeID, teamID); err != nil {
+			if _, err := client.Conversations().Assign(cmdContext(cmd), id, assigneeID, teamID); err != nil {
 				return fmt.Errorf("failed to assign conversation %d: %w", id, err)
 			}
 
 			// Fetch updated conversation since assignments returns the agent/team, not the conversation
-			conv, err := client.GetConversation(cmdContext(cmd), id)
+			conv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d after assignment: %w", id, err)
 			}
@@ -894,7 +894,7 @@ func newConversationsLabelsCmd() *cobra.Command {
 				return err
 			}
 
-			labels, err := client.GetConversationLabels(cmdContext(cmd), id)
+			labels, err := client.Conversations().Labels(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get labels for conversation %d: %w", id, err)
 			}
@@ -951,7 +951,7 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 				return err
 			}
 
-			resultLabels, err := client.AddConversationLabels(cmdContext(cmd), id, labels)
+			resultLabels, err := client.Conversations().AddLabels(cmdContext(cmd), id, labels)
 			if err != nil {
 				return fmt.Errorf("failed to add labels to conversation %d: %w", id, err)
 			}
@@ -1010,7 +1010,7 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 			}
 
 			// Get current labels
-			currentLabels, err := client.GetConversationLabels(cmdContext(cmd), id)
+			currentLabels, err := client.Conversations().Labels(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get current labels for conversation %d: %w", id, err)
 			}
@@ -1030,7 +1030,7 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 			}
 
 			// Update with remaining labels
-			resultLabels, err := client.AddConversationLabels(cmdContext(cmd), id, remainingLabels)
+			resultLabels, err := client.Conversations().AddLabels(cmdContext(cmd), id, remainingLabels)
 			if err != nil {
 				return fmt.Errorf("failed to update labels for conversation %d: %w", id, err)
 			}
@@ -1097,7 +1097,7 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.UpdateConversationCustomAttributes(cmdContext(cmd), id, attrs); err != nil {
+			if err := client.Conversations().UpdateCustomAttributes(cmdContext(cmd), id, attrs); err != nil {
 				return fmt.Errorf("failed to update custom attributes for conversation %d: %w", id, err)
 			}
 
@@ -1151,7 +1151,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 				return err
 			}
 
-			ctx, err := client.GetConversationContext(cmdContext(cmd), id, embedImages)
+			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, embedImages)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation context: %w", err)
 			}
@@ -1234,18 +1234,18 @@ as unread in the inbox for all agents (not just the current user).`,
 			}
 
 			// Get initial state to verify change
-			beforeConv, err := client.GetConversation(cmdContext(cmd), id)
+			beforeConv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d: %w", id, err)
 			}
 			initialUnread := beforeConv.Unread
 
-			if err := client.MarkConversationUnread(cmdContext(cmd), id); err != nil {
+			if err := client.Conversations().MarkUnread(cmdContext(cmd), id); err != nil {
 				return fmt.Errorf("failed to mark conversation %d as unread: %w", id, err)
 			}
 
 			// Fetch updated conversation to verify the operation succeeded
-			afterConv, err := client.GetConversation(cmdContext(cmd), id)
+			afterConv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d after marking unread: %w", id, err)
 			}
@@ -1310,7 +1310,7 @@ func newConversationsSearchCmd() *cobra.Command {
 				return searchAllConversations(cmd, client, query, maxPages)
 			}
 
-			result, err := client.SearchConversations(cmdContext(cmd), query, page)
+			result, err := client.Conversations().Search(cmdContext(cmd), query, page)
 			if err != nil {
 				return fmt.Errorf("failed to search conversations: %w", err)
 			}
@@ -1353,7 +1353,7 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Fetching page %d...\n", currentPage) //nolint:errcheck
 		}
 
-		result, err := client.SearchConversations(cmdContext(cmd), query, currentPage)
+		result, err := client.Conversations().Search(cmdContext(cmd), query, currentPage)
 		if err != nil {
 			return fmt.Errorf("failed to search conversations: %w", err)
 		}
@@ -1413,7 +1413,7 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 				return err
 			}
 
-			attachments, err := client.GetConversationAttachments(cmdContext(cmd), id)
+			attachments, err := client.Conversations().Attachments(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get attachments for conversation %d: %w", id, err)
 			}
@@ -1469,12 +1469,12 @@ Muted conversations will not trigger desktop or push notifications for new messa
 				return err
 			}
 
-			if err := client.ToggleMuteConversation(cmdContext(cmd), id, true); err != nil {
+			if err := client.Conversations().ToggleMute(cmdContext(cmd), id, true); err != nil {
 				return fmt.Errorf("failed to mute conversation %d: %w", id, err)
 			}
 
 			// Fetch updated conversation to verify the operation succeeded
-			conv, err := client.GetConversation(cmdContext(cmd), id)
+			conv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d after muting: %w", id, err)
 			}
@@ -1526,12 +1526,12 @@ Unmuted conversations will trigger desktop and push notifications for new messag
 				return err
 			}
 
-			if err := client.ToggleMuteConversation(cmdContext(cmd), id, false); err != nil {
+			if err := client.Conversations().ToggleMute(cmdContext(cmd), id, false); err != nil {
 				return fmt.Errorf("failed to unmute conversation %d: %w", id, err)
 			}
 
 			// Fetch updated conversation to verify the operation succeeded
-			conv, err := client.GetConversation(cmdContext(cmd), id)
+			conv, err := client.Conversations().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d after unmuting: %w", id, err)
 			}
@@ -1587,7 +1587,7 @@ to the specified email address.`,
 				return err
 			}
 
-			if err := client.SendTranscript(cmdContext(cmd), id, email); err != nil {
+			if err := client.Conversations().Transcript(cmdContext(cmd), id, email); err != nil {
 				return fmt.Errorf("failed to send transcript for conversation %d: %w", id, err)
 			}
 
@@ -1644,7 +1644,7 @@ Use --private to show the typing indicator only to other agents (for private not
 				return err
 			}
 
-			if err := client.ToggleTypingStatus(cmdContext(cmd), id, typingOn, isPrivate); err != nil {
+			if err := client.Conversations().ToggleTyping(cmdContext(cmd), id, typingOn, isPrivate); err != nil {
 				return fmt.Errorf("failed to toggle typing status for conversation %d: %w", id, err)
 			}
 
@@ -1814,7 +1814,7 @@ func fetchAndDisplayConversations(ctx context.Context, cmd *cobra.Command, clien
 		params.InboxID = strconv.Itoa(inboxID)
 	}
 
-	result, err := client.ListConversations(ctx, params)
+	result, err := client.Conversations().List(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -1933,7 +1933,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 				bulkProgressEnabled(cmd, progress, noProgress),
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
-					result, err := client.ToggleConversationStatus(ctx, id, "resolved", 0)
+					result, err := client.Conversations().ToggleStatus(ctx, id, "resolved", 0)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to resolve conversation %d: %v\n", id, err)
 						return nil, err
@@ -2030,7 +2030,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 				bulkProgressEnabled(cmd, progress, noProgress),
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
-					result, err := client.AssignConversation(ctx, id, agentID, teamID)
+					result, err := client.Conversations().Assign(ctx, id, agentID, teamID)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
 						return nil, err
@@ -2140,7 +2140,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 				bulkProgressEnabled(cmd, progress, noProgress),
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
-					resultLabels, err := client.AddConversationLabels(ctx, id, labelList)
+					resultLabels, err := client.Conversations().AddLabels(ctx, id, labelList)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to conversation %d: %v\n", id, err)
 						return nil, err
@@ -2291,7 +2291,7 @@ operations (status, priority, labels, assignment).`,
 
 					// Apply status change
 					if item.Status != "" {
-						_, err := client.ToggleConversationStatus(ctx, item.ID, item.Status, 0)
+						_, err := client.Conversations().ToggleStatus(ctx, item.ID, item.Status, 0)
 						if err != nil {
 							if firstErr == nil {
 								firstErr = err
@@ -2303,7 +2303,7 @@ operations (status, priority, labels, assignment).`,
 
 					// Apply priority change
 					if item.Priority != "" {
-						err := client.ToggleConversationPriority(ctx, item.ID, item.Priority)
+						err := client.Conversations().TogglePriority(ctx, item.ID, item.Priority)
 						if err != nil {
 							if firstErr == nil {
 								firstErr = err
@@ -2315,7 +2315,7 @@ operations (status, priority, labels, assignment).`,
 
 					// Apply labels
 					if len(item.Labels) > 0 {
-						_, err := client.AddConversationLabels(ctx, item.ID, item.Labels)
+						_, err := client.Conversations().AddLabels(ctx, item.ID, item.Labels)
 						if err != nil {
 							if firstErr == nil {
 								firstErr = err
@@ -2327,7 +2327,7 @@ operations (status, priority, labels, assignment).`,
 
 					// Apply assignment
 					if item.AssigneeID > 0 || item.TeamID > 0 {
-						_, err := client.AssignConversation(ctx, item.ID, item.AssigneeID, item.TeamID)
+						_, err := client.Conversations().Assign(ctx, item.ID, item.AssigneeID, item.TeamID)
 						if err != nil {
 							if firstErr == nil {
 								firstErr = err

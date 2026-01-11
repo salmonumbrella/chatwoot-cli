@@ -28,11 +28,6 @@ type CreatePlatformAccountRequest struct {
 	Limits           map[string]any `json:"limits,omitempty"`
 }
 
-// Deprecated: Use client.Platform().CreateAccount() instead.
-func (c *Client) CreatePlatformAccount(ctx context.Context, req CreatePlatformAccountRequest) (*PlatformAccount, error) {
-	return createPlatformAccount(ctx, c, req)
-}
-
 // CreateAccount creates a new account via platform API.
 func (s PlatformService) CreateAccount(ctx context.Context, req CreatePlatformAccountRequest) (*PlatformAccount, error) {
 	return createPlatformAccount(ctx, s, req)
@@ -46,11 +41,6 @@ func createPlatformAccount(ctx context.Context, r Requester, req CreatePlatformA
 	return &result, nil
 }
 
-// Deprecated: Use client.Platform().GetAccount() instead.
-func (c *Client) GetPlatformAccount(ctx context.Context, accountID int) (*PlatformAccount, error) {
-	return getPlatformAccount(ctx, c, accountID)
-}
-
 // GetAccount retrieves an account by ID via platform API.
 func (s PlatformService) GetAccount(ctx context.Context, accountID int) (*PlatformAccount, error) {
 	return getPlatformAccount(ctx, s, accountID)
@@ -62,11 +52,6 @@ func getPlatformAccount(ctx context.Context, r Requester, accountID int) (*Platf
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Platform().DeleteAccount() instead.
-func (c *Client) DeletePlatformAccount(ctx context.Context, accountID int) error {
-	return deletePlatformAccount(ctx, c, accountID)
 }
 
 // DeleteAccount deletes an account by ID via platform API.
@@ -84,11 +69,6 @@ type UpdatePlatformAccountRequest struct {
 	Locale string `json:"locale,omitempty"`
 	Domain string `json:"domain,omitempty"`
 	Status string `json:"status,omitempty"`
-}
-
-// Deprecated: Use client.Platform().UpdateAccount() instead.
-func (c *Client) UpdatePlatformAccount(ctx context.Context, accountID int, req UpdatePlatformAccountRequest) (*PlatformAccount, error) {
-	return updatePlatformAccount(ctx, c, accountID, req)
 }
 
 // UpdateAccount updates an account via platform API.
@@ -134,11 +114,6 @@ type UpdatePlatformUserRequest struct {
 	CustomAttributes map[string]any `json:"custom_attributes,omitempty"`
 }
 
-// Deprecated: Use client.Platform().CreateUser() instead.
-func (c *Client) CreatePlatformUser(ctx context.Context, req CreatePlatformUserRequest) (*PlatformUser, error) {
-	return createPlatformUser(ctx, c, req)
-}
-
 // CreateUser creates a new user via platform API.
 func (s PlatformService) CreateUser(ctx context.Context, req CreatePlatformUserRequest) (*PlatformUser, error) {
 	return createPlatformUser(ctx, s, req)
@@ -150,11 +125,6 @@ func createPlatformUser(ctx context.Context, r Requester, req CreatePlatformUser
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Platform().GetUser() instead.
-func (c *Client) GetPlatformUser(ctx context.Context, userID int) (*PlatformUser, error) {
-	return getPlatformUser(ctx, c, userID)
 }
 
 // GetUser retrieves a user by ID via platform API.
@@ -170,11 +140,6 @@ func getPlatformUser(ctx context.Context, r Requester, userID int) (*PlatformUse
 	return &result, nil
 }
 
-// Deprecated: Use client.Platform().UpdateUser() instead.
-func (c *Client) UpdatePlatformUser(ctx context.Context, userID int, req UpdatePlatformUserRequest) (*PlatformUser, error) {
-	return updatePlatformUser(ctx, c, userID, req)
-}
-
 // UpdateUser updates a user via platform API.
 func (s PlatformService) UpdateUser(ctx context.Context, userID int, req UpdatePlatformUserRequest) (*PlatformUser, error) {
 	return updatePlatformUser(ctx, s, userID, req)
@@ -186,11 +151,6 @@ func updatePlatformUser(ctx context.Context, r Requester, userID int, req Update
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Platform().DeleteUser() instead.
-func (c *Client) DeletePlatformUser(ctx context.Context, userID int) error {
-	return deletePlatformUser(ctx, c, userID)
 }
 
 // DeleteUser deletes a user by ID via platform API.
@@ -205,11 +165,6 @@ func deletePlatformUser(ctx context.Context, r Requester, userID int) error {
 // PlatformUserLogin represents the SSO login response
 type PlatformUserLogin struct {
 	URL string `json:"url"`
-}
-
-// Deprecated: Use client.Platform().GetUserLogin() instead.
-func (c *Client) GetPlatformUserLogin(ctx context.Context, userID int) (*PlatformUserLogin, error) {
-	return getPlatformUserLogin(ctx, c, userID)
 }
 
 // GetUserLogin gets the SSO login URL for a user.
@@ -241,11 +196,6 @@ type CreatePlatformAccountUserRequest struct {
 	Role   string `json:"role"`
 }
 
-// Deprecated: Use client.Platform().ListAccountUsers() instead.
-func (c *Client) ListPlatformAccountUsers(ctx context.Context, accountID int) ([]PlatformAccountUser, error) {
-	return listPlatformAccountUsers(ctx, c, accountID)
-}
-
 // ListAccountUsers lists account users via platform API.
 func (s PlatformService) ListAccountUsers(ctx context.Context, accountID int) ([]PlatformAccountUser, error) {
 	return listPlatformAccountUsers(ctx, s, accountID)
@@ -259,11 +209,6 @@ func listPlatformAccountUsers(ctx context.Context, r Requester, accountID int) (
 	return result, nil
 }
 
-// Deprecated: Use client.Platform().CreateAccountUser() instead.
-func (c *Client) CreatePlatformAccountUser(ctx context.Context, accountID int, req CreatePlatformAccountUserRequest) (*PlatformAccountUser, error) {
-	return createPlatformAccountUser(ctx, c, accountID, req)
-}
-
 // CreateAccountUser creates an account user via platform API.
 func (s PlatformService) CreateAccountUser(ctx context.Context, accountID int, req CreatePlatformAccountUserRequest) (*PlatformAccountUser, error) {
 	return createPlatformAccountUser(ctx, s, accountID, req)
@@ -275,11 +220,6 @@ func createPlatformAccountUser(ctx context.Context, r Requester, accountID int, 
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Deprecated: Use client.Platform().DeleteAccountUser() instead.
-func (c *Client) DeletePlatformAccountUser(ctx context.Context, accountID int, userID int) error {
-	return deletePlatformAccountUser(ctx, c, accountID, userID)
 }
 
 // DeleteAccountUser removes a user from an account via platform API.

@@ -314,7 +314,7 @@ func promptSelect(ctx context.Context, label string, options []selectOption, all
 }
 
 func promptInboxID(ctx context.Context, client *api.Client) (int, error) {
-	inboxes, err := client.ListInboxes(ctx)
+	inboxes, err := client.Inboxes().List(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -330,7 +330,7 @@ func promptInboxID(ctx context.Context, client *api.Client) (int, error) {
 }
 
 func promptAgentID(ctx context.Context, client *api.Client) (int, error) {
-	agents, err := client.ListAgents(ctx)
+	agents, err := client.Agents().List(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -346,7 +346,7 @@ func promptAgentID(ctx context.Context, client *api.Client) (int, error) {
 }
 
 func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
-	teams, err := client.ListTeams(ctx)
+	teams, err := client.Teams().List(ctx)
 	if err != nil {
 		return 0, err
 	}

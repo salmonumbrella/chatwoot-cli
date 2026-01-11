@@ -49,8 +49,8 @@ func (c *Client) v2ReportPath(path string) string {
 	return fmt.Sprintf("%s/api/v2/accounts/%d%s", c.BaseURL, c.AccountID, path)
 }
 
-// Deprecated: Use client.Reports().Summary() instead.
-func (c *Client) GetReportSummary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
+// GetReportSummary gets report summary.
+func (s ReportsService) GetReportSummary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
 	params := url.Values{}
 	params.Set("type", reportType)
 	params.Set("since", since)
@@ -59,10 +59,10 @@ func (c *Client) GetReportSummary(ctx context.Context, reportType, since, until,
 		params.Set("id", id)
 	}
 
-	reqURL := c.v2ReportPath("/reports/summary?" + params.Encode())
+	reqURL := s.v2ReportPath("/reports/summary?" + params.Encode())
 
 	var result ReportSummary
-	if err := c.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
 		return nil, err
 	}
 
@@ -74,8 +74,8 @@ func (s ReportsService) Summary(ctx context.Context, reportType, since, until, i
 	return s.GetReportSummary(ctx, reportType, since, until, id)
 }
 
-// Deprecated: Use client.Reports().TimeSeries() instead.
-func (c *Client) GetReportTimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
+// GetReportTimeSeries gets time-series report data for a specific metric.
+func (s ReportsService) GetReportTimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
 	params := url.Values{}
 	params.Set("metric", metric)
 	params.Set("type", reportType)
@@ -85,10 +85,10 @@ func (c *Client) GetReportTimeSeries(ctx context.Context, metric, reportType, si
 		params.Set("id", id)
 	}
 
-	reqURL := c.v2ReportPath("/reports?" + params.Encode())
+	reqURL := s.v2ReportPath("/reports?" + params.Encode())
 
 	var result []ReportDataPoint
-	if err := c.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
 		return nil, err
 	}
 
@@ -100,15 +100,15 @@ func (s ReportsService) TimeSeries(ctx context.Context, metric, reportType, sinc
 	return s.GetReportTimeSeries(ctx, metric, reportType, since, until, id)
 }
 
-// Deprecated: Use client.Reports().ConversationMetrics() instead.
-func (c *Client) GetConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
+// GetConversationMetrics gets account-level conversation metrics.
+func (s ReportsService) GetConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
 	params := url.Values{}
 	params.Set("type", "account")
 
-	reqURL := c.v2ReportPath("/reports/conversations?" + params.Encode())
+	reqURL := s.v2ReportPath("/reports/conversations?" + params.Encode())
 
 	var result ConversationMetrics
-	if err := c.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
 		return nil, err
 	}
 
@@ -120,18 +120,18 @@ func (s ReportsService) ConversationMetrics(ctx context.Context) (*ConversationM
 	return s.GetConversationMetrics(ctx)
 }
 
-// Deprecated: Use client.Reports().AgentMetrics() instead.
-func (c *Client) GetAgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
+// GetAgentMetrics gets conversation metrics for agents.
+func (s ReportsService) GetAgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
 	params := url.Values{}
 	params.Set("type", "agent")
 	if userID != "" {
 		params.Set("user_id", userID)
 	}
 
-	reqURL := c.v2ReportPath("/reports/conversations?" + params.Encode())
+	reqURL := s.v2ReportPath("/reports/conversations?" + params.Encode())
 
 	var result []AgentMetrics
-	if err := c.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -154,8 +154,8 @@ type ReportingEvent struct {
 	EventType string `json:"event_type,omitempty"`
 }
 
-// Deprecated: Use client.Reports().ListEvents() instead.
-func (c *Client) ListReportingEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
+// ListReportingEvents lists account-level reporting events.
+func (s ReportsService) ListReportingEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
 	params := url.Values{}
 	if since != "" {
 		params.Set("since", since)
@@ -167,13 +167,13 @@ func (c *Client) ListReportingEvents(ctx context.Context, since, until string, e
 		params.Set("type", eventType)
 	}
 
-	path := c.accountPath("/reporting_events")
+	path := s.accountPath("/reporting_events")
 	if len(params) > 0 {
 		path += "?" + params.Encode()
 	}
 
 	var result []ReportingEvent
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := s.Get(ctx, path, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -184,12 +184,12 @@ func (s ReportsService) ListEvents(ctx context.Context, since, until string, eve
 	return s.ListReportingEvents(ctx, since, until, eventType)
 }
 
-// Deprecated: Use client.Reports().ConversationEvents() instead.
-func (c *Client) GetConversationReportingEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
-	path := c.accountPath(fmt.Sprintf("/conversations/%d/reporting_events", conversationID))
+// GetConversationReportingEvents gets reporting events for a conversation.
+func (s ReportsService) GetConversationReportingEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
+	path := s.accountPath(fmt.Sprintf("/conversations/%d/reporting_events", conversationID))
 
 	var result []ReportingEvent
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := s.Get(ctx, path, &result); err != nil {
 		return nil, err
 	}
 	return result, nil

@@ -69,7 +69,7 @@ func TestListPlatformAgentBots(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListPlatformAgentBots(context.Background())
+			result, err := client.PlatformAgentBots().List(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -137,7 +137,7 @@ func TestGetPlatformAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetPlatformAgentBot(context.Background(), tt.botID)
+			result, err := client.PlatformAgentBots().Get(context.Background(), tt.botID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -223,7 +223,7 @@ func TestCreatePlatformAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreatePlatformAgentBot(context.Background(), tt.request)
+			result, err := client.PlatformAgentBots().Create(context.Background(), tt.request)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -293,7 +293,7 @@ func TestUpdatePlatformAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdatePlatformAgentBot(context.Background(), tt.botID, tt.request)
+			result, err := client.PlatformAgentBots().Update(context.Background(), tt.botID, tt.request)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -343,7 +343,7 @@ func TestDeletePlatformAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeletePlatformAgentBot(context.Background(), tt.botID)
+			err := client.PlatformAgentBots().Delete(context.Background(), tt.botID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

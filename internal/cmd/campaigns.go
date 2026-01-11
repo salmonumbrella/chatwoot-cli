@@ -41,7 +41,7 @@ func newCampaignsListCmd() *cobra.Command {
 				return err
 			}
 
-			campaigns, err := client.ListCampaigns(cmdContext(cmd), page)
+			campaigns, err := client.Campaigns().List(cmdContext(cmd), page)
 			if err != nil {
 				return fmt.Errorf("failed to list campaigns: %w", err)
 			}
@@ -117,7 +117,7 @@ func newCampaignsGetCmd() *cobra.Command {
 				return err
 			}
 
-			campaign, err := client.GetCampaign(cmdContext(cmd), id)
+			campaign, err := client.Campaigns().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get campaign: %w", err)
 			}
@@ -271,7 +271,7 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 				return err
 			}
 
-			campaign, err := client.CreateCampaign(cmdContext(cmd), req)
+			campaign, err := client.Campaigns().Create(cmdContext(cmd), req)
 			if err != nil {
 				return fmt.Errorf("failed to create campaign: %w", err)
 			}
@@ -391,7 +391,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 				return err
 			}
 
-			campaign, err := client.UpdateCampaign(cmdContext(cmd), id, req)
+			campaign, err := client.Campaigns().Update(cmdContext(cmd), id, req)
 			if err != nil {
 				return fmt.Errorf("failed to update campaign: %w", err)
 			}
@@ -453,7 +453,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 			// If not forced and not in JSON mode, fetch campaign and prompt for confirmation
 			if !force && !isJSON(cmd) {
 				// Try to fetch campaign to show title in confirmation
-				campaign, err := client.GetCampaign(cmdContext(cmd), id)
+				campaign, err := client.Campaigns().Get(cmdContext(cmd), id)
 				if err != nil {
 					// Fall back to just showing ID if fetch fails
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete campaign %d? (y/N): ", id)
@@ -470,7 +470,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 				}
 			}
 
-			if err := client.DeleteCampaign(cmdContext(cmd), id); err != nil {
+			if err := client.Campaigns().Delete(cmdContext(cmd), id); err != nil {
 				return fmt.Errorf("failed to delete campaign: %w", err)
 			}
 

@@ -82,7 +82,7 @@ func TestListCSATResponses(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			responses, err := client.ListCSATResponses(context.Background(), tt.params)
+			responses, err := client.CSAT().List(context.Background(), tt.params)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -150,7 +150,7 @@ func TestGetConversationCSAT(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetConversationCSAT(context.Background(), tt.conversationID)
+			result, err := client.CSAT().Conversation(context.Background(), tt.conversationID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

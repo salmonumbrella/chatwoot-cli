@@ -62,7 +62,7 @@ func TestListContacts(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListContacts(context.Background(), ListContactsParams{Page: tt.page})
+			result, err := client.Contacts().List(context.Background(), ListContactsParams{Page: tt.page})
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -128,7 +128,7 @@ func TestGetContact(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetContact(context.Background(), tt.contactID)
+			result, err := client.Contacts().Get(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -166,7 +166,7 @@ func TestCreateContact(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.CreateContact(context.Background(), "New Contact", "new@example.com", "")
+	result, err := client.Contacts().Create(context.Background(), "New Contact", "new@example.com", "")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -195,7 +195,7 @@ func TestSearchContacts(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL, "test-token", 1)
-	result, err := client.SearchContacts(context.Background(), "john", 1)
+	result, err := client.Contacts().Search(context.Background(), "john", 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -281,7 +281,7 @@ func TestUpdateContact(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateContact(context.Background(), tt.contactID, tt.updateName, tt.updateEmail, tt.updatePhone)
+			result, err := client.Contacts().Update(context.Background(), tt.contactID, tt.updateName, tt.updateEmail, tt.updatePhone)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -337,7 +337,7 @@ func TestDeleteContact(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteContact(context.Background(), tt.contactID)
+			err := client.Contacts().Delete(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -407,7 +407,7 @@ func TestFilterContacts(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.FilterContacts(context.Background(), tt.payload)
+			result, err := client.Contacts().Filter(context.Background(), tt.payload)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -485,7 +485,7 @@ func TestGetContactConversations(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetContactConversations(context.Background(), tt.contactID)
+			result, err := client.Contacts().Conversations(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -548,7 +548,7 @@ func TestGetContactLabels(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetContactLabels(context.Background(), tt.contactID)
+			result, err := client.Contacts().Labels(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -601,7 +601,7 @@ func TestAddContactLabels(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.AddContactLabels(context.Background(), tt.contactID, tt.labels)
+			result, err := client.Contacts().AddLabels(context.Background(), tt.contactID, tt.labels)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -669,7 +669,7 @@ func TestGetContactableInboxes(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetContactableInboxes(context.Background(), tt.contactID)
+			result, err := client.Contacts().ContactableInboxes(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -756,7 +756,7 @@ func TestCreateContactInbox(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateContactInbox(context.Background(), tt.contactID, tt.inboxID, tt.sourceID)
+			result, err := client.Contacts().CreateInbox(context.Background(), tt.contactID, tt.inboxID, tt.sourceID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -822,7 +822,7 @@ func TestGetContactNotes(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetContactNotes(context.Background(), tt.contactID)
+			result, err := client.Contacts().Notes(context.Background(), tt.contactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -884,7 +884,7 @@ func TestCreateContactNote(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateContactNote(context.Background(), tt.contactID, tt.content)
+			result, err := client.Contacts().CreateNote(context.Background(), tt.contactID, tt.content)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -937,7 +937,7 @@ func TestDeleteContactNote(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteContactNote(context.Background(), tt.contactID, tt.noteID)
+			err := client.Contacts().DeleteNote(context.Background(), tt.contactID, tt.noteID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -1036,7 +1036,7 @@ func TestMergeContacts(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.MergeContacts(context.Background(), tt.baseContactID, tt.mergeeContactID)
+			result, err := client.Contacts().Merge(context.Background(), tt.baseContactID, tt.mergeeContactID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

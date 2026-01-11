@@ -68,7 +68,7 @@ func TestListAgentBots(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListAgentBots(context.Background())
+			result, err := client.AgentBots().List(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -129,7 +129,7 @@ func TestGetAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetAgentBot(context.Background(), tt.botID)
+			result, err := client.AgentBots().Get(context.Background(), tt.botID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -190,7 +190,7 @@ func TestCreateAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateAgentBot(context.Background(), tt.botName, tt.outgoingURL)
+			result, err := client.AgentBots().Create(context.Background(), tt.botName, tt.outgoingURL)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -273,7 +273,7 @@ func TestUpdateAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateAgentBot(context.Background(), tt.botID, tt.botName, tt.outgoingURL)
+			result, err := client.AgentBots().Update(context.Background(), tt.botID, tt.botName, tt.outgoingURL)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -320,7 +320,7 @@ func TestDeleteAgentBot(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteAgentBot(context.Background(), tt.botID)
+			err := client.AgentBots().Delete(context.Background(), tt.botID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -371,7 +371,7 @@ func TestDeleteAgentBotAvatar(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteAgentBotAvatar(context.Background(), tt.botID)
+			err := client.AgentBots().DeleteAvatar(context.Background(), tt.botID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -422,7 +422,7 @@ func TestResetAgentBotAccessToken(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			token, err := client.ResetAgentBotAccessToken(context.Background(), tt.botID)
+			token, err := client.AgentBots().ResetAccessToken(context.Background(), tt.botID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

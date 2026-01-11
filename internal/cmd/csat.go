@@ -63,7 +63,7 @@ func newCSATListCmd() *cobra.Command {
 				Rating:  rating,
 			}
 
-			responses, err := client.ListCSATResponses(cmdContext(cmd), params)
+			responses, err := client.CSAT().List(cmdContext(cmd), params)
 			if err != nil {
 				return fmt.Errorf("failed to list CSAT responses: %w", err)
 			}
@@ -130,7 +130,7 @@ func newCSATGetCmd() *cobra.Command {
 				return err
 			}
 
-			csat, err := client.GetConversationCSAT(cmdContext(cmd), conversationID)
+			csat, err := client.CSAT().Conversation(cmdContext(cmd), conversationID)
 			if err != nil {
 				return fmt.Errorf("failed to get CSAT for conversation %d: %w", conversationID, err)
 			}
@@ -195,7 +195,7 @@ func newCSATSummaryCmd() *cobra.Command {
 					InboxID: inboxID,
 				}
 
-				responses, err := client.ListCSATResponses(cmdContext(cmd), params)
+				responses, err := client.CSAT().List(cmdContext(cmd), params)
 				if err != nil {
 					return fmt.Errorf("failed to get CSAT data: %w", err)
 				}

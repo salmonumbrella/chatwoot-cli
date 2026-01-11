@@ -29,7 +29,7 @@ func newAccountGetCmd() *cobra.Command {
 				return err
 			}
 
-			account, err := client.GetAccount(cmdContext(cmd))
+			account, err := client.Account().Get(cmdContext(cmd))
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func newAccountUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			account, err := client.UpdateAccount(cmdContext(cmd), name)
+			account, err := client.Account().Update(cmdContext(cmd), name)
 			if err != nil {
 				return err
 			}

@@ -72,7 +72,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return err
 			}
 
-			contacts, err := client.ListContacts(cmdContext(cmd), api.ListContactsParams{
+			contacts, err := client.Contacts().List(cmdContext(cmd), api.ListContactsParams{
 				Page:  page,
 				Sort:  sortField,
 				Order: sortOrder,
@@ -128,7 +128,7 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	contact, err := client.GetContact(cmdContext(cmd), id)
+	contact, err := client.Contacts().Get(cmdContext(cmd), id)
 	if err != nil {
 		return fmt.Errorf("failed to get contact %d: %w", id, err)
 	}
@@ -293,7 +293,7 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 				return err
 			}
 
-			contact, err := client.CreateContactFromMap(cmdContext(cmd), body)
+			contact, err := client.Contacts().CreateFromMap(cmdContext(cmd), body)
 			if err != nil {
 				return fmt.Errorf("failed to create contact: %w", err)
 			}
@@ -371,7 +371,7 @@ func newContactsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			contact, err := client.UpdateContact(cmdContext(cmd), id, name, email, phone)
+			contact, err := client.Contacts().Update(cmdContext(cmd), id, name, email, phone)
 			if err != nil {
 				return fmt.Errorf("failed to update contact %d: %w", id, err)
 			}
@@ -418,7 +418,7 @@ func newContactsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteContact(cmdContext(cmd), id); err != nil {
+			if err := client.Contacts().Delete(cmdContext(cmd), id); err != nil {
 				return fmt.Errorf("failed to delete contact %d: %w", id, err)
 			}
 
@@ -456,7 +456,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return err
 			}
 
-			contacts, err := client.SearchContacts(cmdContext(cmd), query, 1)
+			contacts, err := client.Contacts().Search(cmdContext(cmd), query, 1)
 			if err != nil {
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}
@@ -538,7 +538,7 @@ Available query operators: and, or`,
 				return err
 			}
 
-			contacts, err := client.FilterContacts(cmdContext(cmd), filterPayload)
+			contacts, err := client.Contacts().Filter(cmdContext(cmd), filterPayload)
 			if err != nil {
 				return fmt.Errorf("failed to filter contacts: %w", err)
 			}
@@ -593,7 +593,7 @@ func newContactsConversationsCmd() *cobra.Command {
 				return err
 			}
 
-			conversations, err := client.GetContactConversations(cmdContext(cmd), id)
+			conversations, err := client.Contacts().Conversations(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversations for contact %d: %w", id, err)
 			}
@@ -637,7 +637,7 @@ func newContactsLabelsCmd() *cobra.Command {
 				return err
 			}
 
-			labels, err := client.GetContactLabels(cmdContext(cmd), id)
+			labels, err := client.Contacts().Labels(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get labels for contact %d: %w", id, err)
 			}
@@ -688,7 +688,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 				return err
 			}
 
-			updatedLabels, err := client.AddContactLabels(cmdContext(cmd), id, labelList)
+			updatedLabels, err := client.Contacts().AddLabels(cmdContext(cmd), id, labelList)
 			if err != nil {
 				return fmt.Errorf("failed to add labels to contact %d: %w", id, err)
 			}
@@ -728,7 +728,7 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 				return err
 			}
 
-			inboxes, err := client.GetContactableInboxes(cmdContext(cmd), id)
+			inboxes, err := client.Contacts().ContactableInboxes(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get contactable inboxes for contact %d: %w", id, err)
 			}
@@ -797,7 +797,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
 				}
 			}
 
-			result, err := client.CreateContactInbox(cmdContext(cmd), contactID, inboxID, sourceID)
+			result, err := client.Contacts().CreateInbox(cmdContext(cmd), contactID, inboxID, sourceID)
 			if err != nil {
 				return fmt.Errorf("failed to create contact inbox: %w", err)
 			}
@@ -851,7 +851,7 @@ func newContactsNotesCmd() *cobra.Command {
 				return err
 			}
 
-			notes, err := client.GetContactNotes(cmdContext(cmd), id)
+			notes, err := client.Contacts().Notes(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get notes for contact %d: %w", id, err)
 			}
@@ -912,7 +912,7 @@ func newContactsNotesAddCmd() *cobra.Command {
 				return err
 			}
 
-			note, err := client.CreateContactNote(cmdContext(cmd), id, content)
+			note, err := client.Contacts().CreateNote(cmdContext(cmd), id, content)
 			if err != nil {
 				return fmt.Errorf("failed to add note to contact %d: %w", id, err)
 			}
@@ -957,7 +957,7 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteContactNote(cmdContext(cmd), contactID, noteID); err != nil {
+			if err := client.Contacts().DeleteNote(cmdContext(cmd), contactID, noteID); err != nil {
 				return fmt.Errorf("failed to delete note %d from contact %d: %w", noteID, contactID, err)
 			}
 
@@ -1037,7 +1037,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 				bulkProgressEnabled(cmd, progress, noProgress),
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
-					_, err := client.AddContactLabels(ctx, id, labelList)
+					_, err := client.Contacts().AddLabels(ctx, id, labelList)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to contact %d: %v\n", id, err)
 						return nil, err
@@ -1129,7 +1129,7 @@ labels, and updates the contact with the remaining labels.`,
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
 					// Get current labels
-					currentLabels, err := client.GetContactLabels(ctx, id)
+					currentLabels, err := client.Contacts().Labels(ctx, id)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to get labels for contact %d: %v\n", id, err)
 						return nil, err
@@ -1144,7 +1144,7 @@ labels, and updates the contact with the remaining labels.`,
 					}
 
 					// Update with remaining labels (API replaces all labels)
-					_, err = client.AddContactLabels(ctx, id, remainingLabels)
+					_, err = client.Contacts().AddLabels(ctx, id, remainingLabels)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to update labels for contact %d: %v\n", id, err)
 						return nil, err
@@ -1232,13 +1232,13 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 			// If not forced, fetch both contacts and prompt for confirmation
 			if !force {
 				// Fetch keep contact
-				keepContact, err := client.GetContact(ctx, keepID)
+				keepContact, err := client.Contacts().Get(ctx, keepID)
 				if err != nil {
 					return fmt.Errorf("failed to get keep contact %d: %w", keepID, err)
 				}
 
 				// Fetch delete contact
-				deleteContact, err := client.GetContact(ctx, deleteID)
+				deleteContact, err := client.Contacts().Get(ctx, deleteID)
 				if err != nil {
 					return fmt.Errorf("failed to get delete contact %d: %w", deleteID, err)
 				}
@@ -1265,7 +1265,7 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 			}
 
 			// Perform the merge
-			mergedContact, err := client.MergeContacts(ctx, keepID, deleteID)
+			mergedContact, err := client.Contacts().Merge(ctx, keepID, deleteID)
 			if err != nil {
 				return fmt.Errorf("failed to merge contacts: %w", err)
 			}

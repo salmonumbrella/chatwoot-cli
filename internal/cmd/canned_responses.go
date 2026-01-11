@@ -36,7 +36,7 @@ func newCannedResponsesListCmd() *cobra.Command {
 				return err
 			}
 
-			responses, err := client.ListCannedResponses(cmdContext(cmd))
+			responses, err := client.CannedResponses().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list canned responses: %w", err)
 			}
@@ -85,7 +85,7 @@ func newCannedResponsesGetCmd() *cobra.Command {
 				return err
 			}
 
-			response, err := client.GetCannedResponse(cmdContext(cmd), id)
+			response, err := client.CannedResponses().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get canned response: %w", err)
 			}
@@ -133,7 +133,7 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 				return err
 			}
 
-			response, err := client.CreateCannedResponse(cmdContext(cmd), shortCode, content)
+			response, err := client.CannedResponses().Create(cmdContext(cmd), shortCode, content)
 			if err != nil {
 				return fmt.Errorf("failed to create canned response: %w", err)
 			}
@@ -181,7 +181,7 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 			}
 
 			// Get existing response to preserve unchanged fields
-			existing, err := client.GetCannedResponse(cmdContext(cmd), id)
+			existing, err := client.CannedResponses().Get(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get existing canned response: %w", err)
 			}
@@ -193,7 +193,7 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 				content = existing.Content
 			}
 
-			response, err := client.UpdateCannedResponse(cmdContext(cmd), id, shortCode, content)
+			response, err := client.CannedResponses().Update(cmdContext(cmd), id, shortCode, content)
 			if err != nil {
 				return fmt.Errorf("failed to update canned response: %w", err)
 			}
@@ -230,7 +230,7 @@ func newCannedResponsesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			if err := client.DeleteCannedResponse(cmdContext(cmd), id); err != nil {
+			if err := client.CannedResponses().Delete(cmdContext(cmd), id); err != nil {
 				return fmt.Errorf("failed to delete canned response: %w", err)
 			}
 

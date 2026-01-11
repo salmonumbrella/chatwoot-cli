@@ -73,7 +73,7 @@ func TestListAutomationRules(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.ListAutomationRules(context.Background())
+			result, err := client.AutomationRules().List(context.Background())
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -151,7 +151,7 @@ func TestGetAutomationRule(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.GetAutomationRule(context.Background(), tt.ruleID)
+			result, err := client.AutomationRules().Get(context.Background(), tt.ruleID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -224,7 +224,7 @@ func TestCreateAutomationRule(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CreateAutomationRule(context.Background(), tt.ruleName, tt.eventName, tt.conditions, tt.actions)
+			result, err := client.AutomationRules().Create(context.Background(), tt.ruleName, tt.eventName, tt.conditions, tt.actions)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -311,7 +311,7 @@ func TestUpdateAutomationRule(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.UpdateAutomationRule(context.Background(), tt.ruleID, tt.ruleName, tt.conditions, tt.actions)
+			result, err := client.AutomationRules().Update(context.Background(), tt.ruleID, tt.ruleName, tt.conditions, tt.actions)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -358,7 +358,7 @@ func TestDeleteAutomationRule(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			err := client.DeleteAutomationRule(context.Background(), tt.ruleID)
+			err := client.AutomationRules().Delete(context.Background(), tt.ruleID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
@@ -436,7 +436,7 @@ func TestCloneAutomationRule(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.CloneAutomationRule(context.Background(), tt.ruleID)
+			result, err := client.AutomationRules().Clone(context.Background(), tt.ruleID)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

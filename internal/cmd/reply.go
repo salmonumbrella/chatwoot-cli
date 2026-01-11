@@ -79,7 +79,7 @@ If multiple open conversations exist for the contact, disambiguation is required
 
 			// Mode 3: Search by contact name/email
 			query := args[0]
-			contacts, err := client.SearchContacts(ctx, query, 1)
+			contacts, err := client.Contacts().Search(ctx, query, 1)
 			if err != nil {
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}
@@ -112,13 +112,13 @@ func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, con
 	ctx := cmdContext(cmd)
 
 	// Get contact details for output
-	contact, err := client.GetContact(ctx, contactID)
+	contact, err := client.Contacts().Get(ctx, contactID)
 	if err != nil {
 		return fmt.Errorf("failed to get contact %d: %w", contactID, err)
 	}
 
 	// Get all conversations for this contact
-	conversations, err := client.GetContactConversations(ctx, contactID)
+	conversations, err := client.Contacts().Conversations(ctx, contactID)
 	if err != nil {
 		return fmt.Errorf("failed to get conversations for contact %d: %w", contactID, err)
 	}
@@ -154,7 +154,7 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 
 	// Send the message
 	messageType := "outgoing"
-	message, err := client.CreateMessage(ctx, conversationID, content, private, messageType)
+	message, err := client.Messages().Create(ctx, conversationID, content, private, messageType)
 	if err != nil {
 		return fmt.Errorf("failed to send message to conversation %d: %w", conversationID, err)
 	}
@@ -163,7 +163,7 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 
 	// Resolve if requested
 	if resolve {
-		_, err := client.ToggleConversationStatus(ctx, conversationID, "resolved", 0)
+		_, err := client.Conversations().ToggleStatus(ctx, conversationID, "resolved", 0)
 		if err != nil {
 			return fmt.Errorf("message sent (ID: %d) but failed to resolve conversation: %w", message.ID, err)
 		}
@@ -172,9 +172,9 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 
 	// If we don't have contact info, try to fetch conversation to get it
 	if contact == nil {
-		conv, err := client.GetConversation(ctx, conversationID)
+		conv, err := client.Conversations().Get(ctx, conversationID)
 		if err == nil && conv.ContactID > 0 {
-			contactData, err := client.GetContact(ctx, conv.ContactID)
+			contactData, err := client.Contacts().Get(ctx, conv.ContactID)
 			if err == nil {
 				contact = &api.TriageContact{
 					ID:    contactData.ID,
