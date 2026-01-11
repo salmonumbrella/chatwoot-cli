@@ -636,7 +636,7 @@ All commands support these flags:
 - `--timeout <duration>` - HTTP request timeout (default: 30s)
 - `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
 - `--query <expr>` - JQ expression to filter JSON output
-- `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`)
+- `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`; supports presets like `minimal`, `default`, `debug` on supported resources)
 - `--template <tmpl>` - Go template (or `@path`) to render JSON output
 - `--help` - Show help for any command
 

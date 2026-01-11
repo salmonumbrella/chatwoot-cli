@@ -64,9 +64,17 @@ func newLabelsListCmd() *cobra.Command {
 		},
 	}
 
-	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "title"},
+		"default": {"id", "title", "color", "show_on_sidebar"},
+		"debug":   {"id", "title", "description", "color", "show_on_sidebar"},
+	})
+
+	return cmd
 }
 
 func newLabelsGetCmd() *cobra.Command {
@@ -111,6 +119,12 @@ func newLabelsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "title"},
+		"default": {"id", "title", "color", "show_on_sidebar"},
+		"debug":   {"id", "title", "description", "color", "show_on_sidebar"},
+	})
 
 	return cmd
 }

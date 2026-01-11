@@ -88,19 +88,26 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE\tCREATED")
 			for _, contact := range contacts.Payload {
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 					contact.ID,
 					contact.Name,
 					contact.Email,
 					contact.PhoneNumber,
+					contact.CreatedAtTime().Format("2006-01-02 15:04"),
 				)
 			}
 
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
+		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
+	})
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at); prefix with '-' for desc")
@@ -145,7 +152,7 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 }
 
 func newContactsGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get contact by ID",
 		Long: `Get a specific contact by their ID.
@@ -159,11 +166,19 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
+		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
+	})
+
+	return cmd
 }
 
 // newContactsShowCmd creates a 'show' command as an alias for 'get'
 func newContactsShowCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show contact by ID (alias for 'get')",
 		Long: `Show a specific contact by their ID.
@@ -177,6 +192,14 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
+		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
+	})
+
+	return cmd
 }
 
 func newContactsCreateCmd() *cobra.Command {
@@ -445,19 +468,26 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE\tCREATED")
 			for _, contact := range contacts.Payload {
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 					contact.ID,
 					contact.Name,
 					contact.Email,
 					contact.PhoneNumber,
+					contact.CreatedAtTime().Format("2006-01-02 15:04"),
 				)
 			}
 
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
+		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
+	})
 
 	cmd.Flags().StringVar(&query, "query", "", "Search query string")
 
@@ -520,19 +550,26 @@ Available query operators: and, or`,
 			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE\tCREATED")
 			for _, contact := range contacts.Payload {
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 					contact.ID,
 					contact.Name,
 					contact.Email,
 					contact.PhoneNumber,
+					contact.CreatedAtTime().Format("2006-01-02 15:04"),
 				)
 			}
 
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "email"},
+		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
+		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
+	})
 
 	cmd.Flags().StringVar(&payload, "payload", "", "JSON array of filter conditions")
 

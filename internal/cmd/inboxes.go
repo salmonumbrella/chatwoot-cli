@@ -58,13 +58,21 @@ func newInboxesListCmd() *cobra.Command {
 		},
 	}
 
-	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "channel_type"},
+		"default": {"id", "name", "channel_type", "website_url", "greeting_enabled"},
+		"debug":   {"id", "name", "channel_type", "avatar_url", "website_url", "greeting_enabled", "greeting_message", "enable_auto_assignment"},
+	})
+
+	return cmd
 }
 
 func newInboxesGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get inbox details",
 		Args:  cobra.ExactArgs(1),
@@ -106,6 +114,14 @@ func newInboxesGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name", "channel_type"},
+		"default": {"id", "name", "channel_type", "website_url", "greeting_enabled"},
+		"debug":   {"id", "name", "channel_type", "avatar_url", "website_url", "greeting_enabled", "greeting_message", "enable_auto_assignment"},
+	})
+
+	return cmd
 }
 
 func newInboxesCreateCmd() *cobra.Command {

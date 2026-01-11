@@ -102,6 +102,12 @@ func newMessagesListCmd() *cobra.Command {
 		}),
 	}
 
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "content", "message_type", "created_at"},
+		"default": {"id", "content", "message_type", "private", "sender_type", "created_at"},
+		"debug":   {"id", "conversation_id", "content", "content_type", "message_type", "private", "sender_id", "sender_type", "attachments", "created_at"},
+	})
+
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all")
 

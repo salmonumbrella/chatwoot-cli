@@ -56,13 +56,21 @@ func newTeamsListCmd() *cobra.Command {
 		},
 	}
 
-	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name"},
+		"default": {"id", "name", "description", "allow_auto_assign"},
+		"debug":   {"id", "name", "description", "allow_auto_assign", "account_id"},
+	})
+
+	return cmd
 }
 
 func newTeamsGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a team by ID",
 		Args:  cobra.ExactArgs(1),
@@ -99,6 +107,14 @@ func newTeamsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name"},
+		"default": {"id", "name", "description", "allow_auto_assign"},
+		"debug":   {"id", "name", "description", "allow_auto_assign", "account_id"},
+	})
+
+	return cmd
 }
 
 func newTeamsCreateCmd() *cobra.Command {

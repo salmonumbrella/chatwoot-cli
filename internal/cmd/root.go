@@ -152,7 +152,7 @@ func Execute(ctx context.Context, args []string) error {
 				if jqQuery != "" {
 					return fmt.Errorf("--fields and --query/--jq cannot be used together")
 				}
-				fields, err := parseFields(flags.Fields)
+				fields, err := parseFieldsWithPresets(cmd, flags.Fields)
 				if err != nil {
 					return err
 				}

@@ -137,6 +137,12 @@ func newConversationsListCmd() *cobra.Command {
 		return getClient()
 	})
 
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "status", "inbox_id", "assignee_id"},
+		"default": {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "created_at", "last_activity_at"},
+		"debug":   {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "contact_id", "display_id", "muted", "unread_count", "labels", "meta", "custom_attributes", "created_at", "last_activity_at"},
+	})
+
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&assigneeType, "assignee-type", "", "Filter by assignee type (me|assigned|unassigned)")
@@ -239,6 +245,12 @@ func newConversationsGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "status", "inbox_id", "assignee_id"},
+		"default": {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "created_at", "last_activity_at"},
+		"debug":   {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "contact_id", "display_id", "muted", "unread_count", "labels", "meta", "custom_attributes", "created_at", "last_activity_at"},
+	})
 
 	return cmd
 }

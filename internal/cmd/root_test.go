@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestExecute_Help(t *testing.T) {
@@ -290,6 +292,29 @@ func TestBuildFieldsQuery(t *testing.T) {
 				t.Errorf("buildFieldsQuery(%v) = %q, want %q", tt.fields, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseFieldsWithPresets(t *testing.T) {
+	cmd := &cobra.Command{}
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "name"},
+	})
+
+	fields, err := parseFieldsWithPresets(cmd, "minimal")
+	if err != nil {
+		t.Fatalf("parseFieldsWithPresets returned error: %v", err)
+	}
+	if len(fields) != 2 || fields[0] != "id" || fields[1] != "name" {
+		t.Fatalf("unexpected fields: %v", fields)
+	}
+
+	fields, err = parseFieldsWithPresets(cmd, "id,email")
+	if err != nil {
+		t.Fatalf("parseFieldsWithPresets returned error: %v", err)
+	}
+	if len(fields) != 2 || fields[0] != "id" || fields[1] != "email" {
+		t.Fatalf("unexpected fields: %v", fields)
 	}
 }
 
