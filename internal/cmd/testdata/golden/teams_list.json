@@ -1,0 +1,18 @@
+{
+  "has_more": false,
+  "items": [
+    {
+      "id": 11,
+      "name": "Support",
+      "description": "Tier 1",
+      "allow_auto_assign": true,
+      "account_id": 1
+    },
+    {
+      "id": 12,
+      "name": "Escalations",
+      "allow_auto_assign": false,
+      "account_id": 1
+    }
+  ]
+}

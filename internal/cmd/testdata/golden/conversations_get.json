@@ -1,0 +1,14 @@
+{
+  "id": 101,
+  "account_id": 1,
+  "inbox_id": 10,
+  "status": "open",
+  "priority": "high",
+  "assignee_id": 7,
+  "team_id": 3,
+  "contact_id": 501,
+  "muted": false,
+  "unread_count": 2,
+  "created_at": 1700000000,
+  "last_activity_at": 1700000500
+}
