@@ -17,7 +17,7 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("chatwoot-cli version %s\n", version)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "chatwoot-cli version %s\n", version)
 
 			// Check for updates (non-blocking, fails silently)
 			result := update.CheckForUpdate(cmd.Context(), version)

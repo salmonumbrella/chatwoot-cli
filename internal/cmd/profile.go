@@ -22,7 +22,7 @@ func newProfileGetCmd() *cobra.Command {
 		Use:     "get",
 		Short:   "Get user profile",
 		Example: "chatwoot profile get",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -37,7 +37,7 @@ func newProfileGetCmd() *cobra.Command {
 				return printJSON(cmd, profile)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL")
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", profile.ID, profile.Name, profile.Email)
@@ -52,6 +52,6 @@ func newProfileGetCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }

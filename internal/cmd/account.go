@@ -23,7 +23,7 @@ func newAccountGetCmd() *cobra.Command {
 		Use:     "get",
 		Short:   "Get account details",
 		Example: "chatwoot account get",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -38,12 +38,12 @@ func newAccountGetCmd() *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tLOCALE\tDOMAIN")
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", account.ID, account.Name, account.Locale, account.Domain)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -54,7 +54,7 @@ func newAccountUpdateCmd() *cobra.Command {
 		Use:     "update",
 		Short:   "Update account",
 		Example: "chatwoot account update --name 'New Name'",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -73,9 +73,9 @@ func newAccountUpdateCmd() *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			fmt.Printf("Updated account: %s\n", account.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated account: %s\n", account.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Account name")

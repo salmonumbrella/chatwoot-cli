@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -66,10 +67,10 @@ Optional:
   # Save to a named profile with a platform token
   chatwoot auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1 --profile staging --platform-token PLATFORM_TOKEN
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			// If browser mode (default) and no flags provided, use browser setup
 			if browser && url == "" && token == "" && accountID == 0 {
-				return runBrowserSetup(profile)
+				return runBrowserSetup(cmd.OutOrStdout(), profile)
 			}
 
 			// CLI mode: validate required flags
@@ -103,15 +104,15 @@ Optional:
 				return fmt.Errorf("failed to save credentials: %w", err)
 			}
 
-			fmt.Println("Authentication credentials saved successfully!")
-			fmt.Printf("  Base URL: %s\n", url)
-			fmt.Printf("  Account ID: %d\n", accountID)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Authentication credentials saved successfully!")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Base URL: %s\n", url)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Account ID: %d\n", accountID)
 			if profile != "" && profile != "default" {
-				fmt.Printf("  Profile: %s\n", profile)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Profile: %s\n", profile)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "Chatwoot base URL (e.g. https://chatwoot.example.com)")
@@ -126,10 +127,10 @@ Optional:
 }
 
 // runBrowserSetup launches the browser-based authentication flow
-func runBrowserSetup(profile string) error {
-	fmt.Println("Opening browser for Chatwoot CLI setup...")
-	fmt.Println("(Press Ctrl+C to cancel)")
-	fmt.Println()
+func runBrowserSetup(out io.Writer, profile string) error {
+	_, _ = fmt.Fprintln(out, "Opening browser for Chatwoot CLI setup...")
+	_, _ = fmt.Fprintln(out, "(Press Ctrl+C to cancel)")
+	_, _ = fmt.Fprintln(out)
 
 	// Create setup server
 	server, err := auth.NewSetupServer(profile)
@@ -154,11 +155,11 @@ func runBrowserSetup(profile string) error {
 		return result.Error
 	}
 
-	fmt.Println("Authentication credentials saved successfully!")
-	fmt.Printf("  Base URL: %s\n", result.Account.BaseURL)
-	fmt.Printf("  Account ID: %d\n", result.Account.AccountID)
+	_, _ = fmt.Fprintln(out, "Authentication credentials saved successfully!")
+	_, _ = fmt.Fprintf(out, "  Base URL: %s\n", result.Account.BaseURL)
+	_, _ = fmt.Fprintf(out, "  Account ID: %d\n", result.Account.AccountID)
 	if result.Email != "" {
-		fmt.Printf("  Email: %s\n", result.Email)
+		_, _ = fmt.Fprintf(out, "  Email: %s\n", result.Email)
 	}
 
 	return nil
@@ -174,7 +175,7 @@ func newAuthStatusCmd() *cobra.Command {
   # Check authentication status
   chatwoot auth status
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			envBaseURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL"))
 			envToken := strings.TrimSpace(os.Getenv("CHATWOOT_API_TOKEN"))
 			envAccountID := strings.TrimSpace(os.Getenv("CHATWOOT_ACCOUNT_ID"))
@@ -189,8 +190,8 @@ func newAuthStatusCmd() *cobra.Command {
 							"message":       "Not authenticated. Run 'chatwoot auth login' to configure credentials.",
 						})
 					}
-					fmt.Println("Not authenticated.")
-					fmt.Println("Run 'chatwoot auth login' to configure credentials.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Not authenticated.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Run 'chatwoot auth login' to configure credentials.")
 					return nil
 				}
 				return fmt.Errorf("failed to load credentials: %w", err)
@@ -218,22 +219,22 @@ func newAuthStatusCmd() *cobra.Command {
 				return printJSON(cmd, payload)
 			}
 
-			fmt.Println("Authenticated")
-			fmt.Printf("  Base URL: %s\n", account.BaseURL)
-			fmt.Printf("  Account ID: %d\n", account.AccountID)
-			fmt.Printf("  API Token: %s\n", maskToken(account.APIToken))
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Authenticated")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Base URL: %s\n", account.BaseURL)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Account ID: %d\n", account.AccountID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  API Token: %s\n", maskToken(account.APIToken))
 			if account.PlatformToken != "" {
-				fmt.Printf("  Platform Token: %s\n", maskToken(account.PlatformToken))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Platform Token: %s\n", maskToken(account.PlatformToken))
 			}
 			if profile != "" {
-				fmt.Printf("  Profile: %s\n", profile)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Profile: %s\n", profile)
 			}
 			if usingEnv {
-				fmt.Println("  Source: env")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  Source: env")
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -251,7 +252,7 @@ func newAuthLogoutCmd() *cobra.Command {
   # Remove stored credentials
   chatwoot auth logout
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if profile == "" {
 				current, err := config.CurrentProfile()
 				if err == nil {
@@ -260,7 +261,7 @@ func newAuthLogoutCmd() *cobra.Command {
 			}
 
 			if profile == "" && !config.HasAccount() {
-				fmt.Println("No credentials found.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No credentials found.")
 				return nil
 			}
 
@@ -269,12 +270,12 @@ func newAuthLogoutCmd() *cobra.Command {
 			}
 
 			if profile == "" {
-				fmt.Println("Credentials removed successfully.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Credentials removed successfully.")
 			} else {
-				fmt.Printf("Profile %s removed successfully.\n", profile)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Profile %s removed successfully.\n", profile)
 			}
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&profile, "profile", "", "Profile name to remove (defaults to current)")

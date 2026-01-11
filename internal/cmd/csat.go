@@ -49,7 +49,7 @@ func newCSATListCmd() *cobra.Command {
   # Filter by inbox
   chatwoot csat list --inbox-id 5
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -73,11 +73,11 @@ func newCSATListCmd() *cobra.Command {
 			}
 
 			if len(responses) == 0 {
-				fmt.Println("No CSAT responses found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No CSAT responses found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tCONV\tRATING\tFEEDBACK\tCREATED")
 			for _, csat := range responses {
 				feedback := csat.FeedbackMessage
@@ -95,7 +95,7 @@ func newCSATListCmd() *cobra.Command {
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD)")
@@ -119,7 +119,7 @@ func newCSATGetCmd() *cobra.Command {
   chatwoot csat get 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -139,7 +139,7 @@ func newCSATGetCmd() *cobra.Command {
 				if isJSON(cmd) {
 					return printJSON(cmd, nil)
 				}
-				fmt.Printf("No CSAT response for conversation %d\n", conversationID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No CSAT response for conversation %d\n", conversationID)
 				return nil
 			}
 
@@ -147,15 +147,15 @@ func newCSATGetCmd() *cobra.Command {
 				return printJSON(cmd, csat)
 			}
 
-			fmt.Printf("CSAT for Conversation #%d\n", conversationID)
-			fmt.Printf("  Rating:   %d/5 %s\n", csat.Rating, ratingStars(csat.Rating))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "CSAT for Conversation #%d\n", conversationID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Rating:   %d/5 %s\n", csat.Rating, ratingStars(csat.Rating))
 			if csat.FeedbackMessage != "" {
-				fmt.Printf("  Feedback: %s\n", csat.FeedbackMessage)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Feedback: %s\n", csat.FeedbackMessage)
 			}
-			fmt.Printf("  Created:  %s\n", csat.CreatedAtTime().Format("2006-01-02 15:04:05"))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Created:  %s\n", csat.CreatedAtTime().Format("2006-01-02 15:04:05"))
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -178,7 +178,7 @@ func newCSATSummaryCmd() *cobra.Command {
   # Get summary for inbox
   chatwoot csat summary --inbox-id 5 --from 2024-01-01 --to 2024-12-31
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -219,7 +219,7 @@ func newCSATSummaryCmd() *cobra.Command {
 						"distribution":      map[int]int{},
 					})
 				}
-				fmt.Println("No CSAT responses found for the specified period")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No CSAT responses found for the specified period")
 				return nil
 			}
 
@@ -255,19 +255,19 @@ func newCSATSummaryCmd() *cobra.Command {
 				dateRange = fmt.Sprintf(" (%s to %s)", from, to)
 			}
 
-			fmt.Printf("CSAT Summary%s:\n", dateRange)
-			fmt.Printf("  Total Responses:    %d\n", total)
-			fmt.Printf("  Average Rating:     %.1f / 5\n", avg)
-			fmt.Printf("  Satisfaction Rate:  %.0f%%\n\n", satisfactionRate)
-			fmt.Println("  Distribution:")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "CSAT Summary%s:\n", dateRange)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Total Responses:    %d\n", total)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Average Rating:     %.1f / 5\n", avg)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Satisfaction Rate:  %.0f%%\n\n", satisfactionRate)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  Distribution:")
 			for i := 5; i >= 1; i-- {
 				count := distribution[i]
 				pct := float64(count) / float64(total) * 100
-				fmt.Printf("    %s (%d): %d (%.0f%%)\n", ratingStars(i), i, count, pct)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "    %s (%d): %d (%.0f%%)\n", ratingStars(i), i, count, pct)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD)")

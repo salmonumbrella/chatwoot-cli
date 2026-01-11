@@ -47,7 +47,7 @@ func newCustomFiltersListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List custom filters",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -63,11 +63,11 @@ func newCustomFiltersListCmd() *cobra.Command {
 			}
 
 			if len(filters) == 0 {
-				fmt.Println("No custom filters found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No custom filters found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE\tQUERY")
@@ -82,7 +82,7 @@ func newCustomFiltersListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by type: conversation or contact")
@@ -95,7 +95,7 @@ func newCustomFiltersGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a custom filter by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %w", err)
@@ -116,13 +116,13 @@ func newCustomFiltersGetCmd() *cobra.Command {
 			}
 
 			queryJSON, _ := json.MarshalIndent(filter.Query, "", "  ")
-			fmt.Printf("ID: %d\n", filter.ID)
-			fmt.Printf("Name: %s\n", filter.Name)
-			fmt.Printf("Type: %s\n", filter.FilterType)
-			fmt.Printf("Query:\n%s\n", string(queryJSON))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ID: %d\n", filter.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name: %s\n", filter.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Type: %s\n", filter.FilterType)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Query:\n%s\n", string(queryJSON))
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -136,7 +136,7 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a custom filter",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -166,9 +166,9 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 				return printJSON(cmd, filter)
 			}
 
-			fmt.Printf("Created custom filter %d: %s\n", filter.ID, filter.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created custom filter %d: %s\n", filter.ID, filter.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Name for the filter")
@@ -188,7 +188,7 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a custom filter",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %w", err)
@@ -219,9 +219,9 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 				return printJSON(cmd, filter)
 			}
 
-			fmt.Printf("Updated custom filter %d: %s\n", filter.ID, filter.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated custom filter %d: %s\n", filter.ID, filter.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Name for the filter")
@@ -235,7 +235,7 @@ func newCustomFiltersDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a custom filter",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %w", err)
@@ -253,8 +253,8 @@ func newCustomFiltersDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Deleted custom filter %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted custom filter %d\n", id)
 			return nil
-		},
+		}),
 	}
 }

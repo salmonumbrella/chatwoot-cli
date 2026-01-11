@@ -182,33 +182,33 @@ of relevant resources with a single query.`,
 			}
 
 			// Text output
-			fmt.Printf("Search results for %q:\n\n", query)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Search results for %q:\n\n", query)
 
 			if len(results.Contacts) > 0 {
-				fmt.Printf("Contacts (%d):\n", len(results.Contacts))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contacts (%d):\n", len(results.Contacts))
 				for _, c := range results.Contacts {
 					email := c.Email
 					if email == "" {
 						email = "-"
 					}
-					fmt.Printf("  #%-6d %s <%s>\n", c.ID, c.Name, email)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  #%-6d %s <%s>\n", c.ID, c.Name, email)
 				}
-				fmt.Println()
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
 			}
 
 			if len(results.Conversations) > 0 {
-				fmt.Printf("Conversations (%d):\n", len(results.Conversations))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversations (%d):\n", len(results.Conversations))
 				for _, conv := range results.Conversations {
-					fmt.Printf("  #%-6d [%s] inbox:%d\n", conv.ID, conv.Status, conv.InboxID)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  #%-6d [%s] inbox:%d\n", conv.ID, conv.Status, conv.InboxID)
 				}
-				fmt.Println()
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
 			}
 
 			// Show empty message if no results
 			total := len(results.Contacts) + len(results.Conversations)
 			if total == 0 {
 				searchedTypes := strings.Join(searchTypes, ", ")
-				fmt.Printf("No results found in %s\n", searchedTypes)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No results found in %s\n", searchedTypes)
 			}
 
 			return nil

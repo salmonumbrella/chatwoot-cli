@@ -130,6 +130,6 @@ func ExitWithError(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprint(os.Stderr, HandleError(err))
+	_, _ = fmt.Fprint(os.Stderr, HandleError(err))
 	os.Exit(1)
 }

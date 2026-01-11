@@ -118,7 +118,7 @@ func TestPrintConversationsTable(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			printConversationsTable(tt.conversations)
+			printConversationsTable(w, tt.conversations)
 
 			// Restore stdout
 			_ = w.Close()
@@ -164,7 +164,7 @@ func TestPrintConversationsTable_Formatting(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	printConversationsTable(conversations)
+	printConversationsTable(w, conversations)
 
 	_ = w.Close()
 	os.Stdout = old

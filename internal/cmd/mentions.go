@@ -64,7 +64,7 @@ mentioned so you can follow up on requests from teammates.`,
   # Combine filters
   chatwoot mentions list --since 7d --limit 20 --output json
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Parse --since duration if provided
 			var sinceTime *time.Time
 			if since != "" {
@@ -118,11 +118,11 @@ mentioned so you can follow up on requests from teammates.`,
 
 			// Text output
 			if len(mentions) == 0 {
-				fmt.Println("No mentions found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No mentions found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintf(w, "CONV\tMSG\tFROM\tTIME\tCONTENT\n")
 			for _, m := range mentions {
 				// Truncate content for display
@@ -144,7 +144,7 @@ mentioned so you can follow up on requests from teammates.`,
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Filter mentions to a specific conversation")

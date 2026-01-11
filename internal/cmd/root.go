@@ -44,8 +44,6 @@ var flags = rootFlags{
 	Timeout: api.DefaultTimeout,
 }
 
-var restoreStdout func()
-
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
 	// Reset flags to defaults for each execution (important for tests)
@@ -54,7 +52,6 @@ func Execute(ctx context.Context, args []string) error {
 		Color:   "auto",
 		Timeout: api.DefaultTimeout,
 	}
-	restoreStdout = nil
 
 	root := &cobra.Command{
 		Use:           "chatwoot",
@@ -136,20 +133,6 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			if validation.AllowPrivateEnabled() && !flags.Silent && !flags.Quiet {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: allowing private/localhost URLs (use only with trusted targets).") //nolint:errcheck
-			}
-
-			// Suppress stdout for text output when --quiet is set
-			if flags.Quiet && mode == outfmt.Text && restoreStdout == nil {
-				devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-				if err != nil {
-					return err
-				}
-				original := os.Stdout
-				os.Stdout = devNull
-				restoreStdout = func() {
-					os.Stdout = original
-					_ = devNull.Close()
-				}
 			}
 
 			// Set up debug logging
@@ -253,10 +236,6 @@ func Execute(ctx context.Context, args []string) error {
 	}
 
 	err := root.Execute()
-	if restoreStdout != nil {
-		restoreStdout()
-		restoreStdout = nil
-	}
 	if err != nil {
 		if !errors.Is(err, errAlreadyHandled) {
 			_, _ = fmt.Fprintln(root.ErrOrStderr(), err) //nolint:errcheck

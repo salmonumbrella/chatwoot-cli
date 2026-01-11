@@ -60,6 +60,7 @@ For example, "/conversations/123" becomes:
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			endpoint := args[0]
+			out := cmd.OutOrStdout()
 
 			// Validate method
 			validMethods := map[string]bool{
@@ -95,7 +96,7 @@ For example, "/conversations/123" becomes:
 
 			// Include headers
 			if includeHeaders {
-				fmt.Printf("HTTP %d\n", statusCode)
+				_, _ = fmt.Fprintf(out, "HTTP %d\n", statusCode)
 				// Sort headers for consistent output
 				keys := make([]string, 0, len(headers))
 				for k := range headers {
@@ -104,10 +105,10 @@ For example, "/conversations/123" becomes:
 				sort.Strings(keys)
 				for _, k := range keys {
 					for _, v := range headers[k] {
-						fmt.Printf("%s: %s\n", k, v)
+						_, _ = fmt.Fprintf(out, "%s: %s\n", k, v)
 					}
 				}
-				fmt.Println()
+				_, _ = fmt.Fprintln(out)
 			}
 
 			// Apply jq filter if specified
@@ -116,7 +117,7 @@ For example, "/conversations/123" becomes:
 				if err != nil {
 					return fmt.Errorf("jq filter error: %w", err)
 				}
-				fmt.Print(filtered)
+				_, _ = fmt.Fprint(out, filtered)
 				return nil
 			}
 
@@ -127,12 +128,12 @@ For example, "/conversations/123" becomes:
 				if err := json.Unmarshal(respBody, &jsonData); err == nil {
 					prettyJSON, err := json.MarshalIndent(jsonData, "", "  ")
 					if err == nil {
-						fmt.Println(string(prettyJSON))
+						_, _ = fmt.Fprintln(out, string(prettyJSON))
 						return nil
 					}
 				}
 				// Fall back to raw output
-				fmt.Println(string(respBody))
+				_, _ = fmt.Fprintln(out, string(respBody))
 			}
 
 			return nil

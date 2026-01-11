@@ -86,7 +86,7 @@ before making API calls.`,
 					return fmt.Errorf("not authenticated - run 'chatwoot auth login' first")
 				}
 				if !isJSON(cmd) {
-					fmt.Println("authenticated")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "authenticated")
 				} else {
 					return printJSON(cmd, info)
 				}
@@ -98,7 +98,7 @@ before making API calls.`,
 			}
 
 			// Text output
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "CLI STATUS")

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func TestIsJSON_NoContext(t *testing.T) {
 }
 
 func TestPrintJSON(t *testing.T) {
-	// printJSON writes to os.Stdout directly, not to cmd's output buffer.
+	// printJSON writes to the command's configured output (defaults to os.Stdout).
 	// These tests verify error handling and that the function completes successfully.
 	tests := []struct {
 		name    string
@@ -164,7 +165,7 @@ func TestCmdContext_NilContext(t *testing.T) {
 }
 
 func TestNewTabWriter(t *testing.T) {
-	w := newTabWriter()
+	w := newTabWriter(io.Discard)
 	if w == nil {
 		t.Error("newTabWriter() returned nil")
 	}

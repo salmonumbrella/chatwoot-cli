@@ -30,7 +30,7 @@ func newAuditLogsListCmd() *cobra.Command {
 
   # JSON output - returns an object with an "items" array
   chatwoot audit-logs list --output json | jq '.items[0]'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -45,7 +45,7 @@ func newAuditLogsListCmd() *cobra.Command {
 				return printJSON(cmd, logs.Payload)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tACTION\tTYPE\tUSER\tCREATED")
 			for _, log := range logs.Payload {
@@ -63,7 +63,7 @@ func newAuditLogsListCmd() *cobra.Command {
 			}
 
 			if logs.Meta.TotalPages > 0 {
-				fmt.Printf("\nPage %d of %d (Total: %d)\n",
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nPage %d of %d (Total: %d)\n",
 					logs.Meta.CurrentPage,
 					logs.Meta.TotalPages,
 					logs.Meta.TotalCount,
@@ -71,7 +71,7 @@ func newAuditLogsListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")

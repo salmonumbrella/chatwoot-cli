@@ -66,7 +66,7 @@ func newTeamsGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a team by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -86,7 +86,7 @@ func newTeamsGetCmd() *cobra.Command {
 				return printJSON(cmd, team)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tDESCRIPTION\tAUTO-ASSIGN\tACCOUNT-ID")
@@ -97,7 +97,7 @@ func newTeamsGetCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d\n", team.ID, team.Name, team.Description, autoAssign, team.AccountID)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -107,7 +107,7 @@ func newTeamsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new team",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -126,9 +126,9 @@ func newTeamsCreateCmd() *cobra.Command {
 				return printJSON(cmd, team)
 			}
 
-			fmt.Printf("Created team: %s (ID: %d)\n", team.Name, team.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created team: %s (ID: %d)\n", team.Name, team.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Team name (required)")
@@ -144,7 +144,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a team",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -168,9 +168,9 @@ func newTeamsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, team)
 			}
 
-			fmt.Printf("Updated team: %s (ID: %d)\n", team.Name, team.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated team: %s (ID: %d)\n", team.Name, team.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Team name")
@@ -184,7 +184,7 @@ func newTeamsDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a team",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -206,9 +206,9 @@ func newTeamsDeleteCmd() *cobra.Command {
 				})
 			}
 
-			fmt.Printf("Deleted team ID: %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted team ID: %d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -217,7 +217,7 @@ func newTeamsMembersCmd() *cobra.Command {
 		Use:   "members <id>",
 		Short: "List team members",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -237,7 +237,7 @@ func newTeamsMembersCmd() *cobra.Command {
 				return printJSON(cmd, members)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tSTATUS")
@@ -246,7 +246,7 @@ func newTeamsMembersCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -257,7 +257,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 		Use:   "members-add <id>",
 		Short: "Add members to a team",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -289,9 +289,9 @@ func newTeamsMembersAddCmd() *cobra.Command {
 				})
 			}
 
-			fmt.Printf("Added %d member(s) to team ID: %d\n", len(userIDs), id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added %d member(s) to team ID: %d\n", len(userIDs), id)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated user IDs (required)")
@@ -306,7 +306,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 		Use:   "members-remove <id>",
 		Short: "Remove members from a team",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -338,9 +338,9 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 				})
 			}
 
-			fmt.Printf("Removed %d member(s) from team ID: %d\n", len(userIDs), id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed %d member(s) from team ID: %d\n", len(userIDs), id)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated user IDs (required)")

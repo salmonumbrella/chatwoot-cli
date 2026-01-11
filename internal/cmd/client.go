@@ -59,7 +59,7 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a contact via public API",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -93,9 +93,9 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 				return printJSON(cmd, contact)
 			}
 
-			fmt.Printf("Created contact %d (%s)\n", contact.ID, contact.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created contact %d (%s)\n", contact.ID, contact.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Contact name")
@@ -113,7 +113,7 @@ func newClientContactsGetCmd(baseURL, inboxIdentifier, contactIdentifier *string
 	return &cobra.Command{
 		Use:   "get",
 		Short: "Get a contact via public API",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -135,12 +135,12 @@ func newClientContactsGetCmd(baseURL, inboxIdentifier, contactIdentifier *string
 				return printJSON(cmd, contact)
 			}
 
-			fmt.Printf("Contact %d\n", contact.ID)
-			fmt.Printf("  Name: %s\n", contact.Name)
-			fmt.Printf("  Email: %s\n", contact.Email)
-			fmt.Printf("  Source ID: %s\n", contact.SourceID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact %d\n", contact.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Name: %s\n", contact.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Email: %s\n", contact.Email)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Source ID: %s\n", contact.SourceID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -162,7 +162,7 @@ func newClientConversationsListCmd(baseURL, inboxIdentifier, contactIdentifier *
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List conversations for a contact",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -184,7 +184,7 @@ func newClientConversationsListCmd(baseURL, inboxIdentifier, contactIdentifier *
 				return printJSON(cmd, conversations)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tSTATUS\tINBOX")
 			for _, conv := range conversations {
@@ -194,7 +194,7 @@ func newClientConversationsListCmd(baseURL, inboxIdentifier, contactIdentifier *
 				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\n", id, status, inbox)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -204,7 +204,7 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a conversation for a contact",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -233,9 +233,9 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 				return printJSON(cmd, conversation)
 			}
 
-			fmt.Printf("Created conversation %v\n", conversation["id"])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created conversation %v\n", conversation["id"])
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&customAttributes, "custom-attributes", "", "Custom attributes JSON")
@@ -248,7 +248,7 @@ func newClientConversationsGetCmd(baseURL, inboxIdentifier, contactIdentifier *s
 		Use:   "get <conversation-id>",
 		Short: "Get a conversation",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -275,9 +275,9 @@ func newClientConversationsGetCmd(baseURL, inboxIdentifier, contactIdentifier *s
 				return printJSON(cmd, conversation)
 			}
 
-			fmt.Printf("Conversation %v (%v)\n", conversation["id"], conversation["status"])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation %v (%v)\n", conversation["id"], conversation["status"])
 			return nil
-		},
+		}),
 	}
 }
 
@@ -286,7 +286,7 @@ func newClientConversationsResolveCmd(baseURL, inboxIdentifier, contactIdentifie
 		Use:   "resolve <conversation-id>",
 		Short: "Resolve a conversation",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -313,9 +313,9 @@ func newClientConversationsResolveCmd(baseURL, inboxIdentifier, contactIdentifie
 				return printJSON(cmd, conversation)
 			}
 
-			fmt.Printf("Resolved conversation %v\n", conversation["id"])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resolved conversation %v\n", conversation["id"])
 			return nil
-		},
+		}),
 	}
 }
 
@@ -338,7 +338,7 @@ func newClientMessagesCreateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 		Use:   "create <conversation-id>",
 		Short: "Create a message in a conversation",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -368,9 +368,9 @@ func newClientMessagesCreateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 				return printJSON(cmd, message)
 			}
 
-			fmt.Printf("Sent message %v\n", message["id"])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Sent message %v\n", message["id"])
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "Message content")
@@ -386,7 +386,7 @@ func newClientTypingCmd(baseURL, inboxIdentifier, contactIdentifier *string) *co
 		Use:   "typing <conversation-id>",
 		Short: "Toggle typing status",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -416,9 +416,9 @@ func newClientTypingCmd(baseURL, inboxIdentifier, contactIdentifier *string) *co
 				return printJSON(cmd, map[string]any{"status": status})
 			}
 
-			fmt.Printf("Typing status set to %s\n", status)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Typing status set to %s\n", status)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&status, "status", "on", "Typing status (on|off)")
@@ -442,7 +442,7 @@ func newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 		Use:   "update <conversation-id>",
 		Short: "Update last seen for a conversation",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
 			}
@@ -468,8 +468,8 @@ func newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 				return printJSON(cmd, map[string]any{"updated": true})
 			}
 
-			fmt.Println("Last seen updated")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Last seen updated")
 			return nil
-		},
+		}),
 	}
 }

@@ -30,7 +30,7 @@ func newAutomationRulesListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all automation rules",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -46,11 +46,11 @@ func newAutomationRulesListCmd() *cobra.Command {
 			}
 
 			if len(rules) == 0 {
-				fmt.Println("No automation rules found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No automation rules found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEVENT\tACTIVE")
 			for _, rule := range rules {
@@ -61,7 +61,7 @@ func newAutomationRulesListCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", rule.ID, rule.Name, rule.EventName, active)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -70,7 +70,7 @@ func newAutomationRulesGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get automation rule by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -90,15 +90,15 @@ func newAutomationRulesGetCmd() *cobra.Command {
 				return printJSON(cmd, rule)
 			}
 
-			fmt.Printf("ID:          %d\n", rule.ID)
-			fmt.Printf("Name:        %s\n", rule.Name)
-			fmt.Printf("Event:       %s\n", rule.EventName)
-			fmt.Printf("Active:      %t\n", rule.Active)
-			fmt.Printf("Description: %s\n", rule.Description)
-			fmt.Printf("Conditions:  %d\n", len(rule.Conditions))
-			fmt.Printf("Actions:     %d\n", len(rule.Actions))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ID:          %d\n", rule.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name:        %s\n", rule.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Event:       %s\n", rule.EventName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Active:      %t\n", rule.Active)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", rule.Description)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conditions:  %d\n", len(rule.Conditions))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Actions:     %d\n", len(rule.Actions))
 			return nil
-		},
+		}),
 	}
 }
 
@@ -113,7 +113,7 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new automation rule",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -138,9 +138,9 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 				return printJSON(cmd, rule)
 			}
 
-			fmt.Printf("Created automation rule #%d: %s\n", rule.ID, rule.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created automation rule #%d: %s\n", rule.ID, rule.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Rule name (required)")
@@ -166,7 +166,7 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update an automation rule",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -200,9 +200,9 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, rule)
 			}
 
-			fmt.Printf("Updated automation rule #%d: %s\n", rule.ID, rule.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated automation rule #%d: %s\n", rule.ID, rule.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Rule name")
@@ -217,7 +217,7 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete an automation rule",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -236,9 +236,9 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
-			fmt.Printf("Deleted automation rule #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted automation rule #%d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -248,7 +248,7 @@ func newAutomationRulesCloneCmd() *cobra.Command {
 		Short: "Clone an existing automation rule",
 		Long:  "Create a copy of an existing automation rule. The cloned rule will be inactive by default.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid rule ID: %w", err)
@@ -268,8 +268,8 @@ func newAutomationRulesCloneCmd() *cobra.Command {
 				return printJSON(cmd, rule)
 			}
 
-			fmt.Printf("Cloned automation rule #%d to new rule #%d: %s\n", id, rule.ID, rule.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Cloned automation rule #%d to new rule #%d: %s\n", id, rule.ID, rule.Name)
 			return nil
-		},
+		}),
 	}
 }

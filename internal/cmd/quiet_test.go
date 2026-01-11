@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestQuietFlagExists(t *testing.T) {
@@ -71,9 +73,11 @@ func TestPrintIfNotQuiet(t *testing.T) {
 
 	t.Run("prints when not quiet", func(t *testing.T) {
 		flags = rootFlags{Quiet: false}
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
 
 		output := captureStdout(t, func() {
-			printIfNotQuiet(nil, "Hello %s\n", "world")
+			printIfNotQuiet(cmd, "Hello %s\n", "world")
 		})
 
 		if output != "Hello world\n" {
@@ -83,9 +87,11 @@ func TestPrintIfNotQuiet(t *testing.T) {
 
 	t.Run("suppresses when quiet", func(t *testing.T) {
 		flags = rootFlags{Quiet: true}
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
 
 		output := captureStdout(t, func() {
-			printIfNotQuiet(nil, "Hello %s\n", "world")
+			printIfNotQuiet(cmd, "Hello %s\n", "world")
 		})
 
 		if output != "" {

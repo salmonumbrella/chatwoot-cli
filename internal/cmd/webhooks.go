@@ -32,7 +32,7 @@ func newWebhooksListCmd() *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List all webhooks",
 		Example: "  chatwoot webhooks list",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -47,7 +47,7 @@ func newWebhooksListCmd() *cobra.Command {
 				return printJSON(cmd, webhooks)
 			}
 
-			tw := newTabWriter()
+			tw := newTabWriterFromCmd(cmd)
 			defer func() { _ = tw.Flush() }()
 
 			_, _ = fmt.Fprintln(tw, "ID\tURL\tSUBSCRIPTIONS")
@@ -60,7 +60,7 @@ func newWebhooksListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -71,7 +71,7 @@ func newWebhooksGetCmd() *cobra.Command {
 		Short:   "Get a webhook by ID",
 		Example: "  chatwoot webhooks get 123",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid webhook ID: %s", args[0])
@@ -91,7 +91,7 @@ func newWebhooksGetCmd() *cobra.Command {
 				return printJSON(cmd, webhook)
 			}
 
-			tw := newTabWriter()
+			tw := newTabWriterFromCmd(cmd)
 			defer func() { _ = tw.Flush() }()
 
 			_, _ = fmt.Fprintln(tw, "ID\tURL\tSUBSCRIPTIONS")
@@ -102,7 +102,7 @@ func newWebhooksGetCmd() *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -126,7 +126,7 @@ Available subscription events:
   - webwidget_triggered`,
 		Example: `  chatwoot webhooks create --url https://example.com/webhook --subscriptions conversation_created,message_created
   chatwoot webhooks create --url https://example.com/webhook --subscriptions message_created`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if url == "" {
 				return fmt.Errorf("--url is required")
 			}
@@ -153,8 +153,8 @@ Available subscription events:
 				return printJSON(cmd, webhook)
 			}
 
-			fmt.Printf("Created webhook %d\n", webhook.ID)
-			tw := newTabWriter()
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created webhook %d\n", webhook.ID)
+			tw := newTabWriterFromCmd(cmd)
 			defer func() { _ = tw.Flush() }()
 
 			_, _ = fmt.Fprintln(tw, "ID\tURL\tSUBSCRIPTIONS")
@@ -165,7 +165,7 @@ Available subscription events:
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "Webhook URL (required)")
@@ -196,7 +196,7 @@ Available subscription events:
   chatwoot webhooks update 123 --subscriptions conversation_created,message_created
   chatwoot webhooks update 123 --url https://example.com/new --subscriptions message_created`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid webhook ID: %s", args[0])
@@ -227,8 +227,8 @@ Available subscription events:
 				return printJSON(cmd, webhook)
 			}
 
-			fmt.Printf("Updated webhook %d\n", webhook.ID)
-			tw := newTabWriter()
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated webhook %d\n", webhook.ID)
+			tw := newTabWriterFromCmd(cmd)
 			defer func() { _ = tw.Flush() }()
 
 			_, _ = fmt.Fprintln(tw, "ID\tURL\tSUBSCRIPTIONS")
@@ -239,7 +239,7 @@ Available subscription events:
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "New webhook URL")
@@ -255,7 +255,7 @@ func newWebhooksDeleteCmd() *cobra.Command {
 		Short:   "Delete a webhook",
 		Example: "  chatwoot webhooks delete 123",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid webhook ID: %s", args[0])
@@ -274,8 +274,8 @@ func newWebhooksDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Deleted webhook %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted webhook %d\n", id)
 			return nil
-		},
+		}),
 	}
 }

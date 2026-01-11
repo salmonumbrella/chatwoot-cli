@@ -198,20 +198,20 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 	}
 
 	// Text output
-	fmt.Printf("Message sent successfully (ID: %d)\n", message.ID)
-	fmt.Printf("Conversation: %d\n", conversationID)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message sent successfully (ID: %d)\n", message.ID)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation: %d\n", conversationID)
 	if contact != nil {
-		fmt.Printf("Contact: %s", contact.Name)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact: %s", contact.Name)
 		if contact.Email != "" {
-			fmt.Printf(" <%s>", contact.Email)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), " <%s>", contact.Email)
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(cmd.OutOrStdout())
 	}
 	if private {
-		fmt.Println("Type: Private note")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Type: Private note")
 	}
 	if resolved {
-		fmt.Println("Status: Resolved")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: Resolved")
 	}
 
 	return nil
@@ -247,9 +247,9 @@ func outputDisambiguation(cmd *cobra.Command, disambiguationType string, contact
 	}
 
 	// Text output
-	fmt.Println("Multiple contacts found. Please specify one:")
-	fmt.Println()
-	w := newTabWriter()
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Multiple contacts found. Please specify one:")
+	_, _ = fmt.Fprintln(cmd.OutOrStdout())
+	w := newTabWriterFromCmd(cmd)
 	_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL")
 	for _, c := range contacts {
 		email := c.Email
@@ -259,8 +259,8 @@ func outputDisambiguation(cmd *cobra.Command, disambiguationType string, contact
 		_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", c.ID, c.Name, email)
 	}
 	_ = w.Flush()
-	fmt.Println()
-	fmt.Println("Hint:", result.Hint)
+	_, _ = fmt.Fprintln(cmd.OutOrStdout())
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Hint:", result.Hint)
 
 	return nil
 }
@@ -298,9 +298,9 @@ func outputConversationDisambiguation(cmd *cobra.Command, conversations []api.Co
 	}
 
 	// Text output
-	fmt.Printf("Multiple open conversations found for contact (ID: %d). Please specify one:\n", contactID)
-	fmt.Println()
-	w := newTabWriter()
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Multiple open conversations found for contact (ID: %d). Please specify one:\n", contactID)
+	_, _ = fmt.Fprintln(cmd.OutOrStdout())
+	w := newTabWriterFromCmd(cmd)
 	_, _ = fmt.Fprintln(w, "ID\tDISPLAY_ID\tINBOX\tLAST_ACTIVITY")
 	for _, c := range conversations {
 		displayID := "-"
@@ -315,8 +315,8 @@ func outputConversationDisambiguation(cmd *cobra.Command, conversations []api.Co
 		)
 	}
 	_ = w.Flush()
-	fmt.Println()
-	fmt.Println("Hint:", result.Hint)
+	_, _ = fmt.Fprintln(cmd.OutOrStdout())
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Hint:", result.Hint)
 
 	return nil
 }

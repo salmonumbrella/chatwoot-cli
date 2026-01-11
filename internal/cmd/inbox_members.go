@@ -29,7 +29,7 @@ func newInboxMembersListCmd() *cobra.Command {
 		Use:   "list <inbox-id>",
 		Short: "List all members of an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
 			if err != nil {
 				return err
@@ -49,7 +49,7 @@ func newInboxMembersListCmd() *cobra.Command {
 				return printJSON(cmd, members)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tSTATUS")
@@ -68,7 +68,7 @@ func newInboxMembersListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -79,7 +79,7 @@ func newInboxMembersAddCmd() *cobra.Command {
 		Use:   "add <inbox-id>",
 		Short: "Add members to an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
 			if err != nil {
 				return err
@@ -103,9 +103,9 @@ func newInboxMembersAddCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Added %d member(s) to inbox %d\n", len(userIDs), inboxID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added %d member(s) to inbox %d\n", len(userIDs), inboxID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs (required)")
@@ -121,7 +121,7 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 		Use:   "remove <inbox-id>",
 		Short: "Remove members from an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
 			if err != nil {
 				return err
@@ -145,9 +145,9 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Removed %d member(s) from inbox %d\n", len(userIDs), inboxID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed %d member(s) from inbox %d\n", len(userIDs), inboxID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs (required)")
@@ -163,7 +163,7 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 		Use:   "update <inbox-id>",
 		Short: "Update inbox members (replaces the list)",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
 			if err != nil {
 				return err
@@ -187,9 +187,9 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Updated inbox %d members\n", inboxID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated inbox %d members\n", inboxID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs to set as members (required)")

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -44,7 +45,7 @@ func newSchemaListCmd() *cobra.Command {
   # List as JSON
   chatwoot schema list -o json
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			names := schema.List()
 
 			if isJSON(cmd) {
@@ -65,11 +66,11 @@ func newSchemaListCmd() *cobra.Command {
 			}
 
 			if len(names) == 0 {
-				fmt.Println("No schemas registered")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No schemas registered")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "RESOURCE\tDESCRIPTION")
 			for _, name := range names {
 				s, _ := schema.Get(name)
@@ -82,7 +83,7 @@ func newSchemaListCmd() *cobra.Command {
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -102,7 +103,7 @@ func newSchemaShowCmd() *cobra.Command {
   chatwoot schema show message
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
 			s, err := schema.Get(name)
@@ -116,23 +117,23 @@ func newSchemaShowCmd() *cobra.Command {
 			}
 
 			// Pretty print the schema
-			printSchemaText(name, s)
+			printSchemaText(cmd.OutOrStdout(), name, s)
 
 			return nil
-		},
+		}),
 	}
 }
 
-func printSchemaText(name string, s *schema.Schema) {
-	fmt.Printf("Schema: %s\n", name)
-	fmt.Printf("Type: %s\n", s.Type)
+func printSchemaText(out io.Writer, name string, s *schema.Schema) {
+	_, _ = fmt.Fprintf(out, "Schema: %s\n", name)
+	_, _ = fmt.Fprintf(out, "Type: %s\n", s.Type)
 	if s.Description != "" {
-		fmt.Printf("Description: %s\n", s.Description)
+		_, _ = fmt.Fprintf(out, "Description: %s\n", s.Description)
 	}
-	fmt.Println()
+	_, _ = fmt.Fprintln(out)
 
 	if len(s.Properties) > 0 {
-		fmt.Println("Fields:")
+		_, _ = fmt.Fprintln(out, "Fields:")
 
 		// Sort property names for consistent output
 		propNames := make([]string, 0, len(s.Properties))
@@ -149,17 +150,17 @@ func printSchemaText(name string, s *schema.Schema) {
 
 		for _, propName := range propNames {
 			prop := s.Properties[propName]
-			printField(propName, prop, requiredSet[propName], "  ")
+			printField(out, propName, prop, requiredSet[propName], "  ")
 		}
 	}
 
 	if len(s.Required) > 0 {
-		fmt.Println()
-		fmt.Printf("Required: %s\n", strings.Join(s.Required, ", "))
+		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintf(out, "Required: %s\n", strings.Join(s.Required, ", "))
 	}
 }
 
-func printField(name string, s *schema.Schema, required bool, indent string) {
+func printField(out io.Writer, name string, s *schema.Schema, required bool, indent string) {
 	reqMarker := ""
 	if required {
 		reqMarker = " (required)"
@@ -170,13 +171,13 @@ func printField(name string, s *schema.Schema, required bool, indent string) {
 		typeName = fmt.Sprintf("array<%s>", s.Items.Type)
 	}
 
-	fmt.Printf("%s%s: %s%s\n", indent, name, typeName, reqMarker)
+	_, _ = fmt.Fprintf(out, "%s%s: %s%s\n", indent, name, typeName, reqMarker)
 
 	if s.Description != "" {
-		fmt.Printf("%s  %s\n", indent, s.Description)
+		_, _ = fmt.Fprintf(out, "%s  %s\n", indent, s.Description)
 	}
 
 	if len(s.Enum) > 0 {
-		fmt.Printf("%s  Allowed values: %s\n", indent, strings.Join(s.Enum, ", "))
+		_, _ = fmt.Fprintf(out, "%s  Allowed values: %s\n", indent, strings.Join(s.Enum, ", "))
 	}
 }

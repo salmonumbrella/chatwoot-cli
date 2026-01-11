@@ -62,7 +62,7 @@ Report types:
   team    - Specific team summary (requires --id)`,
 		Example: `  chatwoot reports summary --type account --from 2024-01-01 --to 2024-01-31
   chatwoot reports summary --type agent --id 123 --from 2024-01-01 --to 2024-01-31`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if reportType == "" {
 				return fmt.Errorf("--type is required (account, agent, inbox, label, or team)")
 			}
@@ -96,21 +96,21 @@ Report types:
 				return printJSON(cmd, report)
 			}
 
-			fmt.Println("Report Summary:")
-			fmt.Printf("Conversations: %d\n", report.ConversationsCount)
-			fmt.Printf("Resolutions: %d\n", report.ResolutionsCount)
-			fmt.Printf("Incoming Messages: %d\n", report.IncomingMessagesCount)
-			fmt.Printf("Outgoing Messages: %d\n", report.OutgoingMessagesCount)
-			fmt.Printf("Avg First Response Time: %s\n", report.AvgFirstResponseTime)
-			fmt.Printf("Avg Resolution Time: %s\n", report.AvgResolutionTime)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Report Summary:")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversations: %d\n", report.ConversationsCount)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resolutions: %d\n", report.ResolutionsCount)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Incoming Messages: %d\n", report.IncomingMessagesCount)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Outgoing Messages: %d\n", report.OutgoingMessagesCount)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Avg First Response Time: %s\n", report.AvgFirstResponseTime)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Avg Resolution Time: %s\n", report.AvgResolutionTime)
 
 			if report.Previous != nil {
-				fmt.Println("\nPrevious Period:")
-				fmt.Printf("  Conversations: %d\n", report.Previous.ConversationsCount)
-				fmt.Printf("  Resolutions: %d\n", report.Previous.ResolutionsCount)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nPrevious Period:")
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Conversations: %d\n", report.Previous.ConversationsCount)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Resolutions: %d\n", report.Previous.ResolutionsCount)
 			}
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&reportType, "type", "", "Report type: account, agent, inbox, label, or team (required)")
@@ -149,7 +149,7 @@ Report types:
   team    - Specific team data (requires --id)`,
 		Example: `  chatwoot reports data --metric conversations_count --type account --from 2024-01-01 --to 2024-01-31
   chatwoot reports data --metric avg_first_response_time --type inbox --id 5 --from 2024-01-01 --to 2024-01-31`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if metric == "" {
 				return fmt.Errorf("--metric is required (conversations_count, incoming_messages_count, outgoing_messages_count, avg_first_response_time, avg_resolution_time, resolutions_count)")
 			}
@@ -187,12 +187,12 @@ Report types:
 			}
 
 			if len(report) == 0 {
-				fmt.Println("No data points found for the specified period")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No data points found for the specified period")
 				return nil
 			}
 
-			fmt.Printf("Time-Series Report: %s (%s)\n\n", metric, reportType)
-			w := newTabWriter()
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Time-Series Report: %s (%s)\n\n", metric, reportType)
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "TIMESTAMP\tVALUE")
 			for _, dp := range report {
 				t := time.Unix(dp.Timestamp, 0)
@@ -200,7 +200,7 @@ Report types:
 			}
 			_ = w.Flush()
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&metric, "metric", "", "Metric to retrieve (required)")
@@ -218,7 +218,7 @@ func newReportsLiveCmd() *cobra.Command {
 		Short:   "Get real-time conversation metrics",
 		Long:    "Get current counts of open, unattended, and unassigned conversations.",
 		Example: "chatwoot reports live",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -233,12 +233,12 @@ func newReportsLiveCmd() *cobra.Command {
 				return printJSON(cmd, metrics)
 			}
 
-			fmt.Println("Live Conversation Metrics:")
-			fmt.Printf("  Open:       %d\n", metrics.Open)
-			fmt.Printf("  Unattended: %d\n", metrics.Unattended)
-			fmt.Printf("  Unassigned: %d\n", metrics.Unassigned)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Live Conversation Metrics:")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Open:       %d\n", metrics.Open)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Unattended: %d\n", metrics.Unattended)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Unassigned: %d\n", metrics.Unassigned)
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -253,7 +253,7 @@ func newReportsAgentsCmd() *cobra.Command {
 		Long:  "Get current conversation metrics for all agents or a specific agent.",
 		Example: `  chatwoot reports agents
   chatwoot reports agents --user-id 123`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -269,11 +269,11 @@ func newReportsAgentsCmd() *cobra.Command {
 			}
 
 			if len(agents) == 0 {
-				fmt.Println("No agent data found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No agent data found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tOPEN\tUNATTENDED\tAVAILABILITY")
 			for _, agent := range agents {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t%s\n",
@@ -283,7 +283,7 @@ func newReportsAgentsCmd() *cobra.Command {
 			}
 			_ = w.Flush()
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&userID, "user-id", "", "Filter by specific user ID")
@@ -301,7 +301,7 @@ func newReportingEventsCmd() *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List account reporting events",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -316,14 +316,14 @@ func newReportingEventsCmd() *cobra.Command {
 				return printJSON(cmd, events)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tVALUE\tCREATED")
 			for _, e := range events {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%v\t%s\n", e.ID, e.Name, e.Value, e.CreatedAt)
 			}
 			return nil
-		},
+		}),
 	}
 	listCmd.Flags().StringVar(&since, "since", "", "Start timestamp (Unix)")
 	listCmd.Flags().StringVar(&until, "until", "", "End timestamp (Unix)")
@@ -335,7 +335,7 @@ func newReportingEventsCmd() *cobra.Command {
 		Use:   "conversation <conversation-id>",
 		Short: "List reporting events for a conversation",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -355,14 +355,14 @@ func newReportingEventsCmd() *cobra.Command {
 				return printJSON(cmd, events)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tVALUE\tCREATED")
 			for _, e := range events {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%v\t%s\n", e.ID, e.Name, e.Value, e.CreatedAt)
 			}
 			return nil
-		},
+		}),
 	})
 
 	return cmd

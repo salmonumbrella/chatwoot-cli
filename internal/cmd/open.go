@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -37,7 +38,7 @@ Supported URL formats:
   chatwoot open https://app.chatwoot.com/app/accounts/1/conversations/123 --output json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			rawURL := args[0]
 
 			// Parse the URL
@@ -73,7 +74,7 @@ Supported URL formats:
 				if isJSON(cmd) {
 					return printJSON(cmd, conv)
 				}
-				return printConversationDetails(conv)
+				return printConversationDetails(cmd.OutOrStdout(), conv)
 
 			case "contact":
 				contact, err := client.GetContact(ctx, parsed.ResourceID)
@@ -83,7 +84,7 @@ Supported URL formats:
 				if isJSON(cmd) {
 					return printJSON(cmd, contact)
 				}
-				return printContactDetails(contact)
+				return printContactDetails(cmd.OutOrStdout(), contact)
 
 			case "inbox":
 				inbox, err := client.GetInbox(ctx, parsed.ResourceID)
@@ -93,7 +94,7 @@ Supported URL formats:
 				if isJSON(cmd) {
 					return printJSON(cmd, inbox)
 				}
-				return printInboxDetails(inbox)
+				return printInboxDetails(cmd.OutOrStdout(), inbox)
 
 			case "team":
 				team, err := client.GetTeam(ctx, parsed.ResourceID)
@@ -103,7 +104,7 @@ Supported URL formats:
 				if isJSON(cmd) {
 					return printJSON(cmd, team)
 				}
-				return printTeamDetails(team)
+				return printTeamDetails(cmd.OutOrStdout(), team)
 
 			case "agent":
 				agent, err := client.GetAgent(ctx, parsed.ResourceID)
@@ -113,7 +114,7 @@ Supported URL formats:
 				if isJSON(cmd) {
 					return printJSON(cmd, agent)
 				}
-				return printAgentDetails(agent)
+				return printAgentDetails(cmd.OutOrStdout(), agent)
 
 			case "campaign":
 				campaign, err := client.GetCampaign(ctx, parsed.ResourceID)
@@ -123,100 +124,100 @@ Supported URL formats:
 				if isJSON(cmd) {
 					return printJSON(cmd, campaign)
 				}
-				return printCampaignDetails(campaign)
+				return printCampaignDetails(cmd.OutOrStdout(), campaign)
 
 			default:
 				return fmt.Errorf("unsupported resource type: %s", parsed.ResourceType)
 			}
-		},
+		}),
 	}
 
 	return cmd
 }
 
 // printConversationDetails outputs conversation details in text format
-func printConversationDetails(conv *api.Conversation) error {
+func printConversationDetails(out io.Writer, conv *api.Conversation) error {
 	displayID := conv.ID
 	if conv.DisplayID != nil {
 		displayID = *conv.DisplayID
 	}
-	fmt.Printf("Conversation #%d\n", displayID)
-	fmt.Printf("  ID:         %d\n", conv.ID)
-	fmt.Printf("  Inbox ID:   %d\n", conv.InboxID)
-	fmt.Printf("  Contact ID: %d\n", conv.ContactID)
-	fmt.Printf("  Status:     %s\n", conv.Status)
+	_, _ = fmt.Fprintf(out, "Conversation #%d\n", displayID)
+	_, _ = fmt.Fprintf(out, "  ID:         %d\n", conv.ID)
+	_, _ = fmt.Fprintf(out, "  Inbox ID:   %d\n", conv.InboxID)
+	_, _ = fmt.Fprintf(out, "  Contact ID: %d\n", conv.ContactID)
+	_, _ = fmt.Fprintf(out, "  Status:     %s\n", conv.Status)
 	if conv.Priority != nil {
-		fmt.Printf("  Priority:   %s\n", *conv.Priority)
+		_, _ = fmt.Fprintf(out, "  Priority:   %s\n", *conv.Priority)
 	}
 	if conv.AssigneeID != nil {
-		fmt.Printf("  Assignee:   %d\n", *conv.AssigneeID)
+		_, _ = fmt.Fprintf(out, "  Assignee:   %d\n", *conv.AssigneeID)
 	}
 	if conv.TeamID != nil {
-		fmt.Printf("  Team:       %d\n", *conv.TeamID)
+		_, _ = fmt.Fprintf(out, "  Team:       %d\n", *conv.TeamID)
 	}
-	fmt.Printf("  Unread:     %d\n", conv.Unread)
-	fmt.Printf("  Muted:      %t\n", conv.Muted)
-	fmt.Printf("  Created:    %s\n", conv.CreatedAtTime().Format("2006-01-02 15:04:05"))
+	_, _ = fmt.Fprintf(out, "  Unread:     %d\n", conv.Unread)
+	_, _ = fmt.Fprintf(out, "  Muted:      %t\n", conv.Muted)
+	_, _ = fmt.Fprintf(out, "  Created:    %s\n", conv.CreatedAtTime().Format("2006-01-02 15:04:05"))
 	if len(conv.Labels) > 0 {
-		fmt.Printf("  Labels:     %s\n", strings.Join(conv.Labels, ", "))
+		_, _ = fmt.Fprintf(out, "  Labels:     %s\n", strings.Join(conv.Labels, ", "))
 	}
 	return nil
 }
 
 // printContactDetails outputs contact details in text format
-func printContactDetails(contact *api.Contact) error {
-	fmt.Printf("Contact #%d\n", contact.ID)
-	fmt.Printf("  Name:  %s\n", contact.Name)
+func printContactDetails(out io.Writer, contact *api.Contact) error {
+	_, _ = fmt.Fprintf(out, "Contact #%d\n", contact.ID)
+	_, _ = fmt.Fprintf(out, "  Name:  %s\n", contact.Name)
 	if contact.Email != "" {
-		fmt.Printf("  Email: %s\n", contact.Email)
+		_, _ = fmt.Fprintf(out, "  Email: %s\n", contact.Email)
 	}
 	if contact.PhoneNumber != "" {
-		fmt.Printf("  Phone: %s\n", contact.PhoneNumber)
+		_, _ = fmt.Fprintf(out, "  Phone: %s\n", contact.PhoneNumber)
 	}
 	if contact.Identifier != "" {
-		fmt.Printf("  Identifier: %s\n", contact.Identifier)
+		_, _ = fmt.Fprintf(out, "  Identifier: %s\n", contact.Identifier)
 	}
 	return nil
 }
 
 // printInboxDetails outputs inbox details in text format
-func printInboxDetails(inbox *api.Inbox) error {
-	fmt.Printf("Inbox #%d\n", inbox.ID)
-	fmt.Printf("  Name:             %s\n", inbox.Name)
-	fmt.Printf("  Channel Type:     %s\n", inbox.ChannelType)
-	fmt.Printf("  Auto Assignment:  %t\n", inbox.EnableAutoAssignment)
-	fmt.Printf("  Greeting Enabled: %t\n", inbox.GreetingEnabled)
+func printInboxDetails(out io.Writer, inbox *api.Inbox) error {
+	_, _ = fmt.Fprintf(out, "Inbox #%d\n", inbox.ID)
+	_, _ = fmt.Fprintf(out, "  Name:             %s\n", inbox.Name)
+	_, _ = fmt.Fprintf(out, "  Channel Type:     %s\n", inbox.ChannelType)
+	_, _ = fmt.Fprintf(out, "  Auto Assignment:  %t\n", inbox.EnableAutoAssignment)
+	_, _ = fmt.Fprintf(out, "  Greeting Enabled: %t\n", inbox.GreetingEnabled)
 	if inbox.GreetingMessage != "" {
-		fmt.Printf("  Greeting Message: %s\n", inbox.GreetingMessage)
+		_, _ = fmt.Fprintf(out, "  Greeting Message: %s\n", inbox.GreetingMessage)
 	}
 	return nil
 }
 
 // printTeamDetails outputs team details in text format
-func printTeamDetails(team *api.Team) error {
-	fmt.Printf("Team #%d\n", team.ID)
-	fmt.Printf("  Name:        %s\n", team.Name)
-	fmt.Printf("  Description: %s\n", team.Description)
+func printTeamDetails(out io.Writer, team *api.Team) error {
+	_, _ = fmt.Fprintf(out, "Team #%d\n", team.ID)
+	_, _ = fmt.Fprintf(out, "  Name:        %s\n", team.Name)
+	_, _ = fmt.Fprintf(out, "  Description: %s\n", team.Description)
 	return nil
 }
 
 // printAgentDetails outputs agent details in text format
-func printAgentDetails(agent *api.Agent) error {
-	fmt.Printf("Agent #%d\n", agent.ID)
-	fmt.Printf("  Name:  %s\n", agent.Name)
-	fmt.Printf("  Email: %s\n", agent.Email)
+func printAgentDetails(out io.Writer, agent *api.Agent) error {
+	_, _ = fmt.Fprintf(out, "Agent #%d\n", agent.ID)
+	_, _ = fmt.Fprintf(out, "  Name:  %s\n", agent.Name)
+	_, _ = fmt.Fprintf(out, "  Email: %s\n", agent.Email)
 	if agent.Role != "" {
-		fmt.Printf("  Role:  %s\n", agent.Role)
+		_, _ = fmt.Fprintf(out, "  Role:  %s\n", agent.Role)
 	}
 	return nil
 }
 
 // printCampaignDetails outputs campaign details in text format
-func printCampaignDetails(campaign *api.Campaign) error {
-	fmt.Printf("Campaign #%d\n", campaign.ID)
-	fmt.Printf("  Title:    %s\n", campaign.Title)
-	fmt.Printf("  Message:  %s\n", campaign.Message)
-	fmt.Printf("  Inbox ID: %d\n", campaign.InboxID)
-	fmt.Printf("  Enabled:  %t\n", campaign.Enabled)
+func printCampaignDetails(out io.Writer, campaign *api.Campaign) error {
+	_, _ = fmt.Fprintf(out, "Campaign #%d\n", campaign.ID)
+	_, _ = fmt.Fprintf(out, "  Title:    %s\n", campaign.Title)
+	_, _ = fmt.Fprintf(out, "  Message:  %s\n", campaign.Message)
+	_, _ = fmt.Fprintf(out, "  Inbox ID: %d\n", campaign.InboxID)
+	_, _ = fmt.Fprintf(out, "  Enabled:  %t\n", campaign.Enabled)
 	return nil
 }

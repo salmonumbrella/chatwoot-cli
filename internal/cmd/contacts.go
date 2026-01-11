@@ -61,7 +61,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
   # JSON output - returns an object with an "items" array
   chatwoot contacts list --output json | jq '.items[0]'
   chatwoot contacts list --output json | jq '.items[] | {id, name, email}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -85,7 +85,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return printJSON(cmd, contacts.Payload)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
@@ -99,7 +99,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
@@ -130,7 +130,7 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 		return printJSON(cmd, contact)
 	}
 
-	w := newTabWriter()
+	w := newTabWriterFromCmd(cmd)
 	defer func() { _ = w.Flush() }()
 
 	_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
@@ -157,7 +157,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
   # Get contact as JSON
   chatwoot contacts get 123 --output json`,
 		Args: cobra.ExactArgs(1),
-		RunE: contactGetRunE,
+		RunE: RunE(contactGetRunE),
 	}
 }
 
@@ -175,7 +175,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
   # Show contact as JSON
   chatwoot contacts show 123 --output json`,
 		Args: cobra.ExactArgs(1),
-		RunE: contactGetRunE,
+		RunE: RunE(contactGetRunE),
 	}
 }
 
@@ -211,7 +211,7 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
     "custom_attributes": {"plan": "enterprise"}
   }
   EOF`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			var body map[string]any
 
 			// If --json flag is set, read from stdin
@@ -279,7 +279,7 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 				return printJSON(cmd, contact)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
@@ -291,7 +291,7 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Contact name (required unless provided via --json)")
@@ -314,7 +314,7 @@ func newContactsUpdateCmd() *cobra.Command {
 		Short: "Update a contact",
 		Long:  "Update a contact's name, email, and/or phone number",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -357,7 +357,7 @@ func newContactsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, contact)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
@@ -369,7 +369,7 @@ func newContactsUpdateCmd() *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "New contact name")
@@ -384,7 +384,7 @@ func newContactsDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a contact",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -402,9 +402,9 @@ func newContactsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Contact %d deleted successfully\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact %d deleted successfully\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -423,7 +423,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
   # Search and output as JSON
   chatwoot contacts search --query "acme" --output json | jq '.items[] | {id, name}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if query == "" {
 				return fmt.Errorf("--query is required")
 			}
@@ -442,7 +442,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return printJSON(cmd, contacts.Payload)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
@@ -456,7 +456,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&query, "query", "", "Search query string")
@@ -484,7 +484,7 @@ Example payload format:
 
 Available filter operators: equal_to, not_equal_to, contains, does_not_contain, is_present, is_not_present
 Available query operators: and, or`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if payload == "" {
 				return fmt.Errorf("--payload is required")
 			}
@@ -517,7 +517,7 @@ Available query operators: and, or`,
 				return printJSON(cmd, contacts.Payload)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
@@ -531,7 +531,7 @@ Available query operators: and, or`,
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&payload, "payload", "", "JSON array of filter conditions")
@@ -545,7 +545,7 @@ func newContactsConversationsCmd() *cobra.Command {
 		Short: "Get contact conversations",
 		Long:  "Get all conversations for a specific contact",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -565,7 +565,7 @@ func newContactsConversationsCmd() *cobra.Command {
 				return printJSON(cmd, conversations)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSTATUS\tINBOX_ID\tUNREAD")
@@ -579,7 +579,7 @@ func newContactsConversationsCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -589,7 +589,7 @@ func newContactsLabelsCmd() *cobra.Command {
 		Short: "Get contact labels",
 		Long:  "Get all labels for a specific contact",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -610,16 +610,16 @@ func newContactsLabelsCmd() *cobra.Command {
 			}
 
 			if len(labels) == 0 {
-				fmt.Println("No labels found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No labels found")
 				return nil
 			}
 
 			for _, label := range labels {
-				fmt.Println(label)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), label)
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -631,7 +631,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 		Short: "Add labels to contact",
 		Long:  "Add one or more labels to a contact (comma-separated)",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -660,13 +660,13 @@ func newContactsLabelsAddCmd() *cobra.Command {
 				return printJSON(cmd, updatedLabels)
 			}
 
-			fmt.Println("Labels added successfully:")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Labels added successfully:")
 			for _, label := range updatedLabels {
-				fmt.Println(label)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), label)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated list of labels")
@@ -680,7 +680,7 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 		Short: "Get contactable inboxes",
 		Long:  "Get all contactable inboxes for a contact",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -701,11 +701,11 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 			}
 
 			if len(inboxes) == 0 {
-				fmt.Println("No contactable inboxes found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No contactable inboxes found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tCHANNEL_TYPE")
@@ -718,7 +718,7 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -738,7 +738,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
   # With custom source ID (for channel-specific identifiers)
   chatwoot contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			contactID, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -770,17 +770,17 @@ func newContactsCreateInboxCmd() *cobra.Command {
 			}
 
 			if result.Inbox.ID == 0 {
-				fmt.Printf("Contact %d associated with inbox (no details returned)\n", contactID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact %d associated with inbox (no details returned)\n", contactID)
 			} else {
-				fmt.Printf("Contact %d associated with inbox %d\n", contactID, result.Inbox.ID)
-				fmt.Printf("Inbox: %s (%s)\n", result.Inbox.Name, result.Inbox.ChannelType)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact %d associated with inbox %d\n", contactID, result.Inbox.ID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Inbox: %s (%s)\n", result.Inbox.Name, result.Inbox.ChannelType)
 			}
 			if result.SourceID != "" {
-				fmt.Printf("Source ID: %s\n", result.SourceID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Source ID: %s\n", result.SourceID)
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
@@ -803,7 +803,7 @@ func newContactsNotesCmd() *cobra.Command {
   chatwoot contacts notes 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -824,11 +824,11 @@ func newContactsNotesCmd() *cobra.Command {
 			}
 
 			if len(notes) == 0 {
-				fmt.Println("No notes found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No notes found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tCREATED\tAUTHOR\tCONTENT")
 			for _, note := range notes {
 				author := ""
@@ -844,7 +844,7 @@ func newContactsNotesCmd() *cobra.Command {
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -860,7 +860,7 @@ func newContactsNotesAddCmd() *cobra.Command {
   chatwoot contacts notes-add 123 --content "VIP customer, handle with care"
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -884,9 +884,9 @@ func newContactsNotesAddCmd() *cobra.Command {
 				return printJSON(cmd, note)
 			}
 
-			fmt.Printf("Added note #%d to contact %d\n", note.ID, id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added note #%d to contact %d\n", note.ID, id)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "Note content (required)")
@@ -904,7 +904,7 @@ func newContactsNotesDeleteCmd() *cobra.Command {
   chatwoot contacts notes-delete 123 456
 `),
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			contactID, err := validation.ParsePositiveInt(args[0], "contact ID")
 			if err != nil {
 				return err
@@ -927,9 +927,9 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": noteID, "contact_id": contactID})
 			}
-			fmt.Printf("Deleted note #%d from contact %d\n", noteID, contactID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted note #%d from contact %d\n", noteID, contactID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -969,7 +969,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
   # Control concurrency (default: 5)
   chatwoot contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseIntList(contactIDs)
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
@@ -1020,7 +1020,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d contacts (%d failed)\n", successCount, failCount)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
@@ -1060,7 +1060,7 @@ labels, and updates the contact with the remaining labels.`,
   # Control concurrency (default: 5)
   chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseIntList(contactIDs)
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
@@ -1127,7 +1127,7 @@ labels, and updates the contact with the remaining labels.`,
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed labels from %d contacts (%d failed)\n", successCount, failCount)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
@@ -1165,7 +1165,7 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
   # JSON output (requires --force)
   chatwoot contacts merge 123 456 --force --output json`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			keepID, err := validation.ParsePositiveInt(args[0], "keep-id")
 			if err != nil {
 				return err
@@ -1207,22 +1207,22 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 				}
 
 				// Display merge preview
-				fmt.Println()
-				fmt.Println(bold("MERGE CONTACTS"))
-				fmt.Println()
-				fmt.Printf("%s #%d %s\n", green("KEEP (base):    "), keepContact.ID, formatContactSummary(keepContact))
-				fmt.Printf("%s #%d %s\n", red("DELETE (mergee):"), deleteContact.ID, formatContactSummary(deleteContact))
-				fmt.Println()
-				fmt.Printf("The contact #%d will be %s.\n", deleteID, red("PERMANENTLY DELETED"))
-				fmt.Printf("All conversations, messages, and notes will be transferred to #%d.\n", keepID)
-				fmt.Println()
-				fmt.Print(yellow("Type 'merge' to confirm: "))
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), bold("MERGE CONTACTS"))
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s #%d %s\n", green("KEEP (base):    "), keepContact.ID, formatContactSummary(keepContact))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s #%d %s\n", red("DELETE (mergee):"), deleteContact.ID, formatContactSummary(deleteContact))
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "The contact #%d will be %s.\n", deleteID, red("PERMANENTLY DELETED"))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "All conversations, messages, and notes will be transferred to #%d.\n", keepID)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), yellow("Type 'merge' to confirm: "))
 
 				var response string
 				_, _ = fmt.Scanln(&response)
 				response = strings.TrimSpace(strings.ToLower(response))
 				if response != "merge" {
-					fmt.Println("Merge cancelled.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Merge cancelled.")
 					return nil
 				}
 			}
@@ -1237,11 +1237,11 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 				return printJSON(cmd, mergedContact)
 			}
 
-			fmt.Printf("Successfully merged contact #%d into #%d\n", deleteID, keepID)
-			fmt.Printf("Contact #%d has been deleted. Contact #%d now contains all data.\n", deleteID, keepID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Successfully merged contact #%d into #%d\n", deleteID, keepID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact #%d has been deleted. Contact #%d now contains all data.\n", deleteID, keepID)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt (required for --output json)")

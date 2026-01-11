@@ -31,7 +31,7 @@ func newAgentBotsListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all agent bots",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -47,18 +47,18 @@ func newAgentBotsListCmd() *cobra.Command {
 			}
 
 			if len(bots) == 0 {
-				fmt.Println("No agent bots found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No agent bots found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tOUTGOING_URL")
 			for _, bot := range bots {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", bot.ID, bot.Name, bot.OutgoingURL)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -67,7 +67,7 @@ func newAgentBotsGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get agent bot by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -87,12 +87,12 @@ func newAgentBotsGetCmd() *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			fmt.Printf("ID:           %d\n", bot.ID)
-			fmt.Printf("Name:         %s\n", bot.Name)
-			fmt.Printf("Description:  %s\n", bot.Description)
-			fmt.Printf("Outgoing URL: %s\n", bot.OutgoingURL)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ID:           %d\n", bot.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name:         %s\n", bot.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Description:  %s\n", bot.Description)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Outgoing URL: %s\n", bot.OutgoingURL)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -105,7 +105,7 @@ func newAgentBotsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new agent bot",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Validate outgoing URL if provided
 			if outgoingURL != "" {
 				if err := validation.ValidateWebhookURL(outgoingURL); err != nil {
@@ -127,9 +127,9 @@ func newAgentBotsCreateCmd() *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			fmt.Printf("Created agent bot #%d: %s\n", bot.ID, bot.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created agent bot #%d: %s\n", bot.ID, bot.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Bot name (required)")
@@ -150,7 +150,7 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update an agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Validate outgoing URL if provided
 			if outgoingURL != "" {
 				if err := validation.ValidateWebhookURL(outgoingURL); err != nil {
@@ -177,9 +177,9 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			fmt.Printf("Updated agent bot #%d: %s\n", bot.ID, bot.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated agent bot #%d: %s\n", bot.ID, bot.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Bot name")
@@ -193,7 +193,7 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete an agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -212,9 +212,9 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
-			fmt.Printf("Deleted agent bot #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted agent bot #%d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -223,7 +223,7 @@ func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 		Use:   "delete-avatar <id>",
 		Short: "Remove the avatar from an agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid bot ID: %w", err)
@@ -242,9 +242,9 @@ func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
 
-			fmt.Printf("Deleted avatar for agent bot #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted avatar for agent bot #%d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -253,7 +253,7 @@ func newAgentBotsResetTokenCmd() *cobra.Command {
 		Use:   "reset-token <id>",
 		Short: "Reset the access token for an agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid bot ID: %w", err)
@@ -273,8 +273,8 @@ func newAgentBotsResetTokenCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"access_token": token})
 			}
 
-			fmt.Printf("New access token for agent bot #%d: %s\n", id, token)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "New access token for agent bot #%d: %s\n", id, token)
 			return nil
-		},
+		}),
 	}
 }

@@ -30,7 +30,7 @@ func newCannedResponsesListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all canned responses",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -45,7 +45,7 @@ func newCannedResponsesListCmd() *cobra.Command {
 				return printJSON(cmd, responses)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tSHORT_CODE\tCONTENT")
 			for _, r := range responses {
@@ -57,7 +57,7 @@ func newCannedResponsesListCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", r.ID, r.ShortCode, content)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -66,7 +66,7 @@ func newCannedResponsesGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a canned response by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
@@ -86,12 +86,12 @@ func newCannedResponsesGetCmd() *cobra.Command {
 				return printJSON(cmd, response)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tSHORT_CODE\tCONTENT")
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", response.ID, response.ShortCode, response.Content)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -104,7 +104,7 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new canned response",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if shortCode == "" {
 				return fmt.Errorf("--short-code is required")
 			}
@@ -126,9 +126,9 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 				return printJSON(cmd, response)
 			}
 
-			fmt.Printf("Created canned response #%d: %s\n", response.ID, response.ShortCode)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created canned response #%d: %s\n", response.ID, response.ShortCode)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&shortCode, "short-code", "", "Short code for the canned response (required)")
@@ -149,7 +149,7 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a canned response",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
@@ -186,9 +186,9 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, response)
 			}
 
-			fmt.Printf("Updated canned response #%d: %s\n", response.ID, response.ShortCode)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated canned response #%d: %s\n", response.ID, response.ShortCode)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&shortCode, "short-code", "", "Short code for the canned response")
@@ -203,7 +203,7 @@ func newCannedResponsesDeleteCmd() *cobra.Command {
 		Aliases: []string{"rm", "del"},
 		Short:   "Delete a canned response",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
@@ -221,8 +221,8 @@ func newCannedResponsesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Deleted canned response #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted canned response #%d\n", id)
 			return nil
-		},
+		}),
 	}
 }

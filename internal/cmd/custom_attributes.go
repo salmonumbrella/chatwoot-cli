@@ -48,7 +48,7 @@ func newCustomAttributesListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List custom attribute definitions",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -64,11 +64,11 @@ func newCustomAttributesListCmd() *cobra.Command {
 			}
 
 			if len(attrs) == 0 {
-				fmt.Println("No custom attributes found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No custom attributes found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tKEY\tMODEL\tTYPE")
@@ -83,7 +83,7 @@ func newCustomAttributesListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&model, "model", "", "Filter by model: contact or conversation")
@@ -96,7 +96,7 @@ func newCustomAttributesGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a custom attribute definition by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %w", err)
@@ -116,20 +116,20 @@ func newCustomAttributesGetCmd() *cobra.Command {
 				return printJSON(cmd, attr)
 			}
 
-			fmt.Printf("ID: %d\n", attr.ID)
-			fmt.Printf("Name: %s\n", attr.AttributeDisplayName)
-			fmt.Printf("Key: %s\n", attr.AttributeKey)
-			fmt.Printf("Model: %s\n", attr.AttributeModel)
-			fmt.Printf("Type: %s\n", attr.AttributeDisplayType)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ID: %d\n", attr.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name: %s\n", attr.AttributeDisplayName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Key: %s\n", attr.AttributeKey)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Model: %s\n", attr.AttributeModel)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Type: %s\n", attr.AttributeDisplayType)
 			if attr.DefaultValue != nil {
-				fmt.Printf("Default Value: %v\n", attr.DefaultValue)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Default Value: %v\n", attr.DefaultValue)
 			}
 			if len(attr.AttributeValues) > 0 {
-				fmt.Printf("Values: %v\n", attr.AttributeValues)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Values: %v\n", attr.AttributeValues)
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -144,7 +144,7 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a custom attribute definition",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -174,9 +174,9 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 				return printJSON(cmd, attr)
 			}
 
-			fmt.Printf("Created custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Display name for the attribute")
@@ -194,7 +194,7 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a custom attribute definition",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %w", err)
@@ -218,9 +218,9 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, attr)
 			}
 
-			fmt.Printf("Updated custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated custom attribute %d: %s\n", attr.ID, attr.AttributeDisplayName)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Display name for the attribute")
@@ -233,7 +233,7 @@ func newCustomAttributesDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a custom attribute definition",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return fmt.Errorf("invalid ID: %w", err)
@@ -251,9 +251,9 @@ func newCustomAttributesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Deleted custom attribute %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted custom attribute %d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 

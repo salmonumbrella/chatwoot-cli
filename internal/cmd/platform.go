@@ -58,7 +58,7 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an account",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -99,9 +99,9 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			fmt.Printf("Created account %d: %s\n", account.ID, account.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created account %d: %s\n", account.ID, account.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Account name (required)")
@@ -120,7 +120,7 @@ func newPlatformAccountsGetCmd(baseURL, token *string) *cobra.Command {
 		Use:   "get <account-id>",
 		Short: "Get an account",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
 			if err != nil {
 				return err
@@ -140,9 +140,9 @@ func newPlatformAccountsGetCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			fmt.Printf("Account %d: %s\n", account.ID, account.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Account %d: %s\n", account.ID, account.Name)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -151,7 +151,7 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 		Use:   "delete <account-id>",
 		Short: "Delete an account",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
 			if err != nil {
 				return err
@@ -169,9 +169,9 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": accountID})
 			}
-			fmt.Printf("Deleted account %d\n", accountID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted account %d\n", accountID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -187,7 +187,7 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 		Use:   "update <account-id>",
 		Short: "Update an account",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
 			if err != nil {
 				return err
@@ -216,9 +216,9 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, account)
 			}
 
-			fmt.Printf("Updated account %d: %s\n", account.ID, account.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated account %d: %s\n", account.ID, account.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Account name")
@@ -256,7 +256,7 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a user",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" || email == "" || password == "" {
 				return fmt.Errorf("--name, --email, and --password are required")
 			}
@@ -288,9 +288,9 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, user)
 			}
 
-			fmt.Printf("Created user %d: %s\n", user.ID, user.Email)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created user %d: %s\n", user.ID, user.Email)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "User name (required)")
@@ -307,7 +307,7 @@ func newPlatformUsersGetCmd(baseURL, token *string) *cobra.Command {
 		Use:   "get <user-id>",
 		Short: "Get a user",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := validation.ParsePositiveInt(args[0], "user ID")
 			if err != nil {
 				return err
@@ -327,9 +327,9 @@ func newPlatformUsersGetCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, user)
 			}
 
-			fmt.Printf("User %d: %s\n", user.ID, user.Email)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "User %d: %s\n", user.ID, user.Email)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -346,7 +346,7 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 		Use:   "update <user-id>",
 		Short: "Update a user",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := validation.ParsePositiveInt(args[0], "user ID")
 			if err != nil {
 				return err
@@ -383,9 +383,9 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, user)
 			}
 
-			fmt.Printf("Updated user %d\n", user.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated user %d\n", user.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "User name")
@@ -402,7 +402,7 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 		Use:   "delete <user-id>",
 		Short: "Delete a user",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := validation.ParsePositiveInt(args[0], "user ID")
 			if err != nil {
 				return err
@@ -420,9 +420,9 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": userID})
 			}
-			fmt.Printf("Deleted user %d\n", userID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted user %d\n", userID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -431,7 +431,7 @@ func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
 		Use:   "login <user-id>",
 		Short: "Get SSO login URL for a user",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := validation.ParsePositiveInt(args[0], "user ID")
 			if err != nil {
 				return err
@@ -451,9 +451,9 @@ func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, login)
 			}
 
-			fmt.Println(login.URL)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), login.URL)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -475,7 +475,7 @@ func newPlatformAccountUsersListCmd(baseURL, token *string) *cobra.Command {
 		Use:   "list <account-id>",
 		Short: "List account users",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
 			if err != nil {
 				return err
@@ -495,14 +495,14 @@ func newPlatformAccountUsersListCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, users)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tUSER\tROLE")
 			for _, user := range users {
 				_, _ = fmt.Fprintf(w, "%d\t%d\t%s\n", user.ID, user.UserID, user.Role)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -514,7 +514,7 @@ func newPlatformAccountUsersCreateCmd(baseURL, token *string) *cobra.Command {
 		Use:   "create <account-id>",
 		Short: "Add a user to an account",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
 			if err != nil {
 				return err
@@ -543,9 +543,9 @@ func newPlatformAccountUsersCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, accountUser)
 			}
 
-			fmt.Printf("Added user %d to account %d\n", userID, accountID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added user %d to account %d\n", userID, accountID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&userID, "user-id", 0, "User ID (required)")
@@ -561,7 +561,7 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 		Use:   "delete <account-id>",
 		Short: "Remove a user from an account",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
 			if err != nil {
 				return err
@@ -582,9 +582,9 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "account_id": accountID, "user_id": userID})
 			}
-			fmt.Printf("Removed user %d from account %d\n", userID, accountID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed user %d from account %d\n", userID, accountID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&userID, "user-id", 0, "User ID (required)")
@@ -611,7 +611,7 @@ func newPlatformAgentBotsListCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all platform agent bots",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPlatformClient(*baseURL, *token)
 			if err != nil {
 				return err
@@ -626,14 +626,14 @@ func newPlatformAgentBotsListCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, bots)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE\tURL")
 			for _, bot := range bots {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", bot.ID, bot.Name, bot.BotType, bot.OutgoingURL)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -642,7 +642,7 @@ func newPlatformAgentBotsGetCmd(baseURL, token *string) *cobra.Command {
 		Use:   "get <bot-id>",
 		Short: "Get a platform agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
 			if err != nil {
 				return err
@@ -662,18 +662,18 @@ func newPlatformAgentBotsGetCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			fmt.Printf("Agent Bot %d: %s\n", bot.ID, bot.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Agent Bot %d: %s\n", bot.ID, bot.Name)
 			if bot.Description != "" {
-				fmt.Printf("Description: %s\n", bot.Description)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", bot.Description)
 			}
 			if bot.BotType != "" {
-				fmt.Printf("Type: %s\n", bot.BotType)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Type: %s\n", bot.BotType)
 			}
 			if bot.OutgoingURL != "" {
-				fmt.Printf("URL: %s\n", bot.OutgoingURL)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", bot.OutgoingURL)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -687,7 +687,7 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a platform agent bot",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -710,9 +710,9 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			fmt.Printf("Created agent bot %d: %s\n", bot.ID, bot.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created agent bot %d: %s\n", bot.ID, bot.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Agent bot name (required)")
@@ -733,7 +733,7 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 		Use:   "update <bot-id>",
 		Short: "Update a platform agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
 			if err != nil {
 				return err
@@ -761,9 +761,9 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			fmt.Printf("Updated agent bot %d: %s\n", bot.ID, bot.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated agent bot %d: %s\n", bot.ID, bot.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Agent bot name")
@@ -778,7 +778,7 @@ func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 		Use:   "delete <bot-id>",
 		Short: "Delete a platform agent bot",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
 			if err != nil {
 				return err
@@ -796,8 +796,8 @@ func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": botID})
 			}
-			fmt.Printf("Deleted agent bot %d\n", botID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted agent bot %d\n", botID)
 			return nil
-		},
+		}),
 	}
 }

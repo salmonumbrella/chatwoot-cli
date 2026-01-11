@@ -59,7 +59,7 @@ func newCompletionsInboxesCmd() *cobra.Command {
 				return printJSON(cmd, items)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			for _, item := range items {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
 			}
@@ -99,7 +99,7 @@ func newCompletionsAgentsCmd() *cobra.Command {
 				return printJSON(cmd, items)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			for _, item := range items {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
 			}
@@ -139,7 +139,7 @@ func newCompletionsLabelsCmd() *cobra.Command {
 				return printJSON(cmd, items)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			for _, item := range items {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
 			}
@@ -179,7 +179,7 @@ func newCompletionsTeamsCmd() *cobra.Command {
 				return printJSON(cmd, items)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			for _, item := range items {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
 			}
@@ -208,7 +208,7 @@ func newCompletionsStatusesCmd() *cobra.Command {
 				return printJSON(cmd, items)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			for _, item := range items {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
 			}

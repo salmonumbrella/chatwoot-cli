@@ -57,7 +57,7 @@ func newPublicInboxesGetCmd(baseURL *string) *cobra.Command {
 		Short: "Get inbox info",
 		Long:  "Get information about an inbox via the public API",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
 				return err
@@ -72,7 +72,7 @@ func newPublicInboxesGetCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, inbox)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "NAME\tWORKING_HOURS\tTIMEZONE\tCSAT_ENABLED")
@@ -84,7 +84,7 @@ func newPublicInboxesGetCmd(baseURL *string) *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -115,7 +115,7 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 		Short: "Create a contact",
 		Long:  "Create a contact via the public API",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
 				return err
@@ -137,7 +137,7 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, contact)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSOURCE_ID\tNAME\tEMAIL")
@@ -149,7 +149,7 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Contact name")
@@ -166,7 +166,7 @@ func newPublicContactsGetCmd(baseURL *string) *cobra.Command {
 		Short: "Get a contact",
 		Long:  "Get contact information via the public API",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
 				return err
@@ -181,7 +181,7 @@ func newPublicContactsGetCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, contact)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSOURCE_ID\tNAME\tEMAIL")
@@ -193,7 +193,7 @@ func newPublicContactsGetCmd(baseURL *string) *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -209,7 +209,7 @@ func newPublicContactsUpdateCmd(baseURL *string) *cobra.Command {
 		Short: "Update a contact",
 		Long:  "Update contact information via the public API",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" && email == "" && phone == "" {
 				return fmt.Errorf("at least one of --name, --email, or --phone must be provided")
 			}
@@ -234,7 +234,7 @@ func newPublicContactsUpdateCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, contact)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSOURCE_ID\tNAME\tEMAIL")
@@ -246,7 +246,7 @@ func newPublicContactsUpdateCmd(baseURL *string) *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "New contact name")
@@ -277,7 +277,7 @@ func newPublicConversationsListCmd(baseURL *string) *cobra.Command {
 		Short: "List conversations",
 		Long:  "List conversations for a contact via the public API",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
 				return err
@@ -292,7 +292,7 @@ func newPublicConversationsListCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, conversations)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSTATUS")
@@ -309,7 +309,7 @@ func newPublicConversationsListCmd(baseURL *string) *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -319,7 +319,7 @@ func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 		Short: "Get a conversation",
 		Long:  "Get conversation details via the public API",
 		Args:  cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
 			if err != nil {
 				return err
@@ -339,7 +339,7 @@ func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, conversation)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSTATUS")
@@ -354,7 +354,7 @@ func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", id, status)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -364,7 +364,7 @@ func newPublicConversationsCreateCmd(baseURL *string) *cobra.Command {
 		Short: "Create a conversation",
 		Long:  "Create a new conversation via the public API",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
 				return err
@@ -379,7 +379,7 @@ func newPublicConversationsCreateCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, conversation)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tSTATUS")
@@ -394,7 +394,7 @@ func newPublicConversationsCreateCmd(baseURL *string) *cobra.Command {
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", id, status)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -404,7 +404,7 @@ func newPublicConversationsResolveCmd(baseURL *string) *cobra.Command {
 		Short: "Resolve a conversation",
 		Long:  "Resolve/toggle status of a conversation via the public API",
 		Args:  cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
 			if err != nil {
 				return err
@@ -428,10 +428,10 @@ func newPublicConversationsResolveCmd(baseURL *string) *cobra.Command {
 			if v, ok := result["status"]; ok {
 				status = fmt.Sprintf("%v", v)
 			}
-			fmt.Printf("Conversation %d status: %s\n", conversationID, status)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation %d status: %s\n", conversationID, status)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -455,7 +455,7 @@ func newPublicMessagesListCmd(baseURL *string) *cobra.Command {
 		Short: "List messages",
 		Long:  "List messages in a conversation via the public API",
 		Args:  cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
 			if err != nil {
 				return err
@@ -475,7 +475,7 @@ func newPublicMessagesListCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, messages)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tTYPE\tCONTENT")
@@ -499,7 +499,7 @@ func newPublicMessagesListCmd(baseURL *string) *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -514,7 +514,7 @@ func newPublicMessagesCreateCmd(baseURL *string) *cobra.Command {
 		Short: "Create a message",
 		Long:  "Create a new message in a conversation via the public API",
 		Args:  cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if content == "" {
 				return fmt.Errorf("--content is required")
 			}
@@ -542,10 +542,10 @@ func newPublicMessagesCreateCmd(baseURL *string) *cobra.Command {
 			if v, ok := message["id"]; ok {
 				id = fmt.Sprintf("%v", v)
 			}
-			fmt.Printf("Message %s created\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %s created\n", id)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "Message content (required)")
@@ -562,7 +562,7 @@ func newPublicMessagesUpdateCmd(baseURL *string) *cobra.Command {
 		Short: "Update a message",
 		Long:  "Update a message in a conversation via the public API",
 		Args:  cobra.ExactArgs(4),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if content == "" {
 				return fmt.Errorf("--content is required")
 			}
@@ -591,10 +591,10 @@ func newPublicMessagesUpdateCmd(baseURL *string) *cobra.Command {
 				return printJSON(cmd, message)
 			}
 
-			fmt.Printf("Message %d updated\n", messageID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %d updated\n", messageID)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "New message content (required)")

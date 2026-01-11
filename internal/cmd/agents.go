@@ -62,7 +62,7 @@ func newAgentsGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get agent by ID",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -82,7 +82,7 @@ func newAgentsGetCmd() *cobra.Command {
 				return printJSON(cmd, agent)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tAVAILABILITY_STATUS")
@@ -95,7 +95,7 @@ func newAgentsGetCmd() *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -110,7 +110,7 @@ func newAgentsCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a new agent",
 		Long:  "Create a new agent with the specified name, email, and role (agent or admin)",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -138,7 +138,7 @@ func newAgentsCreateCmd() *cobra.Command {
 				return printJSON(cmd, agent)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tAVAILABILITY_STATUS")
@@ -151,7 +151,7 @@ func newAgentsCreateCmd() *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Agent name")
@@ -172,7 +172,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 		Short: "Update an agent",
 		Long:  "Update an agent's name and/or role",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -200,7 +200,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, agent)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tAVAILABILITY_STATUS")
@@ -213,7 +213,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 			)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "New agent name")
@@ -227,7 +227,7 @@ func newAgentsDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete an agent",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -245,9 +245,9 @@ func newAgentsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Agent %d deleted successfully\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Agent %d deleted successfully\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -258,7 +258,7 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 		Use:   "bulk-create",
 		Short: "Create multiple agents at once",
 		Long:  "Create multiple agents at once by providing a comma-separated list of email addresses",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if emails == "" {
 				return fmt.Errorf("--emails is required")
 			}
@@ -295,8 +295,8 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 				return printJSON(cmd, agents)
 			}
 
-			fmt.Printf("Created %d agents:\n", len(agents))
-			w := newTabWriter()
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created %d agents:\n", len(agents))
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE")
 			for _, agent := range agents {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
@@ -309,7 +309,7 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&emails, "emails", "", "Comma-separated list of email addresses (required)")

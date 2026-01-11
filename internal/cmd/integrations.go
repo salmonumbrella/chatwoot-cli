@@ -32,7 +32,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 		Use:     "apps",
 		Short:   "List available integration apps",
 		Example: "chatwoot integrations apps",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -47,7 +47,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 				return printJSON(cmd, apps)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tENABLED\tDESCRIPTION")
 			for _, app := range apps {
@@ -58,7 +58,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", app.ID, app.Name, enabled, app.Description)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -67,7 +67,7 @@ func newIntegrationsHooksCmd() *cobra.Command {
 		Use:     "hooks",
 		Short:   "List integration hooks",
 		Example: "chatwoot integrations hooks",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -82,7 +82,7 @@ func newIntegrationsHooksCmd() *cobra.Command {
 				return printJSON(cmd, hooks)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tAPP_ID\tINBOX_ID\tACCOUNT_ID")
 			for _, hook := range hooks {
@@ -93,7 +93,7 @@ func newIntegrationsHooksCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%d\n", hook.ID, hook.AppID, inboxID, hook.AccountID)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -106,7 +106,7 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 		Use:     "hook-create",
 		Short:   "Create an integration hook",
 		Example: "chatwoot integrations hook-create --app-id slack --inbox-id 1 --settings '{\"webhook_url\":\"https://...\"}'",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if appID == "" {
 				return fmt.Errorf("--app-id is required")
 			}
@@ -132,9 +132,9 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 				return printJSON(cmd, hook)
 			}
 
-			fmt.Printf("Created integration hook %d\n", hook.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created integration hook %d\n", hook.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&appID, "app-id", "", "App ID (required)")
@@ -152,7 +152,7 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 		Short:   "Update an integration hook",
 		Example: "chatwoot integrations hook-update 123 --settings '{\"webhook_url\":\"https://...\"}'",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			hookID, err := validation.ParsePositiveInt(args[0], "hook ID")
 			if err != nil {
 				return err
@@ -179,9 +179,9 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 				return printJSON(cmd, hook)
 			}
 
-			fmt.Printf("Updated integration hook %d\n", hook.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated integration hook %d\n", hook.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&settingsJSON, "settings", "", "Settings as JSON string")
@@ -195,7 +195,7 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 		Short:   "Delete an integration hook",
 		Example: "chatwoot integrations hook-delete 123",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			hookID, err := validation.ParsePositiveInt(args[0], "hook ID")
 			if err != nil {
 				return err
@@ -213,9 +213,9 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": hookID})
 			}
-			fmt.Printf("Deleted integration hook %d\n", hookID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted integration hook %d\n", hookID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -240,7 +240,7 @@ func newShopifyAuthCmd() *cobra.Command {
 		Use:     "auth",
 		Short:   "Authenticate Shopify integration",
 		Example: "chatwoot integrations shopify auth --shop mystore.myshopify.com --code AUTH_CODE",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if shopDomain == "" {
 				return fmt.Errorf("--shop is required")
 			}
@@ -258,10 +258,10 @@ func newShopifyAuthCmd() *cobra.Command {
 			}
 
 			if !isJSON(cmd) {
-				fmt.Println("Shopify integration authenticated successfully")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Shopify integration authenticated successfully")
 			}
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&shopDomain, "shop", "", "Shopify store domain (e.g., mystore.myshopify.com)")
@@ -277,7 +277,7 @@ func newShopifyOrdersCmd() *cobra.Command {
 		Use:     "orders",
 		Short:   "List Shopify orders for a contact",
 		Example: "chatwoot integrations shopify orders --contact-id 123",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if contactID == 0 {
 				return fmt.Errorf("--contact-id is required")
 			}
@@ -297,11 +297,11 @@ func newShopifyOrdersCmd() *cobra.Command {
 			}
 
 			if len(orders) == 0 {
-				fmt.Println("No orders found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No orders found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tTOTAL\tSTATUS")
 			for _, o := range orders {
@@ -309,7 +309,7 @@ func newShopifyOrdersCmd() *cobra.Command {
 					o.ID, o.Name, o.Email, o.TotalPrice, o.Currency, o.FinancialStatus)
 			}
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Contact ID to get orders for")
@@ -322,7 +322,7 @@ func newShopifyDeleteCmd() *cobra.Command {
 		Use:     "delete",
 		Short:   "Delete Shopify integration",
 		Example: "chatwoot integrations shopify delete",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -335,9 +335,9 @@ func newShopifyDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "integration": "shopify"})
 			}
-			fmt.Println("Shopify integration deleted")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Shopify integration deleted")
 			return nil
-		},
+		}),
 	}
 }
 
@@ -357,7 +357,7 @@ func newNotionDeleteCmd() *cobra.Command {
 		Use:     "delete",
 		Short:   "Delete Notion integration",
 		Example: "chatwoot integrations notion delete",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -370,8 +370,8 @@ func newNotionDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "integration": "notion"})
 			}
-			fmt.Println("Notion integration deleted")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Notion integration deleted")
 			return nil
-		},
+		}),
 	}
 }
