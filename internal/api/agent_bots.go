@@ -7,8 +7,17 @@ import (
 
 // ListAgentBots returns all agent bots for the account
 func (c *Client) ListAgentBots(ctx context.Context) ([]AgentBot, error) {
+	return listAgentBots(ctx, c)
+}
+
+// List returns all agent bots for the account.
+func (s AgentBotsService) List(ctx context.Context) ([]AgentBot, error) {
+	return listAgentBots(ctx, s)
+}
+
+func listAgentBots(ctx context.Context, r Requester) ([]AgentBot, error) {
 	var bots []AgentBot
-	if err := c.Get(ctx, "/agent_bots", &bots); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath("/agent_bots"), nil, &bots); err != nil {
 		return nil, err
 	}
 	return bots, nil
@@ -16,9 +25,18 @@ func (c *Client) ListAgentBots(ctx context.Context) ([]AgentBot, error) {
 
 // GetAgentBot returns a specific agent bot by ID
 func (c *Client) GetAgentBot(ctx context.Context, id int) (*AgentBot, error) {
+	return getAgentBot(ctx, c, id)
+}
+
+// Get returns a specific agent bot by ID.
+func (s AgentBotsService) Get(ctx context.Context, id int) (*AgentBot, error) {
+	return getAgentBot(ctx, s, id)
+}
+
+func getAgentBot(ctx context.Context, r Requester, id int) (*AgentBot, error) {
 	var bot AgentBot
 	path := fmt.Sprintf("/agent_bots/%d", id)
-	if err := c.Get(ctx, path, &bot); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &bot); err != nil {
 		return nil, err
 	}
 	return &bot, nil
@@ -26,12 +44,21 @@ func (c *Client) GetAgentBot(ctx context.Context, id int) (*AgentBot, error) {
 
 // CreateAgentBot creates a new agent bot
 func (c *Client) CreateAgentBot(ctx context.Context, name, outgoingURL string) (*AgentBot, error) {
+	return createAgentBot(ctx, c, name, outgoingURL)
+}
+
+// Create creates a new agent bot.
+func (s AgentBotsService) Create(ctx context.Context, name, outgoingURL string) (*AgentBot, error) {
+	return createAgentBot(ctx, s, name, outgoingURL)
+}
+
+func createAgentBot(ctx context.Context, r Requester, name, outgoingURL string) (*AgentBot, error) {
 	body := map[string]any{
 		"name":         name,
 		"outgoing_url": outgoingURL,
 	}
 	var bot AgentBot
-	if err := c.Post(ctx, "/agent_bots", body, &bot); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/agent_bots"), body, &bot); err != nil {
 		return nil, err
 	}
 	return &bot, nil
@@ -39,6 +66,15 @@ func (c *Client) CreateAgentBot(ctx context.Context, name, outgoingURL string) (
 
 // UpdateAgentBot updates an existing agent bot
 func (c *Client) UpdateAgentBot(ctx context.Context, id int, name, outgoingURL string) (*AgentBot, error) {
+	return updateAgentBot(ctx, c, id, name, outgoingURL)
+}
+
+// Update updates an existing agent bot.
+func (s AgentBotsService) Update(ctx context.Context, id int, name, outgoingURL string) (*AgentBot, error) {
+	return updateAgentBot(ctx, s, id, name, outgoingURL)
+}
+
+func updateAgentBot(ctx context.Context, r Requester, id int, name, outgoingURL string) (*AgentBot, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
@@ -49,7 +85,7 @@ func (c *Client) UpdateAgentBot(ctx context.Context, id int, name, outgoingURL s
 
 	var bot AgentBot
 	path := fmt.Sprintf("/agent_bots/%d", id)
-	if err := c.Patch(ctx, path, body, &bot); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &bot); err != nil {
 		return nil, err
 	}
 	return &bot, nil
@@ -57,22 +93,49 @@ func (c *Client) UpdateAgentBot(ctx context.Context, id int, name, outgoingURL s
 
 // DeleteAgentBot deletes an agent bot
 func (c *Client) DeleteAgentBot(ctx context.Context, id int) error {
+	return deleteAgentBot(ctx, c, id)
+}
+
+// Delete deletes an agent bot.
+func (s AgentBotsService) Delete(ctx context.Context, id int) error {
+	return deleteAgentBot(ctx, s, id)
+}
+
+func deleteAgentBot(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/agent_bots/%d", id)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // DeleteAgentBotAvatar removes the avatar from an agent bot
 func (c *Client) DeleteAgentBotAvatar(ctx context.Context, id int) error {
-	return c.Delete(ctx, fmt.Sprintf("/agent_bots/%d/avatar", id))
+	return deleteAgentBotAvatar(ctx, c, id)
+}
+
+// DeleteAvatar removes the avatar from an agent bot.
+func (s AgentBotsService) DeleteAvatar(ctx context.Context, id int) error {
+	return deleteAgentBotAvatar(ctx, s, id)
+}
+
+func deleteAgentBotAvatar(ctx context.Context, r Requester, id int) error {
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/agent_bots/%d/avatar", id)), nil, nil)
 }
 
 // ResetAgentBotAccessToken resets the access token for an agent bot
 func (c *Client) ResetAgentBotAccessToken(ctx context.Context, id int) (string, error) {
+	return resetAgentBotAccessToken(ctx, c, id)
+}
+
+// ResetAccessToken resets the access token for an agent bot.
+func (s AgentBotsService) ResetAccessToken(ctx context.Context, id int) (string, error) {
+	return resetAgentBotAccessToken(ctx, s, id)
+}
+
+func resetAgentBotAccessToken(ctx context.Context, r Requester, id int) (string, error) {
 	path := fmt.Sprintf("/agent_bots/%d/reset_access_token", id)
 	var result struct {
 		AccessToken string `json:"access_token"`
 	}
-	if err := c.Post(ctx, path, nil, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), nil, &result); err != nil {
 		return "", err
 	}
 	return result.AccessToken, nil
