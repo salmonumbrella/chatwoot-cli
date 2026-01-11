@@ -1,12 +1,35 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
+	"github.com/spf13/cobra"
 )
+
+func runJSONError(t *testing.T, err error) string {
+	t.Helper()
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			return err
+		}),
+	}
+
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	_ = cmd.RunE(cmd, []string{})
+	return out.String()
+}
 
 func TestGoldenErrorValidationText(t *testing.T) {
 	output := captureStderr(t, func() {
@@ -75,4 +98,14 @@ func TestGoldenErrorRateLimitText(t *testing.T) {
 func TestGoldenErrorCircuitBreakerText(t *testing.T) {
 	output := HandleError(&api.CircuitBreakerError{})
 	assertGolden(t, "error_circuit_breaker.txt", output)
+}
+
+func TestGoldenErrorRateLimitJSON(t *testing.T) {
+	output := runJSONError(t, &api.RateLimitError{RetryAfter: 2 * time.Second})
+	assertGolden(t, "error_rate_limit.json", output)
+}
+
+func TestGoldenErrorCircuitBreakerJSON(t *testing.T) {
+	output := runJSONError(t, &api.CircuitBreakerError{})
+	assertGolden(t, "error_circuit_breaker.json", output)
 }
