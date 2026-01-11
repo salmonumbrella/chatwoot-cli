@@ -1,0 +1,13 @@
+{
+  "id": 701,
+  "title": "Promo Updated",
+  "description": "One-off blast",
+  "message": "Hello!",
+  "enabled": true,
+  "campaign_type": "one_off",
+  "campaign_status": "active",
+  "inbox_id": 5,
+  "trigger_only_during_business_hours": false,
+  "created_at": 1700006000,
+  "account_id": 1
+}
