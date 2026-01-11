@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": 1001,
+      "short_code": "hi",
+      "content": "Hello!",
+      "account_id": 1
+    },
+    {
+      "id": 1002,
+      "short_code": "bye",
+      "content": "Goodbye!",
+      "account_id": 1
+    }
+  ]
+}

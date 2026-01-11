@@ -1,0 +1,24 @@
+{
+  "id": 901,
+  "name": "Auto assign",
+  "event_name": "conversation_created",
+  "conditions": [
+    {
+      "attribute_key": "status",
+      "filter_operator": "equals",
+      "values": [
+        "open"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "action_name": "assign_team",
+      "action_params": {
+        "team_id": 3
+      }
+    }
+  ],
+  "active": true,
+  "account_id": 1
+}

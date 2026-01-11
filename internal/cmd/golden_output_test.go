@@ -767,3 +767,590 @@ func TestGoldenCampaignsDeleteJSON(t *testing.T) {
 
 	assertGolden(t, "campaigns_delete.json", output)
 }
+
+func TestGoldenAgentBotsListJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agent_bots", jsonResponse(200, `[
+			{"id": 801, "name": "Helper", "outgoing_url": "https://example.com/bot", "account_id": 1},
+			{"id": 802, "name": "Triage", "outgoing_url": "https://example.com/triage", "account_id": 1}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "list", "-o", "json"}); err != nil {
+			t.Fatalf("agent-bots list failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "agent_bots_list.json", output)
+}
+
+func TestGoldenAgentBotsGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agent_bots/802", jsonResponse(200, `{
+			"id": 802,
+			"name": "Triage",
+			"description": "Routes conversations",
+			"outgoing_url": "https://example.com/triage",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "get", "802", "-o", "json"}); err != nil {
+			t.Fatalf("agent-bots get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "agent_bots_get.json", output)
+}
+
+func TestGoldenAgentBotsCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/agent_bots", jsonResponse(200, `{
+			"id": 803,
+			"name": "AutoResponder",
+			"description": "Handles FAQs",
+			"outgoing_url": "https://example.com/auto",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "create", "--name", "AutoResponder", "--outgoing-url", "https://example.com/auto", "-o", "json"}); err != nil {
+			t.Fatalf("agent-bots create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "agent_bots_create.json", output)
+}
+
+func TestGoldenAgentBotsUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/agent_bots/803", jsonResponse(200, `{
+			"id": 803,
+			"name": "AutoResponder",
+			"description": "Handles FAQs",
+			"outgoing_url": "https://example.com/auto-updated",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "update", "803", "--outgoing-url", "https://example.com/auto-updated", "-o", "json"}); err != nil {
+			t.Fatalf("agent-bots update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "agent_bots_update.json", output)
+}
+
+func TestGoldenAgentBotsDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/agent_bots/803", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "delete", "803", "-o", "json"}); err != nil {
+			t.Fatalf("agent-bots delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "agent_bots_delete.json", output)
+}
+
+func TestGoldenAutomationRulesListJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/automation_rules", jsonResponse(200, `{
+			"payload": [
+				{"id": 901, "name": "Auto assign", "event_name": "conversation_created", "active": true, "conditions": [], "actions": [], "account_id": 1}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "list", "-o", "json"}); err != nil {
+			t.Fatalf("automation-rules list failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "automation_rules_list.json", output)
+}
+
+func TestGoldenAutomationRulesGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/automation_rules/901", jsonResponse(200, `{
+			"payload": {
+				"id": 901,
+				"name": "Auto assign",
+				"event_name": "conversation_created",
+				"conditions": [{"attribute_key":"status","filter_operator":"equals","values":["open"]}],
+				"actions": [{"action_name":"assign_team","action_params":{"team_id":3}}],
+				"active": true,
+				"account_id": 1
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "get", "901", "-o", "json"}); err != nil {
+			t.Fatalf("automation-rules get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "automation_rules_get.json", output)
+}
+
+func TestGoldenAutomationRulesCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/automation_rules", jsonResponse(200, `{
+			"id": 902,
+			"name": "Auto tag",
+			"event_name": "conversation_created",
+			"conditions": [{"attribute_key":"priority","filter_operator":"equals","values":["high"]}],
+			"actions": [{"action_name":"add_label","action_params":{"labels":["vip"]}}],
+			"active": true,
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "create", "--name", "Auto tag", "--event-name", "conversation_created", "--conditions", "[{\"attribute_key\":\"priority\",\"filter_operator\":\"equals\",\"values\":[\"high\"]}]", "--actions", "[{\"action_name\":\"add_label\",\"action_params\":{\"labels\":[\"vip\"]}}]", "-o", "json"}); err != nil {
+			t.Fatalf("automation-rules create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "automation_rules_create.json", output)
+}
+
+func TestGoldenAutomationRulesUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/automation_rules/902", jsonResponse(200, `{
+			"payload": {
+				"id": 902,
+				"name": "Auto tag updated",
+				"event_name": "conversation_created",
+				"conditions": [{"attribute_key":"priority","filter_operator":"equals","values":["high"]}],
+				"actions": [{"action_name":"add_label","action_params":{"labels":["vip"]}}],
+				"active": true,
+				"account_id": 1
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "update", "902", "--name", "Auto tag updated", "--conditions", "[{\"attribute_key\":\"priority\",\"filter_operator\":\"equals\",\"values\":[\"high\"]}]", "--actions", "[{\"action_name\":\"add_label\",\"action_params\":{\"labels\":[\"vip\"]}}]", "-o", "json"}); err != nil {
+			t.Fatalf("automation-rules update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "automation_rules_update.json", output)
+}
+
+func TestGoldenAutomationRulesDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/automation_rules/902", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "delete", "902", "-o", "json"}); err != nil {
+			t.Fatalf("automation-rules delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "automation_rules_delete.json", output)
+}
+
+func TestGoldenCannedResponsesListJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1001, "short_code": "hi", "content": "Hello!", "account_id": 1},
+			{"id": 1002, "short_code": "bye", "content": "Goodbye!", "account_id": 1}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"canned-responses", "list", "-o", "json"}); err != nil {
+			t.Fatalf("canned-responses list failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "canned_responses_list.json", output)
+}
+
+func TestGoldenCannedResponsesGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1001, "short_code": "hi", "content": "Hello!", "account_id": 1},
+			{"id": 1002, "short_code": "bye", "content": "Goodbye!", "account_id": 1}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"canned-responses", "get", "1002", "-o", "json"}); err != nil {
+			t.Fatalf("canned-responses get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "canned_responses_get.json", output)
+}
+
+func TestGoldenCannedResponsesCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `{
+			"id": 1003,
+			"short_code": "thanks",
+			"content": "Thanks for reaching out!",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"canned-responses", "create", "--short-code", "thanks", "--content", "Thanks for reaching out!", "-o", "json"}); err != nil {
+			t.Fatalf("canned-responses create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "canned_responses_create.json", output)
+}
+
+func TestGoldenCannedResponsesUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1003, "short_code": "thanks", "content": "Thanks for reaching out!", "account_id": 1}
+		]`)).
+		On("PATCH", "/api/v1/accounts/1/canned_responses/1003", jsonResponse(200, `{
+			"id": 1003,
+			"short_code": "thanks",
+			"content": "Thanks!",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"canned-responses", "update", "1003", "--content", "Thanks!", "-o", "json"}); err != nil {
+			t.Fatalf("canned-responses update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "canned_responses_update.json", output)
+}
+
+func TestGoldenCannedResponsesDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/canned_responses/1003", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"canned-responses", "delete", "1003", "-o", "json"}); err != nil {
+			t.Fatalf("canned-responses delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "canned_responses_delete.json", output)
+}
+
+func TestGoldenCustomAttributesListJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/custom_attribute_definitions", jsonResponse(200, `[
+			{"id": 1101, "attribute_display_name": "Plan", "attribute_key": "plan", "attribute_model": "contact_attribute", "attribute_display_type": "text"},
+			{"id": 1102, "attribute_display_name": "Tier", "attribute_key": "tier", "attribute_model": "contact_attribute", "attribute_display_type": "list", "attribute_values": ["gold", "silver"]}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "list", "-o", "json"}); err != nil {
+			t.Fatalf("custom-attributes list failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_attributes_list.json", output)
+}
+
+func TestGoldenCustomAttributesGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/custom_attribute_definitions/1102", jsonResponse(200, `{
+			"id": 1102,
+			"attribute_display_name": "Tier",
+			"attribute_key": "tier",
+			"attribute_model": "contact_attribute",
+			"attribute_display_type": "list",
+			"attribute_values": ["gold", "silver"]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "get", "1102", "-o", "json"}); err != nil {
+			t.Fatalf("custom-attributes get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_attributes_get.json", output)
+}
+
+func TestGoldenCustomAttributesCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/custom_attribute_definitions", jsonResponse(200, `{
+			"id": 1103,
+			"attribute_display_name": "Segment",
+			"attribute_key": "segment",
+			"attribute_model": "contact_attribute",
+			"attribute_display_type": "text"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "create", "--name", "Segment", "--model", "contact", "--type", "text", "--key", "segment", "-o", "json"}); err != nil {
+			t.Fatalf("custom-attributes create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_attributes_create.json", output)
+}
+
+func TestGoldenCustomAttributesUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/custom_attribute_definitions/1103", jsonResponse(200, `{
+			"id": 1103,
+			"attribute_display_name": "Segment Updated",
+			"attribute_key": "segment",
+			"attribute_model": "contact_attribute",
+			"attribute_display_type": "text"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "update", "1103", "--name", "Segment Updated", "-o", "json"}); err != nil {
+			t.Fatalf("custom-attributes update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_attributes_update.json", output)
+}
+
+func TestGoldenCustomAttributesDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/custom_attribute_definitions/1103", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "delete", "1103", "-o", "json"}); err != nil {
+			t.Fatalf("custom-attributes delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_attributes_delete.json", output)
+}
+
+func TestGoldenCustomFiltersListJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/custom_filters", jsonResponse(200, `[
+			{"id": 1201, "name": "Open", "filter_type": "conversation", "query": {"status":"open"}},
+			{"id": 1202, "name": "VIP", "filter_type": "contact", "query": {"custom_attribute":"vip"}}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "list", "-o", "json"}); err != nil {
+			t.Fatalf("custom-filters list failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_filters_list.json", output)
+}
+
+func TestGoldenCustomFiltersGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/custom_filters/1202", jsonResponse(200, `{
+			"id": 1202,
+			"name": "VIP",
+			"filter_type": "contact",
+			"query": {"custom_attribute":"vip"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "get", "1202", "-o", "json"}); err != nil {
+			t.Fatalf("custom-filters get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_filters_get.json", output)
+}
+
+func TestGoldenCustomFiltersCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/custom_filters", jsonResponse(200, `{
+			"id": 1203,
+			"name": "Pending",
+			"filter_type": "conversation",
+			"query": {"status":"pending"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "create", "--name", "Pending", "--type", "conversation", "--query", "{\"status\":\"pending\"}", "-o", "json"}); err != nil {
+			t.Fatalf("custom-filters create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_filters_create.json", output)
+}
+
+func TestGoldenCustomFiltersUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/custom_filters/1203", jsonResponse(200, `{
+			"id": 1203,
+			"name": "Pending Updated",
+			"filter_type": "conversation",
+			"query": {"status":"pending"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "update", "1203", "--name", "Pending Updated", "-o", "json"}); err != nil {
+			t.Fatalf("custom-filters update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_filters_update.json", output)
+}
+
+func TestGoldenCustomFiltersDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/custom_filters/1203", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "delete", "1203", "-o", "json"}); err != nil {
+			t.Fatalf("custom-filters delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "custom_filters_delete.json", output)
+}
+
+func TestGoldenPortalsListJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/portals", jsonResponse(200, `{
+			"payload": [
+				{"id": 1301, "name": "Help Center", "slug": "help-center", "account_id": 1},
+				{"id": 1302, "name": "Docs", "slug": "docs", "account_id": 1}
+			],
+			"meta": {
+				"current_page": 1,
+				"portals_count": 2
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "list", "-o", "json"}); err != nil {
+			t.Fatalf("portals list failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "portals_list.json", output)
+}
+
+func TestGoldenPortalsGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/portals/help-center", jsonResponse(200, `{
+			"id": 1301,
+			"name": "Help Center",
+			"slug": "help-center",
+			"custom_domain": "help.example.com",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "get", "help-center", "-o", "json"}); err != nil {
+			t.Fatalf("portals get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "portals_get.json", output)
+}
+
+func TestGoldenPortalsCreateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/portals", jsonResponse(200, `{
+			"id": 1303,
+			"name": "Support",
+			"slug": "support",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "create", "--name", "Support", "--slug", "support", "-o", "json"}); err != nil {
+			t.Fatalf("portals create failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "portals_create.json", output)
+}
+
+func TestGoldenPortalsUpdateJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/portals/help-center", jsonResponse(200, `{
+			"id": 1301,
+			"name": "Help Center Updated",
+			"slug": "help-center",
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "update", "help-center", "--name", "Help Center Updated", "-o", "json"}); err != nil {
+			t.Fatalf("portals update failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "portals_update.json", output)
+}
+
+func TestGoldenPortalsDeleteJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("DELETE", "/api/v1/accounts/1/portals/help-center", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "delete", "help-center", "-o", "json"}); err != nil {
+			t.Fatalf("portals delete failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "portals_delete.json", output)
+}

@@ -1,0 +1,8 @@
+{
+  "id": 1202,
+  "name": "VIP",
+  "filter_type": "contact",
+  "query": {
+    "custom_attribute": "vip"
+  }
+}
