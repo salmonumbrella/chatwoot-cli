@@ -1650,10 +1650,10 @@ func TestGetConversationAttachments(t *testing.T) {
 			name:           "successful get attachments",
 			conversationID: 123,
 			statusCode:     http.StatusOK,
-			responseBody: `[
+			responseBody: `{"meta": {"total_count": 2}, "payload": [
 				{"id": 1, "file_type": "image", "data_url": "https://example.com/img1.jpg", "file_size": 12345},
 				{"id": 2, "file_type": "document", "data_url": "https://example.com/doc.pdf", "file_size": 54321}
-			]`,
+			]}`,
 			expectError: false,
 			validateFunc: func(t *testing.T, result []Attachment) {
 				if len(result) != 2 {
@@ -1668,7 +1668,7 @@ func TestGetConversationAttachments(t *testing.T) {
 			name:           "no attachments",
 			conversationID: 123,
 			statusCode:     http.StatusOK,
-			responseBody:   `[]`,
+			responseBody:   `{"meta": {"total_count": 0}, "payload": []}`,
 			expectError:    false,
 			validateFunc: func(t *testing.T, result []Attachment) {
 				if len(result) != 0 {

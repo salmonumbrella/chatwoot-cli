@@ -566,9 +566,9 @@ func TestConversationsFilterCommand(t *testing.T) {
 
 func TestConversationsAttachmentsCommand(t *testing.T) {
 	handler := newRouteHandler().
-		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `[
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `{"meta": {"total_count": 1}, "payload": [
 			{"id": 10, "file_type": "image", "file_size": 1024, "data_url": "https://example.com/file.png"}
-		]`))
+		]}`))
 
 	setupTestEnvWithHandler(t, handler)
 

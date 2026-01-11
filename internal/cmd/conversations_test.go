@@ -658,9 +658,9 @@ func TestConversationsSearchCommand_Execute_JSON(t *testing.T) {
 
 func TestConversationsAttachmentsCommand_Execute(t *testing.T) {
 	handler := newRouteHandler().
-		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `[
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `{"meta": {"total_count": 1}, "payload": [
 			{"id": 10, "file_type": "file", "data_url": "https://example.com/file.pdf", "file_size": 1024}
-		]`))
+		]}`))
 
 	setupTestEnvWithHandler(t, handler)
 
@@ -678,9 +678,9 @@ func TestConversationsAttachmentsCommand_Execute(t *testing.T) {
 
 func TestConversationsAttachmentsCommand_Execute_JSON(t *testing.T) {
 	handler := newRouteHandler().
-		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `[
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `{"meta": {"total_count": 1}, "payload": [
 			{"id": 10, "file_type": "image", "data_url": "https://example.com/image.png"}
-		]`))
+		]}`))
 
 	setupTestEnvWithHandler(t, handler)
 

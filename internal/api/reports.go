@@ -9,8 +9,8 @@ import (
 
 // ReportSummary represents a report summary from /reports/summary
 type ReportSummary struct {
-	AvgFirstResponseTime  string         `json:"avg_first_response_time,omitempty"`
-	AvgResolutionTime     string         `json:"avg_resolution_time,omitempty"`
+	AvgFirstResponseTime  FlexString     `json:"avg_first_response_time,omitempty"`
+	AvgResolutionTime     FlexString     `json:"avg_resolution_time,omitempty"`
 	ConversationsCount    int            `json:"conversations_count,omitempty"`
 	IncomingMessagesCount int            `json:"incoming_messages_count,omitempty"`
 	OutgoingMessagesCount int            `json:"outgoing_messages_count,omitempty"`

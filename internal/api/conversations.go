@@ -273,11 +273,13 @@ func (s ConversationsService) Attachments(ctx context.Context, id int) ([]Attach
 
 func getConversationAttachments(ctx context.Context, r Requester, id int) ([]Attachment, error) {
 	path := fmt.Sprintf("/conversations/%d/attachments", id)
-	var result []Attachment
+	var result struct {
+		Payload []Attachment `json:"payload"`
+	}
 	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return result.Payload, nil
 }
 
 // ToggleMute sets the mute status of a conversation.
