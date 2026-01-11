@@ -8,8 +8,17 @@ import (
 
 // ListAgents retrieves all agents in the account
 func (c *Client) ListAgents(ctx context.Context) ([]Agent, error) {
+	return listAgents(ctx, c)
+}
+
+// List retrieves all agents in the account.
+func (s AgentsService) List(ctx context.Context) ([]Agent, error) {
+	return listAgents(ctx, s)
+}
+
+func listAgents(ctx context.Context, r Requester) ([]Agent, error) {
 	var agents []Agent
-	if err := c.Get(ctx, "/agents", &agents); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath("/agents"), nil, &agents); err != nil {
 		return nil, err
 	}
 	return agents, nil
@@ -19,7 +28,16 @@ func (c *Client) ListAgents(ctx context.Context) ([]Agent, error) {
 // Note: The Chatwoot API doesn't expose a show endpoint for individual agents,
 // so this fetches all agents and filters by ID client-side
 func (c *Client) GetAgent(ctx context.Context, id int) (*Agent, error) {
-	agents, err := c.ListAgents(ctx)
+	return getAgent(ctx, c, id)
+}
+
+// Get retrieves a specific agent by ID.
+func (s AgentsService) Get(ctx context.Context, id int) (*Agent, error) {
+	return getAgent(ctx, s, id)
+}
+
+func getAgent(ctx context.Context, r Requester, id int) (*Agent, error) {
+	agents, err := listAgents(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -38,13 +56,22 @@ func (c *Client) GetAgent(ctx context.Context, id int) (*Agent, error) {
 
 // CreateAgent creates a new agent
 func (c *Client) CreateAgent(ctx context.Context, name, email, role string) (*Agent, error) {
+	return createAgent(ctx, c, name, email, role)
+}
+
+// Create creates a new agent.
+func (s AgentsService) Create(ctx context.Context, name, email, role string) (*Agent, error) {
+	return createAgent(ctx, s, name, email, role)
+}
+
+func createAgent(ctx context.Context, r Requester, name, email, role string) (*Agent, error) {
 	body := map[string]any{
 		"name":  name,
 		"email": email,
 		"role":  role,
 	}
 	var agent Agent
-	if err := c.Post(ctx, "/agents", body, &agent); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/agents"), body, &agent); err != nil {
 		return nil, err
 	}
 	return &agent, nil
@@ -52,6 +79,15 @@ func (c *Client) CreateAgent(ctx context.Context, name, email, role string) (*Ag
 
 // UpdateAgent updates an existing agent
 func (c *Client) UpdateAgent(ctx context.Context, id int, name, role string) (*Agent, error) {
+	return updateAgent(ctx, c, id, name, role)
+}
+
+// Update updates an existing agent.
+func (s AgentsService) Update(ctx context.Context, id int, name, role string) (*Agent, error) {
+	return updateAgent(ctx, s, id, name, role)
+}
+
+func updateAgent(ctx context.Context, r Requester, id int, name, role string) (*Agent, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
@@ -61,7 +97,7 @@ func (c *Client) UpdateAgent(ctx context.Context, id int, name, role string) (*A
 	}
 	var agent Agent
 	path := fmt.Sprintf("/agents/%d", id)
-	if err := c.Patch(ctx, path, body, &agent); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &agent); err != nil {
 		return nil, err
 	}
 	return &agent, nil
@@ -69,8 +105,17 @@ func (c *Client) UpdateAgent(ctx context.Context, id int, name, role string) (*A
 
 // DeleteAgent deletes an agent
 func (c *Client) DeleteAgent(ctx context.Context, id int) error {
+	return deleteAgent(ctx, c, id)
+}
+
+// Delete deletes an agent.
+func (s AgentsService) Delete(ctx context.Context, id int) error {
+	return deleteAgent(ctx, s, id)
+}
+
+func deleteAgent(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/agents/%d", id)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
 
 // BulkCreateAgentsRequest represents a request to create multiple agents
@@ -80,9 +125,18 @@ type BulkCreateAgentsRequest struct {
 
 // BulkCreateAgents creates multiple agents at once
 func (c *Client) BulkCreateAgents(ctx context.Context, emails []string) ([]Agent, error) {
+	return bulkCreateAgents(ctx, c, emails)
+}
+
+// BulkCreate creates multiple agents at once.
+func (s AgentsService) BulkCreate(ctx context.Context, emails []string) ([]Agent, error) {
+	return bulkCreateAgents(ctx, s, emails)
+}
+
+func bulkCreateAgents(ctx context.Context, r Requester, emails []string) ([]Agent, error) {
 	body := BulkCreateAgentsRequest{Emails: emails}
 	var result []Agent
-	if err := c.Post(ctx, "/agents/bulk_create", body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/agents/bulk_create"), body, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -91,7 +145,16 @@ func (c *Client) BulkCreateAgents(ctx context.Context, emails []string) ([]Agent
 // FindAgentByNameOrEmail searches for an agent by name or email (case-insensitive partial match)
 // Returns the first matching agent, or an error if no match or multiple ambiguous matches found
 func (c *Client) FindAgentByNameOrEmail(ctx context.Context, query string) (*Agent, error) {
-	agents, err := c.ListAgents(ctx)
+	return findAgentByNameOrEmail(ctx, c, query)
+}
+
+// Find searches for an agent by name or email (case-insensitive partial match).
+func (s AgentsService) Find(ctx context.Context, query string) (*Agent, error) {
+	return findAgentByNameOrEmail(ctx, s, query)
+}
+
+func findAgentByNameOrEmail(ctx context.Context, r Requester, query string) (*Agent, error) {
+	agents, err := listAgents(ctx, r)
 	if err != nil {
 		return nil, err
 	}
