@@ -695,6 +695,38 @@ chatwoot conversations list -o json --fields id,status,assignee_id
 chatwoot conversations get 123 -o json --template '{{.id}} {{.status}}'
 ```
 
+### Field Presets
+
+Many commands support field presets for common use cases. Instead of listing individual fields, use a preset name:
+
+```bash
+# Minimal output - just essential identifiers
+chatwoot contacts list -o json --fields minimal
+
+# Default output - commonly needed fields
+chatwoot conversations list -o json --fields default
+
+# Debug output - all fields for troubleshooting
+chatwoot contacts list -o json --fields debug
+```
+
+**Available presets:**
+
+| Preset    | Purpose                                      |
+|-----------|----------------------------------------------|
+| `minimal` | Bare essentials for quick lookups            |
+| `default` | Common fields for typical workflows          |
+| `debug`   | All fields including metadata and timestamps |
+
+The exact fields in each preset vary by resource. For example:
+
+- **contacts minimal**: `id`, `name`, `email`
+- **contacts debug**: includes `custom_attributes`, `thumbnail`, `last_activity_at`
+- **conversations minimal**: `id`, `status`, `inbox_id`, `assignee_id`
+- **conversations debug**: includes `labels`, `meta`, `custom_attributes`, `unread_count`
+
+Field presets work with JSON output (`-o json` or `--json`). Commands without registered presets treat preset names as literal field names.
+
 ## Shell Completions
 
 Completion commands are enabled. Generate shell completions for your preferred shell:
