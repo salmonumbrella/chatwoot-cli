@@ -71,6 +71,11 @@ func (c *Client) GetReportSummary(ctx context.Context, reportType, since, until,
 	return &result, nil
 }
 
+// Summary gets report summary.
+func (s ReportsService) Summary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
+	return s.GetReportSummary(ctx, reportType, since, until, id)
+}
+
 // GetReportTimeSeries gets time-series report data for a specific metric
 // Valid metrics: conversations_count, incoming_messages_count, outgoing_messages_count,
 //
@@ -98,6 +103,11 @@ func (c *Client) GetReportTimeSeries(ctx context.Context, metric, reportType, si
 	return result, nil
 }
 
+// TimeSeries gets time-series report data for a specific metric.
+func (s ReportsService) TimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
+	return s.GetReportTimeSeries(ctx, metric, reportType, since, until, id)
+}
+
 // GetConversationMetrics gets account-level conversation metrics (open/unattended/unassigned counts)
 func (c *Client) GetConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
 	params := url.Values{}
@@ -111,6 +121,11 @@ func (c *Client) GetConversationMetrics(ctx context.Context) (*ConversationMetri
 	}
 
 	return &result, nil
+}
+
+// ConversationMetrics gets account-level conversation metrics.
+func (s ReportsService) ConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
+	return s.GetConversationMetrics(ctx)
 }
 
 // GetAgentMetrics gets conversation metrics for all agents or a specific agent
@@ -129,6 +144,11 @@ func (c *Client) GetAgentMetrics(ctx context.Context, userID string) ([]AgentMet
 		return nil, err
 	}
 	return result, nil
+}
+
+// AgentMetrics gets conversation metrics for agents.
+func (s ReportsService) AgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
+	return s.GetAgentMetrics(ctx, userID)
 }
 
 // ReportingEvent represents a reporting event
@@ -168,6 +188,11 @@ func (c *Client) ListReportingEvents(ctx context.Context, since, until string, e
 	return result, nil
 }
 
+// ListEvents lists account-level reporting events.
+func (s ReportsService) ListEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
+	return s.ListReportingEvents(ctx, since, until, eventType)
+}
+
 // GetConversationReportingEvents gets reporting events for a conversation
 func (c *Client) GetConversationReportingEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
 	path := c.accountPath(fmt.Sprintf("/conversations/%d/reporting_events", conversationID))
@@ -177,4 +202,9 @@ func (c *Client) GetConversationReportingEvents(ctx context.Context, conversatio
 		return nil, err
 	}
 	return result, nil
+}
+
+// ConversationEvents gets reporting events for a conversation.
+func (s ReportsService) ConversationEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
+	return s.GetConversationReportingEvents(ctx, conversationID)
 }
