@@ -164,7 +164,6 @@ func newLabelsCreateCmd() *cobra.Command {
 func newLabelsUpdateCmd() *cobra.Command {
 	var title, description, color string
 	var showOnSidebar bool
-	var showOnSidebarSet bool
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -189,9 +188,30 @@ func newLabelsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			var sidebarPtr *bool
-			if showOnSidebarSet {
-				sidebarPtr = &showOnSidebar
+			sidebarPtr := boolPtrIfChanged(cmd, "show-on-sidebar", showOnSidebar)
+
+			details := map[string]any{
+				"id": id,
+			}
+			if title != "" {
+				details["title"] = title
+			}
+			if description != "" {
+				details["description"] = description
+			}
+			if color != "" {
+				details["color"] = color
+			}
+			if sidebarPtr != nil {
+				details["show_on_sidebar"] = *sidebarPtr
+			}
+
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "label",
+				Details:   details,
+			}); ok {
+				return err
 			}
 
 			label, err := client.UpdateLabel(cmdContext(cmd), id, title, description, color, sidebarPtr)
@@ -212,9 +232,6 @@ func newLabelsUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Label description")
 	cmd.Flags().StringVar(&color, "color", "", "Label color (hex)")
 	cmd.Flags().BoolVar(&showOnSidebar, "show-on-sidebar", false, "Show label on sidebar")
-	cmd.PreRun = func(_ *cobra.Command, _ []string) {
-		showOnSidebarSet = cmd.Flags().Changed("show-on-sidebar")
-	}
 
 	return cmd
 }

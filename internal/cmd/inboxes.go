@@ -154,30 +154,14 @@ func newInboxesCreateCmd() *cobra.Command {
 				},
 			}
 
-			if cmd.Flags().Changed("greeting-enabled") {
-				req.GreetingEnabled = &greetingEnabled
-			}
-			if cmd.Flags().Changed("enable-email-collect") {
-				req.EnableEmailCollect = &enableEmailCollect
-			}
-			if cmd.Flags().Changed("csat-survey-enabled") {
-				req.CSATSurveyEnabled = &csatSurveyEnabled
-			}
-			if cmd.Flags().Changed("enable-auto-assignment") {
-				req.EnableAutoAssignment = &enableAutoAssignment
-			}
-			if cmd.Flags().Changed("working-hours-enabled") {
-				req.WorkingHoursEnabled = &workingHoursEnabled
-			}
-			if cmd.Flags().Changed("allow-messages-after-resolved") {
-				req.AllowMessagesAfterResolved = &allowMessagesAfterResolved
-			}
-			if cmd.Flags().Changed("lock-to-single-conversation") {
-				req.LockToSingleConversation = &lockToSingleConversation
-			}
-			if cmd.Flags().Changed("out-of-office-enabled") {
-				req.OutOfOfficeEnabled = &outOfOfficeEnabled
-			}
+			req.GreetingEnabled = boolPtrIfChanged(cmd, "greeting-enabled", greetingEnabled)
+			req.EnableEmailCollect = boolPtrIfChanged(cmd, "enable-email-collect", enableEmailCollect)
+			req.CSATSurveyEnabled = boolPtrIfChanged(cmd, "csat-survey-enabled", csatSurveyEnabled)
+			req.EnableAutoAssignment = boolPtrIfChanged(cmd, "enable-auto-assignment", enableAutoAssignment)
+			req.WorkingHoursEnabled = boolPtrIfChanged(cmd, "working-hours-enabled", workingHoursEnabled)
+			req.AllowMessagesAfterResolved = boolPtrIfChanged(cmd, "allow-messages-after-resolved", allowMessagesAfterResolved)
+			req.LockToSingleConversation = boolPtrIfChanged(cmd, "lock-to-single-conversation", lockToSingleConversation)
+			req.OutOfOfficeEnabled = boolPtrIfChanged(cmd, "out-of-office-enabled", outOfOfficeEnabled)
 			if portalID > 0 {
 				req.PortalID = &portalID
 			}
@@ -255,20 +239,22 @@ func newInboxesUpdateCmd() *cobra.Command {
 			}
 
 			if name == "" &&
-				!cmd.Flags().Changed("greeting-enabled") &&
 				greetingMessage == "" &&
-				!cmd.Flags().Changed("enable-email-collect") &&
-				!cmd.Flags().Changed("csat-survey-enabled") &&
-				!cmd.Flags().Changed("enable-auto-assignment") &&
 				autoAssignmentConfig == "" &&
-				!cmd.Flags().Changed("working-hours-enabled") &&
 				timezone == "" &&
-				!cmd.Flags().Changed("allow-messages-after-resolved") &&
-				!cmd.Flags().Changed("lock-to-single-conversation") &&
 				portalID == 0 &&
 				senderNameType == "" &&
 				outOfOfficeMessage == "" &&
-				!cmd.Flags().Changed("out-of-office-enabled") {
+				!anyFlagChanged(cmd,
+					"greeting-enabled",
+					"enable-email-collect",
+					"csat-survey-enabled",
+					"enable-auto-assignment",
+					"working-hours-enabled",
+					"allow-messages-after-resolved",
+					"lock-to-single-conversation",
+					"out-of-office-enabled",
+				) {
 				return fmt.Errorf("at least one field must be provided to update")
 			}
 

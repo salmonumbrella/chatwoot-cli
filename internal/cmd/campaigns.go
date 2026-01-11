@@ -325,9 +325,8 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 				req.Audience = aud
 			}
 
-			if cmd.Flags().Changed("enabled") {
-				req.Enabled = &enabled
-			}
+			req.Enabled = boolPtrIfChanged(cmd, "enabled", enabled)
+			req.TriggerOnlyDuringBusinessHours = boolPtrIfChanged(cmd, "business-hours", businessHours)
 
 			if cmd.Flags().Changed("business-hours") {
 				req.TriggerOnlyDuringBusinessHours = &businessHours

@@ -870,9 +870,7 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 			if description != "" {
 				params["description"] = description
 			}
-			if cmd.Flags().Changed("position") {
-				params["position"] = position
-			}
+			setMapIfChanged(cmd, "position", "position", params, position)
 
 			if len(params) == 0 {
 				return fmt.Errorf("at least one field must be specified")
