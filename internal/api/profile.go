@@ -17,3 +17,8 @@ func (c *Client) GetProfile(ctx context.Context) (*Profile, error) {
 
 	return &result, nil
 }
+
+// Get gets the current user's profile.
+func (s ProfileService) Get(ctx context.Context) (*Profile, error) {
+	return s.GetProfile(ctx)
+}
