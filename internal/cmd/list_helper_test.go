@@ -141,6 +141,34 @@ func TestListCommand_AllPagesFetchesMultiplePages(t *testing.T) {
 	}
 }
 
+func TestListCommand_AllPagesRespectsMaxPages(t *testing.T) {
+	cfg := ListConfig[testItem]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			return ListResult[testItem]{Items: []testItem{{ID: page, Name: "item"}}, HasMore: true}, nil
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	_ = cmd.Flags().Set("all", "true")
+	_ = cmd.Flags().Set("max-pages", "1")
+
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: ioDiscard{}, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	err := cmd.RunE(cmd, []string{})
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "safety limit reached") {
+		t.Fatalf("expected safety limit error, got %v", err)
+	}
+}
+
 type ioDiscard struct{}
 
 func (ioDiscard) Write(p []byte) (int, error) { return len(p), nil }

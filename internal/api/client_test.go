@@ -182,6 +182,82 @@ func TestPost_IdempotencyKeyHeader(t *testing.T) {
 	}
 }
 
+func TestGet_RetriesOn429(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.RetryConfig.MaxRateLimitRetries = 1
+	client.RetryConfig.RateLimitBaseDelay = 0
+
+	var result map[string]any
+	if err := client.Get(context.Background(), "/test", &result); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d", calls)
+	}
+}
+
+func TestPost_RetriesOn429WithIdempotencyKey(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id": 1}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.IdempotencyKey = "idem-1"
+	client.RetryConfig.MaxRateLimitRetries = 1
+	client.RetryConfig.RateLimitBaseDelay = 0
+
+	var result map[string]any
+	if err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, &result); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d", calls)
+	}
+}
+
+func TestGet_RetriesOn5xx(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.RetryConfig.Max5xxRetries = 1
+	client.RetryConfig.ServerErrorRetryDelay = 0
+
+	var result map[string]any
+	if err := client.Get(context.Background(), "/test", &result); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d", calls)
+	}
+}
+
 func TestPostMultipartNoRetryOn429(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
