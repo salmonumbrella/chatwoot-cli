@@ -8,6 +8,35 @@ import (
 	"strings"
 )
 
+// buildConversationQuery builds query parameters for conversation list/meta endpoints.
+func buildConversationQuery(params ListConversationsParams, includePage bool) url.Values {
+	query := url.Values{}
+
+	if params.Status != "" && params.Status != "all" {
+		query.Set("status", params.Status)
+	}
+	if params.InboxID != "" {
+		query.Set("inbox_id", params.InboxID)
+	}
+	if params.AssigneeType != "" {
+		query.Set("assignee_type", params.AssigneeType)
+	}
+	if params.TeamID != "" {
+		query.Set("team_id", params.TeamID)
+	}
+	if len(params.Labels) > 0 {
+		query.Set("labels", strings.Join(params.Labels, ","))
+	}
+	if params.Query != "" {
+		query.Set("q", params.Query)
+	}
+	if includePage && params.Page > 0 {
+		query.Set("page", fmt.Sprintf("%d", params.Page))
+	}
+
+	return query
+}
+
 // CreateConversationRequest represents a request to create a conversation
 type CreateConversationRequest struct {
 	InboxID          int            `json:"inbox_id"`
@@ -37,29 +66,7 @@ func (s ConversationsService) List(ctx context.Context, params ListConversations
 
 func listConversations(ctx context.Context, r Requester, params ListConversationsParams) (*ConversationList, error) {
 	path := "/conversations"
-	query := url.Values{}
-
-	if params.Status != "" && params.Status != "all" {
-		query.Set("status", params.Status)
-	}
-	if params.InboxID != "" {
-		query.Set("inbox_id", params.InboxID)
-	}
-	if params.AssigneeType != "" {
-		query.Set("assignee_type", params.AssigneeType)
-	}
-	if params.TeamID != "" {
-		query.Set("team_id", params.TeamID)
-	}
-	if len(params.Labels) > 0 {
-		query.Set("labels", strings.Join(params.Labels, ","))
-	}
-	if params.Query != "" {
-		query.Set("q", params.Query)
-	}
-	if params.Page > 0 {
-		query.Set("page", fmt.Sprintf("%d", params.Page))
-	}
+	query := buildConversationQuery(params, true)
 
 	if len(query) > 0 {
 		path += "?" + query.Encode()
@@ -130,23 +137,7 @@ func (s ConversationsService) Meta(ctx context.Context, params ListConversations
 
 func getConversationsMeta(ctx context.Context, r Requester, params ListConversationsParams) (map[string]any, error) {
 	path := "/conversations/meta"
-	query := url.Values{}
-
-	if params.Status != "" && params.Status != "all" {
-		query.Set("status", params.Status)
-	}
-	if params.InboxID != "" {
-		query.Set("inbox_id", params.InboxID)
-	}
-	if params.TeamID != "" {
-		query.Set("team_id", params.TeamID)
-	}
-	if len(params.Labels) > 0 {
-		query.Set("labels", strings.Join(params.Labels, ","))
-	}
-	if params.Query != "" {
-		query.Set("q", params.Query)
-	}
+	query := buildConversationQuery(params, false)
 
 	if len(query) > 0 {
 		path += "?" + query.Encode()
