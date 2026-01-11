@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -101,6 +102,30 @@ func TestGet(t *testing.T) {
 				t.Errorf("Expected no error but got: %v", err)
 			}
 		})
+	}
+}
+
+func TestGet_RequestIDCaptured(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-Id", "req-123")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": "bad request"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	var result map[string]any
+	err := client.Get(context.Background(), "/test", &result)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T", err)
+	}
+	if apiErr.RequestID != "req-123" {
+		t.Fatalf("expected RequestID req-123, got %q", apiErr.RequestID)
 	}
 }
 
