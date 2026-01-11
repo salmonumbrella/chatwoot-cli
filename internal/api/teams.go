@@ -7,15 +7,33 @@ import (
 
 // ListTeams retrieves all teams for the account
 func (c *Client) ListTeams(ctx context.Context) ([]Team, error) {
+	return listTeams(ctx, c)
+}
+
+// List retrieves all teams for the account.
+func (s TeamsService) List(ctx context.Context) ([]Team, error) {
+	return listTeams(ctx, s)
+}
+
+func listTeams(ctx context.Context, r Requester) ([]Team, error) {
 	var teams []Team
-	err := c.Get(ctx, "/teams", &teams)
+	err := r.do(ctx, "GET", r.accountPath("/teams"), nil, &teams)
 	return teams, err
 }
 
 // GetTeam retrieves a specific team by ID
 func (c *Client) GetTeam(ctx context.Context, id int) (*Team, error) {
+	return getTeam(ctx, c, id)
+}
+
+// Get retrieves a specific team by ID.
+func (s TeamsService) Get(ctx context.Context, id int) (*Team, error) {
+	return getTeam(ctx, s, id)
+}
+
+func getTeam(ctx context.Context, r Requester, id int) (*Team, error) {
 	var team Team
-	err := c.Get(ctx, fmt.Sprintf("/teams/%d", id), &team)
+	err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, &team)
 	if err != nil {
 		return nil, err
 	}
@@ -24,12 +42,21 @@ func (c *Client) GetTeam(ctx context.Context, id int) (*Team, error) {
 
 // CreateTeam creates a new team
 func (c *Client) CreateTeam(ctx context.Context, name, description string) (*Team, error) {
+	return createTeam(ctx, c, name, description)
+}
+
+// Create creates a new team.
+func (s TeamsService) Create(ctx context.Context, name, description string) (*Team, error) {
+	return createTeam(ctx, s, name, description)
+}
+
+func createTeam(ctx context.Context, r Requester, name, description string) (*Team, error) {
 	body := map[string]any{
 		"name":        name,
 		"description": description,
 	}
 	var team Team
-	err := c.Post(ctx, "/teams", body, &team)
+	err := r.do(ctx, "POST", r.accountPath("/teams"), body, &team)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +65,15 @@ func (c *Client) CreateTeam(ctx context.Context, name, description string) (*Tea
 
 // UpdateTeam updates an existing team
 func (c *Client) UpdateTeam(ctx context.Context, id int, name, description string) (*Team, error) {
+	return updateTeam(ctx, c, id, name, description)
+}
+
+// Update updates an existing team.
+func (s TeamsService) Update(ctx context.Context, id int, name, description string) (*Team, error) {
+	return updateTeam(ctx, s, id, name, description)
+}
+
+func updateTeam(ctx context.Context, r Requester, id int, name, description string) (*Team, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
@@ -47,7 +83,7 @@ func (c *Client) UpdateTeam(ctx context.Context, id int, name, description strin
 	}
 
 	var team Team
-	err := c.Patch(ctx, fmt.Sprintf("/teams/%d", id), body, &team)
+	err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/teams/%d", id)), body, &team)
 	if err != nil {
 		return nil, err
 	}
@@ -56,28 +92,64 @@ func (c *Client) UpdateTeam(ctx context.Context, id int, name, description strin
 
 // DeleteTeam deletes a team by ID
 func (c *Client) DeleteTeam(ctx context.Context, id int) error {
-	return c.Delete(ctx, fmt.Sprintf("/teams/%d", id))
+	return deleteTeam(ctx, c, id)
+}
+
+// Delete deletes a team by ID.
+func (s TeamsService) Delete(ctx context.Context, id int) error {
+	return deleteTeam(ctx, s, id)
+}
+
+func deleteTeam(ctx context.Context, r Requester, id int) error {
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/teams/%d", id)), nil, nil)
 }
 
 // ListTeamMembers retrieves all members of a team
 func (c *Client) ListTeamMembers(ctx context.Context, teamID int) ([]Agent, error) {
+	return listTeamMembers(ctx, c, teamID)
+}
+
+// ListMembers retrieves all members of a team.
+func (s TeamsService) ListMembers(ctx context.Context, teamID int) ([]Agent, error) {
+	return listTeamMembers(ctx, s, teamID)
+}
+
+func listTeamMembers(ctx context.Context, r Requester, teamID int) ([]Agent, error) {
 	var agents []Agent
-	err := c.Get(ctx, fmt.Sprintf("/teams/%d/team_members", teamID), &agents)
+	err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), nil, &agents)
 	return agents, err
 }
 
 // AddTeamMembers adds users to a team
 func (c *Client) AddTeamMembers(ctx context.Context, teamID int, userIDs []int) error {
+	return addTeamMembers(ctx, c, teamID, userIDs)
+}
+
+// AddMembers adds users to a team.
+func (s TeamsService) AddMembers(ctx context.Context, teamID int, userIDs []int) error {
+	return addTeamMembers(ctx, s, teamID, userIDs)
+}
+
+func addTeamMembers(ctx context.Context, r Requester, teamID int, userIDs []int) error {
 	body := map[string]any{
 		"user_ids": userIDs,
 	}
-	return c.Post(ctx, fmt.Sprintf("/teams/%d/team_members", teamID), body, nil)
+	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
 }
 
 // RemoveTeamMembers removes users from a team
 func (c *Client) RemoveTeamMembers(ctx context.Context, teamID int, userIDs []int) error {
+	return removeTeamMembers(ctx, c, teamID, userIDs)
+}
+
+// RemoveMembers removes users from a team.
+func (s TeamsService) RemoveMembers(ctx context.Context, teamID int, userIDs []int) error {
+	return removeTeamMembers(ctx, s, teamID, userIDs)
+}
+
+func removeTeamMembers(ctx context.Context, r Requester, teamID int, userIDs []int) error {
 	body := map[string]any{
 		"user_ids": userIDs,
 	}
-	return c.DeleteWithBody(ctx, fmt.Sprintf("/teams/%d/team_members", teamID), body)
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/teams/%d/team_members", teamID)), body, nil)
 }
