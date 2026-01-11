@@ -316,6 +316,111 @@ func TestCircuitBreakerOpensAfterFailures(t *testing.T) {
 	}
 }
 
+// TestCircuitBreakerHalfOpenProbeSuccess verifies that a successful probe
+// request during half-open state closes the circuit.
+func TestCircuitBreakerHalfOpenProbeSuccess(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := atomic.AddInt32(&calls, 1)
+		if call == 1 {
+			// First call fails to open the circuit
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		// Subsequent calls succeed (probe request)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.RetryConfig.Max5xxRetries = 0
+	client.RetryConfig.ServerErrorRetryDelay = 0
+	if client.circuitBreaker != nil {
+		client.circuitBreaker.threshold = 1
+		client.circuitBreaker.resetTime = 15 * time.Millisecond
+	}
+
+	var result map[string]any
+
+	// First request fails and opens the circuit
+	if err := client.Get(context.Background(), "/test", &result); err == nil {
+		t.Fatalf("expected error on first request, got nil")
+	}
+
+	// Second request should be blocked by circuit breaker
+	if err := client.Get(context.Background(), "/test", &result); !IsCircuitBreakerError(err) {
+		t.Fatalf("expected CircuitBreakerError, got %v", err)
+	}
+
+	// Wait for reset time to allow half-open
+	time.Sleep(20 * time.Millisecond)
+
+	// Third request should succeed (probe) and close the circuit
+	if err := client.Get(context.Background(), "/test", &result); err != nil {
+		t.Fatalf("expected probe request to succeed, got %v", err)
+	}
+
+	// Fourth request should also succeed (circuit is now closed)
+	if err := client.Get(context.Background(), "/test", &result); err != nil {
+		t.Fatalf("expected request to succeed after circuit closed, got %v", err)
+	}
+
+	// Verify call count: 1 (fail) + 1 (probe success) + 1 (normal) = 3
+	if atomic.LoadInt32(&calls) != 3 {
+		t.Fatalf("expected 3 server calls, got %d", calls)
+	}
+}
+
+// TestCircuitBreakerHalfOpenProbeFails verifies that a failed probe
+// request during half-open state re-opens the circuit.
+func TestCircuitBreakerHalfOpenProbeFails(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		// All calls fail
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.RetryConfig.Max5xxRetries = 0
+	client.RetryConfig.ServerErrorRetryDelay = 0
+	if client.circuitBreaker != nil {
+		client.circuitBreaker.threshold = 1
+		client.circuitBreaker.resetTime = 15 * time.Millisecond
+	}
+
+	var result map[string]any
+
+	// First request fails and opens the circuit
+	if err := client.Get(context.Background(), "/test", &result); err == nil {
+		t.Fatalf("expected error on first request, got nil")
+	}
+
+	// Wait for reset time to allow half-open
+	time.Sleep(20 * time.Millisecond)
+
+	// Second request is the probe - it fails (API error, not circuit breaker)
+	err := client.Get(context.Background(), "/test", &result)
+	if err == nil {
+		t.Fatalf("expected probe request to fail, got nil")
+	}
+	if IsCircuitBreakerError(err) {
+		t.Fatalf("probe request should hit server, not be blocked by circuit breaker")
+	}
+
+	// Third request should be blocked (circuit is open again)
+	if err := client.Get(context.Background(), "/test", &result); !IsCircuitBreakerError(err) {
+		t.Fatalf("expected CircuitBreakerError after failed probe, got %v", err)
+	}
+
+	// Verify call count: 1 (initial fail) + 1 (probe fail) = 2
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Fatalf("expected 2 server calls, got %d", calls)
+	}
+}
+
 func TestPostMultipartNoRetryOn429(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

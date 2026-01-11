@@ -86,6 +86,7 @@ type circuitBreaker struct {
 	failures    int
 	lastFailure time.Time
 	open        bool
+	halfOpen    bool // true when circuit allows probe requests after reset time. Multiple concurrent isOpen() calls during half-open all return false (allowing probes) - acceptable for CLI where concurrent requests are rare.
 	threshold   int
 	resetTime   time.Duration
 }
@@ -127,24 +128,38 @@ func retryAfterDuration(h http.Header) (time.Duration, bool) {
 	return 0, false
 }
 
-// recordSuccess resets failures to 0 and sets open to false.
-// Logs if the circuit was previously open.
+// recordSuccess resets failures to 0 and closes the circuit.
+// If the circuit was in half-open state, this completes the recovery
+// and transitions the circuit back to closed state.
 func (cb *circuitBreaker) recordSuccess() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
 	cb.failures = 0
 	cb.open = false
+	cb.halfOpen = false
 }
 
 // recordFailure increments failures, sets lastFailure to now,
-// and returns true if the circuit just opened.
+// and returns true if the circuit just opened or re-opened.
+//
+// If the circuit is in half-open state (probe request), a failure
+// immediately re-opens the circuit (resets the timer for another
+// reset period).
 func (cb *circuitBreaker) recordFailure() bool {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
 	cb.failures++
 	cb.lastFailure = time.Now()
+
+	// If in half-open state, a failure re-opens the circuit immediately
+	if cb.halfOpen {
+		cb.halfOpen = false
+		// Circuit is already open, but we reset the timer by updating lastFailure
+		// Return true to indicate circuit (re)opened
+		return true
+	}
 
 	threshold := cb.threshold
 	if threshold <= 0 {
@@ -157,27 +172,41 @@ func (cb *circuitBreaker) recordFailure() bool {
 	return false
 }
 
-// isOpen returns true if open AND not past reset time.
-// Auto-closes if past reset time.
+// isOpen returns true if the circuit is open and should reject requests.
+// Returns false if:
+// - Circuit is closed (normal operation)
+// - Circuit is half-open (allows one probe request through)
+// - Reset time has passed and circuit transitions to half-open
+//
+// When the reset time passes, the circuit enters half-open state, allowing
+// exactly one probe request. If the probe succeeds (recordSuccess), the circuit
+// closes. If the probe fails (recordFailure), the circuit re-opens.
 func (cb *circuitBreaker) isOpen() bool {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
+	// If circuit is closed, allow requests
 	if !cb.open {
 		return false
 	}
 
-	// Auto-close if past reset time
+	// If circuit is already half-open, allow the probe request through
+	if cb.halfOpen {
+		return false
+	}
+
+	// Check if reset time has passed - if so, transition to half-open
 	resetTime := cb.resetTime
 	if resetTime <= 0 {
 		resetTime = DefaultCircuitBreakerResetTime
 	}
 	if time.Since(cb.lastFailure) >= resetTime {
-		cb.open = false
-		cb.failures = 0
+		// Transition to half-open state - allow one probe request
+		cb.halfOpen = true
 		return false
 	}
 
+	// Circuit is open and reset time hasn't passed - reject request
 	return true
 }
 
@@ -189,5 +218,6 @@ func (cb *circuitBreaker) reset() {
 
 	cb.failures = 0
 	cb.open = false
+	cb.halfOpen = false
 	cb.lastFailure = time.Time{}
 }

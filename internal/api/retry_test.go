@@ -154,28 +154,49 @@ func TestCircuitBreaker_FullStateTransitionCycle(t *testing.T) {
 	// Phase 3: Half-open state (after reset time passes)
 	time.Sleep(25 * time.Millisecond)
 
-	// isOpen() should return false and auto-close the circuit (half-open behavior)
+	// isOpen() should return false (allowing one probe request)
 	if cb.isOpen() {
-		t.Error("circuit should auto-close (enter half-open) after reset time")
+		t.Error("circuit should allow probe request (half-open) after reset time")
 	}
 
-	// Verify internal state was reset by isOpen()
+	// Verify internal state: open should still be true, but halfOpen should be true
 	cb.mu.Lock()
 	failures := cb.failures
 	open := cb.open
+	halfOpen := cb.halfOpen
 	cb.mu.Unlock()
 
-	if failures != 0 {
-		t.Errorf("failures should be 0 after auto-close, got %d", failures)
+	if failures != 2 {
+		t.Errorf("failures should still be 2 in half-open state, got %d", failures)
 	}
-	if open {
-		t.Error("open flag should be false after auto-close")
+	if !open {
+		t.Error("open flag should still be true in half-open state")
+	}
+	if !halfOpen {
+		t.Error("halfOpen flag should be true after reset time passed")
 	}
 
 	// Phase 4: Transition back to closed on success
 	cb.recordSuccess()
 	if cb.isOpen() {
-		t.Error("circuit should remain closed after success")
+		t.Error("circuit should be closed after successful probe")
+	}
+
+	// Verify circuit is fully closed
+	cb.mu.Lock()
+	failures = cb.failures
+	open = cb.open
+	halfOpen = cb.halfOpen
+	cb.mu.Unlock()
+
+	if failures != 0 {
+		t.Errorf("failures should be 0 after success, got %d", failures)
+	}
+	if open {
+		t.Error("open flag should be false after success")
+	}
+	if halfOpen {
+		t.Error("halfOpen flag should be false after success")
 	}
 }
 
@@ -215,6 +236,9 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 	}
 	if cb.open {
 		t.Error("reset should close the circuit")
+	}
+	if cb.halfOpen {
+		t.Error("reset should clear halfOpen flag")
 	}
 	if !cb.lastFailure.IsZero() {
 		t.Errorf("reset should clear lastFailure, got %v", cb.lastFailure)
@@ -299,7 +323,14 @@ func TestCircuitBreaker_SuccessAfterHalfOpenCloses(t *testing.T) {
 		t.Error("circuit should be half-open (isOpen returns false)")
 	}
 
-	// Record a success - this should keep the circuit closed
+	// Verify we're in half-open state
+	cb.mu.Lock()
+	if !cb.halfOpen {
+		t.Error("halfOpen flag should be true after reset time passed")
+	}
+	cb.mu.Unlock()
+
+	// Record a success - this should close the circuit
 	cb.recordSuccess()
 
 	// Verify circuit is firmly closed
@@ -315,6 +346,9 @@ func TestCircuitBreaker_SuccessAfterHalfOpenCloses(t *testing.T) {
 	}
 	if cb.open {
 		t.Error("open flag should be false after success")
+	}
+	if cb.halfOpen {
+		t.Error("halfOpen flag should be false after success")
 	}
 }
 
@@ -332,18 +366,108 @@ func TestCircuitBreaker_FailureDuringHalfOpenReopens(t *testing.T) {
 	// Wait for reset time to allow half-open
 	time.Sleep(20 * time.Millisecond)
 
-	// Check isOpen() - this triggers the half-open transition and resets state
+	// Check isOpen() - this triggers the half-open transition
 	if cb.isOpen() {
 		t.Error("circuit should be half-open (isOpen returns false)")
 	}
 
-	// Now record a failure - with threshold=1, this should reopen immediately
+	// Verify we're in half-open state
+	cb.mu.Lock()
+	if !cb.halfOpen {
+		t.Error("halfOpen flag should be true after reset time passed")
+	}
+	cb.mu.Unlock()
+
+	// Now record a failure - this should reopen the circuit
 	opened := cb.recordFailure()
 	if !opened {
-		t.Error("recordFailure should return true when circuit reopens")
+		t.Error("recordFailure should return true when circuit reopens from half-open")
 	}
 	if !cb.isOpen() {
 		t.Error("circuit should be open again after failure during half-open")
+	}
+
+	// Verify internal state: circuit is open, halfOpen is false
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if !cb.open {
+		t.Error("open flag should be true after failed probe")
+	}
+	if cb.halfOpen {
+		t.Error("halfOpen flag should be false after failed probe")
+	}
+}
+
+// TestCircuitBreaker_HalfOpenAllowsOnlyOneProbe verifies that in half-open state,
+// only one probe request is allowed through, and the circuit remains in half-open
+// state until the probe result is recorded.
+func TestCircuitBreaker_HalfOpenAllowsOnlyOneProbe(t *testing.T) {
+	cb := &circuitBreaker{threshold: 1, resetTime: 15 * time.Millisecond}
+
+	// Open the circuit
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Fatal("circuit should be open")
+	}
+
+	// Wait for reset time to allow half-open
+	time.Sleep(20 * time.Millisecond)
+
+	// First call to isOpen() triggers half-open - returns false (allow probe)
+	if cb.isOpen() {
+		t.Error("first isOpen() after reset time should return false (allow probe)")
+	}
+
+	// Second call to isOpen() while still in half-open should also return false
+	// (the probe request is in flight, we allow it to proceed)
+	if cb.isOpen() {
+		t.Error("second isOpen() during half-open should also return false")
+	}
+
+	// Verify we're still in half-open state
+	cb.mu.Lock()
+	if !cb.halfOpen {
+		t.Error("halfOpen flag should still be true until probe completes")
+	}
+	cb.mu.Unlock()
+}
+
+// TestCircuitBreaker_HalfOpenTimerResets verifies that when a probe fails
+// during half-open state, the reset timer starts fresh.
+func TestCircuitBreaker_HalfOpenTimerResets(t *testing.T) {
+	cb := &circuitBreaker{threshold: 1, resetTime: 20 * time.Millisecond}
+
+	// Open the circuit
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Fatal("circuit should be open")
+	}
+
+	// Wait for reset time to enter half-open
+	time.Sleep(25 * time.Millisecond)
+
+	// Trigger half-open
+	if cb.isOpen() {
+		t.Error("circuit should be half-open")
+	}
+
+	// Record a failure during half-open - this should re-open and reset timer
+	cb.recordFailure()
+	if !cb.isOpen() {
+		t.Error("circuit should be open after failed probe")
+	}
+
+	// Immediately check again - should still be open (timer was reset)
+	time.Sleep(10 * time.Millisecond) // Wait less than resetTime
+	if !cb.isOpen() {
+		t.Error("circuit should still be open (timer was reset)")
+	}
+
+	// Wait for full reset time and verify half-open is available again
+	time.Sleep(15 * time.Millisecond) // Total 25ms > 20ms resetTime
+	if cb.isOpen() {
+		t.Error("circuit should enter half-open again after reset time")
 	}
 }
 
