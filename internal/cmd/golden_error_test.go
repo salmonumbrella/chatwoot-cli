@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"testing"
+
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 )
 
 func TestGoldenErrorValidationText(t *testing.T) {
@@ -47,4 +49,30 @@ func TestGoldenErrorValidationJSON(t *testing.T) {
 	})
 
 	assertGolden(t, "error_validation.json", output)
+}
+
+func TestGoldenErrorRateLimitText(t *testing.T) {
+	t.Setenv("CHATWOOT_MAX_RATE_LIMIT_RETRIES", "0")
+	t.Setenv("CHATWOOT_RATE_LIMIT_DELAY", "0s")
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/labels", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStderr(t, func() {
+		err := Execute(context.Background(), []string{"--color", "never", "labels", "list"})
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+	})
+
+	assertGolden(t, "error_rate_limit.txt", output)
+}
+
+func TestGoldenErrorCircuitBreakerText(t *testing.T) {
+	output := HandleError(&api.CircuitBreakerError{})
+	assertGolden(t, "error_circuit_breaker.txt", output)
 }

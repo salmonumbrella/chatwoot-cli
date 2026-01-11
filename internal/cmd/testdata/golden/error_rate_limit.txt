@@ -1,0 +1,6 @@
+Rate limit exceeded.
+
+Suggestions:
+  - Wait a few seconds and retry
+  - Reduce request frequency
+  - Use --dry-run to preview operations
