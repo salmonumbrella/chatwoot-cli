@@ -53,3 +53,8 @@ dist/
 # Coverage artifacts
 coverage.out
 coverage.html
+.env
+
+# Credentials
+.env
+.env.*
