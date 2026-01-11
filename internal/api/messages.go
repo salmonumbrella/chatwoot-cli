@@ -203,7 +203,7 @@ func createMessageWithAttachments(ctx context.Context, r Requester, conversation
 	}
 
 	var message Message
-	if err := r.PostMultipart(ctx, r.accountPath(path), fields, attachments, &message); err != nil {
+	if err := r.PostMultipart(ctx, path, fields, attachments, &message); err != nil {
 		return nil, err
 	}
 	return &message, nil
