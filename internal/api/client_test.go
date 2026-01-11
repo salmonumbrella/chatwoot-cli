@@ -136,6 +136,27 @@ func TestPost(t *testing.T) {
 	}
 }
 
+func TestPost_IdempotencyKeyHeader(t *testing.T) {
+	var gotKey string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.Header.Get("Idempotency-Key")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+	client.IdempotencyKey = "idem-123"
+
+	var result map[string]any
+	if err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, &result); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if gotKey != "idem-123" {
+		t.Fatalf("Expected Idempotency-Key header to be set, got %q", gotKey)
+	}
+}
+
 func TestPostMultipartNoRetryOn429(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -633,6 +633,8 @@ All commands support these flags:
 - `--color <mode>` - Color mode: `auto`, `always`, or `never` (default: auto)
 - `--debug` - Enable verbose debug logging
 - `--dry-run` - Preview changes without executing mutations
+- `--timeout <duration>` - HTTP request timeout (default: 30s)
+- `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
 - `--query <expr>` - JQ expression to filter JSON output
 - `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`)
 - `--template <tmpl>` - Go template (or `@path`) to render JSON output

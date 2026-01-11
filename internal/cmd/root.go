@@ -22,19 +22,20 @@ import (
 
 // rootFlags holds global CLI flags
 type rootFlags struct {
-	Output       string
-	Color        string
-	Debug        bool
-	DryRun       bool
-	Quiet        bool
-	Silent       bool
-	JSON         bool
-	AllowPrivate bool
-	Query        string
-	JQ           string
-	Fields       string
-	Template     string
-	Timeout      time.Duration
+	Output         string
+	Color          string
+	Debug          bool
+	DryRun         bool
+	Quiet          bool
+	Silent         bool
+	JSON           bool
+	AllowPrivate   bool
+	Query          string
+	JQ             string
+	Fields         string
+	Template       string
+	Timeout        time.Duration
+	IdempotencyKey string
 }
 
 // flags holds the global command flags, accessible to helper functions
@@ -190,6 +191,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
+	root.PersistentFlags().StringVar(&flags.IdempotencyKey, "idempotency-key", "", "Idempotency key for write requests (use 'auto' for per-request keys)")
 
 	// Add subcommands
 	root.AddCommand(newAuthCmd())

@@ -48,6 +48,9 @@ func HandleError(err error) string {
 	case errors.As(err, &apiErr):
 		msg.WriteString(fmt.Sprintf("API error (HTTP %d): %s\n\n", apiErr.StatusCode, apiErr.Body))
 		msg.WriteString(suggestionsForStatusCode(apiErr.StatusCode, apiErr.Body))
+		if apiErr.RequestID != "" {
+			msg.WriteString(fmt.Sprintf("\nRequest ID: %s\n", apiErr.RequestID))
+		}
 
 	case strings.Contains(err.Error(), "connection refused"):
 		msg.WriteString("Connection refused.\n\n")

@@ -29,16 +29,18 @@ const DefaultTimeout = 30 * time.Second
 // Use ResetCircuitBreaker() to clear the circuit breaker state when reusing a client
 // between test runs, logical sessions, or after recovering from a known transient failure.
 type Client struct {
-	BaseURL           string
-	APIToken          string
-	AccountID         int
-	HTTP              *http.Client
-	UserAgent         string
-	RetryConfig       RetryConfig     // retry and circuit breaker configuration
-	skipURLValidation bool            // internal flag for testing only
-	circuitBreaker    *circuitBreaker // circuit breaker for retry logic
-	validatedBaseURL  bool
-	validateMu        sync.Mutex
+	BaseURL            string
+	APIToken           string
+	AccountID          int
+	HTTP               *http.Client
+	UserAgent          string
+	IdempotencyKey     string
+	IdempotencyKeyFunc func() string
+	RetryConfig        RetryConfig     // retry and circuit breaker configuration
+	skipURLValidation  bool            // internal flag for testing only
+	circuitBreaker     *circuitBreaker // circuit breaker for retry logic
+	validatedBaseURL   bool
+	validateMu         sync.Mutex
 }
 
 var validateChatwootURL = validation.ValidateChatwootURL
@@ -176,8 +178,16 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 		return nil, nil, 0, err
 	}
 
+	idempotencyKey := c.IdempotencyKey
+	if idempotencyKey == "" && c.IdempotencyKeyFunc != nil {
+		idempotencyKey = c.IdempotencyKeyFunc()
+	}
+
 	// Determine if method is idempotent for retry logic
 	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+	if !isIdempotent && idempotencyKey != "" {
+		isIdempotent = true
+	}
 
 	var retries429, retries5xx int
 	attempt := 0
@@ -206,6 +216,9 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 			req.Header.Set("Content-Type", contentType)
 		}
 		req.Header.Set("Accept", "application/json")
+		if idempotencyKey != "" && method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions {
+			req.Header.Set("Idempotency-Key", idempotencyKey)
+		}
 
 		resp, err := c.HTTP.Do(req)
 		if err != nil {
@@ -272,6 +285,7 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 			return respBody, resp.Header, resp.StatusCode, &APIError{
 				StatusCode: resp.StatusCode,
 				Body:       sanitizeErrorBody(string(respBody)),
+				RequestID:  requestIDFromHeader(resp.Header),
 			}
 		}
 
@@ -375,6 +389,19 @@ func (c *Client) PostMultipart(ctx context.Context, path string, fields map[stri
 	return nil
 }
 
+func requestIDFromHeader(header http.Header) string {
+	if header == nil {
+		return ""
+	}
+	if id := header.Get("X-Request-Id"); id != "" {
+		return id
+	}
+	if id := header.Get("X-Request-ID"); id != "" {
+		return id
+	}
+	return ""
+}
+
 // sanitizeErrorBody extracts safe error message from API response
 // without exposing potentially sensitive data like tokens or user info
 func sanitizeErrorBody(body string) string {
@@ -399,6 +426,7 @@ func sanitizeErrorBody(body string) string {
 type APIError struct {
 	StatusCode int
 	Body       string
+	RequestID  string
 }
 
 func (e *APIError) Error() string {

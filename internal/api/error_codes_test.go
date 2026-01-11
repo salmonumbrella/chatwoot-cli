@@ -221,6 +221,7 @@ func TestStructuredErrorFromAPIError(t *testing.T) {
 	apiErr := &APIError{
 		StatusCode: 404,
 		Body:       "resource not found",
+		RequestID:  "req-404",
 	}
 
 	structErr := StructuredErrorFromAPIError(apiErr)
@@ -236,6 +237,9 @@ func TestStructuredErrorFromAPIError(t *testing.T) {
 	}
 	if structErr.Context["status_code"] != 404 {
 		t.Errorf("Context[status_code] = %v, want 404", structErr.Context["status_code"])
+	}
+	if structErr.Context["request_id"] != "req-404" {
+		t.Errorf("Context[request_id] = %v, want req-404", structErr.Context["request_id"])
 	}
 }
 

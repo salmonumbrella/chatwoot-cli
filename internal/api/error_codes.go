@@ -137,14 +137,18 @@ func NewStructuredErrorWithContext(code ErrorCode, message string, ctx map[strin
 // StructuredErrorFromAPIError converts an APIError to a StructuredError.
 func StructuredErrorFromAPIError(apiErr *APIError) *StructuredError {
 	code := ErrorCodeFromStatus(apiErr.StatusCode)
+	ctx := map[string]any{
+		"status_code": apiErr.StatusCode,
+	}
+	if apiErr.RequestID != "" {
+		ctx["request_id"] = apiErr.RequestID
+	}
 	return &StructuredError{
 		Code:       code,
 		Message:    apiErr.Body,
 		Retryable:  code.IsRetryable(),
 		Suggestion: code.Suggestion(),
-		Context: map[string]any{
-			"status_code": apiErr.StatusCode,
-		},
+		Context:    ctx,
 	}
 }
 

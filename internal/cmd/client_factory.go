@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -51,6 +52,13 @@ func (f *clientFactory) newClient(cfg config.ClientConfig) *api.Client {
 	}
 	if f.userAgent != "" {
 		client.UserAgent = f.userAgent
+	}
+	if flags.IdempotencyKey != "" {
+		if strings.EqualFold(flags.IdempotencyKey, "auto") {
+			client.IdempotencyKeyFunc = newIdempotencyKey
+		} else {
+			client.IdempotencyKey = flags.IdempotencyKey
+		}
 	}
 	return client
 }

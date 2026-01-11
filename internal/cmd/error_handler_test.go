@@ -78,6 +78,14 @@ func TestHandleError(t *testing.T) {
 			},
 		},
 		{
+			name: "API error with request ID",
+			err:  &api.APIError{StatusCode: 400, Body: "bad request", RequestID: "req-123"},
+			wantContains: []string{
+				"API error (HTTP 400)",
+				"Request ID: req-123",
+			},
+		},
+		{
 			name: "connection refused",
 			err:  errors.New("dial tcp: connection refused"),
 			wantContains: []string{
