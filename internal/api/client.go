@@ -11,6 +11,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -405,21 +407,84 @@ func requestIDFromHeader(header http.Header) string {
 // sanitizeErrorBody extracts safe error message from API response
 // without exposing potentially sensitive data like tokens or user info
 func sanitizeErrorBody(body string) string {
-	// Try to extract just the error/message field from JSON response
+	// Try to extract error/message and validation errors from JSON response
 	var errResp struct {
-		Error   string `json:"error"`
-		Message string `json:"message"`
+		Error   string      `json:"error"`
+		Message string      `json:"message"`
+		Errors  interface{} `json:"errors"` // Can be map[string]string or map[string][]string
 	}
-	if err := json.Unmarshal([]byte(body), &errResp); err == nil {
-		if errResp.Error != "" {
-			return errResp.Error
-		}
-		if errResp.Message != "" {
-			return errResp.Message
-		}
+	if err := json.Unmarshal([]byte(body), &errResp); err != nil {
+		// If we can't parse JSON, return generic message
+		return "API request failed (response body redacted for security)"
 	}
-	// If we can't parse JSON or no error field found, return generic message
+
+	// Extract field-specific validation errors if present
+	validationErrors := formatValidationErrors(errResp.Errors)
+
+	// Build result from error/message and validation errors
+	var result string
+	if errResp.Error != "" {
+		result = errResp.Error
+	} else if errResp.Message != "" {
+		result = errResp.Message
+	}
+
+	// Append validation errors if present
+	if validationErrors != "" {
+		if result != "" {
+			return result + "\nValidation errors:\n" + validationErrors
+		}
+		return "Validation errors:\n" + validationErrors
+	}
+
+	if result != "" {
+		return result
+	}
+
+	// No recognized fields found
 	return "API request failed (response body redacted for security)"
+}
+
+// formatValidationErrors formats the errors field from API validation responses.
+// Handles both map[string]string and map[string][]string formats.
+func formatValidationErrors(errors interface{}) string {
+	if errors == nil {
+		return ""
+	}
+
+	errMap, ok := errors.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	if len(errMap) == 0 {
+		return ""
+	}
+
+	// Collect formatted field errors
+	var lines []string
+	for field, value := range errMap {
+		switch v := value.(type) {
+		case string:
+			// Format: {"errors": {"email": "is invalid"}}
+			lines = append(lines, fmt.Sprintf("  %s: %s", field, v))
+		case []interface{}:
+			// Format: {"errors": {"email": ["is invalid", "can't be blank"]}}
+			for _, msg := range v {
+				if msgStr, ok := msg.(string); ok {
+					lines = append(lines, fmt.Sprintf("  %s: %s", field, msgStr))
+				}
+			}
+		}
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
+	// Sort for consistent output (important for testing)
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
 }
 
 // APIError represents an error response from the API

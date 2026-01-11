@@ -775,6 +775,58 @@ func TestSanitizeErrorBody(t *testing.T) {
 			input:    ``,
 			expected: "API request failed (response body redacted for security)",
 		},
+		// Validation error test cases
+		{
+			name:  "Validation errors with string values",
+			input: `{"errors": {"email": "is invalid"}}`,
+			expected: `Validation errors:
+  email: is invalid`,
+		},
+		{
+			name:  "Validation errors with array values",
+			input: `{"errors": {"email": ["is invalid", "can't be blank"]}}`,
+			expected: `Validation errors:
+  email: can't be blank
+  email: is invalid`,
+		},
+		{
+			name:  "Message with validation errors",
+			input: `{"message": "Validation failed", "errors": {"email": "is invalid", "name": "is required"}}`,
+			expected: `Validation failed
+Validation errors:
+  email: is invalid
+  name: is required`,
+		},
+		{
+			name:  "Error with validation errors",
+			input: `{"error": "Invalid request", "errors": {"field": "bad value"}}`,
+			expected: `Invalid request
+Validation errors:
+  field: bad value`,
+		},
+		{
+			name:  "Multiple fields with array errors",
+			input: `{"errors": {"email": ["is invalid"], "name": ["is required", "is too short"]}}`,
+			expected: `Validation errors:
+  email: is invalid
+  name: is required
+  name: is too short`,
+		},
+		{
+			name:     "Empty errors object",
+			input:    `{"errors": {}}`,
+			expected: "API request failed (response body redacted for security)",
+		},
+		{
+			name:     "Errors field is not an object",
+			input:    `{"errors": "some string"}`,
+			expected: "API request failed (response body redacted for security)",
+		},
+		{
+			name:     "Message only with empty errors",
+			input:    `{"message": "Something went wrong", "errors": {}}`,
+			expected: "Something went wrong",
+		},
 	}
 
 	for _, tt := range tests {
