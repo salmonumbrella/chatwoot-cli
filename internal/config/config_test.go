@@ -270,6 +270,63 @@ func TestSaveProfileIndex(t *testing.T) {
 	}
 }
 
+func TestResolveAccountClientConfig_FromEnv(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://example.com/")
+	t.Setenv("CHATWOOT_API_TOKEN", "token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "42")
+
+	cfg, err := ResolveAccountClientConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.BaseURL != "https://example.com" {
+		t.Fatalf("BaseURL = %q, want %q", cfg.BaseURL, "https://example.com")
+	}
+	if cfg.Token != "token" {
+		t.Fatalf("Token = %q, want %q", cfg.Token, "token")
+	}
+	if cfg.AccountID != 42 {
+		t.Fatalf("AccountID = %d, want %d", cfg.AccountID, 42)
+	}
+}
+
+func TestResolvePlatformClientConfig_EnvOnly(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://example.com/")
+	t.Setenv("CHATWOOT_PLATFORM_TOKEN", "platform-token")
+
+	cfg, err := ResolvePlatformClientConfig("", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.BaseURL != "https://example.com" {
+		t.Fatalf("BaseURL = %q, want %q", cfg.BaseURL, "https://example.com")
+	}
+	if cfg.Token != "platform-token" {
+		t.Fatalf("Token = %q, want %q", cfg.Token, "platform-token")
+	}
+	if cfg.AccountID != 0 {
+		t.Fatalf("AccountID = %d, want %d", cfg.AccountID, 0)
+	}
+}
+
+func TestResolvePublicClientConfig_Override(t *testing.T) {
+	withMockKeyring(t, testKeyring(t, nil))
+
+	cfg, err := ResolvePublicClientConfig("https://public.example.com/")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.BaseURL != "https://public.example.com" {
+		t.Fatalf("BaseURL = %q, want %q", cfg.BaseURL, "https://public.example.com")
+	}
+	if cfg.Token != "" {
+		t.Fatalf("Token = %q, want empty", cfg.Token)
+	}
+	if cfg.AccountID != 0 {
+		t.Fatalf("AccountID = %d, want %d", cfg.AccountID, 0)
+	}
+}
+
 func TestLoadAccountFromEnv(t *testing.T) {
 	tests := []struct {
 		name        string

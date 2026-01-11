@@ -14,7 +14,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
@@ -32,113 +33,41 @@ func getJQQuery() string {
 
 // getClient creates an API client from stored credentials
 func getClient() (*api.Client, error) {
-	account, err := config.LoadAccount()
-	if err != nil {
-		return nil, err
-	}
-	client := api.New(account.BaseURL, account.APIToken, account.AccountID)
-	applyTimeout(client)
-	applyUserAgent(client)
-	return client, nil
+	return newClientFactory().account()
 }
 
 // getPlatformClient creates a platform API client, allowing optional overrides
 func getPlatformClient(baseURLOverride, tokenOverride string) (*api.Client, error) {
-	var baseURL string
-	var platformToken string
-	var accountID int
-
-	account, err := config.LoadAccount()
-	if err == nil {
-		baseURL = account.BaseURL
-		platformToken = account.PlatformToken
-		accountID = account.AccountID
-	}
-
-	if envURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL")); envURL != "" {
-		baseURL = strings.TrimSuffix(envURL, "/")
-	}
-	if envToken := strings.TrimSpace(os.Getenv("CHATWOOT_PLATFORM_TOKEN")); envToken != "" {
-		platformToken = envToken
-	}
-
-	if baseURLOverride != "" {
-		baseURL = strings.TrimSuffix(baseURLOverride, "/")
-	}
-	if tokenOverride != "" {
-		platformToken = tokenOverride
-	}
-
-	if baseURL == "" {
-		return nil, fmt.Errorf("platform base URL not configured (set CHATWOOT_BASE_URL or pass --base-url)")
-	}
-	if platformToken == "" {
-		return nil, fmt.Errorf("platform token not configured (set CHATWOOT_PLATFORM_TOKEN, use --token, or store in profile)")
-	}
-
-	client := api.New(baseURL, platformToken, accountID)
-	applyTimeout(client)
-	applyUserAgent(client)
-	return client, nil
+	return newClientFactory().platform(baseURLOverride, tokenOverride)
 }
 
 // getPublicClient creates a public client API instance, allowing optional overrides
 func getPublicClient(baseURLOverride string) (*api.Client, error) {
-	var baseURL string
-
-	account, err := config.LoadAccount()
-	if err == nil {
-		baseURL = account.BaseURL
-	}
-	if envURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL")); envURL != "" {
-		baseURL = strings.TrimSuffix(envURL, "/")
-	}
-	if baseURLOverride != "" {
-		baseURL = strings.TrimSuffix(baseURLOverride, "/")
-	}
-
-	if baseURL == "" {
-		return nil, fmt.Errorf("base URL not configured (set CHATWOOT_BASE_URL, run 'chatwoot auth login', or pass --base-url)")
-	}
-
-	client := api.New(baseURL, "", 0)
-	applyTimeout(client)
-	applyUserAgent(client)
-	return client, nil
-}
-
-func applyTimeout(client *api.Client) {
-	if client == nil {
-		return
-	}
-	if flags.Timeout > 0 {
-		client.HTTP.Timeout = flags.Timeout
-	}
-}
-
-func applyUserAgent(client *api.Client) {
-	if client == nil {
-		return
-	}
-	client.UserAgent = fmt.Sprintf("chatwoot-cli/%s", version)
+	return newClientFactory().public(baseURLOverride)
 }
 
 // newTabWriter creates a tabwriter for text output
-func newTabWriter() *tabwriter.Writer {
-	return tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
+func newTabWriter(out io.Writer) *tabwriter.Writer {
+	return tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+}
+
+func newTabWriterFromCmd(cmd *cobra.Command) *tabwriter.Writer {
+	ioStreams := iocontext.GetIO(cmd.Context())
+	return newTabWriter(ioStreams.Out)
 }
 
 // printJSON outputs data as JSON with optional query/template filtering
 func printJSON(cmd *cobra.Command, v any) error {
+	ioStreams := iocontext.GetIO(cmd.Context())
 	query := outfmt.GetQuery(cmd.Context())
 	if tmpl := outfmt.GetTemplate(cmd.Context()); tmpl != "" {
 		filtered, err := outfmt.ApplyQuery(v, query)
 		if err != nil {
 			return err
 		}
-		return outfmt.WriteTemplate(os.Stdout, filtered, tmpl)
+		return outfmt.WriteTemplate(ioStreams.Out, filtered, tmpl)
 	}
-	return outfmt.WriteJSONFiltered(os.Stdout, v, query)
+	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query)
 }
 
 // isJSON checks if the command context wants JSON output
@@ -152,9 +81,10 @@ func isQuiet(_ *cobra.Command) bool {
 }
 
 // printIfNotQuiet prints to stdout only if not in quiet mode
-func printIfNotQuiet(_ *cobra.Command, format string, args ...any) {
+func printIfNotQuiet(cmd *cobra.Command, format string, args ...any) {
 	if !flags.Quiet {
-		fmt.Printf(format, args...)
+		ioStreams := iocontext.GetIO(cmd.Context())
+		_, _ = fmt.Fprintf(ioStreams.Out, format, args...)
 	}
 }
 
@@ -203,6 +133,52 @@ func validateStatus(status string) error {
 
 func registerStaticCompletions(cmd *cobra.Command, flagName string, values []string) {
 	_ = cmd.RegisterFlagCompletionFunc(flagName, cobra.FixedCompletions(values, cobra.ShellCompDirectiveNoFileComp))
+}
+
+func maybeDryRun(cmd *cobra.Command, preview *dryrun.Preview) (bool, error) {
+	if !dryrun.IsEnabled(cmd.Context()) {
+		return false, nil
+	}
+	if preview == nil {
+		preview = &dryrun.Preview{}
+	}
+	if isJSON(cmd) {
+		payload := map[string]any{
+			"dry_run":     true,
+			"operation":   preview.Operation,
+			"resource":    preview.Resource,
+			"description": preview.Description,
+			"details":     preview.Details,
+			"warnings":    preview.Warnings,
+		}
+		return true, printJSON(cmd, payload)
+	}
+
+	ioStreams := iocontext.GetIO(cmd.Context())
+	preview.Write(ioStreams.Out)
+	return true, nil
+}
+
+func anyFlagChanged(cmd *cobra.Command, flags ...string) bool {
+	for _, flag := range flags {
+		if cmd.Flags().Changed(flag) {
+			return true
+		}
+	}
+	return false
+}
+
+func boolPtrIfChanged(cmd *cobra.Command, flag string, value bool) *bool {
+	if cmd.Flags().Changed(flag) {
+		return &value
+	}
+	return nil
+}
+
+func setMapIfChanged(cmd *cobra.Command, flag, key string, params map[string]any, value any) {
+	if cmd.Flags().Changed(flag) {
+		params[key] = value
+	}
 }
 
 // validateSlug validates a portal/article/category slug
@@ -284,22 +260,24 @@ func isInteractive() bool {
 	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
-func promptSelect(label string, options []selectOption, allowSkip bool) (int, bool, error) {
+func promptSelect(ctx context.Context, label string, options []selectOption, allowSkip bool) (int, bool, error) {
 	if len(options) == 0 {
 		return 0, false, fmt.Errorf("no options available for %s", label)
 	}
 
-	fmt.Printf("%s:\n", label)
+	ioStreams := iocontext.GetIO(ctx)
+
+	_, _ = fmt.Fprintf(ioStreams.Out, "%s:\n", label)
 	if allowSkip {
-		fmt.Println("  0) Skip")
+		_, _ = fmt.Fprintln(ioStreams.Out, "  0) Skip")
 	}
 	for i, opt := range options {
-		fmt.Printf("  %d) %s\n", i+1, opt.Label)
+		_, _ = fmt.Fprintf(ioStreams.Out, "  %d) %s\n", i+1, opt.Label)
 	}
 
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(ioStreams.In)
 	for {
-		fmt.Print("> ")
+		_, _ = fmt.Fprint(ioStreams.Out, "> ")
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return 0, false, err
@@ -310,7 +288,7 @@ func promptSelect(label string, options []selectOption, allowSkip bool) (int, bo
 		}
 		choice, err := strconv.Atoi(line)
 		if err != nil || choice < 1 || choice > len(options) {
-			fmt.Println("Invalid selection, try again.")
+			_, _ = fmt.Fprintln(ioStreams.Out, "Invalid selection, try again.")
 			continue
 		}
 		return options[choice-1].ID, true, nil
@@ -329,7 +307,7 @@ func promptInboxID(ctx context.Context, client *api.Client) (int, error) {
 			Label: fmt.Sprintf("%d - %s", inbox.ID, inbox.Name),
 		})
 	}
-	id, _, err := promptSelect("Select inbox", options, false)
+	id, _, err := promptSelect(ctx, "Select inbox", options, false)
 	return id, err
 }
 
@@ -345,7 +323,7 @@ func promptAgentID(ctx context.Context, client *api.Client) (int, error) {
 			Label: fmt.Sprintf("%d - %s", agent.ID, agent.Name),
 		})
 	}
-	id, _, err := promptSelect("Select agent", options, true)
+	id, _, err := promptSelect(ctx, "Select agent", options, true)
 	return id, err
 }
 
@@ -361,7 +339,7 @@ func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
 			Label: fmt.Sprintf("%d - %s", team.ID, team.Name),
 		})
 	}
-	id, _, err := promptSelect("Select team", options, true)
+	id, _, err := promptSelect(ctx, "Select team", options, true)
 	return id, err
 }
 
@@ -369,6 +347,18 @@ func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
 // Commands using RunE return this to signal Cobra that an error occurred (for exit code)
 // without Cobra printing it again (since SilenceErrors is true on root command).
 var errAlreadyHandled = errors.New("error already handled")
+
+type handledError struct {
+	err error
+}
+
+func (e *handledError) Error() string {
+	return e.err.Error()
+}
+
+func (e *handledError) Unwrap() error {
+	return errAlreadyHandled
+}
 
 // ANSI color codes
 const (
@@ -464,8 +454,8 @@ func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Comm
 				// Print enhanced error to stderr
 				_, _ = fmt.Fprint(cmd.ErrOrStderr(), HandleError(err))
 			}
-			// Return sentinel error to signal failure without Cobra printing again
-			return errAlreadyHandled
+			// Return a handled error so tests can still inspect the original message.
+			return &handledError{err: err}
 		}
 		return nil
 	}
