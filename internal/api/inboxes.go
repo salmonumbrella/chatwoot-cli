@@ -84,10 +84,19 @@ func applyInboxSettings(body map[string]any, settings InboxSettings) {
 
 // ListInboxes retrieves all inboxes for the account
 func (c *Client) ListInboxes(ctx context.Context) ([]Inbox, error) {
+	return listInboxes(ctx, c)
+}
+
+// List retrieves all inboxes for the account.
+func (s InboxesService) List(ctx context.Context) ([]Inbox, error) {
+	return listInboxes(ctx, s)
+}
+
+func listInboxes(ctx context.Context, r Requester) ([]Inbox, error) {
 	var result struct {
 		Payload []Inbox `json:"payload"`
 	}
-	if err := c.Get(ctx, "/inboxes", &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath("/inboxes"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -95,8 +104,17 @@ func (c *Client) ListInboxes(ctx context.Context) ([]Inbox, error) {
 
 // GetInbox retrieves a specific inbox by ID
 func (c *Client) GetInbox(ctx context.Context, id int) (*Inbox, error) {
+	return getInbox(ctx, c, id)
+}
+
+// Get retrieves a specific inbox by ID.
+func (s InboxesService) Get(ctx context.Context, id int) (*Inbox, error) {
+	return getInbox(ctx, s, id)
+}
+
+func getInbox(ctx context.Context, r Requester, id int) (*Inbox, error) {
 	var result Inbox
-	if err := c.Get(ctx, fmt.Sprintf("/inboxes/%d", id), &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -104,6 +122,15 @@ func (c *Client) GetInbox(ctx context.Context, id int) (*Inbox, error) {
 
 // CreateInbox creates a new inbox
 func (c *Client) CreateInbox(ctx context.Context, req CreateInboxRequest) (*Inbox, error) {
+	return createInbox(ctx, c, req)
+}
+
+// Create creates a new inbox.
+func (s InboxesService) Create(ctx context.Context, req CreateInboxRequest) (*Inbox, error) {
+	return createInbox(ctx, s, req)
+}
+
+func createInbox(ctx context.Context, r Requester, req CreateInboxRequest) (*Inbox, error) {
 	body := map[string]any{}
 	if req.Name != "" {
 		body["name"] = req.Name
@@ -115,7 +142,7 @@ func (c *Client) CreateInbox(ctx context.Context, req CreateInboxRequest) (*Inbo
 	}
 	applyInboxSettings(body, req.InboxSettings)
 	var result Inbox
-	if err := c.Post(ctx, "/inboxes", body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/inboxes"), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -123,13 +150,22 @@ func (c *Client) CreateInbox(ctx context.Context, req CreateInboxRequest) (*Inbo
 
 // UpdateInbox updates an existing inbox
 func (c *Client) UpdateInbox(ctx context.Context, id int, req UpdateInboxRequest) (*Inbox, error) {
+	return updateInbox(ctx, c, id, req)
+}
+
+// Update updates an existing inbox.
+func (s InboxesService) Update(ctx context.Context, id int, req UpdateInboxRequest) (*Inbox, error) {
+	return updateInbox(ctx, s, id, req)
+}
+
+func updateInbox(ctx context.Context, r Requester, id int, req UpdateInboxRequest) (*Inbox, error) {
 	body := map[string]any{}
 	if req.Name != "" {
 		body["name"] = req.Name
 	}
 	applyInboxSettings(body, req.InboxSettings)
 	var result Inbox
-	if err := c.Patch(ctx, fmt.Sprintf("/inboxes/%d", id), body, &result); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -137,13 +173,31 @@ func (c *Client) UpdateInbox(ctx context.Context, id int, req UpdateInboxRequest
 
 // DeleteInbox deletes an inbox
 func (c *Client) DeleteInbox(ctx context.Context, id int) error {
-	return c.Delete(ctx, fmt.Sprintf("/inboxes/%d", id))
+	return deleteInbox(ctx, c, id)
+}
+
+// Delete deletes an inbox.
+func (s InboxesService) Delete(ctx context.Context, id int) error {
+	return deleteInbox(ctx, s, id)
+}
+
+func deleteInbox(ctx context.Context, r Requester, id int) error {
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/inboxes/%d", id)), nil, nil)
 }
 
 // GetInboxAgentBot retrieves the agent bot assigned to an inbox
 func (c *Client) GetInboxAgentBot(ctx context.Context, id int) (*AgentBot, error) {
+	return getInboxAgentBot(ctx, c, id)
+}
+
+// GetAgentBot retrieves the agent bot assigned to an inbox.
+func (s InboxesService) GetAgentBot(ctx context.Context, id int) (*AgentBot, error) {
+	return getInboxAgentBot(ctx, s, id)
+}
+
+func getInboxAgentBot(ctx context.Context, r Requester, id int) (*AgentBot, error) {
 	var result AgentBot
-	if err := c.Get(ctx, fmt.Sprintf("/inboxes/%d/agent_bot", id), &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/inboxes/%d/agent_bot", id)), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -151,18 +205,36 @@ func (c *Client) GetInboxAgentBot(ctx context.Context, id int) (*AgentBot, error
 
 // SetInboxAgentBot assigns an agent bot to an inbox
 func (c *Client) SetInboxAgentBot(ctx context.Context, inboxID, botID int) error {
+	return setInboxAgentBot(ctx, c, inboxID, botID)
+}
+
+// SetAgentBot assigns an agent bot to an inbox.
+func (s InboxesService) SetAgentBot(ctx context.Context, inboxID, botID int) error {
+	return setInboxAgentBot(ctx, s, inboxID, botID)
+}
+
+func setInboxAgentBot(ctx context.Context, r Requester, inboxID, botID int) error {
 	body := map[string]any{
 		"agent_bot_id": botID,
 	}
-	return c.Post(ctx, fmt.Sprintf("/inboxes/%d/set_agent_bot", inboxID), body, nil)
+	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/inboxes/%d/set_agent_bot", inboxID)), body, nil)
 }
 
 // ListInboxMembers retrieves all agents assigned to an inbox
 func (c *Client) ListInboxMembers(ctx context.Context, inboxID int) ([]Agent, error) {
+	return listInboxMembers(ctx, c, inboxID)
+}
+
+// ListMembers retrieves all agents assigned to an inbox.
+func (s InboxesService) ListMembers(ctx context.Context, inboxID int) ([]Agent, error) {
+	return listInboxMembers(ctx, s, inboxID)
+}
+
+func listInboxMembers(ctx context.Context, r Requester, inboxID int) ([]Agent, error) {
 	var result struct {
 		Payload []Agent `json:"payload"`
 	}
-	if err := c.Get(ctx, fmt.Sprintf("/inbox_members/%d", inboxID), &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/inbox_members/%d", inboxID)), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -170,29 +242,56 @@ func (c *Client) ListInboxMembers(ctx context.Context, inboxID int) ([]Agent, er
 
 // AddInboxMembers adds agents to an inbox
 func (c *Client) AddInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	return addInboxMembers(ctx, c, inboxID, userIDs)
+}
+
+// AddMembers adds agents to an inbox.
+func (s InboxesService) AddMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	return addInboxMembers(ctx, s, inboxID, userIDs)
+}
+
+func addInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs []int) error {
 	body := map[string]any{
 		"inbox_id": inboxID,
 		"user_ids": userIDs,
 	}
-	return c.Post(ctx, "/inbox_members", body, nil)
+	return r.do(ctx, "POST", r.accountPath("/inbox_members"), body, nil)
 }
 
 // RemoveInboxMembers removes agents from an inbox
 func (c *Client) RemoveInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	return removeInboxMembers(ctx, c, inboxID, userIDs)
+}
+
+// RemoveMembers removes agents from an inbox.
+func (s InboxesService) RemoveMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	return removeInboxMembers(ctx, s, inboxID, userIDs)
+}
+
+func removeInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs []int) error {
 	body := map[string]any{
 		"inbox_id": inboxID,
 		"user_ids": userIDs,
 	}
-	return c.DeleteWithBody(ctx, "/inbox_members", body)
+	return r.do(ctx, "DELETE", r.accountPath("/inbox_members"), body, nil)
 }
 
 // UpdateInboxMembers updates inbox members (replaces the list)
 func (c *Client) UpdateInboxMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	return updateInboxMembers(ctx, c, inboxID, userIDs)
+}
+
+// UpdateMembers updates inbox members (replaces the list).
+func (s InboxesService) UpdateMembers(ctx context.Context, inboxID int, userIDs []int) error {
+	return updateInboxMembers(ctx, s, inboxID, userIDs)
+}
+
+func updateInboxMembers(ctx context.Context, r Requester, inboxID int, userIDs []int) error {
 	body := map[string]any{
 		"inbox_id": inboxID,
 		"user_ids": userIDs,
 	}
-	return c.Patch(ctx, "/inbox_members", body, nil)
+	return r.do(ctx, "PATCH", r.accountPath("/inbox_members"), body, nil)
 }
 
 // triageResult holds the result of fetching enrichment data for a conversation
@@ -345,11 +444,25 @@ func (c *Client) GetInboxTriage(ctx context.Context, inboxID int, status string,
 	}, nil
 }
 
+// Triage retrieves conversations for an inbox with enriched context for triage.
+func (s InboxesService) Triage(ctx context.Context, inboxID int, status string, limit int) (*InboxTriage, error) {
+	return s.GetInboxTriage(ctx, inboxID, status, limit)
+}
+
 // GetInboxCampaigns retrieves campaigns for an inbox
 func (c *Client) GetInboxCampaigns(ctx context.Context, inboxID int) ([]Campaign, error) {
+	return getInboxCampaigns(ctx, c, inboxID)
+}
+
+// Campaigns retrieves campaigns for an inbox.
+func (s InboxesService) Campaigns(ctx context.Context, inboxID int) ([]Campaign, error) {
+	return getInboxCampaigns(ctx, s, inboxID)
+}
+
+func getInboxCampaigns(ctx context.Context, r Requester, inboxID int) ([]Campaign, error) {
 	path := fmt.Sprintf("/inboxes/%d/campaigns", inboxID)
 	var result []Campaign
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -357,14 +470,32 @@ func (c *Client) GetInboxCampaigns(ctx context.Context, inboxID int) ([]Campaign
 
 // SyncInboxTemplates syncs WhatsApp templates for an inbox
 func (c *Client) SyncInboxTemplates(ctx context.Context, inboxID int) error {
-	return c.Post(ctx, fmt.Sprintf("/inboxes/%d/sync_templates", inboxID), nil, nil)
+	return syncInboxTemplates(ctx, c, inboxID)
+}
+
+// SyncTemplates syncs WhatsApp templates for an inbox.
+func (s InboxesService) SyncTemplates(ctx context.Context, inboxID int) error {
+	return syncInboxTemplates(ctx, s, inboxID)
+}
+
+func syncInboxTemplates(ctx context.Context, r Requester, inboxID int) error {
+	return r.do(ctx, "POST", r.accountPath(fmt.Sprintf("/inboxes/%d/sync_templates", inboxID)), nil, nil)
 }
 
 // GetInboxHealth gets WhatsApp Cloud API health for an inbox
 func (c *Client) GetInboxHealth(ctx context.Context, inboxID int) (map[string]any, error) {
+	return getInboxHealth(ctx, c, inboxID)
+}
+
+// Health gets WhatsApp Cloud API health for an inbox.
+func (s InboxesService) Health(ctx context.Context, inboxID int) (map[string]any, error) {
+	return getInboxHealth(ctx, s, inboxID)
+}
+
+func getInboxHealth(ctx context.Context, r Requester, inboxID int) (map[string]any, error) {
 	path := fmt.Sprintf("/inboxes/%d/health", inboxID)
 	var result map[string]any
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -372,7 +503,16 @@ func (c *Client) GetInboxHealth(ctx context.Context, inboxID int) (map[string]an
 
 // DeleteInboxAvatar removes the inbox avatar
 func (c *Client) DeleteInboxAvatar(ctx context.Context, inboxID int) error {
-	return c.Delete(ctx, fmt.Sprintf("/inboxes/%d/avatar", inboxID))
+	return deleteInboxAvatar(ctx, c, inboxID)
+}
+
+// DeleteAvatar removes the inbox avatar.
+func (s InboxesService) DeleteAvatar(ctx context.Context, inboxID int) error {
+	return deleteInboxAvatar(ctx, s, inboxID)
+}
+
+func deleteInboxAvatar(ctx context.Context, r Requester, inboxID int) error {
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/inboxes/%d/avatar", inboxID)), nil, nil)
 }
 
 // CSATTemplate represents a CSAT survey template
@@ -384,9 +524,18 @@ type CSATTemplate struct {
 
 // GetInboxCSATTemplate gets the CSAT template for an inbox
 func (c *Client) GetInboxCSATTemplate(ctx context.Context, inboxID int) (*CSATTemplate, error) {
+	return getInboxCSATTemplate(ctx, c, inboxID)
+}
+
+// CSATTemplate gets the CSAT template for an inbox.
+func (s InboxesService) CSATTemplate(ctx context.Context, inboxID int) (*CSATTemplate, error) {
+	return getInboxCSATTemplate(ctx, s, inboxID)
+}
+
+func getInboxCSATTemplate(ctx context.Context, r Requester, inboxID int) (*CSATTemplate, error) {
 	path := fmt.Sprintf("/inboxes/%d/csat_template", inboxID)
 	var result CSATTemplate
-	if err := c.Get(ctx, path, &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -394,13 +543,22 @@ func (c *Client) GetInboxCSATTemplate(ctx context.Context, inboxID int) (*CSATTe
 
 // CreateInboxCSATTemplate creates or updates CSAT template for an inbox
 func (c *Client) CreateInboxCSATTemplate(ctx context.Context, inboxID int, question, message string) (*CSATTemplate, error) {
+	return createInboxCSATTemplate(ctx, c, inboxID, question, message)
+}
+
+// CreateCSATTemplate creates or updates CSAT template for an inbox.
+func (s InboxesService) CreateCSATTemplate(ctx context.Context, inboxID int, question, message string) (*CSATTemplate, error) {
+	return createInboxCSATTemplate(ctx, s, inboxID, question, message)
+}
+
+func createInboxCSATTemplate(ctx context.Context, r Requester, inboxID int, question, message string) (*CSATTemplate, error) {
 	path := fmt.Sprintf("/inboxes/%d/csat_template", inboxID)
 	body := map[string]string{
 		"question": question,
 		"message":  message,
 	}
 	var result CSATTemplate
-	if err := c.Post(ctx, path, body, &result); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath(path), body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
