@@ -11,12 +11,21 @@ import (
 
 // ListCampaigns returns all campaigns for the account.
 func (c *Client) ListCampaigns(ctx context.Context, page int) ([]Campaign, error) {
+	return listCampaigns(ctx, c, page)
+}
+
+// List returns all campaigns for the account.
+func (s CampaignsService) List(ctx context.Context, page int) ([]Campaign, error) {
+	return listCampaigns(ctx, s, page)
+}
+
+func listCampaigns(ctx context.Context, r Requester, page int) ([]Campaign, error) {
 	path := "/campaigns"
 	if page > 0 {
 		path = fmt.Sprintf("%s?page=%d", path, page)
 	}
 	var campaigns []Campaign
-	if err := c.Get(ctx, path, &campaigns); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &campaigns); err != nil {
 		return nil, err
 	}
 	return campaigns, nil
@@ -24,8 +33,17 @@ func (c *Client) ListCampaigns(ctx context.Context, page int) ([]Campaign, error
 
 // GetCampaign returns a single campaign by ID.
 func (c *Client) GetCampaign(ctx context.Context, id int) (*Campaign, error) {
+	return getCampaign(ctx, c, id)
+}
+
+// Get returns a single campaign by ID.
+func (s CampaignsService) Get(ctx context.Context, id int) (*Campaign, error) {
+	return getCampaign(ctx, s, id)
+}
+
+func getCampaign(ctx context.Context, r Requester, id int) (*Campaign, error) {
 	var campaign Campaign
-	if err := c.Get(ctx, fmt.Sprintf("/campaigns/%d", id), &campaign); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(fmt.Sprintf("/campaigns/%d", id)), nil, &campaign); err != nil {
 		return nil, err
 	}
 	return &campaign, nil
@@ -47,8 +65,17 @@ type CreateCampaignRequest struct {
 
 // CreateCampaign creates a new campaign.
 func (c *Client) CreateCampaign(ctx context.Context, req CreateCampaignRequest) (*Campaign, error) {
+	return createCampaign(ctx, c, req)
+}
+
+// Create creates a new campaign.
+func (s CampaignsService) Create(ctx context.Context, req CreateCampaignRequest) (*Campaign, error) {
+	return createCampaign(ctx, s, req)
+}
+
+func createCampaign(ctx context.Context, r Requester, req CreateCampaignRequest) (*Campaign, error) {
 	var campaign Campaign
-	if err := c.Post(ctx, "/campaigns", req, &campaign); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/campaigns"), req, &campaign); err != nil {
 		return nil, err
 	}
 	return &campaign, nil
@@ -69,8 +96,17 @@ type UpdateCampaignRequest struct {
 
 // UpdateCampaign updates an existing campaign.
 func (c *Client) UpdateCampaign(ctx context.Context, id int, req UpdateCampaignRequest) (*Campaign, error) {
+	return updateCampaign(ctx, c, id, req)
+}
+
+// Update updates an existing campaign.
+func (s CampaignsService) Update(ctx context.Context, id int, req UpdateCampaignRequest) (*Campaign, error) {
+	return updateCampaign(ctx, s, id, req)
+}
+
+func updateCampaign(ctx context.Context, r Requester, id int, req UpdateCampaignRequest) (*Campaign, error) {
 	var campaign Campaign
-	if err := c.Patch(ctx, fmt.Sprintf("/campaigns/%d", id), req, &campaign); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/campaigns/%d", id)), req, &campaign); err != nil {
 		return nil, err
 	}
 	return &campaign, nil
@@ -78,5 +114,14 @@ func (c *Client) UpdateCampaign(ctx context.Context, id int, req UpdateCampaignR
 
 // DeleteCampaign deletes a campaign by ID.
 func (c *Client) DeleteCampaign(ctx context.Context, id int) error {
-	return c.Delete(ctx, fmt.Sprintf("/campaigns/%d", id))
+	return deleteCampaign(ctx, c, id)
+}
+
+// Delete deletes a campaign by ID.
+func (s CampaignsService) Delete(ctx context.Context, id int) error {
+	return deleteCampaign(ctx, s, id)
+}
+
+func deleteCampaign(ctx context.Context, r Requester, id int) error {
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/campaigns/%d", id)), nil, nil)
 }
