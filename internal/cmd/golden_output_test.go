@@ -369,3 +369,91 @@ func TestGoldenCampaignsListJSON(t *testing.T) {
 
 	assertGolden(t, "campaigns_list.json", output)
 }
+
+func TestGoldenAgentsGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agents", jsonResponse(200, `[
+			{"id": 1, "name": "Ava", "email": "ava@example.com", "role": "admin"},
+			{"id": 2, "name": "Ben", "email": "ben@example.com", "role": "agent", "availability_status": "online"}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agents", "get", "2", "-o", "json"}); err != nil {
+			t.Fatalf("agents get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "agents_get.json", output)
+}
+
+func TestGoldenTeamsGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/teams/12", jsonResponse(200, `{
+			"id": 12,
+			"name": "Escalations",
+			"description": "Tier 2",
+			"allow_auto_assign": false,
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"teams", "get", "12", "-o", "json"}); err != nil {
+			t.Fatalf("teams get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "teams_get.json", output)
+}
+
+func TestGoldenWebhooksGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/webhooks", jsonResponse(200, `{
+			"payload": {
+				"webhooks": [
+					{"id": 21, "url": "https://example.com/a", "subscriptions": ["conversation_created"], "account_id": 1},
+					{"id": 22, "url": "https://example.com/b", "subscriptions": ["message_created", "message_updated"], "account_id": 1}
+				]
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"webhooks", "get", "22", "-o", "json"}); err != nil {
+			t.Fatalf("webhooks get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "webhooks_get.json", output)
+}
+
+func TestGoldenCampaignsGetJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/campaigns/31", jsonResponse(200, `{
+			"id": 31,
+			"title": "Promo",
+			"description": "One-off blast",
+			"message": "Hello!",
+			"enabled": true,
+			"campaign_type": "one_off",
+			"campaign_status": "active",
+			"inbox_id": 5,
+			"trigger_only_during_business_hours": false,
+			"created_at": 1700006000,
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"campaigns", "get", "31", "-o", "json"}); err != nil {
+			t.Fatalf("campaigns get failed: %v", err)
+		}
+	})
+
+	assertGolden(t, "campaigns_get.json", output)
+}

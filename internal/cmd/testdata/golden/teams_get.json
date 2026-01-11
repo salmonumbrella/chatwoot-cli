@@ -1,0 +1,7 @@
+{
+  "id": 12,
+  "name": "Escalations",
+  "description": "Tier 2",
+  "allow_auto_assign": false,
+  "account_id": 1
+}
