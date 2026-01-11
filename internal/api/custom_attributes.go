@@ -32,6 +32,15 @@ func translateModelToQueryParam(model string) string {
 
 // ListCustomAttributes retrieves all custom attribute definitions for a model
 func (c *Client) ListCustomAttributes(ctx context.Context, model string) ([]CustomAttribute, error) {
+	return listCustomAttributes(ctx, c, model)
+}
+
+// List retrieves all custom attribute definitions for a model.
+func (s CustomAttributesService) List(ctx context.Context, model string) ([]CustomAttribute, error) {
+	return listCustomAttributes(ctx, s, model)
+}
+
+func listCustomAttributes(ctx context.Context, r Requester, model string) ([]CustomAttribute, error) {
 	path := "/custom_attribute_definitions"
 	if model != "" {
 		apiModel := translateModelToQueryParam(model)
@@ -39,7 +48,7 @@ func (c *Client) ListCustomAttributes(ctx context.Context, model string) ([]Cust
 	}
 
 	var attrs []CustomAttribute
-	if err := c.Get(ctx, path, &attrs); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &attrs); err != nil {
 		return nil, err
 	}
 	return attrs, nil
@@ -47,9 +56,18 @@ func (c *Client) ListCustomAttributes(ctx context.Context, model string) ([]Cust
 
 // GetCustomAttribute retrieves a single custom attribute by ID
 func (c *Client) GetCustomAttribute(ctx context.Context, id int) (*CustomAttribute, error) {
+	return getCustomAttribute(ctx, c, id)
+}
+
+// Get retrieves a single custom attribute by ID.
+func (s CustomAttributesService) Get(ctx context.Context, id int) (*CustomAttribute, error) {
+	return getCustomAttribute(ctx, s, id)
+}
+
+func getCustomAttribute(ctx context.Context, r Requester, id int) (*CustomAttribute, error) {
 	path := fmt.Sprintf("/custom_attribute_definitions/%d", id)
 	var attr CustomAttribute
-	if err := c.Get(ctx, path, &attr); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath(path), nil, &attr); err != nil {
 		return nil, err
 	}
 	return &attr, nil
@@ -57,6 +75,15 @@ func (c *Client) GetCustomAttribute(ctx context.Context, id int) (*CustomAttribu
 
 // CreateCustomAttribute creates a new custom attribute definition
 func (c *Client) CreateCustomAttribute(ctx context.Context, name, key, model, attrType string) (*CustomAttribute, error) {
+	return createCustomAttribute(ctx, c, name, key, model, attrType)
+}
+
+// Create creates a new custom attribute definition.
+func (s CustomAttributesService) Create(ctx context.Context, name, key, model, attrType string) (*CustomAttribute, error) {
+	return createCustomAttribute(ctx, s, name, key, model, attrType)
+}
+
+func createCustomAttribute(ctx context.Context, r Requester, name, key, model, attrType string) (*CustomAttribute, error) {
 	body := map[string]any{
 		"attribute_display_name": name,
 		"attribute_key":          key,
@@ -65,7 +92,7 @@ func (c *Client) CreateCustomAttribute(ctx context.Context, name, key, model, at
 	}
 
 	var attr CustomAttribute
-	if err := c.Post(ctx, "/custom_attribute_definitions", body, &attr); err != nil {
+	if err := r.do(ctx, "POST", r.accountPath("/custom_attribute_definitions"), body, &attr); err != nil {
 		return nil, err
 	}
 	return &attr, nil
@@ -73,13 +100,22 @@ func (c *Client) CreateCustomAttribute(ctx context.Context, name, key, model, at
 
 // UpdateCustomAttribute updates an existing custom attribute definition
 func (c *Client) UpdateCustomAttribute(ctx context.Context, id int, name string) (*CustomAttribute, error) {
+	return updateCustomAttribute(ctx, c, id, name)
+}
+
+// Update updates an existing custom attribute definition.
+func (s CustomAttributesService) Update(ctx context.Context, id int, name string) (*CustomAttribute, error) {
+	return updateCustomAttribute(ctx, s, id, name)
+}
+
+func updateCustomAttribute(ctx context.Context, r Requester, id int, name string) (*CustomAttribute, error) {
 	body := map[string]any{
 		"attribute_display_name": name,
 	}
 
 	path := fmt.Sprintf("/custom_attribute_definitions/%d", id)
 	var attr CustomAttribute
-	if err := c.Patch(ctx, path, body, &attr); err != nil {
+	if err := r.do(ctx, "PATCH", r.accountPath(path), body, &attr); err != nil {
 		return nil, err
 	}
 	return &attr, nil
@@ -87,6 +123,15 @@ func (c *Client) UpdateCustomAttribute(ctx context.Context, id int, name string)
 
 // DeleteCustomAttribute deletes a custom attribute definition
 func (c *Client) DeleteCustomAttribute(ctx context.Context, id int) error {
+	return deleteCustomAttribute(ctx, c, id)
+}
+
+// Delete deletes a custom attribute definition.
+func (s CustomAttributesService) Delete(ctx context.Context, id int) error {
+	return deleteCustomAttribute(ctx, s, id)
+}
+
+func deleteCustomAttribute(ctx context.Context, r Requester, id int) error {
 	path := fmt.Sprintf("/custom_attribute_definitions/%d", id)
-	return c.Delete(ctx, path)
+	return r.do(ctx, "DELETE", r.accountPath(path), nil, nil)
 }
