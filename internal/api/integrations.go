@@ -7,8 +7,17 @@ import (
 
 // ListIntegrationApps lists available integration apps
 func (c *Client) ListIntegrationApps(ctx context.Context) ([]Integration, error) {
+	return listIntegrationApps(ctx, c)
+}
+
+// ListApps lists available integration apps.
+func (s IntegrationsService) ListApps(ctx context.Context) ([]Integration, error) {
+	return listIntegrationApps(ctx, s)
+}
+
+func listIntegrationApps(ctx context.Context, r Requester) ([]Integration, error) {
 	var result IntegrationAppsResponse
-	if err := c.Get(ctx, "/integrations/apps", &result); err != nil {
+	if err := r.do(ctx, "GET", r.accountPath("/integrations/apps"), nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Payload, nil
@@ -18,7 +27,16 @@ func (c *Client) ListIntegrationApps(ctx context.Context) ([]Integration, error)
 // The Chatwoot API does not have a dedicated list endpoint for hooks; they are
 // returned nested within each app in the /integrations/apps response.
 func (c *Client) ListIntegrationHooks(ctx context.Context) ([]IntegrationHook, error) {
-	apps, err := c.ListIntegrationApps(ctx)
+	return listIntegrationHooks(ctx, c)
+}
+
+// ListHooks lists all integration hooks by extracting them from the apps response.
+func (s IntegrationsService) ListHooks(ctx context.Context) ([]IntegrationHook, error) {
+	return listIntegrationHooks(ctx, s)
+}
+
+func listIntegrationHooks(ctx context.Context, r Requester) ([]IntegrationHook, error) {
+	apps, err := listIntegrationApps(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +50,15 @@ func (c *Client) ListIntegrationHooks(ctx context.Context) ([]IntegrationHook, e
 
 // CreateIntegrationHook creates a new integration hook
 func (c *Client) CreateIntegrationHook(ctx context.Context, appID string, inboxID int, settings map[string]any) (*IntegrationHook, error) {
+	return createIntegrationHook(ctx, c, appID, inboxID, settings)
+}
+
+// CreateHook creates a new integration hook.
+func (s IntegrationsService) CreateHook(ctx context.Context, appID string, inboxID int, settings map[string]any) (*IntegrationHook, error) {
+	return createIntegrationHook(ctx, s, appID, inboxID, settings)
+}
+
+func createIntegrationHook(ctx context.Context, r Requester, appID string, inboxID int, settings map[string]any) (*IntegrationHook, error) {
 	body := map[string]any{
 		"app_id": appID,
 	}
@@ -43,23 +70,41 @@ func (c *Client) CreateIntegrationHook(ctx context.Context, appID string, inboxI
 	}
 
 	var result IntegrationHook
-	err := c.Post(ctx, "/integrations/hooks", body, &result)
+	err := r.do(ctx, "POST", r.accountPath("/integrations/hooks"), body, &result)
 	return &result, err
 }
 
 // UpdateIntegrationHook updates an integration hook
 func (c *Client) UpdateIntegrationHook(ctx context.Context, hookID int, settings map[string]any) (*IntegrationHook, error) {
+	return updateIntegrationHook(ctx, c, hookID, settings)
+}
+
+// UpdateHook updates an integration hook.
+func (s IntegrationsService) UpdateHook(ctx context.Context, hookID int, settings map[string]any) (*IntegrationHook, error) {
+	return updateIntegrationHook(ctx, s, hookID, settings)
+}
+
+func updateIntegrationHook(ctx context.Context, r Requester, hookID int, settings map[string]any) (*IntegrationHook, error) {
 	body := map[string]any{}
 	if settings != nil {
 		body["settings"] = settings
 	}
 
 	var result IntegrationHook
-	err := c.Patch(ctx, fmt.Sprintf("/integrations/hooks/%d", hookID), body, &result)
+	err := r.do(ctx, "PATCH", r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), body, &result)
 	return &result, err
 }
 
 // DeleteIntegrationHook deletes an integration hook
 func (c *Client) DeleteIntegrationHook(ctx context.Context, hookID int) error {
-	return c.Delete(ctx, fmt.Sprintf("/integrations/hooks/%d", hookID))
+	return deleteIntegrationHook(ctx, c, hookID)
+}
+
+// DeleteHook deletes an integration hook.
+func (s IntegrationsService) DeleteHook(ctx context.Context, hookID int) error {
+	return deleteIntegrationHook(ctx, s, hookID)
+}
+
+func deleteIntegrationHook(ctx context.Context, r Requester, hookID int) error {
+	return r.do(ctx, "DELETE", r.accountPath(fmt.Sprintf("/integrations/hooks/%d", hookID)), nil, nil)
 }
