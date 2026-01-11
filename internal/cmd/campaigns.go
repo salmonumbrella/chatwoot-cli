@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,7 @@ func newCampaignsListCmd() *cobra.Command {
 		Use:     "list",
 		Short:   "List all campaigns",
 		Example: "chatwoot campaigns list --page 2",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -50,11 +51,11 @@ func newCampaignsListCmd() *cobra.Command {
 			}
 
 			if len(campaigns) == 0 {
-				fmt.Println("No campaigns found.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No campaigns found.")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tSCHEDULED\tENABLED")
@@ -68,7 +69,7 @@ func newCampaignsListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
@@ -82,7 +83,7 @@ func newCampaignsGetCmd() *cobra.Command {
 		Short:   "Get a campaign by ID",
 		Example: "chatwoot campaigns get 123",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -102,7 +103,7 @@ func newCampaignsGetCmd() *cobra.Command {
 				return printJSON(cmd, campaign)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintf(w, "ID:\t%d\n", campaign.ID)
@@ -121,7 +122,7 @@ func newCampaignsGetCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(w, "Created:\t%s\n", campaign.CreatedAtTime().Format("2006-01-02 15:04:05"))
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -159,7 +160,7 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 
   # Create an SMS campaign with JSON audience (advanced)
   chatwoot campaigns create --title "Promo" --message "50% off today!" --inbox-id 5 --audience '[{"type":"Label","id":1}]' --scheduled-at '2025-01-15T10:00:00Z'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -216,6 +217,14 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 				req.Audience = aud
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "create",
+				Resource:  "campaign",
+				Details:   campaignCreateDetails(req),
+			}); ok {
+				return err
+			}
+
 			campaign, err := client.CreateCampaign(cmdContext(cmd), req)
 			if err != nil {
 				return fmt.Errorf("failed to create campaign: %w", err)
@@ -225,9 +234,9 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 				return printJSON(cmd, campaign)
 			}
 
-			fmt.Printf("Campaign created successfully (ID: %d)\n", campaign.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Campaign created successfully (ID: %d)\n", campaign.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Campaign title (required)")
@@ -277,7 +286,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
   # Update campaign with JSON audience (advanced)
   chatwoot campaigns update 123 --audience '[{"type":"Label","id":1}]' --enabled true`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -328,8 +337,12 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 			req.Enabled = boolPtrIfChanged(cmd, "enabled", enabled)
 			req.TriggerOnlyDuringBusinessHours = boolPtrIfChanged(cmd, "business-hours", businessHours)
 
-			if cmd.Flags().Changed("business-hours") {
-				req.TriggerOnlyDuringBusinessHours = &businessHours
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "campaign",
+				Details:   campaignUpdateDetails(id, req),
+			}); ok {
+				return err
 			}
 
 			campaign, err := client.UpdateCampaign(cmdContext(cmd), id, req)
@@ -341,9 +354,9 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 				return printJSON(cmd, campaign)
 			}
 
-			fmt.Printf("Campaign updated successfully (ID: %d)\n", campaign.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Campaign updated successfully (ID: %d)\n", campaign.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Campaign title")
@@ -367,7 +380,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 		Short:   "Delete a campaign",
 		Example: "chatwoot campaigns delete 123 --force",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -383,22 +396,30 @@ func newCampaignsDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "campaign",
+				Details:   map[string]any{"id": id},
+			}); ok {
+				return err
+			}
+
 			// If not forced and not in JSON mode, fetch campaign and prompt for confirmation
 			if !force && !isJSON(cmd) {
 				// Try to fetch campaign to show title in confirmation
 				campaign, err := client.GetCampaign(cmdContext(cmd), id)
 				if err != nil {
 					// Fall back to just showing ID if fetch fails
-					fmt.Printf("Delete campaign %d? (y/N): ", id)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete campaign %d? (y/N): ", id)
 				} else {
-					fmt.Printf("Delete campaign %q (ID: %d)? (y/N): ", campaign.Title, id)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete campaign %q (ID: %d)? (y/N): ", campaign.Title, id)
 				}
 
 				var response string
 				_, _ = fmt.Scanln(&response)
 				response = strings.TrimSpace(strings.ToLower(response))
 				if response != "y" {
-					fmt.Println("Deletion cancelled.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Deletion cancelled.")
 					return nil
 				}
 			}
@@ -410,12 +431,72 @@ func newCampaignsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Campaign %d deleted successfully\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Campaign %d deleted successfully\n", id)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 
 	return cmd
+}
+
+func campaignCreateDetails(req api.CreateCampaignRequest) map[string]any {
+	details := map[string]any{
+		"title":                              req.Title,
+		"message":                            req.Message,
+		"inbox_id":                           req.InboxID,
+		"enabled":                            req.Enabled,
+		"trigger_only_during_business_hours": req.TriggerOnlyDuringBusinessHours,
+	}
+	if req.Description != "" {
+		details["description"] = req.Description
+	}
+	if req.SenderID != 0 {
+		details["sender_id"] = req.SenderID
+	}
+	if req.ScheduledAt != 0 {
+		details["scheduled_at"] = req.ScheduledAt
+	}
+	if len(req.Audience) > 0 {
+		details["audience"] = req.Audience
+	}
+	if len(req.TriggerRules) > 0 {
+		details["trigger_rules"] = req.TriggerRules
+	}
+	return details
+}
+
+func campaignUpdateDetails(id int, req api.UpdateCampaignRequest) map[string]any {
+	details := map[string]any{
+		"id": id,
+	}
+	if req.Title != "" {
+		details["title"] = req.Title
+	}
+	if req.Description != "" {
+		details["description"] = req.Description
+	}
+	if req.Message != "" {
+		details["message"] = req.Message
+	}
+	if req.SenderID != 0 {
+		details["sender_id"] = req.SenderID
+	}
+	if req.ScheduledAt != 0 {
+		details["scheduled_at"] = req.ScheduledAt
+	}
+	if req.Enabled != nil {
+		details["enabled"] = *req.Enabled
+	}
+	if req.TriggerOnlyDuringBusinessHours != nil {
+		details["trigger_only_during_business_hours"] = *req.TriggerOnlyDuringBusinessHours
+	}
+	if len(req.Audience) > 0 {
+		details["audience"] = req.Audience
+	}
+	if len(req.TriggerRules) > 0 {
+		details["trigger_rules"] = req.TriggerRules
+	}
+	return details
 }

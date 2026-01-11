@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,7 @@ func newMessagesListCmd() *cobra.Command {
   # JSON output - returns an object with an "items" array
   chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -75,7 +76,7 @@ func newMessagesListCmd() *cobra.Command {
 				return printJSON(cmd, messages)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintln(w, "ID\tTYPE\tPRIVATE\tCONTENT\tCREATED_AT")
@@ -98,7 +99,7 @@ func newMessagesListCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
@@ -143,7 +144,7 @@ func newMessagesCreateCmd() *cobra.Command {
   chatwoot messages create 123 --attachment screenshot.png
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -218,6 +219,24 @@ func newMessagesCreateCmd() *cobra.Command {
 					fileData[filename] = data
 				}
 
+				attachmentNames := make([]string, 0, len(fileData))
+				for name := range fileData {
+					attachmentNames = append(attachmentNames, name)
+				}
+				if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+					Operation: "create",
+					Resource:  "message",
+					Details: map[string]any{
+						"conversation_id": conversationID,
+						"content":         content,
+						"private":         private,
+						"type":            messageType,
+						"attachments":     attachmentNames,
+					},
+				}); ok {
+					return err
+				}
+
 				message, err = client.CreateMessageWithAttachments(
 					cmdContext(cmd),
 					conversationID,
@@ -227,6 +246,19 @@ func newMessagesCreateCmd() *cobra.Command {
 					fileData,
 				)
 			} else {
+				if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+					Operation: "create",
+					Resource:  "message",
+					Details: map[string]any{
+						"conversation_id": conversationID,
+						"content":         content,
+						"private":         private,
+						"type":            messageType,
+					},
+				}); ok {
+					return err
+				}
+
 				message, err = client.CreateMessage(cmdContext(cmd), conversationID, content, private, messageType)
 			}
 
@@ -238,21 +270,21 @@ func newMessagesCreateCmd() *cobra.Command {
 				return printJSON(cmd, message)
 			}
 
-			fmt.Printf("Message created successfully (ID: %d)\n", message.ID)
-			fmt.Printf("Type: %s\n", message.MessageTypeName())
-			fmt.Printf("Private: %t\n", message.Private)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message created successfully (ID: %d)\n", message.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Type: %s\n", message.MessageTypeName())
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Private: %t\n", message.Private)
 			if message.Content != "" {
-				fmt.Printf("Content: %s\n", message.Content)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Content: %s\n", message.Content)
 			}
 			if len(message.Attachments) > 0 {
-				fmt.Printf("Attachments: %d file(s)\n", len(message.Attachments))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Attachments: %d file(s)\n", len(message.Attachments))
 				for _, att := range message.Attachments {
-					fmt.Printf("  - %s (%s)\n", att.DataURL, att.FileType)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  - %s (%s)\n", att.DataURL, att.FileType)
 				}
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "Message content")
@@ -270,7 +302,7 @@ func newMessagesDeleteCmd() *cobra.Command {
 		Use:   "delete <conversation-id> <message-id>",
 		Short: "Delete a message from a conversation",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -286,6 +318,17 @@ func newMessagesDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "message",
+				Details: map[string]any{
+					"conversation_id": conversationID,
+					"message_id":      messageID,
+				},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeleteMessage(cmdContext(cmd), conversationID, messageID); err != nil {
 				return fmt.Errorf("failed to delete message %d from conversation %d: %w", messageID, conversationID, err)
 			}
@@ -298,10 +341,10 @@ func newMessagesDeleteCmd() *cobra.Command {
 				})
 			}
 
-			fmt.Printf("Message %d deleted successfully\n", messageID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %d deleted successfully\n", messageID)
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -317,7 +360,7 @@ func newMessagesUpdateCmd() *cobra.Command {
 		Example: `  # Update a message
   chatwoot messages update 123 456 --content "Updated text"`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -342,6 +385,18 @@ func newMessagesUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "message",
+				Details: map[string]any{
+					"conversation_id": conversationID,
+					"message_id":      messageID,
+					"content":         content,
+				},
+			}); ok {
+				return err
+			}
+
 			message, err := client.UpdateMessage(cmdContext(cmd), conversationID, messageID, content)
 			if err != nil {
 				return fmt.Errorf("failed to update message %d: %w", messageID, err)
@@ -351,11 +406,11 @@ func newMessagesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, message)
 			}
 
-			fmt.Printf("Message %d updated successfully\n", message.ID)
-			fmt.Printf("Content: %s\n", message.Content)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %d updated successfully\n", message.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Content: %s\n", message.Content)
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "New message content (required)")
@@ -386,7 +441,7 @@ Requires an AI integration to be configured in your Chatwoot instance.`,
   chatwoot messages translate 123 456 --lang de --output json
 `),
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -420,9 +475,9 @@ Requires an AI integration to be configured in your Chatwoot instance.`,
 				})
 			}
 
-			fmt.Println(content)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), content)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&lang, "lang", "", "Target language code (e.g., es, fr, de, ja)")
@@ -447,7 +502,7 @@ temporary failures (e.g., network issues, rate limiting).`,
   chatwoot messages retry 123 456 --output json
 `),
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
 			if err != nil {
 				return err
@@ -472,11 +527,11 @@ temporary failures (e.g., network issues, rate limiting).`,
 				return printJSON(cmd, message)
 			}
 
-			fmt.Printf("Message %d retry successful\n", message.ID)
-			fmt.Printf("Content: %s\n", message.Content)
-			fmt.Printf("Type: %s\n", message.MessageTypeName())
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Message %d retry successful\n", message.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Content: %s\n", message.Content)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Type: %s\n", message.MessageTypeName())
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -532,7 +587,7 @@ Messages are sent concurrently for efficiency.`,
   # Send private notes
   echo '[{"conversation_id": 123, "content": "Internal note", "private": true}]' | chatwoot messages batch-send
 `),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Read input from stdin
 			var items []BatchSendItem
 			decoder := json.NewDecoder(os.Stdin)
@@ -614,18 +669,18 @@ Messages are sent concurrently for efficiency.`,
 			}
 
 			// Text output
-			fmt.Printf("Batch send complete: %d sent, %d failed (total: %d)\n", succeeded, failed, len(items))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Batch send complete: %d sent, %d failed (total: %d)\n", succeeded, failed, len(items))
 			if failed > 0 {
-				fmt.Println("\nFailed messages:")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nFailed messages:")
 				for _, r := range results {
 					if r.Status == "error" {
-						fmt.Printf("  Conversation %d: %s\n", r.ConversationID, r.Error)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Conversation %d: %s\n", r.ConversationID, r.Error)
 					}
 				}
 			}
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Maximum concurrent requests")

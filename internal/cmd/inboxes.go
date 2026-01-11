@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +68,7 @@ func newInboxesGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get inbox details",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -87,7 +88,7 @@ func newInboxesGetCmd() *cobra.Command {
 				return printJSON(cmd, inbox)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintf(w, "ID:\t%d\n", inbox.ID)
@@ -103,7 +104,7 @@ func newInboxesGetCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -130,7 +131,7 @@ func newInboxesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new inbox",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("name is required")
 			}
@@ -173,6 +174,14 @@ func newInboxesCreateCmd() *cobra.Command {
 				req.AutoAssignmentConfig = cfg
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "create",
+				Resource:  "inbox",
+				Details:   inboxCreateDetails(req),
+			}); ok {
+				return err
+			}
+
 			inbox, err := client.CreateInbox(cmdContext(cmd), req)
 			if err != nil {
 				return err
@@ -182,9 +191,9 @@ func newInboxesCreateCmd() *cobra.Command {
 				return printJSON(cmd, inbox)
 			}
 
-			fmt.Printf("Created inbox %d: %s (%s)\n", inbox.ID, inbox.Name, inbox.ChannelType)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created inbox %d: %s (%s)\n", inbox.ID, inbox.Name, inbox.ChannelType)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Inbox name (required)")
@@ -232,7 +241,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -272,30 +281,14 @@ func newInboxesUpdateCmd() *cobra.Command {
 					OutOfOfficeMessage: outOfOfficeMessage,
 				},
 			}
-			if cmd.Flags().Changed("greeting-enabled") {
-				req.GreetingEnabled = &greetingEnabled
-			}
-			if cmd.Flags().Changed("enable-email-collect") {
-				req.EnableEmailCollect = &enableEmailCollect
-			}
-			if cmd.Flags().Changed("csat-survey-enabled") {
-				req.CSATSurveyEnabled = &csatSurveyEnabled
-			}
-			if cmd.Flags().Changed("enable-auto-assignment") {
-				req.EnableAutoAssignment = &enableAutoAssignment
-			}
-			if cmd.Flags().Changed("working-hours-enabled") {
-				req.WorkingHoursEnabled = &workingHoursEnabled
-			}
-			if cmd.Flags().Changed("allow-messages-after-resolved") {
-				req.AllowMessagesAfterResolved = &allowMessagesAfterResolved
-			}
-			if cmd.Flags().Changed("lock-to-single-conversation") {
-				req.LockToSingleConversation = &lockToSingleConversation
-			}
-			if cmd.Flags().Changed("out-of-office-enabled") {
-				req.OutOfOfficeEnabled = &outOfOfficeEnabled
-			}
+			req.GreetingEnabled = boolPtrIfChanged(cmd, "greeting-enabled", greetingEnabled)
+			req.EnableEmailCollect = boolPtrIfChanged(cmd, "enable-email-collect", enableEmailCollect)
+			req.CSATSurveyEnabled = boolPtrIfChanged(cmd, "csat-survey-enabled", csatSurveyEnabled)
+			req.EnableAutoAssignment = boolPtrIfChanged(cmd, "enable-auto-assignment", enableAutoAssignment)
+			req.WorkingHoursEnabled = boolPtrIfChanged(cmd, "working-hours-enabled", workingHoursEnabled)
+			req.AllowMessagesAfterResolved = boolPtrIfChanged(cmd, "allow-messages-after-resolved", allowMessagesAfterResolved)
+			req.LockToSingleConversation = boolPtrIfChanged(cmd, "lock-to-single-conversation", lockToSingleConversation)
+			req.OutOfOfficeEnabled = boolPtrIfChanged(cmd, "out-of-office-enabled", outOfOfficeEnabled)
 			if portalID > 0 {
 				req.PortalID = &portalID
 			}
@@ -307,6 +300,14 @@ func newInboxesUpdateCmd() *cobra.Command {
 				req.AutoAssignmentConfig = cfg
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "inbox",
+				Details:   inboxUpdateDetails(id, req),
+			}); ok {
+				return err
+			}
+
 			inbox, err := client.UpdateInbox(cmdContext(cmd), id, req)
 			if err != nil {
 				return err
@@ -316,9 +317,9 @@ func newInboxesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, inbox)
 			}
 
-			fmt.Printf("Updated inbox %d: %s\n", inbox.ID, inbox.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated inbox %d: %s\n", inbox.ID, inbox.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Inbox name")
@@ -345,7 +346,7 @@ func newInboxesDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -356,6 +357,14 @@ func newInboxesDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "inbox",
+				Details:   map[string]any{"id": id},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeleteInbox(cmdContext(cmd), id); err != nil {
 				return err
 			}
@@ -363,9 +372,9 @@ func newInboxesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Deleted inbox %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted inbox %d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -374,7 +383,7 @@ func newInboxesAgentBotCmd() *cobra.Command {
 		Use:   "agent-bot <id>",
 		Short: "Get the agent bot assigned to an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -394,7 +403,7 @@ func newInboxesAgentBotCmd() *cobra.Command {
 				return printJSON(cmd, bot)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintf(w, "ID:\t%d\n", bot.ID)
@@ -407,7 +416,7 @@ func newInboxesAgentBotCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -418,7 +427,7 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 		Use:   "set-agent-bot <id>",
 		Short: "Assign an agent bot to an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -433,13 +442,24 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "inbox_agent_bot",
+				Details: map[string]any{
+					"id":     id,
+					"bot_id": botID,
+				},
+			}); ok {
+				return err
+			}
+
 			if err := client.SetInboxAgentBot(cmdContext(cmd), id, botID); err != nil {
 				return err
 			}
 
-			fmt.Printf("Assigned agent bot %d to inbox %d\n", botID, id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Assigned agent bot %d to inbox %d\n", botID, id)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().IntVar(&botID, "bot-id", 0, "Agent bot ID (required)")
@@ -459,7 +479,7 @@ func newInboxesTriageCmd() *cobra.Command {
 		Short: "Get conversations with enriched context for triage",
 		Long:  "Returns conversations for an inbox with contact info and last message for decision-making",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -480,16 +500,16 @@ func newInboxesTriageCmd() *cobra.Command {
 			}
 
 			// Text output
-			fmt.Printf("Inbox: %s (ID: %d)\n", triage.InboxName, triage.InboxID)
-			fmt.Printf("Summary: %d open, %d pending, %d unread\n\n",
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Inbox: %s (ID: %d)\n", triage.InboxName, triage.InboxID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Summary: %d open, %d pending, %d unread\n\n",
 				triage.Summary.Open, triage.Summary.Pending, triage.Summary.Unread)
 
 			if len(triage.Conversations) == 0 {
-				fmt.Println("No conversations found")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No conversations found")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tCONTACT\tSTATUS\tUNREAD\tLAST MESSAGE")
 			for _, conv := range triage.Conversations {
 				contactName := conv.Contact.Name
@@ -508,7 +528,7 @@ func newInboxesTriageCmd() *cobra.Command {
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&status, "status", "open", "Filter by status (open, pending, resolved, snoozed, all)")
@@ -536,7 +556,7 @@ func newInboxesCampaignsCmd() *cobra.Command {
 		Use:   "campaigns <id>",
 		Short: "List campaigns for an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -557,11 +577,11 @@ func newInboxesCampaignsCmd() *cobra.Command {
 			}
 
 			if len(campaigns) == 0 {
-				fmt.Println("No campaigns found for this inbox")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No campaigns found for this inbox")
 				return nil
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			_, _ = fmt.Fprintln(w, "ID\tTITLE\tTYPE\tENABLED")
 			for _, c := range campaigns {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%v\n",
@@ -570,7 +590,7 @@ func newInboxesCampaignsCmd() *cobra.Command {
 			_ = w.Flush()
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -580,7 +600,7 @@ func newInboxesSyncTemplatesCmd() *cobra.Command {
 		Short: "Sync WhatsApp templates for an inbox",
 		Long:  "Sync WhatsApp message templates from the WhatsApp Business API for this inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -591,13 +611,21 @@ func newInboxesSyncTemplatesCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "inbox_templates",
+				Details:   map[string]any{"id": id},
+			}); ok {
+				return err
+			}
+
 			if err := client.SyncInboxTemplates(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
-			fmt.Printf("Successfully synced templates for inbox %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Successfully synced templates for inbox %d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -606,7 +634,7 @@ func newInboxesHealthCmd() *cobra.Command {
 		Use:   "health <id>",
 		Short: "Get WhatsApp Cloud API health status for an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -626,7 +654,7 @@ func newInboxesHealthCmd() *cobra.Command {
 				return printJSON(cmd, health)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			for k, v := range health {
@@ -634,7 +662,7 @@ func newInboxesHealthCmd() *cobra.Command {
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -643,7 +671,7 @@ func newInboxesDeleteAvatarCmd() *cobra.Command {
 		Use:   "delete-avatar <id>",
 		Short: "Remove the inbox avatar",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -654,13 +682,21 @@ func newInboxesDeleteAvatarCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "inbox_avatar",
+				Details:   map[string]any{"id": id},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeleteInboxAvatar(cmdContext(cmd), id); err != nil {
 				return err
 			}
 
-			fmt.Printf("Deleted avatar for inbox %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted avatar for inbox %d\n", id)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -677,12 +713,77 @@ func newInboxesCSATTemplateCmd() *cobra.Command {
 	return cmd
 }
 
+func inboxCreateDetails(req api.CreateInboxRequest) map[string]any {
+	details := map[string]any{
+		"name":         req.Name,
+		"channel_type": req.ChannelType,
+	}
+	addInboxSettingsDetails(details, req.InboxSettings)
+	return details
+}
+
+func inboxUpdateDetails(id int, req api.UpdateInboxRequest) map[string]any {
+	details := map[string]any{
+		"id": id,
+	}
+	if req.Name != "" {
+		details["name"] = req.Name
+	}
+	addInboxSettingsDetails(details, req.InboxSettings)
+	return details
+}
+
+func addInboxSettingsDetails(details map[string]any, settings api.InboxSettings) {
+	if settings.GreetingEnabled != nil {
+		details["greeting_enabled"] = *settings.GreetingEnabled
+	}
+	if settings.GreetingMessage != "" {
+		details["greeting_message"] = settings.GreetingMessage
+	}
+	if settings.EnableEmailCollect != nil {
+		details["enable_email_collect"] = *settings.EnableEmailCollect
+	}
+	if settings.CSATSurveyEnabled != nil {
+		details["csat_survey_enabled"] = *settings.CSATSurveyEnabled
+	}
+	if settings.EnableAutoAssignment != nil {
+		details["enable_auto_assignment"] = *settings.EnableAutoAssignment
+	}
+	if settings.AutoAssignmentConfig != nil {
+		details["auto_assignment_config"] = settings.AutoAssignmentConfig
+	}
+	if settings.WorkingHoursEnabled != nil {
+		details["working_hours_enabled"] = *settings.WorkingHoursEnabled
+	}
+	if settings.Timezone != "" {
+		details["timezone"] = settings.Timezone
+	}
+	if settings.AllowMessagesAfterResolved != nil {
+		details["allow_messages_after_resolved"] = *settings.AllowMessagesAfterResolved
+	}
+	if settings.LockToSingleConversation != nil {
+		details["lock_to_single_conversation"] = *settings.LockToSingleConversation
+	}
+	if settings.PortalID != nil {
+		details["portal_id"] = *settings.PortalID
+	}
+	if settings.SenderNameType != "" {
+		details["sender_name_type"] = settings.SenderNameType
+	}
+	if settings.OutOfOfficeMessage != "" {
+		details["out_of_office_message"] = settings.OutOfOfficeMessage
+	}
+	if settings.OutOfOfficeEnabled != nil {
+		details["out_of_office_enabled"] = *settings.OutOfOfficeEnabled
+	}
+}
+
 func newInboxesCSATTemplateGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <inbox-id>",
 		Short: "Get the CSAT survey template for an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -702,7 +803,7 @@ func newInboxesCSATTemplateGetCmd() *cobra.Command {
 				return printJSON(cmd, template)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
 			_, _ = fmt.Fprintf(w, "ID:\t%d\n", template.ID)
@@ -710,7 +811,7 @@ func newInboxesCSATTemplateGetCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(w, "Message:\t%s\n", template.Message)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -724,7 +825,7 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 		Use:   "set <inbox-id>",
 		Short: "Create or update the CSAT survey template for an inbox",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "ID")
 			if err != nil {
 				return err
@@ -742,6 +843,18 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "inbox_csat_template",
+				Details: map[string]any{
+					"id":       id,
+					"question": question,
+					"message":  message,
+				},
+			}); ok {
+				return err
+			}
+
 			template, err := client.CreateInboxCSATTemplate(cmdContext(cmd), id, question, message)
 			if err != nil {
 				return err
@@ -751,9 +864,9 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 				return printJSON(cmd, template)
 			}
 
-			fmt.Printf("Updated CSAT template for inbox %d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated CSAT template for inbox %d\n", id)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&question, "question", "", "Survey question (required)")

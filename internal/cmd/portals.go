@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -45,7 +46,7 @@ func newPortalsListCmd() *cobra.Command {
 		Use:     "list",
 		Short:   "List all portals",
 		Example: "chatwoot portals list",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -60,14 +61,14 @@ func newPortalsListCmd() *cobra.Command {
 				return printJSON(cmd, portals)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tSLUG\tACCOUNT_ID")
 			for _, portal := range portals {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%d\n", portal.ID, portal.Name, portal.Slug, portal.AccountID)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -77,7 +78,7 @@ func newPortalsGetCmd() *cobra.Command {
 		Short:   "Get a portal by slug",
 		Example: "chatwoot portals get help-center",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -98,12 +99,12 @@ func newPortalsGetCmd() *cobra.Command {
 				return printJSON(cmd, portal)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tSLUG\tACCOUNT_ID")
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%d\n", portal.ID, portal.Name, portal.Slug, portal.AccountID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -115,7 +116,7 @@ func newPortalsCreateCmd() *cobra.Command {
 		Use:     "create",
 		Short:   "Create a new portal",
 		Example: "chatwoot portals create --name 'Help Center' --slug help",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
@@ -132,6 +133,17 @@ func newPortalsCreateCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "create",
+				Resource:  "portal",
+				Details: map[string]any{
+					"name": name,
+					"slug": slug,
+				},
+			}); ok {
+				return err
+			}
+
 			portal, err := client.CreatePortal(cmdContext(cmd), name, slug)
 			if err != nil {
 				return err
@@ -141,9 +153,9 @@ func newPortalsCreateCmd() *cobra.Command {
 				return printJSON(cmd, portal)
 			}
 
-			fmt.Printf("Created portal %d: %s\n", portal.ID, portal.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created portal %d: %s\n", portal.ID, portal.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Portal name (required)")
@@ -161,7 +173,7 @@ func newPortalsUpdateCmd() *cobra.Command {
 		Short:   "Update a portal",
 		Example: "chatwoot portals update help-center --name 'New Name'",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -179,6 +191,23 @@ func newPortalsUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			details := map[string]any{
+				"portal_slug": portalSlug,
+			}
+			if name != "" {
+				details["name"] = name
+			}
+			if slug != "" {
+				details["slug"] = slug
+			}
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "portal",
+				Details:   details,
+			}); ok {
+				return err
+			}
+
 			portal, err := client.UpdatePortal(cmdContext(cmd), portalSlug, name, slug)
 			if err != nil {
 				return err
@@ -188,9 +217,9 @@ func newPortalsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, portal)
 			}
 
-			fmt.Printf("Updated portal %d\n", portal.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated portal %d\n", portal.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Portal name")
@@ -205,7 +234,7 @@ func newPortalsDeleteCmd() *cobra.Command {
 		Short:   "Delete a portal",
 		Example: "chatwoot portals delete help-center",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -217,6 +246,14 @@ func newPortalsDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "portal",
+				Details:   map[string]any{"portal_slug": portalSlug},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeletePortal(cmdContext(cmd), portalSlug); err != nil {
 				return err
 			}
@@ -224,9 +261,9 @@ func newPortalsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "slug": portalSlug})
 			}
-			fmt.Printf("Deleted portal %s\n", portalSlug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted portal %s\n", portalSlug)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -236,7 +273,7 @@ func newPortalsArchiveCmd() *cobra.Command {
 		Short:   "Archive a portal",
 		Example: "chatwoot portals archive help-center",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -256,9 +293,9 @@ func newPortalsArchiveCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"archived": true, "slug": portalSlug})
 			}
 
-			fmt.Printf("Archived portal %s\n", portalSlug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Archived portal %s\n", portalSlug)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -268,7 +305,7 @@ func newPortalsDeleteLogoCmd() *cobra.Command {
 		Short:   "Remove portal logo",
 		Example: "chatwoot portals delete-logo help-center",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -280,6 +317,14 @@ func newPortalsDeleteLogoCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "portal_logo",
+				Details:   map[string]any{"portal_slug": portalSlug},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeletePortalLogo(cmdContext(cmd), portalSlug); err != nil {
 				return err
 			}
@@ -288,9 +333,9 @@ func newPortalsDeleteLogoCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"deleted_logo": true, "slug": portalSlug})
 			}
 
-			fmt.Printf("Deleted logo for portal %s\n", portalSlug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted logo for portal %s\n", portalSlug)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -300,7 +345,7 @@ func newPortalsSendInstructionsCmd() *cobra.Command {
 		Short:   "Send CNAME setup instructions for portal",
 		Example: "chatwoot portals send-instructions help-center",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -320,9 +365,9 @@ func newPortalsSendInstructionsCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"sent": true, "slug": portalSlug})
 			}
 
-			fmt.Printf("Sent CNAME instructions for portal %s\n", portalSlug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Sent CNAME instructions for portal %s\n", portalSlug)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -332,7 +377,7 @@ func newPortalsSSLStatusCmd() *cobra.Command {
 		Short:   "Get SSL certificate status for portal",
 		Example: "chatwoot portals ssl-status help-center",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 
 			if err := validateSlug(portalSlug); err != nil {
@@ -354,10 +399,10 @@ func newPortalsSSLStatusCmd() *cobra.Command {
 			}
 
 			for key, value := range status {
-				fmt.Printf("%s: %v\n", key, value)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %v\n", key, value)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -382,7 +427,7 @@ func newPortalsArticlesListCmd() *cobra.Command {
 		Use:   "list <portal-slug>",
 		Short: "List articles in a portal",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -402,14 +447,14 @@ func newPortalsArticlesListCmd() *cobra.Command {
 				return printJSON(cmd, articles)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tTITLE\tSLUG\tSTATUS\tVIEWS")
 			for _, article := range articles {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d\n", article.ID, article.Title, article.Slug, article.Status, article.Views)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -418,7 +463,7 @@ func newPortalsArticlesGetCmd() *cobra.Command {
 		Use:   "get <portal-slug> <article-id>",
 		Short: "Get an article by ID",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -443,15 +488,15 @@ func newPortalsArticlesGetCmd() *cobra.Command {
 				return printJSON(cmd, article)
 			}
 
-			fmt.Printf("ID: %d\n", article.ID)
-			fmt.Printf("Title: %s\n", article.Title)
-			fmt.Printf("Slug: %s\n", article.Slug)
-			fmt.Printf("Status: %s\n", article.Status)
-			fmt.Printf("Views: %d\n", article.Views)
-			fmt.Printf("\nContent:\n%s\n", article.Content)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ID: %d\n", article.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Title: %s\n", article.Title)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Slug: %s\n", article.Slug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Status: %s\n", article.Status)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Views: %d\n", article.Views)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nContent:\n%s\n", article.Content)
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -469,7 +514,7 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 		Short:   "Create a new article",
 		Example: `  chatwoot portals articles create help --title "Getting Started" --content "..." --category-id 1`,
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -506,6 +551,17 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "create",
+				Resource:  "portal_article",
+				Details: map[string]any{
+					"portal_slug": portalSlug,
+					"params":      params,
+				},
+			}); ok {
+				return err
+			}
+
 			article, err := client.CreateArticle(cmdContext(cmd), portalSlug, params)
 			if err != nil {
 				return err
@@ -515,9 +571,9 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 				return printJSON(cmd, article)
 			}
 
-			fmt.Printf("Created article %d: %s\n", article.ID, article.Title)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created article %d: %s\n", article.ID, article.Title)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Article title (required)")
@@ -541,7 +597,7 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 		Use:   "update <portal-slug> <article-id>",
 		Short: "Update an article",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -578,6 +634,18 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "portal_article",
+				Details: map[string]any{
+					"portal_slug": portalSlug,
+					"article_id":  articleID,
+					"params":      params,
+				},
+			}); ok {
+				return err
+			}
+
 			article, err := client.UpdateArticle(cmdContext(cmd), portalSlug, articleID, params)
 			if err != nil {
 				return err
@@ -587,9 +655,9 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, article)
 			}
 
-			fmt.Printf("Updated article %d\n", article.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated article %d\n", article.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Article title")
@@ -605,7 +673,7 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 		Use:   "delete <portal-slug> <article-id>",
 		Short: "Delete an article",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -621,6 +689,17 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "portal_article",
+				Details: map[string]any{
+					"portal_slug": portalSlug,
+					"article_id":  articleID,
+				},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeleteArticle(cmdContext(cmd), portalSlug, articleID); err != nil {
 				return err
 			}
@@ -628,9 +707,9 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": articleID})
 			}
-			fmt.Printf("Deleted article %d\n", articleID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted article %d\n", articleID)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -642,7 +721,7 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 		Short:   "Reorder articles in a portal",
 		Example: "chatwoot portals articles reorder help --article-ids 1,2,3",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -671,9 +750,9 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 				return printJSON(cmd, map[string]any{"reordered": true, "article_ids": ids})
 			}
 
-			fmt.Printf("Reordered %d articles in portal %s\n", len(ids), portalSlug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Reordered %d articles in portal %s\n", len(ids), portalSlug)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&articleIDs, "article-ids", "", "Comma-separated article IDs in desired order (required)")
@@ -701,7 +780,7 @@ func newPortalsCategoriesListCmd() *cobra.Command {
 		Use:   "list <portal-slug>",
 		Short: "List categories in a portal",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -721,14 +800,14 @@ func newPortalsCategoriesListCmd() *cobra.Command {
 				return printJSON(cmd, categories)
 			}
 
-			w := newTabWriter()
+			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tSLUG\tPOSITION")
 			for _, category := range categories {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%d\n", category.ID, category.Name, category.Slug, category.Position)
 			}
 			return nil
-		},
+		}),
 	}
 }
 
@@ -737,7 +816,7 @@ func newPortalsCategoriesGetCmd() *cobra.Command {
 		Use:   "get <portal-slug> <category-slug>",
 		Short: "Get a category by slug",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			categorySlug := args[1]
 			if err := validateSlug(portalSlug); err != nil {
@@ -761,16 +840,16 @@ func newPortalsCategoriesGetCmd() *cobra.Command {
 				return printJSON(cmd, category)
 			}
 
-			fmt.Printf("ID: %d\n", category.ID)
-			fmt.Printf("Name: %s\n", category.Name)
-			fmt.Printf("Slug: %s\n", category.Slug)
-			fmt.Printf("Position: %d\n", category.Position)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ID: %d\n", category.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name: %s\n", category.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Slug: %s\n", category.Slug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Position: %d\n", category.Position)
 			if category.Description != "" {
-				fmt.Printf("Description: %s\n", category.Description)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", category.Description)
 			}
 
 			return nil
-		},
+		}),
 	}
 }
 
@@ -788,7 +867,7 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 		Short:   "Create a new category",
 		Example: `  chatwoot portals categories create help --name "FAQ" --slug faq`,
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
 				return err
@@ -819,6 +898,17 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "create",
+				Resource:  "portal_category",
+				Details: map[string]any{
+					"portal_slug": portalSlug,
+					"params":      params,
+				},
+			}); ok {
+				return err
+			}
+
 			category, err := client.CreateCategory(cmdContext(cmd), portalSlug, params)
 			if err != nil {
 				return err
@@ -828,9 +918,9 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 				return printJSON(cmd, category)
 			}
 
-			fmt.Printf("Created category %d: %s\n", category.ID, category.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created category %d: %s\n", category.ID, category.Name)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Category name (required)")
@@ -853,7 +943,7 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 		Use:   "update <portal-slug> <category-slug>",
 		Short: "Update a category",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			categorySlug := args[1]
 			if err := validateSlug(portalSlug); err != nil {
@@ -881,6 +971,18 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "update",
+				Resource:  "portal_category",
+				Details: map[string]any{
+					"portal_slug":   portalSlug,
+					"category_slug": categorySlug,
+					"params":        params,
+				},
+			}); ok {
+				return err
+			}
+
 			category, err := client.UpdateCategory(cmdContext(cmd), portalSlug, categorySlug, params)
 			if err != nil {
 				return err
@@ -890,9 +992,9 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 				return printJSON(cmd, category)
 			}
 
-			fmt.Printf("Updated category %d\n", category.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated category %d\n", category.ID)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Category name")
@@ -907,7 +1009,7 @@ func newPortalsCategoriesDeleteCmd() *cobra.Command {
 		Use:   "delete <portal-slug> <category-slug>",
 		Short: "Delete a category",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			categorySlug := args[1]
 			if err := validateSlug(portalSlug); err != nil {
@@ -922,6 +1024,17 @@ func newPortalsCategoriesDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "portal_category",
+				Details: map[string]any{
+					"portal_slug":   portalSlug,
+					"category_slug": categorySlug,
+				},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeleteCategory(cmdContext(cmd), portalSlug, categorySlug); err != nil {
 				return err
 			}
@@ -929,8 +1042,8 @@ func newPortalsCategoriesDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "slug": categorySlug})
 			}
-			fmt.Printf("Deleted category %s\n", categorySlug)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted category %s\n", categorySlug)
 			return nil
-		},
+		}),
 	}
 }

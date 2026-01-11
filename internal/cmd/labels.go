@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -81,7 +82,7 @@ func newLabelsGetCmd() *cobra.Command {
   chatwoot labels get 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "label ID")
 			if err != nil {
 				return err
@@ -101,14 +102,14 @@ func newLabelsGetCmd() *cobra.Command {
 				return printJSON(cmd, label)
 			}
 
-			fmt.Printf("Label #%d\n", label.ID)
-			fmt.Printf("  Title:       %s\n", label.Title)
-			fmt.Printf("  Color:       %s\n", label.Color)
-			fmt.Printf("  Description: %s\n", label.Description)
-			fmt.Printf("  Sidebar:     %t\n", label.ShowOnSidebar)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Label #%d\n", label.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Title:       %s\n", label.Title)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Color:       %s\n", label.Color)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Description: %s\n", label.Description)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Sidebar:     %t\n", label.ShowOnSidebar)
 
 			return nil
-		},
+		}),
 	}
 
 	return cmd
@@ -129,13 +130,26 @@ func newLabelsCreateCmd() *cobra.Command {
   # Create a label with all options
   chatwoot labels create --title "Urgent" --color "#FF0000" --description "High priority issues" --show-on-sidebar
 `),
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if title == "" {
 				return fmt.Errorf("--title is required")
 			}
 
 			client, err := getClient()
 			if err != nil {
+				return err
+			}
+
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "create",
+				Resource:  "label",
+				Details: map[string]any{
+					"title":           title,
+					"description":     description,
+					"color":           color,
+					"show_on_sidebar": showOnSidebar,
+				},
+			}); ok {
 				return err
 			}
 
@@ -148,9 +162,9 @@ func newLabelsCreateCmd() *cobra.Command {
 				return printJSON(cmd, label)
 			}
 
-			fmt.Printf("Created label #%d: %s\n", label.ID, label.Title)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created label #%d: %s\n", label.ID, label.Title)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Label title (required)")
@@ -177,7 +191,7 @@ func newLabelsUpdateCmd() *cobra.Command {
   chatwoot labels update 123 --color "#00FF00"
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "label ID")
 			if err != nil {
 				return err
@@ -223,9 +237,9 @@ func newLabelsUpdateCmd() *cobra.Command {
 				return printJSON(cmd, label)
 			}
 
-			fmt.Printf("Updated label #%d: %s\n", label.ID, label.Title)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated label #%d: %s\n", label.ID, label.Title)
 			return nil
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Label title")
@@ -246,7 +260,7 @@ func newLabelsDeleteCmd() *cobra.Command {
   chatwoot labels delete 123
 `),
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := validation.ParsePositiveInt(args[0], "label ID")
 			if err != nil {
 				return err
@@ -257,6 +271,14 @@ func newLabelsDeleteCmd() *cobra.Command {
 				return err
 			}
 
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "delete",
+				Resource:  "label",
+				Details:   map[string]any{"id": id},
+			}); ok {
+				return err
+			}
+
 			if err := client.DeleteLabel(cmdContext(cmd), id); err != nil {
 				return fmt.Errorf("failed to delete label %d: %w", id, err)
 			}
@@ -264,9 +286,9 @@ func newLabelsDeleteCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"deleted": true, "id": id})
 			}
-			fmt.Printf("Deleted label #%d\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted label #%d\n", id)
 			return nil
-		},
+		}),
 	}
 
 	return cmd
