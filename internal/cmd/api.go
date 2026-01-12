@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/filter"
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 )
@@ -235,6 +236,9 @@ func applyJqFilter(data []byte, queryStr string) (string, error) {
 	if err := json.Unmarshal(data, &input); err != nil {
 		return "", fmt.Errorf("failed to parse JSON: %w", err)
 	}
+
+	// Normalize shell-escaped operators (e.g., \!= from zsh)
+	queryStr = filter.NormalizeExpression(queryStr)
 
 	// Parse jq query
 	query, err := gojq.Parse(queryStr)

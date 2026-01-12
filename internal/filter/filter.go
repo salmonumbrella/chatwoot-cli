@@ -4,9 +4,17 @@ package filter
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/itchyny/gojq"
 )
+
+// NormalizeExpression fixes shell-escaped operators in jq expressions.
+// Zsh escapes ! to \! even in single quotes, breaking operators like !=.
+func NormalizeExpression(expr string) string {
+	// Replace \! with ! (zsh escapes ! due to history expansion)
+	return strings.ReplaceAll(expr, `\!`, `!`)
+}
 
 // Apply applies a JQ filter expression to the input data
 func Apply(data interface{}, expression string) (interface{}, error) {
@@ -14,6 +22,7 @@ func Apply(data interface{}, expression string) (interface{}, error) {
 		return data, nil
 	}
 
+	expression = NormalizeExpression(expression)
 	query, err := gojq.Parse(expression)
 	if err != nil {
 		return nil, fmt.Errorf("invalid filter expression: %w", err)

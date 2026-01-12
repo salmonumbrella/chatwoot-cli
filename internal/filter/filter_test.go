@@ -79,3 +79,38 @@ func TestApplyToJSON_EmptyExpression(t *testing.T) {
 		t.Errorf("empty expression should return original JSON unchanged")
 	}
 }
+
+func TestApply_ShellEscapedNotEqual(t *testing.T) {
+	// Zsh escapes != to \!= even in single quotes
+	data := []interface{}{
+		map[string]interface{}{"value": nil},
+		map[string]interface{}{"value": "test"},
+	}
+	// Expression as it arrives from zsh: select(.value \!= null)
+	result, err := Apply(data, `.[] | select(.value \!= null)`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := result.(map[string]interface{})
+	if m["value"] != "test" {
+		t.Errorf("expected value 'test', got %v", m["value"])
+	}
+}
+
+func TestNormalizeExpression(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`select(.x \!= null)`, `select(.x != null)`},
+		{`select(.x != null)`, `select(.x != null)`},
+		{`.[] | select(.a \!= .b)`, `.[] | select(.a != .b)`},
+		{`select(.x == "test")`, `select(.x == "test")`},
+	}
+	for _, tt := range tests {
+		got := NormalizeExpression(tt.input)
+		if got != tt.expected {
+			t.Errorf("NormalizeExpression(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}
