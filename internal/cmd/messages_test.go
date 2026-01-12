@@ -83,6 +83,64 @@ func TestMessagesListCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestMessagesListCommand_Limit(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/accounts/1/conversations/123/messages" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		switch r.URL.Query().Get("before") {
+		case "":
+			_, _ = w.Write([]byte(`{
+				"payload": [
+					{"id": 5, "content": "A", "message_type": 0, "private": false, "created_at": 1704067200},
+					{"id": 4, "content": "B", "message_type": 0, "private": false, "created_at": 1704067201},
+					{"id": 3, "content": "C", "message_type": 0, "private": false, "created_at": 1704067202}
+				]
+			}`))
+		case "3":
+			_, _ = w.Write([]byte(`{
+				"payload": [
+					{"id": 2, "content": "D", "message_type": 0, "private": false, "created_at": 1704067203},
+					{"id": 1, "content": "E", "message_type": 0, "private": false, "created_at": 1704067204}
+				]
+			}`))
+		default:
+			_, _ = w.Write([]byte(`{"payload": []}`))
+		}
+	})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"messages", "list", "123", "--limit", "4", "-o", "json"}); err != nil {
+			t.Fatalf("messages list --limit failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 4 {
+		t.Fatalf("expected 4 messages, got %d", len(items))
+	}
+	if items[3]["id"] != float64(2) {
+		t.Errorf("expected last message id 2, got %v", items[3]["id"])
+	}
+}
+
+func TestMessagesListCommand_InvalidLimit(t *testing.T) {
+	err := Execute(context.Background(), []string{"messages", "list", "123", "--limit", "0"})
+	if err == nil {
+		t.Fatal("expected error for zero limit")
+	}
+	if !strings.Contains(err.Error(), "--limit must be at least 1") {
+		t.Fatalf("expected limit validation error, got: %v", err)
+	}
+}
+
 func TestMessagesListCommand_InvalidID(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
 	t.Setenv("CHATWOOT_API_TOKEN", "test-token")

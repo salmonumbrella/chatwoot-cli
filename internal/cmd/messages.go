@@ -38,6 +38,7 @@ func newMessagesCmd() *cobra.Command {
 func newMessagesListCmd() *cobra.Command {
 	var all bool
 	var maxPages int
+	var limit int
 
 	cmd := &cobra.Command{
 		Use:   "list <conversation-id>",
@@ -48,6 +49,9 @@ func newMessagesListCmd() *cobra.Command {
   # List all messages (paginated)
   chatwoot messages list 123 --all
 
+  # Limit messages (paginates as needed)
+  chatwoot messages list 123 --limit 500
+
   # JSON output - returns an object with an "items" array
   chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'`,
 		Args: cobra.ExactArgs(1),
@@ -57,13 +61,19 @@ func newMessagesListCmd() *cobra.Command {
 				return err
 			}
 
+			if cmd.Flags().Changed("limit") && limit < 1 {
+				return fmt.Errorf("--limit must be at least 1")
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
 			}
 
 			var messages []api.Message
-			if all {
+			if limit > 0 {
+				messages, err = client.Messages().ListWithLimit(cmdContext(cmd), conversationID, limit, maxPages)
+			} else if all {
 				messages, err = client.Messages().ListAllWithMaxPages(cmdContext(cmd), conversationID, maxPages)
 			} else {
 				messages, err = client.Messages().List(cmdContext(cmd), conversationID)
@@ -109,7 +119,8 @@ func newMessagesListCmd() *cobra.Command {
 	})
 
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all")
+	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all or --limit")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")
 
 	return cmd
 }

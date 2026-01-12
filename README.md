@@ -173,6 +173,7 @@ chatwoot conversations context 123 --embed-images   # Get full context for AI
 # List messages
 chatwoot messages list 123
 chatwoot messages list 123 --all
+chatwoot messages list 123 --limit 500
 
 # Create messages
 chatwoot messages create 123 --content "Hello!"

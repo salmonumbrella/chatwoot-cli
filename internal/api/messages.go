@@ -36,6 +36,19 @@ func listMessagesBefore(ctx context.Context, r Requester, conversationID, before
 	return result.Payload, nil
 }
 
+func minMessageID(messages []Message) int {
+	if len(messages) == 0 {
+		return 0
+	}
+	minID := messages[0].ID
+	for _, m := range messages[1:] {
+		if m.ID < minID {
+			minID = m.ID
+		}
+	}
+	return minID
+}
+
 // ListAll retrieves all messages for a conversation (paginated).
 func (s MessagesService) ListAll(ctx context.Context, conversationID int) ([]Message, error) {
 	return listAllMessages(ctx, s, conversationID)
@@ -72,12 +85,7 @@ func listAllMessagesWithMaxPages(ctx context.Context, r Requester, conversationI
 		}
 
 		// Get the minimum ID for next page
-		minID := messages[0].ID
-		for _, m := range messages {
-			if m.ID < minID {
-				minID = m.ID
-			}
-		}
+		minID := minMessageID(messages)
 
 		// Prevent infinite loop if API returns same messages
 		if minID == lastMinID {
@@ -88,6 +96,54 @@ func listAllMessagesWithMaxPages(ctx context.Context, r Requester, conversationI
 		before = minID
 		lastMinID = minID
 	}
+	return allMessages, nil
+}
+
+// ListWithLimit retrieves up to limit messages with a pagination cap.
+func (s MessagesService) ListWithLimit(ctx context.Context, conversationID, limit, maxPages int) ([]Message, error) {
+	return listMessagesWithLimit(ctx, s, conversationID, limit, maxPages)
+}
+
+func listMessagesWithLimit(ctx context.Context, r Requester, conversationID, limit, maxPages int) ([]Message, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("limit must be > 0")
+	}
+	if maxPages <= 0 {
+		maxPages = maxPaginationIterations
+	}
+
+	var allMessages []Message
+	before := 0
+	lastMinID := 0
+
+	for iteration := 0; ; iteration++ {
+		if iteration >= maxPages {
+			return nil, fmt.Errorf("pagination limit exceeded (%d iterations) - API may be returning duplicate data", maxPages)
+		}
+
+		messages, err := listMessagesBefore(ctx, r, conversationID, before)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch messages page (before=%d): %w", before, err)
+		}
+		if len(messages) == 0 {
+			break
+		}
+
+		allMessages = append(allMessages, messages...)
+		if len(allMessages) >= limit {
+			allMessages = allMessages[:limit]
+			break
+		}
+
+		minID := minMessageID(messages)
+		if minID == lastMinID {
+			break
+		}
+
+		before = minID
+		lastMinID = minID
+	}
+
 	return allMessages, nil
 }
 
