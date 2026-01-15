@@ -183,6 +183,9 @@ chatwoot messages update 123 456 --content "Updated text"
 chatwoot messages delete 123 456
 ```
 
+> **Note:** Messages are returned in chronological order (oldest first, most recent at end of array).
+> To get the last N messages: `chatwoot messages list 123 --json | jq '.items[-N:]'`
+
 ### Private Notes & Mentions
 
 Private notes are internal messages visible only to agents, not customers. You can mention/tag agents to notify them.

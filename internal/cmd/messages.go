@@ -43,6 +43,10 @@ func newMessagesListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <conversation-id>",
 		Short: "List messages in a conversation",
+		Long: `List messages in a conversation.
+
+Messages are returned in chronological order: oldest first, most recent at the
+end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 		Example: `  # List recent messages
   chatwoot messages list 123
 
@@ -53,7 +57,10 @@ func newMessagesListCmd() *cobra.Command {
   chatwoot messages list 123 --limit 500
 
   # JSON output - returns an object with an "items" array
-  chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'`,
+  chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'
+
+  # Get last 6 messages (most recent) - messages are oldest-first in the array
+  chatwoot messages list 123 --json | jq '.items[-6:]'`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
