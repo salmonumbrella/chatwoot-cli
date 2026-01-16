@@ -305,16 +305,19 @@ func newReportsChannelsCmd() *cobra.Command {
 
 Date parameters use YYYY-MM-DD and are converted to Unix timestamps.`,
 		Example: `  chatwoot reports channels --from 2024-01-01 --to 2024-01-31
-  chatwoot reports channels --business-hours`,
+  chatwoot reports channels --business-hours
+  chatwoot reports channels -o json`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			var sinceTS string
 			var untilTS string
+			var fromTime, toTime time.Time
 			if from != "" {
 				ts, err := parseDate(from)
 				if err != nil {
 					return err
 				}
 				sinceTS = ts
+				fromTime, _ = time.Parse("2006-01-02", from)
 			}
 			if to != "" {
 				ts, err := parseDate(to)
@@ -322,6 +325,12 @@ Date parameters use YYYY-MM-DD and are converted to Unix timestamps.`,
 					return err
 				}
 				untilTS = ts
+				toTime, _ = time.Parse("2006-01-02", to)
+			}
+
+			// Validate date range: --to must be >= --from
+			if from != "" && to != "" && toTime.Before(fromTime) {
+				return fmt.Errorf("--to date (%s) must be on or after --from date (%s)", to, from)
 			}
 
 			client, err := getClient()

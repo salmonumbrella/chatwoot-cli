@@ -59,8 +59,8 @@ func (c *Client) v2ReportPath(path string) string {
 	return fmt.Sprintf("%s/api/v2/accounts/%d%s", c.BaseURL, c.AccountID, path)
 }
 
-// GetReportSummary gets report summary.
-func (s ReportsService) GetReportSummary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
+// Summary gets report summary.
+func (s ReportsService) Summary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
 	params := url.Values{}
 	params.Set("type", reportType)
 	params.Set("since", since)
@@ -79,13 +79,8 @@ func (s ReportsService) GetReportSummary(ctx context.Context, reportType, since,
 	return &result, nil
 }
 
-// Summary gets report summary.
-func (s ReportsService) Summary(ctx context.Context, reportType, since, until, id string) (*ReportSummary, error) {
-	return s.GetReportSummary(ctx, reportType, since, until, id)
-}
-
-// GetReportTimeSeries gets time-series report data for a specific metric.
-func (s ReportsService) GetReportTimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
+// TimeSeries gets time-series report data for a specific metric.
+func (s ReportsService) TimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
 	params := url.Values{}
 	params.Set("metric", metric)
 	params.Set("type", reportType)
@@ -105,13 +100,8 @@ func (s ReportsService) GetReportTimeSeries(ctx context.Context, metric, reportT
 	return result, nil
 }
 
-// TimeSeries gets time-series report data for a specific metric.
-func (s ReportsService) TimeSeries(ctx context.Context, metric, reportType, since, until, id string) ([]ReportDataPoint, error) {
-	return s.GetReportTimeSeries(ctx, metric, reportType, since, until, id)
-}
-
-// GetConversationMetrics gets account-level conversation metrics.
-func (s ReportsService) GetConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
+// ConversationMetrics gets account-level conversation metrics.
+func (s ReportsService) ConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
 	params := url.Values{}
 	params.Set("type", "account")
 
@@ -125,13 +115,8 @@ func (s ReportsService) GetConversationMetrics(ctx context.Context) (*Conversati
 	return &result, nil
 }
 
-// ConversationMetrics gets account-level conversation metrics.
-func (s ReportsService) ConversationMetrics(ctx context.Context) (*ConversationMetrics, error) {
-	return s.GetConversationMetrics(ctx)
-}
-
-// GetAgentMetrics gets conversation metrics for agents.
-func (s ReportsService) GetAgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
+// AgentMetrics gets conversation metrics for agents.
+func (s ReportsService) AgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
 	params := url.Values{}
 	params.Set("type", "agent")
 	if userID != "" {
@@ -147,13 +132,8 @@ func (s ReportsService) GetAgentMetrics(ctx context.Context, userID string) ([]A
 	return result, nil
 }
 
-// AgentMetrics gets conversation metrics for agents.
-func (s ReportsService) AgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
-	return s.GetAgentMetrics(ctx, userID)
-}
-
-// GetChannelSummary gets conversation statistics grouped by channel type.
-func (s ReportsService) GetChannelSummary(ctx context.Context, since, until string, businessHours *bool) (map[string]ChannelSummary, error) {
+// ChannelSummary gets conversation statistics grouped by channel type.
+func (s ReportsService) ChannelSummary(ctx context.Context, since, until string, businessHours *bool) (map[string]ChannelSummary, error) {
 	params := url.Values{}
 	if since != "" {
 		params.Set("since", since)
@@ -177,11 +157,6 @@ func (s ReportsService) GetChannelSummary(ctx context.Context, since, until stri
 	return result, nil
 }
 
-// ChannelSummary gets conversation statistics grouped by channel type.
-func (s ReportsService) ChannelSummary(ctx context.Context, since, until string, businessHours *bool) (map[string]ChannelSummary, error) {
-	return s.GetChannelSummary(ctx, since, until, businessHours)
-}
-
 // ReportingEvent represents a reporting event
 type ReportingEvent struct {
 	ID        int    `json:"id"`
@@ -194,8 +169,8 @@ type ReportingEvent struct {
 	EventType string `json:"event_type,omitempty"`
 }
 
-// ListReportingEvents lists account-level reporting events.
-func (s ReportsService) ListReportingEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
+// ListEvents lists account-level reporting events.
+func (s ReportsService) ListEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
 	params := url.Values{}
 	if since != "" {
 		params.Set("since", since)
@@ -219,13 +194,8 @@ func (s ReportsService) ListReportingEvents(ctx context.Context, since, until st
 	return result, nil
 }
 
-// ListEvents lists account-level reporting events.
-func (s ReportsService) ListEvents(ctx context.Context, since, until string, eventType string) ([]ReportingEvent, error) {
-	return s.ListReportingEvents(ctx, since, until, eventType)
-}
-
-// GetConversationReportingEvents gets reporting events for a conversation.
-func (s ReportsService) GetConversationReportingEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
+// ConversationEvents gets reporting events for a conversation.
+func (s ReportsService) ConversationEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
 	path := s.accountPath(fmt.Sprintf("/conversations/%d/reporting_events", conversationID))
 
 	var result []ReportingEvent
@@ -233,9 +203,4 @@ func (s ReportsService) GetConversationReportingEvents(ctx context.Context, conv
 		return nil, err
 	}
 	return result, nil
-}
-
-// ConversationEvents gets reporting events for a conversation.
-func (s ReportsService) ConversationEvents(ctx context.Context, conversationID int) ([]ReportingEvent, error) {
-	return s.GetConversationReportingEvents(ctx, conversationID)
 }
