@@ -240,10 +240,10 @@ func TestParseSnoozedUntil(t *testing.T) {
 		},
 		{
 			name:        "valid RFC3339 with timezone",
-			input:       "2026-01-15T10:00:00-05:00",
+			input:       "2027-01-15T10:00:00-05:00",
 			expectError: false,
 			validate: func(t *testing.T, result int64) {
-				parsed, _ := time.Parse(time.RFC3339, "2026-01-15T10:00:00-05:00")
+				parsed, _ := time.Parse(time.RFC3339, "2027-01-15T10:00:00-05:00")
 				expected := parsed.Unix()
 				if result != expected {
 					t.Errorf("Expected %d, got %d", expected, result)
