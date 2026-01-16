@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -20,6 +21,7 @@ Available report types:
   data         - Get time-series report data for a specific metric
   live         - Get real-time conversation metrics (open/unattended/unassigned)
   agents       - Get agent conversation metrics
+  channels     - Get conversation statistics grouped by channel type
 
 Date parameters use Unix timestamps. Use --from and --to flags with dates like
 "2024-01-01" which will be converted to timestamps automatically.`,
@@ -29,6 +31,7 @@ Date parameters use Unix timestamps. Use --from and --to flags with dates like
 	cmd.AddCommand(newReportsDataCmd())
 	cmd.AddCommand(newReportsLiveCmd())
 	cmd.AddCommand(newReportsAgentsCmd())
+	cmd.AddCommand(newReportsChannelsCmd())
 	cmd.AddCommand(newReportingEventsCmd())
 
 	return cmd
@@ -287,6 +290,81 @@ func newReportsAgentsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userID, "user-id", "", "Filter by specific user ID")
+	return cmd
+}
+
+func newReportsChannelsCmd() *cobra.Command {
+	var from string
+	var to string
+	var businessHours bool
+
+	cmd := &cobra.Command{
+		Use:   "channels",
+		Short: "Get conversation statistics grouped by channel type",
+		Long: `Get conversation statistics grouped by channel type.
+
+Date parameters use YYYY-MM-DD and are converted to Unix timestamps.`,
+		Example: `  chatwoot reports channels --from 2024-01-01 --to 2024-01-31
+  chatwoot reports channels --business-hours`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			var sinceTS string
+			var untilTS string
+			if from != "" {
+				ts, err := parseDate(from)
+				if err != nil {
+					return err
+				}
+				sinceTS = ts
+			}
+			if to != "" {
+				ts, err := parseDate(to)
+				if err != nil {
+					return err
+				}
+				untilTS = ts
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			channelSummary, err := client.Reports().ChannelSummary(cmdContext(cmd), sinceTS, untilTS, boolPtrIfChanged(cmd, "business-hours", businessHours))
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, channelSummary)
+			}
+
+			if len(channelSummary) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No channel summary data found")
+				return nil
+			}
+
+			keys := make([]string, 0, len(channelSummary))
+			for k := range channelSummary {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+
+			w := newTabWriterFromCmd(cmd)
+			_, _ = fmt.Fprintln(w, "CHANNEL\tOPEN\tRESOLVED\tPENDING\tSNOOZED\tTOTAL")
+			for _, k := range keys {
+				summary := channelSummary[k]
+				_, _ = fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\n",
+					k, summary.Open, summary.Resolved, summary.Pending, summary.Snoozed, summary.Total)
+			}
+			_ = w.Flush()
+			return nil
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+
 	return cmd
 }
 

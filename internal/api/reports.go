@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 // ReportSummary represents a report summary from /reports/summary
@@ -42,6 +43,15 @@ type AgentMetrics struct {
 		Open       int `json:"open"`
 		Unattended int `json:"unattended"`
 	} `json:"metric,omitempty"`
+}
+
+// ChannelSummary represents conversation counts grouped by channel type.
+type ChannelSummary struct {
+	Open     int `json:"open"`
+	Resolved int `json:"resolved"`
+	Pending  int `json:"pending"`
+	Snoozed  int `json:"snoozed"`
+	Total    int `json:"total"`
 }
 
 // v2ReportPath returns the base path for v2 reports API
@@ -140,6 +150,36 @@ func (s ReportsService) GetAgentMetrics(ctx context.Context, userID string) ([]A
 // AgentMetrics gets conversation metrics for agents.
 func (s ReportsService) AgentMetrics(ctx context.Context, userID string) ([]AgentMetrics, error) {
 	return s.GetAgentMetrics(ctx, userID)
+}
+
+// GetChannelSummary gets conversation statistics grouped by channel type.
+func (s ReportsService) GetChannelSummary(ctx context.Context, since, until string, businessHours *bool) (map[string]ChannelSummary, error) {
+	params := url.Values{}
+	if since != "" {
+		params.Set("since", since)
+	}
+	if until != "" {
+		params.Set("until", until)
+	}
+	if businessHours != nil {
+		params.Set("business_hours", strconv.FormatBool(*businessHours))
+	}
+
+	reqURL := s.v2ReportPath("/summary_reports/channel")
+	if len(params) > 0 {
+		reqURL += "?" + params.Encode()
+	}
+
+	var result map[string]ChannelSummary
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ChannelSummary gets conversation statistics grouped by channel type.
+func (s ReportsService) ChannelSummary(ctx context.Context, since, until string, businessHours *bool) (map[string]ChannelSummary, error) {
+	return s.GetChannelSummary(ctx, since, until, businessHours)
 }
 
 // ReportingEvent represents a reporting event

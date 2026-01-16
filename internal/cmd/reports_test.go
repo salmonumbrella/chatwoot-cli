@@ -461,6 +461,155 @@ func TestReportsAgentsCommand_Empty(t *testing.T) {
 	}
 }
 
+func TestReportsChannelsCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/channel", jsonResponse(200, `{
+			"Channel::WebWidget": {"open": 5, "resolved": 10, "pending": 2, "snoozed": 1, "total": 18},
+			"Channel::Email": {"open": 3, "resolved": 4, "pending": 1, "snoozed": 0, "total": 8}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "channels"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports channels failed: %v", err)
+	}
+
+	if !strings.Contains(output, "CHANNEL") || !strings.Contains(output, "TOTAL") {
+		t.Errorf("output missing expected headers: %s", output)
+	}
+	if !strings.Contains(output, "Channel::WebWidget") || !strings.Contains(output, "Channel::Email") {
+		t.Errorf("output missing channel names: %s", output)
+	}
+}
+
+func TestReportsChannelsCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/channel", jsonResponse(200, `{
+			"Channel::WebWidget": {"open": 5, "resolved": 10, "pending": 2, "snoozed": 1, "total": 18}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "channels", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports channels failed: %v", err)
+	}
+
+	var summary map[string]map[string]any
+	if err := json.Unmarshal([]byte(output), &summary); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if _, ok := summary["Channel::WebWidget"]; !ok {
+		t.Errorf("expected Channel::WebWidget key, got: %v", summary)
+	}
+}
+
+func TestReportsChannelsCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/channel", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "channels"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports channels failed: %v", err)
+	}
+
+	if !strings.Contains(output, "No channel summary data found") {
+		t.Errorf("expected 'No channel summary data found' message, got: %s", output)
+	}
+}
+
+func TestReportsChannelsCommand_WithFilters(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/api/v2/accounts/1/summary_reports/channel" {
+			query := r.URL.Query()
+			if query.Get("since") == "" {
+				t.Error("expected since query param to be set")
+			}
+			if query.Get("until") == "" {
+				t.Error("expected until query param to be set")
+			}
+			if query.Get("business_hours") != "true" {
+				t.Errorf("expected business_hours=true, got %s", query.Get("business_hours"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{
+				"Channel::WebWidget": {"open": 5, "resolved": 10, "pending": 2, "snoozed": 1, "total": 18}
+			}`))
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"reports", "channels",
+		"--from", "2024-01-01",
+		"--to", "2024-01-31",
+		"--business-hours",
+	})
+	if err != nil {
+		t.Errorf("reports channels with filters failed: %v", err)
+	}
+}
+
+func TestReportsChannelsCommand_InvalidDateFormat(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{
+		"reports", "channels",
+		"--from", "01-01-2024",
+	})
+	if err == nil {
+		t.Error("expected error for invalid date format")
+	}
+	if !strings.Contains(err.Error(), "invalid date format") {
+		t.Errorf("expected 'invalid date format' error, got: %v", err)
+	}
+}
+
 func TestReportsEventsListCommand(t *testing.T) {
 	// Use a handler that matches path containing /reporting_events
 	// because the API has a known path duplication issue

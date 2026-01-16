@@ -596,6 +596,109 @@ func TestGetAgentMetrics(t *testing.T) {
 	}
 }
 
+func TestGetChannelSummary(t *testing.T) {
+	boolPtr := func(v bool) *bool { return &v }
+	tests := []struct {
+		name          string
+		since         string
+		until         string
+		businessHours *bool
+		statusCode    int
+		responseBody  string
+		expectError   bool
+		expectCount   int
+		validateURL   func(*testing.T, string)
+	}{
+		{
+			name:          "with params and business hours",
+			since:         "1609459200",
+			until:         "1609545600",
+			businessHours: boolPtr(true),
+			statusCode:    http.StatusOK,
+			responseBody: `{
+				"Channel::WebWidget": {"open": 5, "resolved": 10, "pending": 2, "snoozed": 1, "total": 18},
+				"Channel::Email": {"open": 3, "resolved": 4, "pending": 1, "snoozed": 0, "total": 8}
+			}`,
+			expectError: false,
+			expectCount: 2,
+			validateURL: func(t *testing.T, url string) {
+				if !strings.Contains(url, "since=1609459200") {
+					t.Error("URL should contain since param")
+				}
+				if !strings.Contains(url, "until=1609545600") {
+					t.Error("URL should contain until param")
+				}
+				if !strings.Contains(url, "business_hours=true") {
+					t.Error("URL should contain business_hours=true")
+				}
+			},
+		},
+		{
+			name:          "no params",
+			since:         "",
+			until:         "",
+			businessHours: nil,
+			statusCode:    http.StatusOK,
+			responseBody:  `{}`,
+			expectError:   false,
+			expectCount:   0,
+			validateURL: func(t *testing.T, url string) {
+				if strings.Contains(url, "since=") || strings.Contains(url, "until=") || strings.Contains(url, "business_hours=") {
+					t.Error("URL should not contain query params")
+				}
+			},
+		},
+		{
+			name:          "unauthorized error",
+			since:         "1609459200",
+			until:         "1609545600",
+			businessHours: nil,
+			statusCode:    http.StatusUnauthorized,
+			responseBody:  `{"error": "Unauthorized"}`,
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedURL string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedURL = r.URL.String()
+				if r.Method != http.MethodGet {
+					t.Errorf("Expected GET, got %s", r.Method)
+				}
+				if !strings.Contains(r.URL.Path, "/summary_reports/channel") {
+					t.Errorf("Expected path to contain /summary_reports/channel, got %s", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := client.Reports().ChannelSummary(context.Background(), tt.since, tt.until, tt.businessHours)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+
+			if !tt.expectError {
+				if len(result) != tt.expectCount {
+					t.Errorf("Expected %d channel summaries, got %d", tt.expectCount, len(result))
+				}
+			}
+
+			if tt.validateURL != nil {
+				tt.validateURL(t, capturedURL)
+			}
+		})
+	}
+}
+
 func TestListReportingEvents(t *testing.T) {
 	tests := []struct {
 		name         string
