@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ func newConfigDashboardCmd() *cobra.Command {
 
 func newDashboardAddCmd() *cobra.Command {
 	var endpoint string
-	var authEmail string
+	var authToken string
 	var name string
 
 	cmd := &cobra.Command{
@@ -35,7 +36,7 @@ func newDashboardAddCmd() *cobra.Command {
 		Example: `  # Add an orders dashboard
   chatwoot config dashboard add orders \
     --endpoint https://api.example.com/api/public/chatwoot/contact/orders \
-    --auth-email user@example.com \
+    --auth-token mytoken123 \
     --name "Customer Orders"`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -44,8 +45,11 @@ func newDashboardAddCmd() *cobra.Command {
 			if endpoint == "" {
 				return fmt.Errorf("--endpoint is required")
 			}
-			if authEmail == "" {
-				return fmt.Errorf("--auth-email is required")
+			if err := validation.ValidateWebhookURL(endpoint); err != nil {
+				return fmt.Errorf("invalid endpoint URL: %w", err)
+			}
+			if authToken == "" {
+				return fmt.Errorf("--auth-token is required")
 			}
 
 			displayName := name
@@ -56,7 +60,7 @@ func newDashboardAddCmd() *cobra.Command {
 			cfg := &config.DashboardConfig{
 				Name:      displayName,
 				Endpoint:  endpoint,
-				AuthEmail: authEmail,
+				AuthToken: authToken,
 			}
 
 			if err := config.SetDashboard(dashboardName, cfg); err != nil {
@@ -69,10 +73,10 @@ func newDashboardAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "Full URL to the dashboard API endpoint (required)")
-	cmd.Flags().StringVar(&authEmail, "auth-email", "", "Email for Basic auth (required)")
+	cmd.Flags().StringVar(&authToken, "auth-token", "", "Token for Basic auth (required)")
 	cmd.Flags().StringVar(&name, "name", "", "Display name for the dashboard (defaults to dashboard-name)")
 	_ = cmd.MarkFlagRequired("endpoint")
-	_ = cmd.MarkFlagRequired("auth-email")
+	_ = cmd.MarkFlagRequired("auth-token")
 
 	return cmd
 }
@@ -135,14 +139,14 @@ func newDashboardShowCmd() *cobra.Command {
 					"name":       name,
 					"display":    cfg.Name,
 					"endpoint":   cfg.Endpoint,
-					"auth_email": cfg.AuthEmail,
+					"auth_token": cfg.AuthToken,
 				})
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Dashboard: %s\n", name)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Display Name: %s\n", cfg.Name)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Endpoint: %s\n", cfg.Endpoint)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Auth Email: %s\n", cfg.AuthEmail)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Auth Token: %s\n", cfg.AuthToken)
 
 			return nil
 		}),

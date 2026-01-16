@@ -14,7 +14,7 @@ import (
 // DashboardClient is a client for external dashboard APIs
 type DashboardClient struct {
 	Endpoint  string
-	AuthEmail string
+	AuthToken string
 	HTTP      *http.Client
 }
 
@@ -26,10 +26,10 @@ type DashboardRequest struct {
 }
 
 // NewDashboardClient creates a new dashboard API client
-func NewDashboardClient(endpoint, authEmail string) *DashboardClient {
+func NewDashboardClient(endpoint, authToken string) *DashboardClient {
 	return &DashboardClient{
 		Endpoint:  endpoint,
-		AuthEmail: authEmail,
+		AuthToken: authToken,
 		HTTP: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -56,7 +56,7 @@ func (c *DashboardClient) Query(ctx context.Context, req DashboardRequest) (map[
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.AuthEmail)))
+	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.AuthToken)))
 
 	resp, err := c.HTTP.Do(httpReq)
 	if err != nil {

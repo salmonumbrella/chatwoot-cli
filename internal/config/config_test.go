@@ -1303,7 +1303,7 @@ func TestDashboardConfigRoundTrip(t *testing.T) {
 				"orders": {
 					Name:      "Customer Orders",
 					Endpoint:  "https://api.example.com/orders",
-					AuthEmail: "user@example.com",
+					AuthToken: "user@example.com",
 				},
 			},
 		},
@@ -1334,8 +1334,8 @@ func TestDashboardConfigRoundTrip(t *testing.T) {
 	if orders.Endpoint != "https://api.example.com/orders" {
 		t.Errorf("Endpoint = %q, want %q", orders.Endpoint, "https://api.example.com/orders")
 	}
-	if orders.AuthEmail != "user@example.com" {
-		t.Errorf("AuthEmail = %q, want %q", orders.AuthEmail, "user@example.com")
+	if orders.AuthToken != "user@example.com" {
+		t.Errorf("AuthToken = %q, want %q", orders.AuthToken, "user@example.com")
 	}
 }
 
@@ -1352,7 +1352,7 @@ func TestGetDashboard(t *testing.T) {
 				"orders": {
 					Name:      "Customer Orders",
 					Endpoint:  "https://api.example.com/orders",
-					AuthEmail: "user@example.com",
+					AuthToken: "user@example.com",
 				},
 			},
 		},
@@ -1398,7 +1398,7 @@ func TestSetDashboard(t *testing.T) {
 	cfg := &DashboardConfig{
 		Name:      "Orders",
 		Endpoint:  "https://api.example.com/orders",
-		AuthEmail: "user@example.com",
+		AuthToken: "user@example.com",
 	}
 	if err := SetDashboard("orders", cfg); err != nil {
 		t.Fatalf("SetDashboard failed: %v", err)
@@ -1426,7 +1426,7 @@ func TestDeleteDashboard(t *testing.T) {
 				"orders": {
 					Name:      "Orders",
 					Endpoint:  "https://api.example.com/orders",
-					AuthEmail: "user@example.com",
+					AuthToken: "user@example.com",
 				},
 			},
 		},
@@ -1458,8 +1458,8 @@ func TestListDashboards(t *testing.T) {
 		AccountID: 1,
 		Extensions: &Extensions{
 			Dashboards: map[string]*DashboardConfig{
-				"orders":   {Name: "Orders", Endpoint: "https://api.example.com/orders", AuthEmail: "u@e.com"},
-				"wishlist": {Name: "Wishlist", Endpoint: "https://api.example.com/wishlist", AuthEmail: "u@e.com"},
+				"orders":   {Name: "Orders", Endpoint: "https://api.example.com/orders", AuthToken: "u@e.com"},
+				"wishlist": {Name: "Wishlist", Endpoint: "https://api.example.com/wishlist", AuthToken: "u@e.com"},
 			},
 		},
 	}

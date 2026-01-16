@@ -38,9 +38,9 @@ func TestNewDashboardAddCmd(t *testing.T) {
 	if endpointFlag == nil {
 		t.Error("Expected --endpoint flag")
 	}
-	authEmailFlag := cmd.Flag("auth-email")
-	if authEmailFlag == nil {
-		t.Error("Expected --auth-email flag")
+	authTokenFlag := cmd.Flag("auth-token")
+	if authTokenFlag == nil {
+		t.Error("Expected --auth-token flag")
 	}
 
 	if err := cmd.Args(cmd, []string{}); err == nil {

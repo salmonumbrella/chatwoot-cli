@@ -83,7 +83,7 @@ Run 'chatwoot config dashboard list' to see available dashboards.`,
 				return fmt.Errorf("dashboard %q not found. Run 'chatwoot config dashboard add --help' to configure one", dashboardName)
 			}
 
-			client := api.NewDashboardClient(cfg.Endpoint, cfg.AuthEmail)
+			client := api.NewDashboardClient(cfg.Endpoint, cfg.AuthToken)
 			result, err := client.Query(cmdContext(cmd), api.DashboardRequest{
 				ContactID: contactID,
 				Page:      page,

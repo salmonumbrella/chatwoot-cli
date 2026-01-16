@@ -52,7 +52,7 @@ type Extensions struct {
 type DashboardConfig struct {
 	Name      string `json:"name"`       // Display name (e.g., "Customer Orders")
 	Endpoint  string `json:"endpoint"`   // Full URL to the endpoint
-	AuthEmail string `json:"auth_email"` // Email for Basic auth (base64 encoded)
+	AuthToken string `json:"auth_token"` // Token for Basic auth (will be base64 encoded)
 }
 
 // ErrNotConfigured is returned when no account is configured
