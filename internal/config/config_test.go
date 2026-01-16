@@ -14,6 +14,14 @@ func testKeyring(t *testing.T, initial []keyring.Item) *keyring.ArrayKeyring {
 	return keyring.NewArrayKeyring(initial)
 }
 
+func setupMockKeyring(t *testing.T) func() {
+	t.Helper()
+	ring := testKeyring(t, nil)
+	return SetOpenKeyring(func(cfg keyring.Config) (keyring.Keyring, error) {
+		return ring, nil
+	})
+}
+
 // withMockKeyring sets up a mock keyring for the duration of a test
 func withMockKeyring(t *testing.T, ring keyring.Keyring) {
 	t.Helper()
@@ -1279,5 +1287,194 @@ func TestDeleteProfileRemovesFromIndex(t *testing.T) {
 		if p == "work" {
 			t.Error("'work' profile should be removed from index")
 		}
+	}
+}
+
+func TestDashboardConfigRoundTrip(t *testing.T) {
+	cleanup := setupMockKeyring(t)
+	defer cleanup()
+
+	account := Account{
+		BaseURL:   "https://chatwoot.example.com",
+		APIToken:  "test-token",
+		AccountID: 1,
+		Extensions: &Extensions{
+			Dashboards: map[string]*DashboardConfig{
+				"orders": {
+					Name:      "Customer Orders",
+					Endpoint:  "https://api.example.com/orders",
+					AuthEmail: "user@example.com",
+				},
+			},
+		},
+	}
+
+	if err := SaveProfile("test-dashboard", account); err != nil {
+		t.Fatalf("SaveProfile failed: %v", err)
+	}
+
+	loaded, err := LoadProfile("test-dashboard")
+	if err != nil {
+		t.Fatalf("LoadProfile failed: %v", err)
+	}
+
+	if loaded.Extensions == nil {
+		t.Fatal("Extensions is nil after load")
+	}
+	if loaded.Extensions.Dashboards == nil {
+		t.Fatal("Dashboards is nil after load")
+	}
+	orders, ok := loaded.Extensions.Dashboards["orders"]
+	if !ok {
+		t.Fatal("orders dashboard not found")
+	}
+	if orders.Name != "Customer Orders" {
+		t.Errorf("Name = %q, want %q", orders.Name, "Customer Orders")
+	}
+	if orders.Endpoint != "https://api.example.com/orders" {
+		t.Errorf("Endpoint = %q, want %q", orders.Endpoint, "https://api.example.com/orders")
+	}
+	if orders.AuthEmail != "user@example.com" {
+		t.Errorf("AuthEmail = %q, want %q", orders.AuthEmail, "user@example.com")
+	}
+}
+
+func TestGetDashboard(t *testing.T) {
+	cleanup := setupMockKeyring(t)
+	defer cleanup()
+
+	account := Account{
+		BaseURL:   "https://chatwoot.example.com",
+		APIToken:  "test-token",
+		AccountID: 1,
+		Extensions: &Extensions{
+			Dashboards: map[string]*DashboardConfig{
+				"orders": {
+					Name:      "Customer Orders",
+					Endpoint:  "https://api.example.com/orders",
+					AuthEmail: "user@example.com",
+				},
+			},
+		},
+	}
+
+	if err := SaveProfile("test", account); err != nil {
+		t.Fatalf("SaveProfile failed: %v", err)
+	}
+	if err := SetCurrentProfile("test"); err != nil {
+		t.Fatalf("SetCurrentProfile failed: %v", err)
+	}
+
+	cfg, err := GetDashboard("orders")
+	if err != nil {
+		t.Fatalf("GetDashboard failed: %v", err)
+	}
+	if cfg.Name != "Customer Orders" {
+		t.Errorf("Name = %q, want %q", cfg.Name, "Customer Orders")
+	}
+
+	_, err = GetDashboard("nonexistent")
+	if err == nil {
+		t.Error("Expected error for non-existent dashboard")
+	}
+}
+
+func TestSetDashboard(t *testing.T) {
+	cleanup := setupMockKeyring(t)
+	defer cleanup()
+
+	account := Account{
+		BaseURL:   "https://chatwoot.example.com",
+		APIToken:  "test-token",
+		AccountID: 1,
+	}
+	if err := SaveProfile("test", account); err != nil {
+		t.Fatalf("SaveProfile failed: %v", err)
+	}
+	if err := SetCurrentProfile("test"); err != nil {
+		t.Fatalf("SetCurrentProfile failed: %v", err)
+	}
+
+	cfg := &DashboardConfig{
+		Name:      "Orders",
+		Endpoint:  "https://api.example.com/orders",
+		AuthEmail: "user@example.com",
+	}
+	if err := SetDashboard("orders", cfg); err != nil {
+		t.Fatalf("SetDashboard failed: %v", err)
+	}
+
+	loaded, err := GetDashboard("orders")
+	if err != nil {
+		t.Fatalf("GetDashboard failed: %v", err)
+	}
+	if loaded.Endpoint != cfg.Endpoint {
+		t.Errorf("Endpoint = %q, want %q", loaded.Endpoint, cfg.Endpoint)
+	}
+}
+
+func TestDeleteDashboard(t *testing.T) {
+	cleanup := setupMockKeyring(t)
+	defer cleanup()
+
+	account := Account{
+		BaseURL:   "https://chatwoot.example.com",
+		APIToken:  "test-token",
+		AccountID: 1,
+		Extensions: &Extensions{
+			Dashboards: map[string]*DashboardConfig{
+				"orders": {
+					Name:      "Orders",
+					Endpoint:  "https://api.example.com/orders",
+					AuthEmail: "user@example.com",
+				},
+			},
+		},
+	}
+	if err := SaveProfile("test", account); err != nil {
+		t.Fatalf("SaveProfile failed: %v", err)
+	}
+	if err := SetCurrentProfile("test"); err != nil {
+		t.Fatalf("SetCurrentProfile failed: %v", err)
+	}
+
+	if err := DeleteDashboard("orders"); err != nil {
+		t.Fatalf("DeleteDashboard failed: %v", err)
+	}
+
+	_, err := GetDashboard("orders")
+	if err == nil {
+		t.Error("Expected error after deletion")
+	}
+}
+
+func TestListDashboards(t *testing.T) {
+	cleanup := setupMockKeyring(t)
+	defer cleanup()
+
+	account := Account{
+		BaseURL:   "https://chatwoot.example.com",
+		APIToken:  "test-token",
+		AccountID: 1,
+		Extensions: &Extensions{
+			Dashboards: map[string]*DashboardConfig{
+				"orders":   {Name: "Orders", Endpoint: "https://api.example.com/orders", AuthEmail: "u@e.com"},
+				"wishlist": {Name: "Wishlist", Endpoint: "https://api.example.com/wishlist", AuthEmail: "u@e.com"},
+			},
+		},
+	}
+	if err := SaveProfile("test", account); err != nil {
+		t.Fatalf("SaveProfile failed: %v", err)
+	}
+	if err := SetCurrentProfile("test"); err != nil {
+		t.Fatalf("SetCurrentProfile failed: %v", err)
+	}
+
+	dashboards, err := ListDashboards()
+	if err != nil {
+		t.Fatalf("ListDashboards failed: %v", err)
+	}
+	if len(dashboards) != 2 {
+		t.Errorf("len(dashboards) = %d, want 2", len(dashboards))
 	}
 }

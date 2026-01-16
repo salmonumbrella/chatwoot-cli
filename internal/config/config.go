@@ -36,14 +36,30 @@ func SetOpenKeyring(fn func(keyring.Config) (keyring.Keyring, error)) func() {
 
 // Account holds the Chatwoot connection details
 type Account struct {
-	BaseURL       string `json:"base_url"`
-	APIToken      string `json:"api_token"`
-	AccountID     int    `json:"account_id"`
-	PlatformToken string `json:"platform_token,omitempty"`
+	BaseURL       string      `json:"base_url"`
+	APIToken      string      `json:"api_token"`
+	AccountID     int         `json:"account_id"`
+	PlatformToken string      `json:"platform_token,omitempty"`
+	Extensions    *Extensions `json:"extensions,omitempty"`
+}
+
+// Extensions holds optional extension configurations
+type Extensions struct {
+	Dashboards map[string]*DashboardConfig `json:"dashboards,omitempty"`
+}
+
+// DashboardConfig holds configuration for a dashboard API endpoint
+type DashboardConfig struct {
+	Name      string `json:"name"`       // Display name (e.g., "Customer Orders")
+	Endpoint  string `json:"endpoint"`   // Full URL to the endpoint
+	AuthEmail string `json:"auth_email"` // Email for Basic auth (base64 encoded)
 }
 
 // ErrNotConfigured is returned when no account is configured
 var ErrNotConfigured = errors.New("chatwoot not configured - run 'chatwoot auth login' first")
+
+// ErrDashboardNotFound is returned when a dashboard is not configured
+var ErrDashboardNotFound = errors.New("dashboard not configured")
 
 // keyringConfig returns the keyring configuration
 func keyringConfig() keyring.Config {
@@ -307,4 +323,72 @@ func SetCurrentProfile(profile string) error {
 		Key:  currentProfileKey,
 		Data: []byte(profile),
 	})
+}
+
+// GetDashboard returns the configuration for a named dashboard from the current profile
+func GetDashboard(name string) (*DashboardConfig, error) {
+	account, err := LoadAccount()
+	if err != nil {
+		return nil, err
+	}
+	if account.Extensions == nil || account.Extensions.Dashboards == nil {
+		return nil, ErrDashboardNotFound
+	}
+	cfg, ok := account.Extensions.Dashboards[name]
+	if !ok {
+		return nil, ErrDashboardNotFound
+	}
+	return cfg, nil
+}
+
+// SetDashboard saves a dashboard configuration to the current profile
+func SetDashboard(name string, cfg *DashboardConfig) error {
+	current, err := CurrentProfile()
+	if err != nil {
+		return err
+	}
+	account, err := LoadProfile(current)
+	if err != nil {
+		return err
+	}
+	if account.Extensions == nil {
+		account.Extensions = &Extensions{}
+	}
+	if account.Extensions.Dashboards == nil {
+		account.Extensions.Dashboards = make(map[string]*DashboardConfig)
+	}
+	account.Extensions.Dashboards[name] = cfg
+	return SaveProfile(current, account)
+}
+
+// DeleteDashboard removes a dashboard configuration from the current profile
+func DeleteDashboard(name string) error {
+	current, err := CurrentProfile()
+	if err != nil {
+		return err
+	}
+	account, err := LoadProfile(current)
+	if err != nil {
+		return err
+	}
+	if account.Extensions == nil || account.Extensions.Dashboards == nil {
+		return ErrDashboardNotFound
+	}
+	if _, ok := account.Extensions.Dashboards[name]; !ok {
+		return ErrDashboardNotFound
+	}
+	delete(account.Extensions.Dashboards, name)
+	return SaveProfile(current, account)
+}
+
+// ListDashboards returns all configured dashboard names and configs from the current profile
+func ListDashboards() (map[string]*DashboardConfig, error) {
+	account, err := LoadAccount()
+	if err != nil {
+		return nil, err
+	}
+	if account.Extensions == nil || account.Extensions.Dashboards == nil {
+		return make(map[string]*DashboardConfig), nil
+	}
+	return account.Extensions.Dashboards, nil
 }

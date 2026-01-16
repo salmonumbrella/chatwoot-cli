@@ -196,6 +196,7 @@ func Execute(ctx context.Context, args []string) error {
 	// Add subcommands
 	root.AddCommand(newAuthCmd())
 	root.AddCommand(newConfigCmd())
+	root.AddCommand(newDashboardCmd())
 	root.AddCommand(newConversationsCmd())
 	root.AddCommand(newMessagesCmd())
 	root.AddCommand(newContactsCmd())
