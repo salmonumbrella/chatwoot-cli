@@ -690,6 +690,7 @@ func TestFormatValue(t *testing.T) {
 		expected string
 	}{
 		// Basic type tests
+		{name: "empty string", input: "", expected: ""},
 		{name: "nil", input: nil, expected: "-"},
 		{name: "bool true", input: true, expected: "yes"},
 		{name: "bool false", input: false, expected: "no"},
