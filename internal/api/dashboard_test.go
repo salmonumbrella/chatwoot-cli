@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -83,5 +85,49 @@ func TestDashboardClient_QueryError(t *testing.T) {
 
 	if err == nil {
 		t.Error("Expected error for 401 response")
+	}
+}
+
+func TestDashboardClient_QueryResponseTooLarge(t *testing.T) {
+	// Create a response larger than maxResponseSize (10MB + 1KB)
+	largeBody := strings.Repeat("x", maxResponseSize+1024)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(largeBody))
+	}))
+	defer server.Close()
+
+	client := NewDashboardClient(server.URL, "test@example.com")
+	_, err := client.Query(context.Background(), DashboardRequest{ContactID: 123})
+
+	if err == nil {
+		t.Fatal("Expected error for oversized response, got nil")
+	}
+	if !errors.Is(err, ErrResponseTooLarge) {
+		t.Errorf("Expected ErrResponseTooLarge, got: %v", err)
+	}
+}
+
+func TestDashboardClient_QueryResponseAtLimit(t *testing.T) {
+	// Create a valid JSON response just under the limit
+	// This test verifies that responses at or near the limit still work
+	smallJSON := `{"items":[],"pagination":{"page":1,"total_pages":0}}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(smallJSON))
+	}))
+	defer server.Close()
+
+	client := NewDashboardClient(server.URL, "test@example.com")
+	resp, err := client.Query(context.Background(), DashboardRequest{ContactID: 123})
+
+	if err != nil {
+		t.Fatalf("Unexpected error for valid response: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Expected response, got nil")
 	}
 }

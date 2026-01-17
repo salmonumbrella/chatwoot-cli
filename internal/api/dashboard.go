@@ -5,11 +5,18 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 )
+
+// maxResponseSize is the maximum response body size allowed from dashboard endpoints (10MB)
+const maxResponseSize = 10 * 1024 * 1024
+
+// ErrResponseTooLarge is returned when the dashboard response exceeds maxResponseSize
+var ErrResponseTooLarge = errors.New("dashboard response exceeds maximum allowed size of 10MB")
 
 // DashboardClient is a client for external dashboard APIs
 type DashboardClient struct {
@@ -64,9 +71,14 @@ func (c *DashboardClient) Query(ctx context.Context, req DashboardRequest) (map[
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, err := io.ReadAll(resp.Body)
+	// Limit response body size to prevent memory exhaustion from malicious/misconfigured endpoints
+	limitedReader := io.LimitReader(resp.Body, maxResponseSize+1)
+	respBody, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if len(respBody) > maxResponseSize {
+		return nil, ErrResponseTooLarge
 	}
 
 	if resp.StatusCode >= 400 {
