@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io"
 	"strings"
 	"testing"
 )
@@ -96,6 +97,8 @@ func TestDashboardAddRejectsLocalhostEndpoints(t *testing.T) {
 	for _, url := range localhostURLs {
 		t.Run(url, func(t *testing.T) {
 			cmd := newDashboardAddCmd()
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
 			cmd.SetArgs([]string{
 				"test-dashboard",
 				"--endpoint", url,
