@@ -15,6 +15,7 @@ func TestParse(t *testing.T) {
 		{"text", Text, false},
 		{"", Text, false},
 		{"json", JSON, false},
+		{"jsonl", JSONL, false},
 		{"invalid", Text, true},
 		{"JSON", Text, true}, // case sensitive
 	}
@@ -55,6 +56,18 @@ func TestModeContext(t *testing.T) {
 		t.Error("Expected IsJSON to be true")
 	}
 
+	// With JSONL mode
+	jsonlCtx := WithMode(ctx, JSONL)
+	if ModeFromContext(jsonlCtx) != JSONL {
+		t.Error("Expected mode to be JSONL")
+	}
+	if !IsJSON(jsonlCtx) {
+		t.Error("Expected IsJSON to be true for JSONL")
+	}
+	if !IsJSONL(jsonlCtx) {
+		t.Error("Expected IsJSONL to be true for JSONL")
+	}
+
 	// With Text mode
 	textCtx := WithMode(ctx, Text)
 	if ModeFromContext(textCtx) != Text {
@@ -68,6 +81,9 @@ func TestModeString(t *testing.T) {
 	}
 	if JSON.String() != "json" {
 		t.Errorf("Expected 'json', got %q", JSON.String())
+	}
+	if JSONL.String() != "jsonl" {
+		t.Errorf("Expected 'jsonl', got %q", JSONL.String())
 	}
 }
 

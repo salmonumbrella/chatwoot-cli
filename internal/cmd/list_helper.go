@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -51,6 +53,34 @@ type ListConfig[T any] struct {
 	DefaultMaxPages int
 	// AfterOutput runs after table output (text mode only).
 	AfterOutput func(cmd *cobra.Command, summary ListSummary) error
+}
+
+func writeJSONLItem(w io.Writer, item any, query, tmpl string) error {
+	if query != "" {
+		filtered, err := outfmt.ApplyQuery(item, query)
+		if err != nil {
+			return err
+		}
+		item = filtered
+	}
+
+	if tmpl != "" {
+		if err := outfmt.WriteTemplate(w, item, tmpl); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintln(w)
+		return err
+	}
+
+	data, err := json.Marshal(item)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+	_, err = w.Write([]byte("\n"))
+	return err
 }
 
 // NewListCommand creates a cobra command from ListConfig
@@ -105,6 +135,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 
 			ioStreams := iocontext.GetIO(cmd.Context())
 			f := outfmt.NewFormatter(cmd.Context(), ioStreams.Out, ioStreams.ErrOut)
+			mode := outfmt.ModeFromContext(cmd.Context())
 
 			if cfg.DisablePagination || !all {
 				result, err := cfg.Fetch(cmd.Context(), client, page, pageSize)
@@ -112,10 +143,32 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					return err
 				}
 
-				if isJSON(cmd) {
+				if mode == outfmt.JSONL {
+					query := outfmt.GetQuery(cmd.Context())
+					tmpl := outfmt.GetTemplate(cmd.Context())
+					for _, item := range result.Items {
+						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
+
+				if mode == outfmt.JSON {
+					summaryPageSize := pageSize
+					if cfg.DisablePagination {
+						summaryPageSize = len(result.Items)
+					}
 					return f.Output(map[string]interface{}{
 						"items":    result.Items,
 						"has_more": result.HasMore,
+						"meta": map[string]any{
+							"page":          page,
+							"page_size":     summaryPageSize,
+							"pages_fetched": 1,
+							"total_items":   len(result.Items),
+							"all":           false,
+						},
 					})
 				}
 
@@ -153,6 +206,105 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				return nil
 			}
 
+			if mode == outfmt.JSONL {
+				query := outfmt.GetQuery(cmd.Context())
+				tmpl := outfmt.GetTemplate(cmd.Context())
+				currentPage := page
+				pagesFetched := 0
+				totalItems := 0
+
+				for {
+					if maxPages > 0 && pagesFetched >= maxPages {
+						return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, totalItems)
+					}
+
+					result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
+					if err != nil {
+						return err
+					}
+					if len(result.Items) == 0 {
+						break
+					}
+					for _, item := range result.Items {
+						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl); err != nil {
+							return err
+						}
+						totalItems++
+					}
+					pagesFetched++
+
+					if !result.HasMore {
+						break
+					}
+
+					currentPage++
+				}
+				return nil
+			}
+
+			if mode == outfmt.Text {
+				currentPage := page
+				pagesFetched := 0
+				totalItems := 0
+				started := false
+
+				for {
+					if maxPages > 0 && pagesFetched >= maxPages {
+						return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, totalItems)
+					}
+
+					if currentPage > page && !flags.Quiet && !flags.Silent {
+						_, _ = fmt.Fprintf(ioStreams.ErrOut, "Fetching page %d...\n", currentPage) //nolint:errcheck
+					}
+
+					result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
+					if err != nil {
+						return err
+					}
+					if len(result.Items) == 0 {
+						break
+					}
+					if !started {
+						f.StartTable(cfg.Headers)
+						started = true
+					}
+					for _, item := range result.Items {
+						f.Row(cfg.RowFunc(item)...)
+						totalItems++
+					}
+					pagesFetched++
+
+					if !result.HasMore {
+						break
+					}
+
+					currentPage++
+				}
+
+				if !started {
+					if cfg.EmptyMessage != "" {
+						f.Empty(cfg.EmptyMessage)
+					}
+					return nil
+				}
+
+				if err := f.EndTable(); err != nil {
+					return err
+				}
+
+				if cfg.AfterOutput != nil {
+					return cfg.AfterOutput(cmd, ListSummary{
+						Page:         page,
+						PageSize:     pageSize,
+						PagesFetched: pagesFetched,
+						TotalItems:   totalItems,
+						HasMore:      false,
+						All:          true,
+					})
+				}
+				return nil
+			}
+
 			var allItems []T
 			currentPage := page
 			pagesFetched := 0
@@ -160,10 +312,6 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			for {
 				if maxPages > 0 && pagesFetched >= maxPages {
 					return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, len(allItems))
-				}
-
-				if currentPage > page && !flags.Quiet && !flags.Silent && !isJSON(cmd) {
-					_, _ = fmt.Fprintf(ioStreams.ErrOut, "Fetching page %d...\n", currentPage) //nolint:errcheck
 				}
 
 				result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
@@ -183,39 +331,21 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				currentPage++
 			}
 
-			if isJSON(cmd) {
-				return f.Output(map[string]interface{}{
-					"items":    allItems,
-					"has_more": false,
-				})
+			summaryPageSize := pageSize
+			if cfg.DisablePagination {
+				summaryPageSize = len(allItems)
 			}
-
-			if len(allItems) == 0 {
-				if cfg.EmptyMessage != "" {
-					f.Empty(cfg.EmptyMessage)
-				}
-				return nil
-			}
-
-			f.StartTable(cfg.Headers)
-			for _, item := range allItems {
-				f.Row(cfg.RowFunc(item)...)
-			}
-			if err := f.EndTable(); err != nil {
-				return err
-			}
-
-			if cfg.AfterOutput != nil {
-				return cfg.AfterOutput(cmd, ListSummary{
-					Page:         page,
-					PageSize:     pageSize,
-					PagesFetched: pagesFetched,
-					TotalItems:   len(allItems),
-					HasMore:      false,
-					All:          true,
-				})
-			}
-			return nil
+			return f.Output(map[string]interface{}{
+				"items":    allItems,
+				"has_more": false,
+				"meta": map[string]any{
+					"page":          page,
+					"page_size":     summaryPageSize,
+					"pages_fetched": pagesFetched,
+					"total_items":   len(allItems),
+					"all":           true,
+				},
+			})
 		}),
 	}
 

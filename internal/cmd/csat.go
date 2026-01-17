@@ -89,7 +89,7 @@ func newCSATListCmd() *cobra.Command {
 					csat.ConversationID,
 					csat.Rating,
 					feedback,
-					csat.CreatedAtTime().Format("2006-01-02 15:04"),
+					formatTimestampShort(csat.CreatedAtTime()),
 				)
 			}
 			_ = w.Flush()
@@ -152,7 +152,7 @@ func newCSATGetCmd() *cobra.Command {
 			if csat.FeedbackMessage != "" {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Feedback: %s\n", csat.FeedbackMessage)
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Created:  %s\n", csat.CreatedAtTime().Format("2006-01-02 15:04:05"))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Created:  %s\n", formatTimestamp(csat.CreatedAtTime()))
 
 			return nil
 		}),

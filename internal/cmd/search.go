@@ -19,8 +19,10 @@ type SearchResults struct {
 
 func newSearchCmd() *cobra.Command {
 	var (
-		types []string
-		limit int
+		types     []string
+		limit     int
+		selectOne bool
+		selectRaw bool
 	)
 
 	cmd := &cobra.Command{
@@ -49,7 +51,13 @@ of relevant resources with a single query.`,
   chatwoot search john --limit 10
 
   # JSON output for scripting
-  chatwoot search john --output json`,
+  chatwoot search john --output json
+
+  # Select a result and emit a typed JSON wrapper
+  chatwoot search john --select --output json
+
+  # Select a result and emit the raw JSON object
+  chatwoot search john --select --select-raw --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			query := args[0]
@@ -177,6 +185,81 @@ of relevant resources with a single query.`,
 				return searchErr
 			}
 
+			if selectOne {
+				if flags.NoInput || !isInteractive() {
+					return fmt.Errorf("--select requires interactive input (omit --select or run in a terminal)")
+				}
+
+				type selection struct {
+					contact      *api.Contact
+					conversation *api.Conversation
+				}
+
+				var options []selectOption
+				selections := make(map[int]selection)
+				nextID := 1
+
+				for _, c := range results.Contacts {
+					label := c.Name
+					if label == "" {
+						label = fmt.Sprintf("Contact %d", c.ID)
+					}
+					if c.Email != "" {
+						label = fmt.Sprintf("%s <%s>", label, c.Email)
+					}
+					options = append(options, selectOption{ID: nextID, Label: label})
+					cCopy := c
+					selections[nextID] = selection{contact: &cCopy}
+					nextID++
+				}
+				for _, conv := range results.Conversations {
+					label := fmt.Sprintf("Conversation %d (%s, inbox %d)", conv.ID, conv.Status, conv.InboxID)
+					options = append(options, selectOption{ID: nextID, Label: label})
+					convCopy := conv
+					selections[nextID] = selection{conversation: &convCopy}
+					nextID++
+				}
+
+				if len(options) == 0 {
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No results to select")
+					return nil
+				}
+
+				selectedID, ok, err := promptSelect(ctx, "Select result", options, true)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					return nil
+				}
+				chosen := selections[selectedID]
+				if chosen.contact != nil {
+					if isJSON(cmd) {
+						if selectRaw {
+							return printJSON(cmd, chosen.contact)
+						}
+						return printJSON(cmd, map[string]any{
+							"type": "contact",
+							"item": chosen.contact,
+						})
+					}
+					return printContactDetails(cmd.OutOrStdout(), chosen.contact)
+				}
+				if chosen.conversation != nil {
+					if isJSON(cmd) {
+						if selectRaw {
+							return printJSON(cmd, chosen.conversation)
+						}
+						return printJSON(cmd, map[string]any{
+							"type": "conversation",
+							"item": chosen.conversation,
+						})
+					}
+					return printConversationDetails(cmd.OutOrStdout(), chosen.conversation)
+				}
+				return nil
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, results)
 			}
@@ -217,6 +300,8 @@ of relevant resources with a single query.`,
 
 	cmd.Flags().StringArrayVar(&types, "type", nil, "Resource types to search (contacts, conversations); repeatable")
 	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum results per type")
+	cmd.Flags().BoolVar(&selectOne, "select", false, "Interactively select a single result")
+	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")
 
 	return cmd
 }

@@ -11,7 +11,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
@@ -270,12 +272,50 @@ type selectOption struct {
 	Label string
 }
 
+var (
+	promptReaderMu     sync.Mutex
+	promptReader       *bufio.Reader
+	promptReaderSource io.Reader
+)
+
+func getPromptReader(in io.Reader) *bufio.Reader {
+	promptReaderMu.Lock()
+	defer promptReaderMu.Unlock()
+	if promptReader == nil || promptReaderSource != in {
+		promptReader = bufio.NewReader(in)
+		promptReaderSource = in
+	}
+	return promptReader
+}
+
 func isInteractive() bool {
+	if flags.NoInput {
+		return false
+	}
+	if forceInteractive() {
+		return true
+	}
 	info, err := os.Stdin.Stat()
 	if err != nil {
 		return false
 	}
 	return (info.Mode() & os.ModeCharDevice) != 0
+}
+
+func forceInteractive() bool {
+	value, ok := os.LookupEnv("CHATWOOT_FORCE_INTERACTIVE")
+	if !ok {
+		return false
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	enabled, err := strconv.ParseBool(value)
+	if err != nil {
+		return false
+	}
+	return enabled
 }
 
 func promptSelect(ctx context.Context, label string, options []selectOption, allowSkip bool) (int, bool, error) {
@@ -284,18 +324,22 @@ func promptSelect(ctx context.Context, label string, options []selectOption, all
 	}
 
 	ioStreams := iocontext.GetIO(ctx)
+	out := ioStreams.Out
+	if mode := outfmt.ModeFromContext(ctx); mode != outfmt.Text {
+		out = ioStreams.ErrOut
+	}
 
-	_, _ = fmt.Fprintf(ioStreams.Out, "%s:\n", label)
+	_, _ = fmt.Fprintf(out, "%s:\n", label)
 	if allowSkip {
-		_, _ = fmt.Fprintln(ioStreams.Out, "  0) Skip")
+		_, _ = fmt.Fprintln(out, "  0) Skip")
 	}
 	for i, opt := range options {
-		_, _ = fmt.Fprintf(ioStreams.Out, "  %d) %s\n", i+1, opt.Label)
+		_, _ = fmt.Fprintf(out, "  %d) %s\n", i+1, opt.Label)
 	}
 
-	reader := bufio.NewReader(ioStreams.In)
+	reader := getPromptReader(ioStreams.In)
 	for {
-		_, _ = fmt.Fprint(ioStreams.Out, "> ")
+		_, _ = fmt.Fprint(out, "> ")
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return 0, false, err
@@ -306,11 +350,64 @@ func promptSelect(ctx context.Context, label string, options []selectOption, all
 		}
 		choice, err := strconv.Atoi(line)
 		if err != nil || choice < 1 || choice > len(options) {
-			_, _ = fmt.Fprintln(ioStreams.Out, "Invalid selection, try again.")
+			_, _ = fmt.Fprintln(out, "Invalid selection, try again.")
 			continue
 		}
 		return options[choice-1].ID, true, nil
 	}
+}
+
+type confirmOptions struct {
+	Prompt              string
+	Expected            string
+	CancelMessage       string
+	Force               bool
+	RequireForceForJSON bool
+}
+
+func confirmAction(cmd *cobra.Command, opts confirmOptions) (bool, error) {
+	if opts.RequireForceForJSON && isJSON(cmd) && !opts.Force {
+		return false, fmt.Errorf("--force flag is required when using --output json")
+	}
+	if opts.Force {
+		return true, nil
+	}
+
+	out := cmd.OutOrStdout()
+	if opts.Prompt != "" {
+		_, _ = fmt.Fprint(out, opts.Prompt)
+	}
+
+	ioStreams := iocontext.GetIO(cmd.Context())
+	reader := bufio.NewReader(ioStreams.In)
+	response, err := reader.ReadString('\n')
+	if err != nil && response == "" {
+		if opts.CancelMessage != "" {
+			_, _ = fmt.Fprintln(out, opts.CancelMessage)
+		}
+		return false, nil
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	expected := strings.TrimSpace(strings.ToLower(opts.Expected))
+	if expected == "" {
+		expected = "y"
+	}
+	if response != expected {
+		if opts.CancelMessage != "" {
+			_, _ = fmt.Fprintln(out, opts.CancelMessage)
+		}
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func requireForceForJSON(cmd *cobra.Command, force bool) error {
+	if isJSON(cmd) && !force {
+		return fmt.Errorf("--force flag is required when using --output json")
+	}
+	return nil
 }
 
 func promptInboxID(ctx context.Context, client *api.Client) (int, error) {
@@ -386,6 +483,42 @@ const (
 	colorYellow = "\033[33m"
 	colorBold   = "\033[1m"
 )
+
+const (
+	timeLayout       = "2006-01-02 15:04:05"
+	timeLayoutShort  = "2006-01-02 15:04"
+	timeLayoutWithTZ = "2006-01-02 15:04:05 MST"
+	dateLayout       = "2006-01-02"
+)
+
+var timeLocation *time.Location
+
+func setTimeLocation(loc *time.Location) {
+	timeLocation = loc
+}
+
+func formatTime(t time.Time, layout string) string {
+	if timeLocation != nil {
+		t = t.In(timeLocation)
+	}
+	return t.Format(layout)
+}
+
+func formatTimestamp(t time.Time) string {
+	return formatTime(t, timeLayout)
+}
+
+func formatTimestampShort(t time.Time) string {
+	return formatTime(t, timeLayoutShort)
+}
+
+func formatTimestampWithZone(t time.Time) string {
+	return formatTime(t, timeLayoutWithTZ)
+}
+
+func formatDate(t time.Time) string {
+	return formatTime(t, dateLayout)
+}
 
 // colorEnabled returns true if color output should be used
 func colorEnabled() bool {

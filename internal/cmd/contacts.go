@@ -95,7 +95,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 					contact.Name,
 					contact.Email,
 					contact.PhoneNumber,
-					contact.CreatedAtTime().Format("2006-01-02 15:04"),
+					formatTimestampShort(contact.CreatedAtTime()),
 				)
 			}
 
@@ -108,6 +108,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at); prefix with '-' for desc")
@@ -136,19 +137,7 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 	if isJSON(cmd) {
 		return printJSON(cmd, contact)
 	}
-
-	w := newTabWriterFromCmd(cmd)
-	defer func() { _ = w.Flush() }()
-
-	_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
-	_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
-		contact.ID,
-		contact.Name,
-		contact.Email,
-		contact.PhoneNumber,
-	)
-
-	return nil
+	return printContactDetails(cmd.OutOrStdout(), contact)
 }
 
 func newContactsGetCmd() *cobra.Command {
@@ -172,6 +161,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "contact")
 
 	return cmd
 }
@@ -198,6 +188,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "contact")
 
 	return cmd
 }
@@ -475,7 +466,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 					contact.Name,
 					contact.Email,
 					contact.PhoneNumber,
-					contact.CreatedAtTime().Format("2006-01-02 15:04"),
+					formatTimestampShort(contact.CreatedAtTime()),
 				)
 			}
 
@@ -488,6 +479,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().StringVar(&query, "query", "", "Search query string")
 
@@ -557,7 +549,7 @@ Available query operators: and, or`,
 					contact.Name,
 					contact.Email,
 					contact.PhoneNumber,
-					contact.CreatedAtTime().Format("2006-01-02 15:04"),
+					formatTimestampShort(contact.CreatedAtTime()),
 				)
 			}
 
@@ -570,6 +562,7 @@ Available query operators: and, or`,
 		"default": {"id", "name", "email", "phone_number", "identifier", "created_at"},
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().StringVar(&payload, "payload", "", "JSON array of filter conditions")
 
@@ -822,7 +815,6 @@ func newContactsCreateInboxCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
 	cmd.Flags().StringVar(&sourceID, "source-id", "", "Channel-specific source identifier")
-	_ = cmd.MarkFlagRequired("inbox-id")
 
 	return cmd
 }
@@ -1217,9 +1209,8 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 				return fmt.Errorf("cannot merge contact with itself: both IDs are %d", keepID)
 			}
 
-			// In JSON mode, --force is required (can't prompt interactively)
-			if isJSON(cmd) && !force {
-				return fmt.Errorf("--force flag is required when using --output json")
+			if err := requireForceForJSON(cmd, force); err != nil {
+				return err
 			}
 
 			client, err := getClient()
@@ -1253,13 +1244,17 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "The contact #%d will be %s.\n", deleteID, red("PERMANENTLY DELETED"))
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "All conversations, messages, and notes will be transferred to #%d.\n", keepID)
 				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-				_, _ = fmt.Fprint(cmd.OutOrStdout(), yellow("Type 'merge' to confirm: "))
-
-				var response string
-				_, _ = fmt.Scanln(&response)
-				response = strings.TrimSpace(strings.ToLower(response))
-				if response != "merge" {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Merge cancelled.")
+				ok, err := confirmAction(cmd, confirmOptions{
+					Prompt:              yellow("Type 'merge' to confirm: "),
+					Expected:            "merge",
+					CancelMessage:       "Merge cancelled.",
+					Force:               force,
+					RequireForceForJSON: true,
+				})
+				if err != nil {
+					return err
+				}
+				if !ok {
 					return nil
 				}
 			}
@@ -1312,7 +1307,7 @@ func formatContactSummary(c *api.Contact) string {
 	// Add last activity if available
 	if c.LastActivityAt != nil && *c.LastActivityAt > 0 {
 		lastActivity := time.Unix(*c.LastActivityAt, 0)
-		summary += fmt.Sprintf(" (last active: %s)", lastActivity.Format("2006-01-02"))
+		summary += fmt.Sprintf(" (last active: %s)", formatDate(lastActivity))
 	}
 
 	return summary

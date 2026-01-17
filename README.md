@@ -499,7 +499,7 @@ $ chatwoot conversations list --output json
 
 Tip: `--json` is a shorthand for `--output json`.
 
-**List commands return an object with an "items" array**:
+**List commands return an object with an "items" array** (plus `has_more` and `meta`):
 ```bash
 chatwoot contacts list --output json | jq '.items[0]'
 chatwoot conversations list --output json | jq '.items[] | select(.status == "open")'
@@ -512,6 +512,18 @@ chatwoot conversations get 456 --output json | jq '.messages | length'
 ```
 
 Data goes to stdout, errors and progress to stderr for clean piping.
+
+### JSONL
+
+Streaming-friendly output (one JSON object per line):
+
+```bash
+$ chatwoot conversations list --output jsonl
+{"id":123,"status":"open",...}
+{"id":124,"status":"pending",...}
+```
+
+Tip: `--query` and `--template` apply per line in JSONL mode.
 
 ## Examples
 
@@ -666,16 +678,34 @@ chatwoot contacts conversations 123
 
 All commands support these flags:
 
-- `--output <format>` - Output format: `text` or `json` (default: text)
+- `--output <format>` - Output format: `text`, `json`, or `jsonl` (default: text)
+- `--json` - Alias for `--output json`
 - `--color <mode>` - Color mode: `auto`, `always`, or `never` (default: auto)
+- `--allow-private` - Allow private/localhost URLs (unsafe)
 - `--debug` - Enable verbose debug logging
 - `--dry-run` - Preview changes without executing mutations
 - `--timeout <duration>` - HTTP request timeout (default: 30s)
 - `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
 - `--query <expr>` - JQ expression to filter JSON output
+- `--jq <expr>` - Alias for `--query`
 - `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`; supports presets like `minimal`, `default`, `debug` on supported resources)
+- `--quiet` - Suppress non-essential output
+- `--silent` - Suppress non-error output to stderr
+- `--no-input` - Disable interactive prompts
 - `--template <tmpl>` - Go template (or `@path`) to render JSON output
+- `--utc` - Display timestamps in UTC
+- `--time-zone <tz>` - Display timestamps in a specific time zone (e.g., `America/Los_Angeles`)
+- `--max-rate-limit-retries <n>` - Max retries for HTTP 429 responses
+- `--max-5xx-retries <n>` - Max retries for HTTP 5xx responses
+- `--rate-limit-delay <duration>` - Base delay for 429 retries (e.g., 1s)
+- `--server-error-delay <duration>` - Delay between 5xx retries (e.g., 1s)
+- `--circuit-breaker-threshold <n>` - Failures before circuit opens
+- `--circuit-breaker-reset-time <duration>` - Circuit breaker reset time (e.g., 30s)
 - `--help` - Show help for any command
+
+Note: `--utc` and `--time-zone` are mutually exclusive.
+
+You can force interactive prompts in non-TTY environments by setting `CHATWOOT_FORCE_INTERACTIVE=true`.
 
 ### JQ Filtering
 
@@ -683,10 +713,10 @@ Filter JSON output with JQ expressions:
 
 ```bash
 # Get only conversation IDs
-chatwoot conversations list -o json --query '.[].id'
+chatwoot conversations list -o json --query '.items[].id'
 
 # Filter by status
-chatwoot conversations list -o json --query '.[] | select(.status == "open")'
+chatwoot conversations list -o json --query '.items[] | select(.status == "open")'
 ```
 
 **Fields shorthand & templates**

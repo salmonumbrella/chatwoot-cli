@@ -61,6 +61,7 @@ func newAgentsListCmd() *cobra.Command {
 		"default": {"id", "name", "email", "role"},
 		"debug":   {"id", "name", "email", "role", "availability_status", "thumbnail", "confirmed_at"},
 	})
+	registerFieldSchema(cmd, "agent")
 
 	return cmd
 }
@@ -89,20 +90,7 @@ func newAgentsGetCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, agent)
 			}
-
-			w := newTabWriterFromCmd(cmd)
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tROLE\tAVAILABILITY_STATUS")
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-				agent.ID,
-				agent.Name,
-				agent.Email,
-				agent.Role,
-				agent.AvailabilityStatus,
-			)
-
-			return nil
+			return printAgentDetails(cmd.OutOrStdout(), agent)
 		}),
 	}
 
@@ -111,6 +99,7 @@ func newAgentsGetCmd() *cobra.Command {
 		"default": {"id", "name", "email", "role"},
 		"debug":   {"id", "name", "email", "role", "availability_status", "thumbnail", "confirmed_at"},
 	})
+	registerFieldSchema(cmd, "agent")
 
 	return cmd
 }

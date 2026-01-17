@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,8 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/filter"
-	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +17,6 @@ func newAPICmd() *cobra.Command {
 	var fields []string
 	var rawFields []string
 	var inputFile string
-	var jqQuery string
 	var silent bool
 	var includeHeaders bool
 
@@ -50,8 +48,8 @@ For example, "/conversations/123" becomes:
   # Read body from stdin
   echo '{"name": "Test"}' | chatwoot api /contacts -X POST -i -
 
-  # Filter response with jq
-  chatwoot api /contacts --jq '.payload[0].name'
+  # Filter response with jq (JSON output required)
+  chatwoot api /contacts --output json --jq '.payload[0].name'
 
   # Silent mode (no output, useful for mutations)
   chatwoot api /conversations/123 -X DELETE --silent
@@ -95,7 +93,13 @@ For example, "/conversations/123" becomes:
 				return nil
 			}
 
-			// Include headers
+			// JSON output uses global outfmt pipeline (--output json/--json)
+			if isJSON(cmd) {
+				payload := apiJSONPayload(respBody, headers, statusCode, includeHeaders)
+				return printJSON(cmd, payload)
+			}
+
+			// Text output (legacy behavior)
 			if includeHeaders {
 				_, _ = fmt.Fprintf(out, "HTTP %d\n", statusCode)
 				// Sort headers for consistent output
@@ -110,16 +114,6 @@ For example, "/conversations/123" becomes:
 					}
 				}
 				_, _ = fmt.Fprintln(out)
-			}
-
-			// Apply jq filter if specified
-			if jqQuery != "" {
-				filtered, err := applyJqFilter(respBody, jqQuery)
-				if err != nil {
-					return fmt.Errorf("jq filter error: %w", err)
-				}
-				_, _ = fmt.Fprint(out, filtered)
-				return nil
 			}
 
 			// Output raw response body
@@ -145,11 +139,36 @@ For example, "/conversations/123" becomes:
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Request body field as key=value (string)")
 	cmd.Flags().StringArrayVarP(&rawFields, "raw-field", "F", nil, "Request body field as key=value (JSON parsed)")
 	cmd.Flags().StringVarP(&inputFile, "input", "i", "", "Read request body from file (use - for stdin)")
-	cmd.Flags().StringVar(&jqQuery, "jq", "", "jq expression to filter JSON response")
 	cmd.Flags().BoolVarP(&silent, "silent", "s", false, "Suppress output")
 	cmd.Flags().BoolVar(&includeHeaders, "include", false, "Include response headers in output")
 
 	return cmd
+}
+
+func apiJSONPayload(respBody []byte, headers map[string][]string, statusCode int, includeHeaders bool) any {
+	body := apiJSONBody(respBody)
+	if !includeHeaders {
+		return body
+	}
+	return map[string]any{
+		"status":  statusCode,
+		"headers": headers,
+		"body":    body,
+	}
+}
+
+func apiJSONBody(respBody []byte) any {
+	if len(respBody) == 0 {
+		return nil
+	}
+	if !json.Valid(respBody) {
+		return string(respBody)
+	}
+	pretty := &bytes.Buffer{}
+	if err := json.Indent(pretty, respBody, "", "  "); err != nil {
+		return json.RawMessage(respBody)
+	}
+	return json.RawMessage(pretty.Bytes())
 }
 
 // buildRequestBody constructs the request body from fields and/or input file
@@ -227,45 +246,4 @@ func parseRawField(field string) (string, any, error) {
 	}
 
 	return key, value, nil
-}
-
-// applyJqFilter applies a jq expression to JSON data and returns the result
-func applyJqFilter(data []byte, queryStr string) (string, error) {
-	// Parse JSON data
-	var input any
-	if err := json.Unmarshal(data, &input); err != nil {
-		return "", fmt.Errorf("failed to parse JSON: %w", err)
-	}
-
-	// Normalize shell-escaped operators (e.g., \!= from zsh)
-	queryStr = filter.NormalizeExpression(queryStr)
-
-	// Parse jq query
-	query, err := gojq.Parse(queryStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse jq query: %w", err)
-	}
-
-	// Run query
-	iter := query.Run(input)
-	var results []string
-
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if err, ok := v.(error); ok {
-			return "", fmt.Errorf("jq execution error: %w", err)
-		}
-
-		// Format output
-		output, err := json.Marshal(v)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal jq result: %w", err)
-		}
-		results = append(results, string(output))
-	}
-
-	return strings.Join(results, "\n") + "\n", nil
 }

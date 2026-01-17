@@ -7,11 +7,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var completionsNoCache bool
+
 // CompletionItem represents an autocomplete suggestion
 type CompletionItem struct {
 	Value       string `json:"value"`
 	Label       string `json:"label"`
 	Description string `json:"description,omitempty"`
+}
+
+func outputCompletionItems(cmd *cobra.Command, items []CompletionItem) error {
+	if isJSON(cmd) {
+		return printJSON(cmd, items)
+	}
+
+	w := newTabWriterFromCmd(cmd)
+	for _, item := range items {
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
+	}
+	return w.Flush()
 }
 
 func newCompletionsCmd() *cobra.Command {
@@ -20,6 +34,8 @@ func newCompletionsCmd() *cobra.Command {
 		Short: "Get autocomplete values for IDs",
 		Long:  "Retrieve valid values for IDs to help with command completion (inboxes, agents, labels, teams, statuses)",
 	}
+
+	cmd.PersistentFlags().BoolVar(&completionsNoCache, "no-cache", false, "Disable completions cache")
 
 	cmd.AddCommand(newCompletionsInboxesCmd())
 	cmd.AddCommand(newCompletionsAgentsCmd())
@@ -41,6 +57,10 @@ func newCompletionsInboxesCmd() *cobra.Command {
 				return err
 			}
 
+			if items, ok := loadCompletionsCache(client, "inboxes"); ok {
+				return outputCompletionItems(cmd, items)
+			}
+
 			inboxes, err := client.Inboxes().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list inboxes: %w", err)
@@ -55,17 +75,8 @@ func newCompletionsInboxesCmd() *cobra.Command {
 				}
 			}
 
-			if isJSON(cmd) {
-				return printJSON(cmd, items)
-			}
-
-			w := newTabWriterFromCmd(cmd)
-			for _, item := range items {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
-			}
-			_ = w.Flush()
-
-			return nil
+			saveCompletionsCache(client, "inboxes", items)
+			return outputCompletionItems(cmd, items)
 		}),
 	}
 }
@@ -79,6 +90,10 @@ func newCompletionsAgentsCmd() *cobra.Command {
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+
+			if items, ok := loadCompletionsCache(client, "agents"); ok {
+				return outputCompletionItems(cmd, items)
 			}
 
 			agents, err := client.Agents().List(cmdContext(cmd))
@@ -95,17 +110,8 @@ func newCompletionsAgentsCmd() *cobra.Command {
 				}
 			}
 
-			if isJSON(cmd) {
-				return printJSON(cmd, items)
-			}
-
-			w := newTabWriterFromCmd(cmd)
-			for _, item := range items {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
-			}
-			_ = w.Flush()
-
-			return nil
+			saveCompletionsCache(client, "agents", items)
+			return outputCompletionItems(cmd, items)
 		}),
 	}
 }
@@ -119,6 +125,10 @@ func newCompletionsLabelsCmd() *cobra.Command {
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+
+			if items, ok := loadCompletionsCache(client, "labels"); ok {
+				return outputCompletionItems(cmd, items)
 			}
 
 			labels, err := client.Labels().List(cmdContext(cmd))
@@ -135,17 +145,8 @@ func newCompletionsLabelsCmd() *cobra.Command {
 				}
 			}
 
-			if isJSON(cmd) {
-				return printJSON(cmd, items)
-			}
-
-			w := newTabWriterFromCmd(cmd)
-			for _, item := range items {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
-			}
-			_ = w.Flush()
-
-			return nil
+			saveCompletionsCache(client, "labels", items)
+			return outputCompletionItems(cmd, items)
 		}),
 	}
 }
@@ -159,6 +160,10 @@ func newCompletionsTeamsCmd() *cobra.Command {
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+
+			if items, ok := loadCompletionsCache(client, "teams"); ok {
+				return outputCompletionItems(cmd, items)
 			}
 
 			teams, err := client.Teams().List(cmdContext(cmd))
@@ -175,17 +180,8 @@ func newCompletionsTeamsCmd() *cobra.Command {
 				}
 			}
 
-			if isJSON(cmd) {
-				return printJSON(cmd, items)
-			}
-
-			w := newTabWriterFromCmd(cmd)
-			for _, item := range items {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
-			}
-			_ = w.Flush()
-
-			return nil
+			saveCompletionsCache(client, "teams", items)
+			return outputCompletionItems(cmd, items)
 		}),
 	}
 }
@@ -204,17 +200,7 @@ func newCompletionsStatusesCmd() *cobra.Command {
 				{Value: "snoozed", Label: "Snoozed", Description: "Conversation is snoozed"},
 			}
 
-			if isJSON(cmd) {
-				return printJSON(cmd, items)
-			}
-
-			w := newTabWriterFromCmd(cmd)
-			for _, item := range items {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", item.Value, item.Label, item.Description)
-			}
-			_ = w.Flush()
-
-			return nil
+			return outputCompletionItems(cmd, items)
 		}),
 	}
 }

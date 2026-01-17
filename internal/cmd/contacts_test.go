@@ -615,10 +615,50 @@ func TestContactsCreateInboxCommand_NoInboxDetails(t *testing.T) {
 	}
 }
 
+func TestContactsCreateInboxCommand_InteractivePrompt(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}
+			]
+		}`)).
+		On("POST", "/api/v1/accounts/1/contacts/123/contact_inboxes", jsonResponse(200, `{
+			"source_id": "src-123",
+			"inbox": {"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "create-inbox", "123"})
+		if err != nil {
+			t.Errorf("contacts create-inbox interactive failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Contact 123 associated with inbox 1") {
+		t.Errorf("expected interactive association output, got: %s", output)
+	}
+}
+
 func TestContactsCreateInboxCommand_MissingInboxID(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 
-	err := Execute(context.Background(), []string{"contacts", "create-inbox", "123"})
+	err := Execute(context.Background(), []string{"contacts", "create-inbox", "123", "--no-input"})
 	if err == nil {
 		t.Error("expected error for missing --inbox-id")
 	}

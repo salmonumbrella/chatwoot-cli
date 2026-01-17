@@ -73,7 +73,7 @@ func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 			conv.Status,
 			priority,
 			conv.Unread,
-			conv.CreatedAtTime().Format("2006-01-02 15:04"),
+			formatTimestampShort(conv.CreatedAtTime()),
 		)
 	}
 	_ = w.Flush()
@@ -142,6 +142,7 @@ func newConversationsListCmd() *cobra.Command {
 		"default": {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "created_at", "last_activity_at"},
 		"debug":   {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "contact_id", "display_id", "muted", "unread_count", "labels", "meta", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "conversation")
 
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
@@ -170,7 +171,7 @@ func conversationRow(conv api.Conversation) []string {
 		conv.Status,
 		priority,
 		fmt.Sprintf("%d", conv.Unread),
-		conv.CreatedAtTime().Format("2006-01-02 15:04"),
+		formatTimestampShort(conv.CreatedAtTime()),
 	}
 }
 
@@ -216,33 +217,7 @@ func newConversationsGetCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, conv)
 			}
-
-			displayID := conv.ID
-			if conv.DisplayID != nil {
-				displayID = *conv.DisplayID
-			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d\n", displayID)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  ID:         %d\n", conv.ID)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Inbox ID:   %d\n", conv.InboxID)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Contact ID: %d\n", conv.ContactID)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Status:     %s\n", conv.Status)
-			if conv.Priority != nil {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Priority:   %s\n", *conv.Priority)
-			}
-			if conv.AssigneeID != nil {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Assignee:   %d\n", *conv.AssigneeID)
-			}
-			if conv.TeamID != nil {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Team:       %d\n", *conv.TeamID)
-			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Unread:     %d\n", conv.Unread)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Muted:      %t\n", conv.Muted)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Created:    %s\n", conv.CreatedAtTime().Format("2006-01-02 15:04:05"))
-			if len(conv.Labels) > 0 {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Labels:     %s\n", strings.Join(conv.Labels, ", "))
-			}
-
-			return nil
+			return printConversationDetails(cmd.OutOrStdout(), conv)
 		}),
 	}
 
@@ -251,6 +226,7 @@ func newConversationsGetCmd() *cobra.Command {
 		"default": {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "created_at", "last_activity_at"},
 		"debug":   {"id", "status", "priority", "inbox_id", "assignee_id", "team_id", "contact_id", "display_id", "muted", "unread_count", "labels", "meta", "custom_attributes", "created_at", "last_activity_at"},
 	})
+	registerFieldSchema(cmd, "conversation")
 
 	return cmd
 }
@@ -628,7 +604,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d status updated to: %s\n", result.Payload.ConversationID, result.Payload.CurrentStatus)
 			if result.Payload.SnoozedUntil != nil && *result.Payload.SnoozedUntil > 0 {
 				snoozedTime := time.Unix(*result.Payload.SnoozedUntil, 0)
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Snoozed until: %s\n", snoozedTime.Format("2006-01-02 15:04:05 MST"))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Snoozed until: %s\n", formatTimestampWithZone(snoozedTime))
 			}
 
 			return nil

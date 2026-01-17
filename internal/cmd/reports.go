@@ -199,7 +199,7 @@ Report types:
 			_, _ = fmt.Fprintln(w, "TIMESTAMP\tVALUE")
 			for _, dp := range report {
 				t := time.Unix(dp.Timestamp, 0)
-				_, _ = fmt.Fprintf(w, "%s\t%s\n", t.Format("2006-01-02 15:04"), dp.Value)
+				_, _ = fmt.Fprintf(w, "%s\t%s\n", formatTimestampShort(t), dp.Value)
 			}
 			_ = w.Flush()
 			return nil

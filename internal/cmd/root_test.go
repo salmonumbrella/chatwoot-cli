@@ -168,7 +168,16 @@ func TestExecute_GlobalFlags(t *testing.T) {
 		"--allow-private",
 		"--query",
 		"--fields",
+		"--no-input",
 		"--template",
+		"--utc",
+		"--time-zone",
+		"--max-rate-limit-retries",
+		"--max-5xx-retries",
+		"--rate-limit-delay",
+		"--server-error-delay",
+		"--circuit-breaker-threshold",
+		"--circuit-breaker-reset-time",
 	}
 
 	for _, flagName := range flags {
@@ -221,6 +230,22 @@ func TestExecute_InvalidOutputFormat(t *testing.T) {
 
 	if err == nil {
 		t.Error("Execute() with invalid output format should return error")
+	}
+}
+
+func TestExecute_TimeZoneConflict(t *testing.T) {
+	ctx := context.Background()
+	err := Execute(ctx, []string{"--utc", "--time-zone", "UTC", "version"})
+	if err == nil {
+		t.Error("expected error when --utc and --time-zone are both set")
+	}
+}
+
+func TestExecute_InvalidTimeZone(t *testing.T) {
+	ctx := context.Background()
+	err := Execute(ctx, []string{"--time-zone", "Not/AZone", "version"})
+	if err == nil {
+		t.Error("expected error for invalid --time-zone")
 	}
 }
 

@@ -65,6 +65,7 @@ func newTeamsListCmd() *cobra.Command {
 		"default": {"id", "name", "description", "allow_auto_assign"},
 		"debug":   {"id", "name", "description", "allow_auto_assign", "account_id"},
 	})
+	registerFieldSchema(cmd, "team")
 
 	return cmd
 }
@@ -93,18 +94,7 @@ func newTeamsGetCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, team)
 			}
-
-			w := newTabWriterFromCmd(cmd)
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tDESCRIPTION\tAUTO-ASSIGN\tACCOUNT-ID")
-			autoAssign := "no"
-			if team.AllowAutoAssign {
-				autoAssign = "yes"
-			}
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d\n", team.ID, team.Name, team.Description, autoAssign, team.AccountID)
-
-			return nil
+			return printTeamDetails(cmd.OutOrStdout(), team)
 		}),
 	}
 
@@ -113,6 +103,7 @@ func newTeamsGetCmd() *cobra.Command {
 		"default": {"id", "name", "description", "allow_auto_assign"},
 		"debug":   {"id", "name", "description", "allow_auto_assign", "account_id"},
 	})
+	registerFieldSchema(cmd, "team")
 
 	return cmd
 }

@@ -317,15 +317,25 @@ func TestSplitCommaList(t *testing.T) {
 	}
 }
 
-func TestIsInteractive(t *testing.T) {
-	// isInteractive checks os.Stdin, which in test environment is typically not a terminal
-	// Just verify it returns a boolean without panicking
-	result := isInteractive()
-	// In test environment, stdin is usually not a terminal
-	if result {
-		t.Log("isInteractive() returned true (running in terminal)")
-	} else {
-		t.Log("isInteractive() returned false (not a terminal)")
+func TestIsInteractive_Forced(t *testing.T) {
+	orig := flags.NoInput
+	flags.NoInput = false
+	t.Cleanup(func() { flags.NoInput = orig })
+
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+	if !isInteractive() {
+		t.Fatal("expected isInteractive() to return true when forced via env")
+	}
+}
+
+func TestIsInteractive_NoInputOverrides(t *testing.T) {
+	orig := flags.NoInput
+	flags.NoInput = true
+	t.Cleanup(func() { flags.NoInput = orig })
+
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+	if isInteractive() {
+		t.Fatal("expected isInteractive() to return false when --no-input is set")
 	}
 }
 

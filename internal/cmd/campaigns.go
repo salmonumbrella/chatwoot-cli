@@ -62,7 +62,7 @@ func newCampaignsListCmd() *cobra.Command {
 			for _, c := range campaigns {
 				scheduled := "-"
 				if c.ScheduledAt > 0 {
-					scheduled = c.ScheduledAtTime().Format("2006-01-02 15:04")
+					scheduled = formatTimestampShort(c.ScheduledAtTime())
 				}
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%t\n",
 					c.ID, c.Title, c.CampaignType, c.CampaignStatus, scheduled, c.Enabled)
@@ -125,26 +125,7 @@ func newCampaignsGetCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, campaign)
 			}
-
-			w := newTabWriterFromCmd(cmd)
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintf(w, "ID:\t%d\n", campaign.ID)
-			_, _ = fmt.Fprintf(w, "Title:\t%s\n", campaign.Title)
-			_, _ = fmt.Fprintf(w, "Description:\t%s\n", campaign.Description)
-			_, _ = fmt.Fprintf(w, "Message:\t%s\n", campaign.Message)
-			_, _ = fmt.Fprintf(w, "Type:\t%s\n", campaign.CampaignType)
-			_, _ = fmt.Fprintf(w, "Status:\t%s\n", campaign.CampaignStatus)
-			_, _ = fmt.Fprintf(w, "Inbox ID:\t%d\n", campaign.InboxID)
-			_, _ = fmt.Fprintf(w, "Sender ID:\t%d\n", campaign.SenderID)
-			_, _ = fmt.Fprintf(w, "Enabled:\t%t\n", campaign.Enabled)
-			_, _ = fmt.Fprintf(w, "Business Hours Only:\t%t\n", campaign.TriggerOnlyDuringBusinessHours)
-			if campaign.ScheduledAt > 0 {
-				_, _ = fmt.Fprintf(w, "Scheduled At:\t%s\n", campaign.ScheduledAtTime().Format("2006-01-02 15:04:05"))
-			}
-			_, _ = fmt.Fprintf(w, "Created:\t%s\n", campaign.CreatedAtTime().Format("2006-01-02 15:04:05"))
-
-			return nil
+			return printCampaignDetails(cmd.OutOrStdout(), campaign)
 		}),
 	}
 
@@ -298,7 +279,6 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 
 	_ = cmd.MarkFlagRequired("title")
 	_ = cmd.MarkFlagRequired("message")
-	_ = cmd.MarkFlagRequired("inbox-id")
 
 	return cmd
 }
@@ -432,11 +412,6 @@ func newCampaignsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			// In JSON mode, --force is required (can't prompt interactively)
-			if isJSON(cmd) && !force {
-				return fmt.Errorf("--force flag is required when using --output json")
-			}
-
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -450,24 +425,25 @@ func newCampaignsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			// If not forced and not in JSON mode, fetch campaign and prompt for confirmation
+			prompt := fmt.Sprintf("Delete campaign %d? (y/N): ", id)
 			if !force && !isJSON(cmd) {
-				// Try to fetch campaign to show title in confirmation
-				campaign, err := client.Campaigns().Get(cmdContext(cmd), id)
-				if err != nil {
-					// Fall back to just showing ID if fetch fails
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete campaign %d? (y/N): ", id)
-				} else {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete campaign %q (ID: %d)? (y/N): ", campaign.Title, id)
+				if campaign, err := client.Campaigns().Get(cmdContext(cmd), id); err == nil {
+					prompt = fmt.Sprintf("Delete campaign %q (ID: %d)? (y/N): ", campaign.Title, id)
 				}
+			}
 
-				var response string
-				_, _ = fmt.Scanln(&response)
-				response = strings.TrimSpace(strings.ToLower(response))
-				if response != "y" {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Deletion cancelled.")
-					return nil
-				}
+			ok, err := confirmAction(cmd, confirmOptions{
+				Prompt:              prompt,
+				Expected:            "y",
+				CancelMessage:       "Deletion cancelled.",
+				Force:               force,
+				RequireForceForJSON: true,
+			})
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 
 			if err := client.Campaigns().Delete(cmdContext(cmd), id); err != nil {

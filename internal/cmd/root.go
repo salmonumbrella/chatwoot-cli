@@ -22,20 +22,36 @@ import (
 
 // rootFlags holds global CLI flags
 type rootFlags struct {
-	Output         string
-	Color          string
-	Debug          bool
-	DryRun         bool
-	Quiet          bool
-	Silent         bool
-	JSON           bool
-	AllowPrivate   bool
-	Query          string
-	JQ             string
-	Fields         string
-	Template       string
-	Timeout        time.Duration
-	IdempotencyKey string
+	Output                  string
+	Color                   string
+	Debug                   bool
+	DryRun                  bool
+	Quiet                   bool
+	Silent                  bool
+	NoInput                 bool
+	JSON                    bool
+	AllowPrivate            bool
+	Query                   string
+	JQ                      string
+	Fields                  string
+	Template                string
+	Timeout                 time.Duration
+	IdempotencyKey          string
+	UTC                     bool
+	TimeZone                string
+	MaxRateLimitRetries     int
+	Max5xxRetries           int
+	RateLimitDelay          time.Duration
+	ServerErrorDelay        time.Duration
+	CircuitBreakerThreshold int
+	CircuitBreakerResetTime time.Duration
+
+	MaxRateLimitRetriesSet     bool
+	Max5xxRetriesSet           bool
+	RateLimitDelaySet          bool
+	ServerErrorDelaySet        bool
+	CircuitBreakerThresholdSet bool
+	CircuitBreakerResetTimeSet bool
 }
 
 // flags holds the global command flags, accessible to helper functions
@@ -53,6 +69,8 @@ func Execute(ctx context.Context, args []string) error {
 		Color:   "auto",
 		Timeout: api.DefaultTimeout,
 	}
+	setTimeLocation(nil)
+	completionsNoCache = false
 
 	root := &cobra.Command{
 		Use:           "chatwoot",
@@ -106,9 +124,9 @@ func Execute(ctx context.Context, args []string) error {
 				flags.Output = "json"
 			}
 			needsJSON := flags.Query != "" || flags.JQ != "" || flags.Fields != "" || flags.Template != ""
-			if needsJSON && flags.Output != "json" {
+			if needsJSON && flags.Output != "json" && flags.Output != "jsonl" {
 				if cmd.Flags().Changed("output") {
-					return fmt.Errorf("--jq/--query/--fields/--template require --output json (or --json)")
+					return fmt.Errorf("--jq/--query/--fields/--template require --output json or jsonl (or --json)")
 				}
 				flags.Output = "json"
 			}
@@ -171,6 +189,45 @@ func Execute(ctx context.Context, args []string) error {
 				ctx = outfmt.WithTemplate(ctx, tmpl)
 			}
 
+			flags.MaxRateLimitRetriesSet = cmd.Flags().Changed("max-rate-limit-retries")
+			flags.Max5xxRetriesSet = cmd.Flags().Changed("max-5xx-retries")
+			flags.RateLimitDelaySet = cmd.Flags().Changed("rate-limit-delay")
+			flags.ServerErrorDelaySet = cmd.Flags().Changed("server-error-delay")
+			flags.CircuitBreakerThresholdSet = cmd.Flags().Changed("circuit-breaker-threshold")
+			flags.CircuitBreakerResetTimeSet = cmd.Flags().Changed("circuit-breaker-reset-time")
+
+			if flags.MaxRateLimitRetriesSet && flags.MaxRateLimitRetries < 0 {
+				return fmt.Errorf("--max-rate-limit-retries must be >= 0")
+			}
+			if flags.Max5xxRetriesSet && flags.Max5xxRetries < 0 {
+				return fmt.Errorf("--max-5xx-retries must be >= 0")
+			}
+			if flags.RateLimitDelaySet && flags.RateLimitDelay < 0 {
+				return fmt.Errorf("--rate-limit-delay must be >= 0")
+			}
+			if flags.ServerErrorDelaySet && flags.ServerErrorDelay < 0 {
+				return fmt.Errorf("--server-error-delay must be >= 0")
+			}
+			if flags.CircuitBreakerThresholdSet && flags.CircuitBreakerThreshold < 0 {
+				return fmt.Errorf("--circuit-breaker-threshold must be >= 0")
+			}
+			if flags.CircuitBreakerResetTimeSet && flags.CircuitBreakerResetTime < 0 {
+				return fmt.Errorf("--circuit-breaker-reset-time must be >= 0")
+			}
+
+			if flags.UTC && flags.TimeZone != "" {
+				return fmt.Errorf("--utc and --time-zone cannot be used together")
+			}
+			if flags.UTC {
+				setTimeLocation(time.UTC)
+			} else if flags.TimeZone != "" {
+				loc, err := time.LoadLocation(flags.TimeZone)
+				if err != nil {
+					return fmt.Errorf("invalid --time-zone %q: %w", flags.TimeZone, err)
+				}
+				setTimeLocation(loc)
+			}
+
 			cmd.SetContext(ctx)
 			return nil
 		},
@@ -178,7 +235,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	root.SetContext(ctx)
 	root.SetArgs(args)
-	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json")
+	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl")
 	root.PersistentFlags().BoolVar(&flags.JSON, "json", false, "Output JSON (alias for --output json)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
 	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", false, "Allow private/localhost URLs (unsafe)")
@@ -189,9 +246,18 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
+	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
 	root.PersistentFlags().StringVar(&flags.IdempotencyKey, "idempotency-key", "", "Idempotency key for write requests (use 'auto' for per-request keys)")
+	root.PersistentFlags().BoolVar(&flags.UTC, "utc", false, "Display timestamps in UTC")
+	root.PersistentFlags().StringVar(&flags.TimeZone, "time-zone", "", "Time zone for displayed timestamps (e.g., America/Los_Angeles)")
+	root.PersistentFlags().IntVar(&flags.MaxRateLimitRetries, "max-rate-limit-retries", 0, "Max retries for 429 responses (overrides env)")
+	root.PersistentFlags().IntVar(&flags.Max5xxRetries, "max-5xx-retries", 0, "Max retries for 5xx responses (overrides env)")
+	root.PersistentFlags().DurationVar(&flags.RateLimitDelay, "rate-limit-delay", 0, "Base delay for 429 retries (e.g., 1s; overrides env)")
+	root.PersistentFlags().DurationVar(&flags.ServerErrorDelay, "server-error-delay", 0, "Delay between 5xx retries (e.g., 1s; overrides env)")
+	root.PersistentFlags().IntVar(&flags.CircuitBreakerThreshold, "circuit-breaker-threshold", 0, "Failures before circuit opens (overrides env)")
+	root.PersistentFlags().DurationVar(&flags.CircuitBreakerResetTime, "circuit-breaker-reset-time", 0, "Circuit breaker reset time (e.g., 30s; overrides env)")
 
 	// Add subcommands
 	root.AddCommand(newAuthCmd())

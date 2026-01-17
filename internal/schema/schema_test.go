@@ -268,9 +268,9 @@ func TestAgentSchema(t *testing.T) {
 	}
 
 	// Check availability enum
-	availability := s.Properties["availability"]
+	availability := s.Properties["availability_status"]
 	if availability == nil {
-		t.Fatal("expected availability property")
+		t.Fatal("expected availability_status property")
 	}
 	if len(availability.Enum) != 3 {
 		t.Errorf("expected 3 availability enum values, got %d", len(availability.Enum))

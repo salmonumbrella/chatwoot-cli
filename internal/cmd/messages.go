@@ -111,7 +111,7 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 					msg.MessageTypeName(),
 					msg.Private,
 					content,
-					msg.CreatedAtTime().Format("2006-01-02 15:04:05"),
+					formatTimestamp(msg.CreatedAtTime()),
 				)
 			}
 
@@ -124,6 +124,7 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 		"default": {"id", "content", "message_type", "private", "sender_type", "created_at"},
 		"debug":   {"id", "conversation_id", "content", "content_type", "message_type", "private", "sender_id", "sender_type", "attachments", "created_at"},
 	})
+	registerFieldSchema(cmd, "message")
 
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all or --limit")

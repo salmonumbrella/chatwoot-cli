@@ -309,7 +309,7 @@ func TestReplyByContactSearch_SingleMatch(t *testing.T) {
 	})
 	defer cleanup()
 
-	err := Execute(context.Background(), []string{"reply", "john", "--content", "Hello!"})
+	err := Execute(context.Background(), []string{"reply", "john", "--content", "Hello!", "--no-input"})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestReplyByContactSearch_MultipleMatches(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := Execute(context.Background(), []string{"reply", "john", "--content", "Hello!"})
+	err := Execute(context.Background(), []string{"reply", "john", "--content", "Hello!", "--no-input"})
 
 	_ = w.Close()
 	os.Stdout = old
@@ -377,6 +377,60 @@ func TestReplyByContactSearch_MultipleMatches(t *testing.T) {
 	// Should show disambiguation message
 	if !strings.Contains(output, "Multiple contacts found") {
 		t.Error("Expected disambiguation message in output")
+	}
+}
+
+func TestReplyByContactSearch_MultipleMatches_Interactive(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com", "created_at": 1700000000},
+				{"id": 2, "name": "John Smith", "email": "johns@example.com", "created_at": 1700000000}
+			],
+			"meta": {}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/1", jsonResponse(200, `{
+			"payload": {"id": 1, "name": "John Doe", "email": "john@example.com", "created_at": 1700000000}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/1/conversations", jsonResponse(200, `{
+			"payload": [{"id": 456, "status": "open", "inbox_id": 1, "last_activity_at": 1700000000}]
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/456/messages", jsonResponse(200, `{
+			"id": 100,
+			"conversation_id": 456,
+			"content": "Hello!",
+			"message_type": 1,
+			"created_at": 1700000000
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "john", "--content", "Hello!"})
+		if err != nil {
+			t.Errorf("reply --content failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Sent message 100") {
+		t.Errorf("expected message sent output, got: %s", output)
+	}
+	if !strings.Contains(output, "Conversation: 456") {
+		t.Errorf("expected conversation output, got: %s", output)
 	}
 }
 
@@ -399,7 +453,7 @@ func TestReplyByContactID_NoOpenConversations(t *testing.T) {
 	})
 	defer cleanup()
 
-	err := Execute(context.Background(), []string{"reply", "--contact-id", "123", "--content", "Hello!"})
+	err := Execute(context.Background(), []string{"reply", "--contact-id", "123", "--content", "Hello!", "--no-input"})
 	if err == nil {
 		t.Error("Expected error for no open conversations")
 	}
@@ -432,7 +486,7 @@ func TestReplyByContactID_MultipleOpenConversations(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := Execute(context.Background(), []string{"reply", "--contact-id", "123", "--content", "Hello!"})
+	err := Execute(context.Background(), []string{"reply", "--contact-id", "123", "--content", "Hello!", "--no-input"})
 
 	_ = w.Close()
 	os.Stdout = old

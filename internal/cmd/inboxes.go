@@ -67,6 +67,7 @@ func newInboxesListCmd() *cobra.Command {
 		"default": {"id", "name", "channel_type", "website_url", "greeting_enabled"},
 		"debug":   {"id", "name", "channel_type", "avatar_url", "website_url", "greeting_enabled", "greeting_message", "enable_auto_assignment"},
 	})
+	registerFieldSchema(cmd, "inbox")
 
 	return cmd
 }
@@ -95,23 +96,7 @@ func newInboxesGetCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(cmd, inbox)
 			}
-
-			w := newTabWriterFromCmd(cmd)
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintf(w, "ID:\t%d\n", inbox.ID)
-			_, _ = fmt.Fprintf(w, "Name:\t%s\n", inbox.Name)
-			_, _ = fmt.Fprintf(w, "Channel Type:\t%s\n", inbox.ChannelType)
-			_, _ = fmt.Fprintf(w, "Auto Assignment:\t%v\n", inbox.EnableAutoAssignment)
-			_, _ = fmt.Fprintf(w, "Greeting Enabled:\t%v\n", inbox.GreetingEnabled)
-			if inbox.GreetingMessage != "" {
-				_, _ = fmt.Fprintf(w, "Greeting Message:\t%s\n", inbox.GreetingMessage)
-			}
-			if inbox.WebsiteURL != "" {
-				_, _ = fmt.Fprintf(w, "Website URL:\t%s\n", inbox.WebsiteURL)
-			}
-
-			return nil
+			return printInboxDetails(cmd.OutOrStdout(), inbox)
 		}),
 	}
 
@@ -120,6 +105,7 @@ func newInboxesGetCmd() *cobra.Command {
 		"default": {"id", "name", "channel_type", "website_url", "greeting_enabled"},
 		"debug":   {"id", "name", "channel_type", "avatar_url", "website_url", "greeting_enabled", "greeting_message", "enable_auto_assignment"},
 	})
+	registerFieldSchema(cmd, "inbox")
 
 	return cmd
 }

@@ -73,6 +73,7 @@ func newLabelsListCmd() *cobra.Command {
 		"default": {"id", "title", "color", "show_on_sidebar"},
 		"debug":   {"id", "title", "description", "color", "show_on_sidebar"},
 	})
+	registerFieldSchema(cmd, "label")
 
 	return cmd
 }
@@ -125,6 +126,7 @@ func newLabelsGetCmd() *cobra.Command {
 		"default": {"id", "title", "color", "show_on_sidebar"},
 		"debug":   {"id", "title", "description", "color", "show_on_sidebar"},
 	})
+	registerFieldSchema(cmd, "label")
 
 	return cmd
 }

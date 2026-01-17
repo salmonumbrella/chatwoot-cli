@@ -15,6 +15,8 @@ const (
 	Text Mode = iota
 	// JSON outputs structured JSON
 	JSON
+	// JSONL outputs newline-delimited JSON
+	JSONL
 )
 
 type contextKey struct{}
@@ -26,8 +28,10 @@ func Parse(s string) (Mode, error) {
 		return Text, nil
 	case "json":
 		return JSON, nil
+	case "jsonl":
+		return JSONL, nil
 	default:
-		return Text, fmt.Errorf("invalid output format: %q (use 'text' or 'json')", s)
+		return Text, fmt.Errorf("invalid output format: %q (use 'text', 'json', or 'jsonl')", s)
 	}
 }
 
@@ -46,7 +50,13 @@ func ModeFromContext(ctx context.Context) Mode {
 
 // IsJSON returns true if the context is set to JSON output
 func IsJSON(ctx context.Context) bool {
-	return ModeFromContext(ctx) == JSON
+	mode := ModeFromContext(ctx)
+	return mode == JSON || mode == JSONL
+}
+
+// IsJSONL returns true if the context is set to JSONL output
+func IsJSONL(ctx context.Context) bool {
+	return ModeFromContext(ctx) == JSONL
 }
 
 // WriteJSON writes a value as pretty-printed JSON
@@ -61,6 +71,8 @@ func (m Mode) String() string {
 	switch m {
 	case JSON:
 		return "json"
+	case JSONL:
+		return "jsonl"
 	default:
 		return "text"
 	}

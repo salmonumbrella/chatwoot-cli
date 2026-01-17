@@ -279,6 +279,56 @@ func TestCampaignsCreateCommand(t *testing.T) {
 	}
 }
 
+func TestCampaignsCreateCommand_InteractivePrompt(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}
+			]
+		}`)).
+		On("POST", "/api/v1/accounts/1/campaigns", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 1, "title": "New Campaign"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"campaigns", "create",
+			"--title", "New Campaign",
+			"--message", "Hello!",
+		})
+		if err != nil {
+			t.Errorf("campaigns create interactive failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Created campaign 1") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+	if receivedBody["inbox_id"] != float64(1) {
+		t.Errorf("expected inbox_id 1, got %v", receivedBody["inbox_id"])
+	}
+}
+
 func TestCampaignsCreateCommand_WithLabels(t *testing.T) {
 	var receivedBody map[string]any
 	handler := newRouteHandler().

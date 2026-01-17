@@ -104,6 +104,93 @@ func TestListCommand_JSONOutput(t *testing.T) {
 	if _, ok := payload["has_more"]; !ok {
 		t.Fatalf("expected JSON output to contain has_more, got %v", payload)
 	}
+	meta, ok := payload["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected JSON output to contain meta, got %v", payload)
+	}
+	if _, ok := meta["page"]; !ok {
+		t.Fatalf("expected meta to contain page, got %v", meta)
+	}
+	if _, ok := meta["page_size"]; !ok {
+		t.Fatalf("expected meta to contain page_size, got %v", meta)
+	}
+	if _, ok := meta["pages_fetched"]; !ok {
+		t.Fatalf("expected meta to contain pages_fetched, got %v", meta)
+	}
+	if _, ok := meta["total_items"]; !ok {
+		t.Fatalf("expected meta to contain total_items, got %v", meta)
+	}
+}
+
+func TestListCommand_JSONOutput_DisablePaginationUsesItemCount(t *testing.T) {
+	cfg := ListConfig[testItem]{
+		Use:               "list",
+		Short:             "List items",
+		DisablePagination: true,
+		Headers:           []string{"ID", "NAME"},
+		RowFunc:           func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			return ListResult[testItem]{Items: []testItem{{ID: 1, Name: "test"}, {ID: 2, Name: "two"}}, HasMore: false}, nil
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	meta, ok := payload["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected JSON output to contain meta, got %v", payload)
+	}
+	if meta["page_size"] != float64(2) {
+		t.Fatalf("expected page_size to match item count, got %v", meta["page_size"])
+	}
+}
+
+func TestListCommand_JSONLOutput(t *testing.T) {
+	cfg := ListConfig[testItem]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			return ListResult[testItem]{Items: []testItem{{ID: 1, Name: "one"}, {ID: 2, Name: "two"}}, HasMore: false}, nil
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSONL)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 JSONL lines, got %d: %q", len(lines), out.String())
+	}
+	var item1 testItem
+	if err := json.Unmarshal([]byte(lines[0]), &item1); err != nil {
+		t.Fatalf("failed to parse first JSONL line: %v", err)
+	}
+	if item1.ID != 1 {
+		t.Fatalf("expected first item id 1, got %v", item1.ID)
+	}
 }
 
 func TestListCommand_AllPagesFetchesMultiplePages(t *testing.T) {

@@ -107,6 +107,15 @@ func (c *Client) ResetCircuitBreaker() {
 	}
 }
 
+// SetRetryConfig updates the retry configuration and aligns circuit breaker settings.
+func (c *Client) SetRetryConfig(cfg RetryConfig) {
+	c.RetryConfig = cfg
+	if c.circuitBreaker != nil {
+		c.circuitBreaker.threshold = cfg.CircuitBreakerThreshold
+		c.circuitBreaker.resetTime = cfg.CircuitBreakerResetTime
+	}
+}
+
 func (c *Client) ensureBaseURLValidated() error {
 	if c.skipURLValidation {
 		return nil

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -131,6 +132,181 @@ func TestSearchCommand_TypeFilter_ContactsOnly(t *testing.T) {
 	}
 	if strings.Contains(output, "Conversations") {
 		t.Errorf("output should not contain Conversations when filtering by contacts: %s", output)
+	}
+}
+
+func TestSearchCommand_SelectRequiresInteractive(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"search", "john", "--select", "--no-input"})
+	if err == nil {
+		t.Error("expected error when --select is used without interactive input")
+	}
+}
+
+func TestSearchCommand_SelectInteractive(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--select"})
+		if err != nil {
+			t.Errorf("search --select failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Contact #1") {
+		t.Errorf("expected selected contact details, got: %s", output)
+	}
+}
+
+func TestSearchCommand_SelectJSONOutput(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--select", "--output", "json"})
+		if err != nil {
+			t.Errorf("search --select --json failed: %v", err)
+		}
+	})
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if payload["type"] != "contact" {
+		t.Errorf("expected type contact, got %v", payload["type"])
+	}
+	item, ok := payload["item"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected item object, got %v", payload["item"])
+	}
+	if item["id"] != float64(1) {
+		t.Errorf("expected selected item id 1, got %v", item["id"])
+	}
+}
+
+func TestSearchCommand_SelectJSONRaw(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--select", "--select-raw", "--output", "json"})
+		if err != nil {
+			t.Errorf("search --select --select-raw failed: %v", err)
+		}
+	})
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if payload["id"] != float64(1) {
+		t.Errorf("expected selected item id 1, got %v", payload["id"])
 	}
 }
 

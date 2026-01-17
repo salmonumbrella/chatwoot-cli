@@ -60,5 +60,31 @@ func (f *clientFactory) newClient(cfg config.ClientConfig) *api.Client {
 			client.IdempotencyKey = flags.IdempotencyKey
 		}
 	}
+	applyRetryOverrides(client)
 	return client
+}
+
+func applyRetryOverrides(client *api.Client) {
+	cfg := client.RetryConfig
+
+	if flags.MaxRateLimitRetriesSet {
+		cfg.MaxRateLimitRetries = flags.MaxRateLimitRetries
+	}
+	if flags.Max5xxRetriesSet {
+		cfg.Max5xxRetries = flags.Max5xxRetries
+	}
+	if flags.RateLimitDelaySet {
+		cfg.RateLimitBaseDelay = flags.RateLimitDelay
+	}
+	if flags.ServerErrorDelaySet {
+		cfg.ServerErrorRetryDelay = flags.ServerErrorDelay
+	}
+	if flags.CircuitBreakerThresholdSet {
+		cfg.CircuitBreakerThreshold = flags.CircuitBreakerThreshold
+	}
+	if flags.CircuitBreakerResetTimeSet {
+		cfg.CircuitBreakerResetTime = flags.CircuitBreakerResetTime
+	}
+
+	client.SetRetryConfig(cfg)
 }

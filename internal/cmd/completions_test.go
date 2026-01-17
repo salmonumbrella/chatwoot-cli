@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func decodeCompletionItems(t *testing.T, output string) []CompletionItem {
@@ -475,5 +477,113 @@ func TestCompletionsCommand_Unauthorized(t *testing.T) {
 	err := Execute(context.Background(), []string{"completions", "agents"})
 	if err == nil {
 		t.Error("expected error for unauthorized request")
+	}
+}
+
+func TestCompletionsCache_ReusesItems(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("CHATWOOT_COMPLETIONS_CACHE_DIR", cacheDir)
+
+	var calls int
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"payload": [{"id": 1, "name": "Inbox", "channel_type": "web"}]}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	if err := Execute(context.Background(), []string{"completions", "inboxes"}); err != nil {
+		t.Fatalf("completions inboxes failed: %v", err)
+	}
+	if err := Execute(context.Background(), []string{"completions", "inboxes"}); err != nil {
+		t.Fatalf("completions inboxes failed: %v", err)
+	}
+
+	if calls != 1 {
+		t.Fatalf("expected 1 API call due to cache, got %d", calls)
+	}
+}
+
+func TestCompletionsCache_DisabledEnv(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("CHATWOOT_COMPLETIONS_CACHE_DIR", cacheDir)
+	t.Setenv("CHATWOOT_COMPLETIONS_NO_CACHE", "1")
+
+	var calls int
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"payload": [{"id": 1, "name": "Inbox", "channel_type": "web"}]}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	if err := Execute(context.Background(), []string{"completions", "inboxes"}); err != nil {
+		t.Fatalf("completions inboxes failed: %v", err)
+	}
+	if err := Execute(context.Background(), []string{"completions", "inboxes"}); err != nil {
+		t.Fatalf("completions inboxes failed: %v", err)
+	}
+
+	if calls != 2 {
+		t.Fatalf("expected 2 API calls with cache disabled, got %d", calls)
+	}
+}
+
+func TestCompletionsCache_Expired(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("CHATWOOT_COMPLETIONS_CACHE_DIR", cacheDir)
+
+	var calls int
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"payload": [{"id": 1, "name": "Inbox", "channel_type": "web"}]}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	if err := Execute(context.Background(), []string{"completions", "inboxes"}); err != nil {
+		t.Fatalf("completions inboxes failed: %v", err)
+	}
+
+	client, err := getClient()
+	if err != nil {
+		t.Fatalf("failed to get client: %v", err)
+	}
+	path, err := completionsCachePath(client, "inboxes")
+	if err != nil {
+		t.Fatalf("failed to get cache path: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read cache file: %v", err)
+	}
+	var cached completionsCache
+	if err := json.Unmarshal(data, &cached); err != nil {
+		t.Fatalf("failed to decode cache: %v", err)
+	}
+	cached.CachedAt = time.Now().Add(-2 * completionsCacheTTL)
+	updated, err := json.Marshal(cached)
+	if err != nil {
+		t.Fatalf("failed to marshal cache: %v", err)
+	}
+	if err := os.WriteFile(path, updated, 0o644); err != nil {
+		t.Fatalf("failed to write cache: %v", err)
+	}
+
+	if err := Execute(context.Background(), []string{"completions", "inboxes"}); err != nil {
+		t.Fatalf("completions inboxes failed: %v", err)
+	}
+
+	if calls != 2 {
+		t.Fatalf("expected 2 API calls after cache expiry, got %d", calls)
 	}
 }

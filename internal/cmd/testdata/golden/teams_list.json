@@ -14,5 +14,12 @@
       "allow_auto_assign": false,
       "account_id": 1
     }
-  ]
+  ],
+  "meta": {
+    "all": false,
+    "page": 1,
+    "page_size": 2,
+    "pages_fetched": 1,
+    "total_items": 2
+  }
 }

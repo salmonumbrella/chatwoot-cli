@@ -137,7 +137,7 @@ mentioned so you can follow up on requests from teammates.`,
 					m.ConversationID,
 					m.MessageID,
 					m.SenderName,
-					m.CreatedAt.Format("2006-01-02 15:04"),
+					formatTimestampShort(m.CreatedAt),
 					content,
 				)
 			}

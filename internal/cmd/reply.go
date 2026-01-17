@@ -89,6 +89,30 @@ If multiple open conversations exist for the contact, disambiguation is required
 			}
 
 			if len(contacts.Payload) > 1 {
+				if !isJSON(cmd) && !flags.NoInput && isInteractive() {
+					var options []selectOption
+					for _, c := range contacts.Payload {
+						label := c.Name
+						if label == "" {
+							label = fmt.Sprintf("Contact %d", c.ID)
+						}
+						if c.Email != "" {
+							label = fmt.Sprintf("%s <%s>", label, c.Email)
+						}
+						options = append(options, selectOption{
+							ID:    c.ID,
+							Label: label,
+						})
+					}
+					selectedID, ok, err := promptSelect(ctx, "Select contact", options, true)
+					if err != nil {
+						return err
+					}
+					if !ok {
+						return nil
+					}
+					return replyByContactID(cmd, client, selectedID, content, private, resolve)
+				}
 				return outputDisambiguation(cmd, "multiple_contacts", contacts.Payload)
 			}
 
@@ -136,6 +160,29 @@ func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, con
 	}
 
 	if len(openConversations) > 1 {
+		if !isJSON(cmd) && !flags.NoInput && isInteractive() {
+			var options []selectOption
+			for _, conv := range openConversations {
+				label := fmt.Sprintf("Conversation %d (%s, inbox %d)", conv.ID, conv.Status, conv.InboxID)
+				options = append(options, selectOption{
+					ID:    conv.ID,
+					Label: label,
+				})
+			}
+			selectedID, ok, err := promptSelect(ctx, "Select conversation", options, true)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
+			}
+			triageContact := &api.TriageContact{
+				ID:    contact.ID,
+				Name:  contact.Name,
+				Email: contact.Email,
+			}
+			return replyToConversation(cmd, client, selectedID, content, private, resolve, triageContact)
+		}
 		return outputConversationDisambiguation(cmd, openConversations, contactID)
 	}
 
@@ -311,7 +358,7 @@ func outputConversationDisambiguation(cmd *cobra.Command, conversations []api.Co
 			c.ID,
 			displayID,
 			c.InboxID,
-			c.LastActivityAtTime().Format("2006-01-02 15:04:05"),
+			formatTimestamp(c.LastActivityAtTime()),
 		)
 	}
 	_ = w.Flush()

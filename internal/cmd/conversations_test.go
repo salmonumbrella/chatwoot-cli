@@ -443,6 +443,53 @@ func TestConversationsAssignCommand_WithTeam(t *testing.T) {
 	}
 }
 
+func TestConversationsAssignCommand_InteractivePrompt(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agents", jsonResponse(200, `[
+			{"id": 1, "name": "Agent One"}
+		]`)).
+		On("GET", "/api/v1/accounts/1/teams", jsonResponse(200, `[
+			{"id": 2, "name": "Support Team"}
+		]`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 123
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"assignee_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n0\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123"})
+		if err != nil {
+			t.Errorf("conversations assign interactive failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Conversation #123 assigned") {
+		t.Errorf("output missing assignment info: %s", output)
+	}
+	if !strings.Contains(output, "Agent: 1") {
+		t.Errorf("output missing agent info: %s", output)
+	}
+}
+
 func TestConversationsAssignCommand_WithInvalidID(t *testing.T) {
 	handler := newRouteHandler()
 	setupTestEnvWithHandler(t, handler)
@@ -457,7 +504,7 @@ func TestConversationsAssignCommand_MissingFlags(t *testing.T) {
 	handler := newRouteHandler()
 	setupTestEnvWithHandler(t, handler)
 
-	err := Execute(context.Background(), []string{"conversations", "assign", "123"})
+	err := Execute(context.Background(), []string{"conversations", "assign", "123", "--no-input"})
 	// Should fail - either with validation error or API error when interactive mode tries to prompt
 	if err == nil {
 		t.Error("expected error for missing flags")

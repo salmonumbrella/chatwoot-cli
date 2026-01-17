@@ -16,5 +16,12 @@
       "greeting_message": "Hi there",
       "enable_auto_assignment": false
     }
-  ]
+  ],
+  "meta": {
+    "all": false,
+    "page": 1,
+    "page_size": 20,
+    "pages_fetched": 1,
+    "total_items": 2
+  }
 }

@@ -190,6 +190,7 @@ func TestAPICmdJqFilter(t *testing.T) {
 	output := captureStdout(t, func() {
 		err := Execute(context.Background(), []string{
 			"api", "/contacts",
+			"--output", "json",
 			"--jq", ".payload[0].name",
 		})
 		if err != nil {
@@ -254,6 +255,106 @@ func TestAPICmdIncludeHeaders(t *testing.T) {
 	}
 	if !strings.Contains(output, "test-value") {
 		t.Errorf("output missing header value 'test-value': %s", output)
+	}
+}
+
+func TestAPICmdJSONOutputArray(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`[{"id": 1}, {"id": 2}]`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/conversations",
+			"--output", "json",
+		})
+		if err != nil {
+			t.Errorf("api command with JSON output failed: %v", err)
+		}
+	})
+
+	var parsed any
+	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if _, ok := parsed.([]any); !ok {
+		t.Fatalf("expected JSON array output, got %T: %v", parsed, parsed)
+	}
+}
+
+func TestAPICmdJSONOutputNonJSONBody(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("plain text"))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/health",
+			"--output", "json",
+		})
+		if err != nil {
+			t.Errorf("api command with JSON output failed: %v", err)
+		}
+	})
+
+	var parsed string
+	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if parsed != "plain text" {
+		t.Fatalf("expected JSON string output 'plain text', got %q", parsed)
+	}
+}
+
+func TestAPICmdJSONIncludeHeaders(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Custom-Header", "test-value")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id": 123}`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/conversations/123",
+			"--output", "json",
+			"--include",
+		})
+		if err != nil {
+			t.Errorf("api command with JSON include failed: %v", err)
+		}
+	})
+
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if parsed["status"] != float64(200) {
+		t.Fatalf("expected status 200, got %v", parsed["status"])
+	}
+	headers, ok := parsed["headers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected headers object, got %T: %v", parsed["headers"], parsed["headers"])
+	}
+	if headers["X-Custom-Header"] == nil {
+		t.Fatalf("expected X-Custom-Header in headers, got %v", headers)
+	}
+	body, ok := parsed["body"].(map[string]any)
+	if !ok || body["id"] != float64(123) {
+		t.Fatalf("expected body with id=123, got %T: %v", parsed["body"], parsed["body"])
 	}
 }
 
@@ -381,6 +482,7 @@ func TestAPICmdInvalidJqQuery(t *testing.T) {
 
 	err := Execute(context.Background(), []string{
 		"api", "/conversations/123",
+		"--output", "json",
 		"--jq", ".invalid[",
 	})
 	if err == nil {

@@ -58,7 +58,7 @@ func newAuditLogsListCmd() *cobra.Command {
 					log.Action,
 					log.AuditableType,
 					username,
-					log.CreatedAt.Format("2006-01-02 15:04"),
+					formatTimestampShort(log.CreatedAt),
 				)
 			}
 

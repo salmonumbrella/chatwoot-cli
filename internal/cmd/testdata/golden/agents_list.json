@@ -16,5 +16,12 @@
       "availability_status": "online",
       "confirmed_at": "0001-01-01T00:00:00Z"
     }
-  ]
+  ],
+  "meta": {
+    "all": false,
+    "page": 1,
+    "page_size": 2,
+    "pages_fetched": 1,
+    "total_items": 2
+  }
 }
