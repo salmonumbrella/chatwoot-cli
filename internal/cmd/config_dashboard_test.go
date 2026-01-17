@@ -82,3 +82,33 @@ func TestNewDashboardRemoveCmd(t *testing.T) {
 		t.Error("Expected error for no args")
 	}
 }
+
+func TestDashboardAddRejectsLocalhostEndpoints(t *testing.T) {
+	localhostURLs := []string{
+		"http://localhost:8080/api",
+		"https://localhost/api",
+		"http://127.0.0.1:3000/api",
+		"http://127.0.0.1/api",
+		"http://0.0.0.0:8080/api",
+		"http://[::1]:8080/api",
+	}
+
+	for _, url := range localhostURLs {
+		t.Run(url, func(t *testing.T) {
+			cmd := newDashboardAddCmd()
+			cmd.SetArgs([]string{
+				"test-dashboard",
+				"--endpoint", url,
+				"--auth-token", "test-token",
+			})
+
+			err := cmd.Execute()
+			if err == nil {
+				t.Errorf("Expected error for localhost URL %q, got nil", url)
+			}
+			if err != nil && !strings.Contains(err.Error(), "localhost") && !strings.Contains(err.Error(), "loopback") && !strings.Contains(err.Error(), "unspecified") {
+				t.Errorf("Expected error message to mention localhost/loopback/unspecified for URL %q, got: %v", url, err)
+			}
+		})
+	}
+}

@@ -45,7 +45,7 @@ func newDashboardAddCmd() *cobra.Command {
 			if endpoint == "" {
 				return fmt.Errorf("--endpoint is required")
 			}
-			if err := validation.ValidateWebhookURL(endpoint); err != nil {
+			if err := validation.ValidateChatwootURL(endpoint); err != nil {
 				return fmt.Errorf("invalid endpoint URL: %w", err)
 			}
 			if authToken == "" {
