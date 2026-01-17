@@ -301,8 +301,9 @@ func formatValue(v any) string {
 	}
 	switch val := v.(type) {
 	case string:
-		if len(val) > 30 {
-			return val[:27] + "..."
+		runes := []rune(val)
+		if len(runes) > 30 {
+			return string(runes[:27]) + "..."
 		}
 		return val
 	case float64:

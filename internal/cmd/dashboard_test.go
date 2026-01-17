@@ -682,3 +682,86 @@ func TestParseAnyInt(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected string
+	}{
+		// Basic type tests
+		{name: "nil", input: nil, expected: "-"},
+		{name: "bool true", input: true, expected: "yes"},
+		{name: "bool false", input: false, expected: "no"},
+		{name: "integer float", input: float64(42), expected: "42"},
+		{name: "decimal float", input: float64(3.14159), expected: "3.14"},
+		{name: "other type", input: 123, expected: "123"},
+
+		// String truncation - ASCII
+		{name: "short ASCII", input: "hello", expected: "hello"},
+		{name: "exactly 30 chars", input: "123456789012345678901234567890", expected: "123456789012345678901234567890"},
+		{name: "31 chars truncated", input: "1234567890123456789012345678901", expected: "123456789012345678901234567..."},
+
+		// String truncation - Unicode (emoji are multi-byte but single runes)
+		{
+			name:     "emoji within limit",
+			input:    "Hello 🎉🎊🎁", // 10 characters (7 ASCII + 3 emoji)
+			expected: "Hello 🎉🎊🎁",
+		},
+		{
+			name:     "emoji string exactly 30 chars",
+			input:    "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉", // 30 emoji
+			expected: "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉",
+		},
+		{
+			name:     "emoji string over 30 chars truncated",
+			input:    "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉", // 31 emoji
+			expected: "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉...",  // 27 emoji + ...
+		},
+
+		// String truncation - CJK characters (multi-byte UTF-8)
+		{
+			name:     "CJK within limit",
+			input:    "你好世界", // 4 characters
+			expected: "你好世界",
+		},
+		{
+			name:     "CJK exactly 30 chars",
+			input:    "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十", // 30 CJK characters
+			expected: "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十",
+		},
+		{
+			name:     "CJK over 30 chars truncated",
+			input:    "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一", // 31 CJK characters
+			expected: "一二三四五六七八九十一二三四五六七八九十一二三四五六七...",  // 27 CJK + ...
+		},
+
+		// Mixed content
+		{
+			name:     "mixed ASCII and emoji over limit",
+			input:    "Product: 🎁 Gift Box Special Edition 2024!", // 41 chars
+			expected: "Product: 🎁 Gift Box Special...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatValue(tt.input)
+			if got != tt.expected {
+				t.Errorf("formatValue(%v) = %q, want %q", tt.input, got, tt.expected)
+			}
+
+			// Verify truncated strings end with "..." and have correct rune count
+			if s, ok := tt.input.(string); ok && len([]rune(s)) > 30 {
+				if !strings.HasSuffix(got, "...") {
+					t.Errorf("formatValue(%v) should end with '...', got %q", tt.input, got)
+				}
+				// 27 runes + 3 for "..." = 30 total runes
+				gotRunes := []rune(got)
+				if len(gotRunes) != 30 {
+					t.Errorf("formatValue(%v) should have 30 runes, got %d", tt.input, len(gotRunes))
+				}
+			}
+		})
+	}
+}
