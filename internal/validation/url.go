@@ -1,3 +1,16 @@
+// Package validation provides URL validation functions with SSRF protection.
+//
+// It validates URLs against private IP ranges, cloud metadata endpoints,
+// and other potentially dangerous destinations that could be exploited
+// in server-side request forgery attacks.
+//
+// The package provides two main validation functions:
+//   - ValidateChatwootURL: strict validation for Chatwoot instance URLs
+//   - ValidateWebhookURL: relaxed validation that allows localhost for development
+//
+// Private IP ranges can be allowed via the CHATWOOT_ALLOW_PRIVATE=1 environment
+// variable or by calling SetAllowPrivate(true). Even when private IPs are allowed,
+// cloud metadata endpoints remain blocked for security.
 package validation
 
 import (
@@ -11,10 +24,13 @@ import (
 	"time"
 )
 
+// allowPrivate controls whether private/localhost URLs are permitted.
+// Set via CHATWOOT_ALLOW_PRIVATE=1 environment variable or SetAllowPrivate().
 var allowPrivate atomic.Bool
 
 // privateNetworks contains pre-parsed private IP ranges for efficient lookups.
-// Initialized once at package load time.
+// This includes RFC1918 private ranges, link-local, documentation, and other
+// reserved IP blocks. Initialized once at package load time.
 var privateNetworks []*net.IPNet
 
 func init() {
@@ -58,17 +74,31 @@ func init() {
 	}
 }
 
-// SetAllowPrivate enables allowing private/localhost URLs (still blocks metadata endpoints).
+// SetAllowPrivate enables or disables allowing private and localhost URLs.
+// When enabled, private IP ranges (RFC1918, link-local, etc.) and localhost
+// are permitted. Cloud metadata endpoints remain blocked regardless of this
+// setting for security. This is useful for development and testing scenarios
+// where the Chatwoot instance runs locally.
 func SetAllowPrivate(enabled bool) {
 	allowPrivate.Store(enabled)
 }
 
-// AllowPrivateEnabled returns true when private/localhost URLs are allowed.
+// AllowPrivateEnabled reports whether private and localhost URLs are currently
+// allowed. This reflects the state set by SetAllowPrivate or the
+// CHATWOOT_ALLOW_PRIVATE environment variable at package initialization.
 func AllowPrivateEnabled() bool {
 	return allowPrivate.Load()
 }
 
-// ValidateChatwootURL validates a Chatwoot instance URL to prevent SSRF attacks
+// ValidateChatwootURL validates a Chatwoot instance URL to prevent SSRF attacks.
+// It checks that the URL:
+//   - Uses http or https scheme
+//   - Contains a valid hostname
+//   - Does not resolve to private IP ranges (unless AllowPrivate is enabled)
+//   - Does not point to localhost (unless AllowPrivate is enabled)
+//   - Does not target cloud metadata endpoints (always blocked)
+//
+// Returns nil if the URL is valid, or an error describing the validation failure.
 func ValidateChatwootURL(rawURL string) error {
 	if rawURL == "" {
 		return fmt.Errorf("URL cannot be empty")
@@ -240,7 +270,14 @@ func validateDomainName(hostname string) error {
 }
 
 // ValidateWebhookURL validates a webhook URL to prevent SSRF attacks.
-// Unlike ValidateChatwootURL, this allows localhost for development purposes.
+// Unlike ValidateChatwootURL, this function allows localhost and loopback
+// addresses for local development purposes. It checks that the URL:
+//   - Uses http or https scheme
+//   - Contains a valid hostname
+//   - Does not target cloud metadata endpoints (always blocked)
+//   - Does not resolve to private IP ranges (except localhost/loopback)
+//
+// Returns nil if the URL is valid, or an error describing the validation failure.
 func ValidateWebhookURL(rawURL string) error {
 	if rawURL == "" {
 		return fmt.Errorf("URL cannot be empty")
