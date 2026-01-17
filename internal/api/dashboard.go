@@ -71,7 +71,13 @@ func (c *DashboardClient) Query(ctx context.Context, req DashboardRequest) (map[
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	// Early rejection if Content-Length is known and exceeds limit (avoids reading any bytes)
+	if resp.ContentLength > maxResponseSize {
+		return nil, fmt.Errorf("dashboard response too large: %d bytes exceeds %d", resp.ContentLength, maxResponseSize)
+	}
+
 	// Limit response body size to prevent memory exhaustion from malicious/misconfigured endpoints
+	// (handles cases where Content-Length is unknown or missing)
 	limitedReader := io.LimitReader(resp.Body, maxResponseSize+1)
 	respBody, err := io.ReadAll(limitedReader)
 	if err != nil {
