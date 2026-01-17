@@ -112,6 +112,11 @@ of relevant resources with a single query.`,
 						var allContacts []api.Contact
 						page := 1
 						for {
+							select {
+							case <-ctx.Done():
+								return
+							default:
+							}
 							contacts, err := client.Contacts().Search(ctx, query, page)
 							if err != nil {
 								mu.Lock()
@@ -147,6 +152,11 @@ of relevant resources with a single query.`,
 						var allConversations []api.Conversation
 						page := 1
 						for {
+							select {
+							case <-ctx.Done():
+								return
+							default:
+							}
 							conversations, err := client.Conversations().Search(ctx, query, page)
 							if err != nil {
 								mu.Lock()

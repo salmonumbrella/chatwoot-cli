@@ -3,9 +3,12 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestSearchCommand(t *testing.T) {
@@ -429,5 +432,77 @@ func TestSearchCommand_ContactsError(t *testing.T) {
 	err := Execute(context.Background(), []string{"search", "john"})
 	if err == nil {
 		t.Error("expected error when contacts search fails")
+	}
+}
+
+func TestSearchCommand_ContextCancellation(t *testing.T) {
+	// Track how many requests were made to each endpoint
+	var contactsRequests, conversationsRequests int
+	var mu sync.Mutex
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			contactsRequests++
+			mu.Unlock()
+
+			// Add delay to simulate network latency - this gives context cancellation time to be detected
+			time.Sleep(5 * time.Millisecond)
+
+			// Simulate API with many pages
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{
+				"payload": [{"id": 1, "name": "John Doe", "email": "john@example.com"}],
+				"meta": {"count": 1000, "current_page": 1, "total_pages": 100}
+			}`))
+		}).
+		On("GET", "/api/v1/accounts/1/conversations/search", func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			conversationsRequests++
+			mu.Unlock()
+
+			// Add delay to simulate network latency
+			time.Sleep(5 * time.Millisecond)
+
+			// Simulate API with many pages
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{
+				"data": {
+					"payload": [{"id": 100, "status": "open", "inbox_id": 1}],
+					"meta": {"count": 1000, "current_page": 1, "total_pages": 100}
+				}
+			}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	// Create a context that we'll cancel after a few requests
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Cancel after allowing a few requests to go through
+	go func() {
+		time.Sleep(25 * time.Millisecond)
+		cancel()
+	}()
+
+	// Run the search with a high limit to ensure pagination would occur
+	_ = Execute(ctx, []string{"search", "john", "--limit", "10000"})
+
+	// Wait a bit for any in-flight requests to complete
+	time.Sleep(50 * time.Millisecond)
+
+	mu.Lock()
+	contactsReqs := contactsRequests
+	conversationsReqs := conversationsRequests
+	mu.Unlock()
+
+	// Without context cancellation check in the loop, we'd see 100 requests per type.
+	// With cancellation, after ~25ms (allowing ~5 requests at 5ms each), we should stop.
+	// Allow some margin for timing variance, but should be well under 100.
+	if contactsReqs >= 20 || conversationsReqs >= 20 {
+		t.Errorf("context cancellation did not stop pagination early: contacts=%d, conversations=%d requests (expected <20 each)",
+			contactsReqs, conversationsReqs)
 	}
 }
