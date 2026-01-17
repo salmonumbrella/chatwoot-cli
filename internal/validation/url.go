@@ -13,8 +13,49 @@ import (
 
 var allowPrivate atomic.Bool
 
+// privateNetworks contains pre-parsed private IP ranges for efficient lookups.
+// Initialized once at package load time.
+var privateNetworks []*net.IPNet
+
 func init() {
 	allowPrivate.Store(strings.TrimSpace(os.Getenv("CHATWOOT_ALLOW_PRIVATE")) == "1")
+
+	// Pre-parse all private CIDR ranges at init time for efficiency.
+	// This avoids repeated string parsing and slice allocation on each isPrivateIP call.
+	privateCIDRs := []string{
+		// Private IPv4 ranges
+		"10.0.0.0/8",      // RFC1918
+		"172.16.0.0/12",   // RFC1918
+		"192.168.0.0/16",  // RFC1918
+		"100.64.0.0/10",   // RFC6598 - Shared Address Space
+		"169.254.0.0/16",  // RFC3927 - Link Local
+		"192.0.0.0/24",    // RFC6890
+		"192.0.2.0/24",    // RFC5737 - Documentation
+		"198.18.0.0/15",   // RFC2544 - Benchmarking
+		"198.51.100.0/24", // RFC5737 - Documentation
+		"203.0.113.0/24",  // RFC5737 - Documentation
+		"240.0.0.0/4",     // RFC1112 - Reserved
+		// Private IPv6 ranges
+		"fc00::/7",      // RFC4193 - Unique Local Addresses
+		"fe80::/10",     // RFC4291 - Link Local
+		"ff00::/8",      // RFC4291 - Multicast
+		"::1/128",       // RFC4291 - Loopback
+		"::/128",        // RFC4291 - Unspecified
+		"100::/64",      // RFC6666 - Discard Prefix
+		"2001::/32",     // RFC4380 - Teredo
+		"2001:10::/28",  // RFC4843 - ORCHID
+		"2001:db8::/32", // RFC3849 - Documentation
+	}
+
+	privateNetworks = make([]*net.IPNet, 0, len(privateCIDRs))
+	for _, cidr := range privateCIDRs {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			// This should never happen with hardcoded valid CIDRs
+			continue
+		}
+		privateNetworks = append(privateNetworks, network)
+	}
 }
 
 // SetAllowPrivate enables allowing private/localhost URLs (still blocks metadata endpoints).
@@ -163,48 +204,14 @@ func validateIPAddress(ip net.IP) error {
 	return nil
 }
 
-// isPrivateIP checks if an IP is in a private range
+// isPrivateIP checks if an IP is in a private range.
+// Uses pre-computed privateNetworks slice for efficiency.
 func isPrivateIP(ip net.IP) bool {
-	// Private IPv4 ranges
-	privateIPv4Ranges := []string{
-		"10.0.0.0/8",      // RFC1918
-		"172.16.0.0/12",   // RFC1918
-		"192.168.0.0/16",  // RFC1918
-		"100.64.0.0/10",   // RFC6598 - Shared Address Space
-		"169.254.0.0/16",  // RFC3927 - Link Local
-		"192.0.0.0/24",    // RFC6890
-		"192.0.2.0/24",    // RFC5737 - Documentation
-		"198.18.0.0/15",   // RFC2544 - Benchmarking
-		"198.51.100.0/24", // RFC5737 - Documentation
-		"203.0.113.0/24",  // RFC5737 - Documentation
-		"240.0.0.0/4",     // RFC1112 - Reserved
-	}
-
-	// Private IPv6 ranges
-	privateIPv6Ranges := []string{
-		"fc00::/7",      // RFC4193 - Unique Local Addresses
-		"fe80::/10",     // RFC4291 - Link Local
-		"ff00::/8",      // RFC4291 - Multicast
-		"::1/128",       // RFC4291 - Loopback
-		"::/128",        // RFC4291 - Unspecified
-		"100::/64",      // RFC6666 - Discard Prefix
-		"2001::/32",     // RFC4380 - Teredo
-		"2001:10::/28",  // RFC4843 - ORCHID
-		"2001:db8::/32", // RFC3849 - Documentation
-	}
-
-	allRanges := append(privateIPv4Ranges, privateIPv6Ranges...)
-
-	for _, cidr := range allRanges {
-		_, subnet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			continue
-		}
-		if subnet.Contains(ip) {
+	for _, network := range privateNetworks {
+		if network.Contains(ip) {
 			return true
 		}
 	}
-
 	return false
 }
 
