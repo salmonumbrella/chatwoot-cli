@@ -89,15 +89,32 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 				return fmt.Errorf("failed to list messages for conversation %d: %w", conversationID, err)
 			}
 
+			totalMessages := len(messages)
+
 			if isJSON(cmd) {
-				return printJSON(cmd, messages)
+				// Wrap messages with position metadata
+				type messageWithPosition struct {
+					*api.Message
+					Position      int `json:"position"`
+					TotalMessages int `json:"total_messages"`
+				}
+				wrapped := make([]messageWithPosition, len(messages))
+				for i, msg := range messages {
+					msgCopy := msg
+					wrapped[i] = messageWithPosition{
+						Message:       &msgCopy,
+						Position:      i + 1,
+						TotalMessages: totalMessages,
+					}
+				}
+				return printJSON(cmd, wrapped)
 			}
 
 			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
-			_, _ = fmt.Fprintln(w, "ID\tTYPE\tPRIVATE\tCONTENT\tCREATED_AT")
-			for _, msg := range messages {
+			_, _ = fmt.Fprintln(w, "POS\tID\tTYPE\tPRIVATE\tCONTENT\tCREATED_AT")
+			for i, msg := range messages {
 				content := msg.Content
 				if len(content) > 50 {
 					content = content[:47] + "..."
@@ -106,7 +123,8 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 				content = strings.ReplaceAll(content, "\n", " ")
 				content = strings.ReplaceAll(content, "\r", " ")
 
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%t\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%t\t%s\t%s\n",
+					formatPosition(i+1, totalMessages),
 					msg.ID,
 					msg.MessageTypeName(),
 					msg.Private,

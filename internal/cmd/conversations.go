@@ -1678,6 +1678,11 @@ func formatMessageCount(count int) string {
 	return fmt.Sprintf("[%d msgs]", count)
 }
 
+// formatPosition formats a position indicator as [position/total]
+func formatPosition(position, total int) string {
+	return fmt.Sprintf("[%d/%d]", position, total)
+}
+
 const maxFutureYears = 10 * 365 * 24 * 60 * 60 // 10 years in seconds
 
 // parseSnoozedUntil parses a snoozed-until value as either Unix timestamp (seconds) or RFC3339 datetime
