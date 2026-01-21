@@ -91,6 +91,7 @@ type Conversation struct {
 	DisplayID           *int           `json:"display_id,omitempty"`
 	Muted               bool           `json:"muted"`
 	Unread              int            `json:"unread_count"`
+	MessagesCount       int            `json:"messages_count,omitempty"`
 	FirstReplyCreatedAt *int64         `json:"first_reply_created_at,omitempty"`
 	CreatedAt           int64          `json:"created_at"`
 	LastActivityAt      int64          `json:"last_activity_at,omitempty"`
