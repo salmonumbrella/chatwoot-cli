@@ -183,12 +183,12 @@ func TestPrintConversationsTable_Formatting(t *testing.T) {
 	headerFields := strings.Fields(lines[0])
 	dataFields := strings.Fields(lines[1])
 
-	if len(headerFields) != 6 {
-		t.Errorf("Expected 6 header fields, got %d: %v", len(headerFields), headerFields)
+	if len(headerFields) != 7 {
+		t.Errorf("Expected 7 header fields, got %d: %v", len(headerFields), headerFields)
 	}
 
-	if len(dataFields) < 6 {
-		t.Errorf("Expected at least 6 data fields, got %d: %v", len(dataFields), dataFields)
+	if len(dataFields) < 7 {
+		t.Errorf("Expected at least 7 data fields, got %d: %v", len(dataFields), dataFields)
 	}
 }
 
