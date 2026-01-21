@@ -57,7 +57,7 @@ func newConversationsCmd() *cobra.Command {
 
 func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 	w := newTabWriter(out)
-	_, _ = fmt.Fprintln(w, "ID\tINBOX\tSTATUS\tPRIORITY\tUNREAD\tCREATED")
+	_, _ = fmt.Fprintln(w, "ID\tINBOX\tSTATUS\tPRIORITY\tUNREAD\tMSGS\tCREATED")
 	for _, conv := range conversations {
 		priority := "-"
 		if conv.Priority != nil {
@@ -67,12 +67,14 @@ func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 		if conv.DisplayID != nil {
 			displayID = *conv.DisplayID
 		}
-		_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%d\t%s\n",
+		msgs := formatMessageCount(conv.MessagesCount)
+		_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%d\t%s\t%s\n",
 			displayID,
 			conv.InboxID,
 			conv.Status,
 			priority,
 			conv.Unread,
+			msgs,
 			formatTimestampShort(conv.CreatedAtTime()),
 		)
 	}
@@ -94,7 +96,7 @@ func newConversationsListCmd() *cobra.Command {
 		EmptyMessage:      "",
 		DisableLimit:      true,
 		DefaultMaxPages:   100,
-		Headers:           []string{"ID", "INBOX", "STATUS", "PRIORITY", "UNREAD", "CREATED"},
+		Headers:           []string{"ID", "INBOX", "STATUS", "PRIORITY", "UNREAD", "MSGS", "CREATED"},
 		RowFunc:           conversationRow,
 		AfterOutput:       conversationsListSummary,
 		DisablePagination: false,
@@ -171,6 +173,7 @@ func conversationRow(conv api.Conversation) []string {
 		conv.Status,
 		priority,
 		fmt.Sprintf("%d", conv.Unread),
+		formatMessageCount(conv.MessagesCount),
 		formatTimestampShort(conv.CreatedAtTime()),
 	}
 }
@@ -1665,6 +1668,14 @@ func formatFileSize(bytes int) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// formatMessageCount formats a message count for display
+func formatMessageCount(count int) string {
+	if count == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("[%d msgs]", count)
 }
 
 const maxFutureYears = 10 * 365 * 24 * 60 * 60 // 10 years in seconds
