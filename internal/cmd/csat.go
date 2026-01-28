@@ -316,7 +316,12 @@ func ratingStars(rating int) string {
 }
 
 func normalizeCSATDate(input string) (string, error) {
-	parsed, err := cli.ParseRelativeTime(input, time.Now().UTC())
+	return normalizeCSATDateWithNow(input, time.Now().UTC())
+}
+
+// normalizeCSATDateWithNow is the testable version of normalizeCSATDate.
+func normalizeCSATDateWithNow(input string, now time.Time) (string, error) {
+	parsed, err := cli.ParseRelativeTime(input, now)
 	if err != nil {
 		return "", fmt.Errorf("invalid date format %q (expected YYYY-MM-DD or relative): %w", input, err)
 	}

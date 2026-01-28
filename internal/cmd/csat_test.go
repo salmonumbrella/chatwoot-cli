@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRatingStars(t *testing.T) {
@@ -305,5 +306,92 @@ func TestNewCSATCmd(t *testing.T) {
 		if !found {
 			t.Errorf("expected subcommand %q not found", sub)
 		}
+	}
+}
+
+func TestNormalizeCSATDate(t *testing.T) {
+	// Fixed reference time: Wednesday, January 28, 2026 at 15:04:05 UTC
+	now := time.Date(2026, 1, 28, 15, 4, 5, 0, time.UTC)
+
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "date string passthrough",
+			input: "2026-01-27",
+			want:  "2026-01-27",
+		},
+		{
+			name:  "yesterday",
+			input: "yesterday",
+			want:  "2026-01-27",
+		},
+		{
+			name:  "today",
+			input: "today",
+			want:  "2026-01-28",
+		},
+		{
+			name:  "tomorrow",
+			input: "tomorrow",
+			want:  "2026-01-29",
+		},
+		{
+			name:  "1d ago",
+			input: "1d ago",
+			want:  "2026-01-27",
+		},
+		{
+			name:  "7d ago",
+			input: "7d ago",
+			want:  "2026-01-21",
+		},
+		{
+			name:  "1w ago",
+			input: "1w ago",
+			want:  "2026-01-21",
+		},
+		{
+			name:  "1mo ago",
+			input: "1mo ago",
+			want:  "2025-12-28",
+		},
+		{
+			name:    "invalid date format",
+			input:   "not-a-date",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid relative",
+			input:   "abc ago",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeCSATDateWithNow(tt.input, now)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("normalizeCSATDateWithNow(%q) expected error, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("normalizeCSATDateWithNow(%q) unexpected error: %v", tt.input, err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("normalizeCSATDateWithNow(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
 	}
 }
