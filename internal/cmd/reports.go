@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +27,8 @@ Available report types:
   channels     - Get conversation statistics grouped by channel type
 
 Date parameters use Unix timestamps. Use --from and --to flags with dates like
-"2024-01-01" which will be converted to timestamps automatically.`,
+"2024-01-01" or relative expressions like "yesterday"; values are converted
+to timestamps automatically.`,
 	}
 
 	cmd.AddCommand(newReportsSummaryCmd())
@@ -37,13 +41,21 @@ Date parameters use Unix timestamps. Use --from and --to flags with dates like
 	return cmd
 }
 
-// parseDate converts a date string (YYYY-MM-DD) to Unix timestamp string
+// parseDate converts a date string to Unix timestamp string.
 func parseDate(date string) (string, error) {
-	t, err := time.Parse("2006-01-02", date)
+	t, err := parseDateTime(date)
 	if err != nil {
-		return "", fmt.Errorf("invalid date format %q (expected YYYY-MM-DD): %w", date, err)
+		return "", err
 	}
 	return fmt.Sprintf("%d", t.Unix()), nil
+}
+
+func parseDateTime(date string) (time.Time, error) {
+	t, err := cli.ParseRelativeTime(date, time.Now().UTC())
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid date format %q (expected YYYY-MM-DD or relative): %w", date, err)
+	}
+	return t, nil
 }
 
 func newReportsSummaryCmd() *cobra.Command {
@@ -117,8 +129,8 @@ Report types:
 	}
 
 	cmd.Flags().StringVar(&reportType, "type", "", "Report type: account, agent, inbox, label, or team (required)")
-	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD) (required)")
-	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD) (required)")
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&id, "id", "", "ID of agent/inbox/label/team (required for non-account types)")
 
 	return cmd
@@ -208,8 +220,8 @@ Report types:
 
 	cmd.Flags().StringVar(&metric, "metric", "", "Metric to retrieve (required)")
 	cmd.Flags().StringVar(&reportType, "type", "", "Report type: account, agent, inbox, label, or team (required)")
-	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD) (required)")
-	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD) (required)")
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&id, "id", "", "ID of agent/inbox/label/team (required for non-account types)")
 
 	return cmd
@@ -303,7 +315,7 @@ func newReportsChannelsCmd() *cobra.Command {
 		Short: "Get conversation statistics grouped by channel type",
 		Long: `Get conversation statistics grouped by channel type.
 
-Date parameters use YYYY-MM-DD and are converted to Unix timestamps.`,
+Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
 		Example: `  chatwoot reports channels --from 2024-01-01 --to 2024-01-31
   chatwoot reports channels --business-hours
   chatwoot reports channels -o json`,
@@ -312,20 +324,20 @@ Date parameters use YYYY-MM-DD and are converted to Unix timestamps.`,
 			var untilTS string
 			var fromTime, toTime time.Time
 			if from != "" {
-				ts, err := parseDate(from)
+				parsed, err := parseDateTime(from)
 				if err != nil {
 					return err
 				}
-				sinceTS = ts
-				fromTime, _ = time.Parse("2006-01-02", from)
+				sinceTS = fmt.Sprintf("%d", parsed.Unix())
+				fromTime = parsed
 			}
 			if to != "" {
-				ts, err := parseDate(to)
+				parsed, err := parseDateTime(to)
 				if err != nil {
 					return err
 				}
-				untilTS = ts
-				toTime, _ = time.Parse("2006-01-02", to)
+				untilTS = fmt.Sprintf("%d", parsed.Unix())
+				toTime = parsed
 			}
 
 			// Validate date range: --to must be >= --from
@@ -370,8 +382,8 @@ Date parameters use YYYY-MM-DD and are converted to Unix timestamps.`,
 		}),
 	}
 
-	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
 
 	return cmd
@@ -389,6 +401,42 @@ func newReportingEventsCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List account reporting events",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			parseEventTimestamp := func(value string) (string, time.Time, error) {
+				trimmed := strings.TrimSpace(value)
+				if trimmed == "" {
+					return "", time.Time{}, nil
+				}
+				if ts, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+					return trimmed, time.Unix(ts, 0), nil
+				}
+				parsed, err := cli.ParseRelativeTime(trimmed, time.Now().UTC())
+				if err != nil {
+					return "", time.Time{}, fmt.Errorf("invalid time %q (use Unix, RFC3339, or relative): %w", value, err)
+				}
+				return fmt.Sprintf("%d", parsed.Unix()), parsed, nil
+			}
+
+			var sinceTime, untilTime time.Time
+			if since != "" {
+				parsed, parsedTime, err := parseEventTimestamp(since)
+				if err != nil {
+					return err
+				}
+				since = parsed
+				sinceTime = parsedTime
+			}
+			if until != "" {
+				parsed, parsedTime, err := parseEventTimestamp(until)
+				if err != nil {
+					return err
+				}
+				until = parsed
+				untilTime = parsedTime
+			}
+			if !sinceTime.IsZero() && !untilTime.IsZero() && untilTime.Before(sinceTime) {
+				return fmt.Errorf("--until must be on or after --since")
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -412,8 +460,8 @@ func newReportingEventsCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	listCmd.Flags().StringVar(&since, "since", "", "Start timestamp (Unix)")
-	listCmd.Flags().StringVar(&until, "until", "", "End timestamp (Unix)")
+	listCmd.Flags().StringVar(&since, "since", "", "Start time (Unix, RFC3339, YYYY-MM-DD, or relative)")
+	listCmd.Flags().StringVar(&until, "until", "", "End time (Unix, RFC3339, YYYY-MM-DD, or relative)")
 	listCmd.Flags().StringVar(&eventType, "type", "", "Event type filter")
 	cmd.AddCommand(listCmd)
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -180,7 +181,8 @@ The --labels flag accepts comma-separated label IDs for simpler targeting:
 The --audience flag accepts JSON array of audience targets (mutually exclusive with --labels):
   --audience '[{"type":"Label","id":1}]'
 
-The --scheduled-at flag accepts RFC3339 format, e.g.:
+The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
+  --scheduled-at '30m'
   --scheduled-at '2025-01-15T10:00:00Z'`,
 		Example: `  # Create an SMS campaign with label targeting (simple)
   chatwoot campaigns create --title "Promo" --message "50% off today!" --inbox-id 5 --labels 1,2,3 --scheduled-at '2025-01-15T10:00:00Z'
@@ -215,9 +217,9 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 			}
 
 			if scheduledAt != "" {
-				t, err := time.Parse(time.RFC3339, scheduledAt)
+				t, err := cli.ParseRelativeTime(scheduledAt, time.Now())
 				if err != nil {
-					return fmt.Errorf("invalid scheduled-at format (use RFC3339): %w", err)
+					return fmt.Errorf("invalid scheduled-at format (use relative time, YYYY-MM-DD, or RFC3339): %w", err)
 				}
 				req.ScheduledAt = t.Unix()
 			}
@@ -271,7 +273,7 @@ The --scheduled-at flag accepts RFC3339 format, e.g.:
 	cmd.Flags().StringVar(&message, "message", "", "Campaign message (required)")
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID for the campaign (required)")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
-	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (RFC3339 format)")
+	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated label IDs for targeting (e.g., 1,2,3)")
 	cmd.Flags().StringVar(&audience, "audience", "", "Audience targeting as JSON array (mutually exclusive with --labels)")
 	cmd.Flags().BoolVar(&enabled, "enabled", true, "Enable the campaign")
@@ -331,9 +333,9 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 			}
 
 			if scheduledAt != "" {
-				t, err := time.Parse(time.RFC3339, scheduledAt)
+				t, err := cli.ParseRelativeTime(scheduledAt, time.Now())
 				if err != nil {
-					return fmt.Errorf("invalid scheduled-at format (use RFC3339): %w", err)
+					return fmt.Errorf("invalid scheduled-at format (use relative time, YYYY-MM-DD, or RFC3339): %w", err)
 				}
 				req.ScheduledAt = t.Unix()
 			}
@@ -389,7 +391,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 	cmd.Flags().StringVar(&description, "description", "", "Campaign description")
 	cmd.Flags().StringVar(&message, "message", "", "Campaign message")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
-	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (RFC3339 format)")
+	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated label IDs for targeting (e.g., 1,2,3)")
 	cmd.Flags().StringVar(&audience, "audience", "", "Audience targeting as JSON array (mutually exclusive with --labels)")
 	cmd.Flags().BoolVar(&enabled, "enabled", false, "Enable/disable campaign")

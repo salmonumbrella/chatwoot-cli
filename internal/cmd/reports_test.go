@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReportsSummaryCommand(t *testing.T) {
@@ -647,6 +649,39 @@ func TestReportsEventsListCommand(t *testing.T) {
 
 	if !strings.Contains(output, "ID") || !strings.Contains(output, "NAME") || !strings.Contains(output, "VALUE") {
 		t.Errorf("output missing expected headers: %s", output)
+	}
+}
+
+func TestReportsEventsListCommand_WithTimeFilters(t *testing.T) {
+	expectedSince := time.Date(2026, 1, 27, 0, 0, 0, 0, time.UTC).Unix()
+	expectedUntil := time.Date(2026, 1, 28, 1, 0, 0, 0, time.UTC).Unix()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && strings.Contains(r.URL.Path, "/reporting_events") && !strings.Contains(r.URL.Path, "/conversations/") {
+			query := r.URL.Query()
+			if query.Get("since") != strconv.FormatInt(expectedSince, 10) {
+				t.Errorf("expected since=%d, got %s", expectedSince, query.Get("since"))
+			}
+			if query.Get("until") != strconv.FormatInt(expectedUntil, 10) {
+				t.Errorf("expected until=%d, got %s", expectedUntil, query.Get("until"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"reports", "events", "list",
+		"--since", "2026-01-27",
+		"--until", "2026-01-28T01:00:00Z",
+	})
+	if err != nil {
+		t.Errorf("reports events list with time filters failed: %v", err)
 	}
 }
 

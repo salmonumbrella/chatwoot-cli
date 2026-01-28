@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -615,7 +616,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&status, "status", "", "New status (open|resolved|pending|snoozed) (required)")
-	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp or RFC3339 format)")
+	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp, RFC3339, or relative)")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed"})
 
 	return cmd
@@ -1685,43 +1686,46 @@ func formatPosition(position, total int) string {
 
 const maxFutureYears = 10 * 365 * 24 * 60 * 60 // 10 years in seconds
 
-// parseSnoozedUntil parses a snoozed-until value as either Unix timestamp (seconds) or RFC3339 datetime
+// parseSnoozedUntil parses a snoozed-until value as Unix timestamp, RFC3339, or relative time.
 func parseSnoozedUntil(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("snoozed-until cannot be empty")
+	}
+
 	// Try parsing as Unix timestamp first
 	if ts, err := strconv.ParseInt(s, 10, 64); err == nil {
-		if ts <= 0 {
-			return 0, fmt.Errorf("timestamp must be positive, got %d", ts)
-		}
-		// Validate reasonable timestamp range (not too far in past or future)
-		now := time.Now().Unix()
-		if ts < now {
-			return 0, fmt.Errorf("timestamp %d is in the past", ts)
-		}
-		// Prevent absurdly far future timestamps (max 10 years from now)
-		maxFuture := now + maxFutureYears
-		if ts > maxFuture {
-			return 0, fmt.Errorf("timestamp %d is too far in the future (max 10 years)", ts)
-		}
-		return ts, nil
+		return validateSnoozedUntil(ts, "timestamp")
 	}
 
-	// Try parsing as RFC3339
-	t, err := time.Parse(time.RFC3339, s)
+	t, err := cli.ParseRelativeTime(s, time.Now())
 	if err != nil {
-		return 0, fmt.Errorf("invalid format (use Unix timestamp or RFC3339): %w", err)
+		return 0, fmt.Errorf("invalid format (use Unix timestamp, RFC3339, or relative time): %w", err)
 	}
 
-	ts := t.Unix()
+	return validateSnoozedUntil(t.Unix(), "time")
+}
+
+func validateSnoozedUntil(ts int64, label string) (int64, error) {
+	if ts <= 0 {
+		return 0, fmt.Errorf("timestamp must be positive, got %d", ts)
+	}
+	// Validate reasonable timestamp range (not too far in past or future)
 	now := time.Now().Unix()
 	if ts < now {
-		return 0, fmt.Errorf("time %q is in the past", s)
+		if label == "timestamp" {
+			return 0, fmt.Errorf("timestamp %d is in the past", ts)
+		}
+		return 0, fmt.Errorf("time %q is in the past", time.Unix(ts, 0).Format(time.RFC3339))
 	}
 	// Prevent absurdly far future timestamps (max 10 years from now)
 	maxFuture := now + maxFutureYears
 	if ts > maxFuture {
-		return 0, fmt.Errorf("time %q is too far in the future (max 10 years)", s)
+		if label == "timestamp" {
+			return 0, fmt.Errorf("timestamp %d is too far in the future (max 10 years)", ts)
+		}
+		return 0, fmt.Errorf("time %q is too far in the future (max 10 years)", time.Unix(ts, 0).Format(time.RFC3339))
 	}
-
 	return ts, nil
 }
 

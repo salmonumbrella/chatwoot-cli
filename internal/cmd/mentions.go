@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/spf13/cobra"
 )
 
@@ -65,15 +66,23 @@ mentioned so you can follow up on requests from teammates.`,
   chatwoot mentions list --since 7d --limit 20 --output json
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			// Parse --since duration if provided
+			// Parse --since duration/relative time if provided
 			var sinceTime *time.Time
 			if since != "" {
-				duration, err := parseDuration(since)
-				if err != nil {
-					return fmt.Errorf("invalid --since value %q: %w", since, err)
+				now := time.Now()
+				if duration, err := parseDuration(since); err == nil {
+					t := now.Add(-duration)
+					sinceTime = &t
+				} else {
+					t, relErr := cli.ParseRelativeTime(since, now)
+					if relErr != nil {
+						return fmt.Errorf("invalid --since value %q: %w", since, relErr)
+					}
+					if t.After(now) {
+						return fmt.Errorf("--since must be in the past (got %s)", t.Format(time.RFC3339))
+					}
+					sinceTime = &t
 				}
-				t := time.Now().Add(-duration)
-				sinceTime = &t
 			}
 
 			// Validate conversation ID if provided
@@ -148,7 +157,7 @@ mentioned so you can follow up on requests from teammates.`,
 	}
 
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Filter mentions to a specific conversation")
-	cmd.Flags().StringVar(&since, "since", "", "Filter mentions by time (e.g., 24h, 7d, 1w)")
+	cmd.Flags().StringVar(&since, "since", "", "Filter mentions by time (e.g., 24h, 7d, 1w, yesterday, 2h ago)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of mentions to return")
 
 	return cmd

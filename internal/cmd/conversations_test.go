@@ -306,6 +306,17 @@ func TestParseSnoozedUntil(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:        "relative future time",
+			input:       "30m",
+			expectError: false,
+			validate: func(t *testing.T, result int64) {
+				expected := now + 1800
+				if result < expected-10 || result > expected+10 {
+					t.Errorf("Expected around %d, got %d", expected, result)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

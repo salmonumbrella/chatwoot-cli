@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -55,6 +57,21 @@ func newCSATListCmd() *cobra.Command {
 				return err
 			}
 
+			if from != "" {
+				normalized, err := normalizeCSATDate(from)
+				if err != nil {
+					return err
+				}
+				from = normalized
+			}
+			if to != "" {
+				normalized, err := normalizeCSATDate(to)
+				if err != nil {
+					return err
+				}
+				to = normalized
+			}
+
 			params := api.CSATListParams{
 				Page:    page,
 				Since:   from,
@@ -98,8 +115,8 @@ func newCSATListCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
 	cmd.Flags().StringVar(&rating, "rating", "", "Filter by ratings (comma-separated, e.g., 1,2)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
@@ -182,6 +199,21 @@ func newCSATSummaryCmd() *cobra.Command {
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+
+			if from != "" {
+				normalized, err := normalizeCSATDate(from)
+				if err != nil {
+					return err
+				}
+				from = normalized
+			}
+			if to != "" {
+				normalized, err := normalizeCSATDate(to)
+				if err != nil {
+					return err
+				}
+				to = normalized
 			}
 
 			// Fetch all pages of responses for accurate summary
@@ -270,8 +302,8 @@ func newCSATSummaryCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
 
 	return cmd
@@ -281,4 +313,12 @@ func ratingStars(rating int) string {
 	filled := strings.Repeat("*", rating)
 	empty := strings.Repeat("-", 5-rating)
 	return filled + empty
+}
+
+func normalizeCSATDate(input string) (string, error) {
+	parsed, err := cli.ParseRelativeTime(input, time.Now().UTC())
+	if err != nil {
+		return "", fmt.Errorf("invalid date format %q (expected YYYY-MM-DD or relative): %w", input, err)
+	}
+	return parsed.Format("2006-01-02"), nil
 }
