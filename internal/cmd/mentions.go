@@ -66,7 +66,21 @@ mentioned so you can follow up on requests from teammates.`,
   chatwoot mentions list --since 7d --limit 20 --output json
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			// Parse --since duration/relative time if provided
+			// Parse --since using dual parsing strategy:
+			//
+			// 1. parseDuration() handles simple duration suffixes: "24h", "7d", "1w"
+			//    These are interpreted as "time ago" and subtracted from now.
+			//
+			// 2. cli.ParseRelativeTime() handles natural language expressions:
+			//    "yesterday", "2h ago", "last monday", "2024-01-15"
+			//    These return an absolute timestamp directly.
+			//
+			// parseDuration is tried first because it's more specific: "7d" is
+			// unambiguously a duration. ParseRelativeTime is the fallback for
+			// expressions that aren't simple durations.
+			//
+			// The t.After(now) check exists because ParseRelativeTime can return
+			// future times (e.g., "next monday"), which are invalid for --since.
 			var sinceTime *time.Time
 			if since != "" {
 				now := time.Now().UTC()
