@@ -69,10 +69,6 @@ func startOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }
 
-func endOfDay(t time.Time) time.Time {
-	return startOfDay(t).Add(24*time.Hour - time.Nanosecond)
-}
-
 func parseWeekday(expr string, now time.Time) (time.Time, bool) {
 	input := strings.TrimSpace(expr)
 	if input == "" {

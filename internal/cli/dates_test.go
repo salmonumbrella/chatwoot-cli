@@ -100,15 +100,11 @@ func TestParseRelativeTime_Invalid(t *testing.T) {
 	}
 }
 
-func TestStartAndEndOfDay(t *testing.T) {
+func TestStartOfDay(t *testing.T) {
 	sample := time.Date(2026, 1, 28, 15, 4, 5, 0, time.UTC)
 	start := startOfDay(sample)
-	end := endOfDay(sample)
 
 	if !start.Equal(time.Date(2026, 1, 28, 0, 0, 0, 0, time.UTC)) {
 		t.Fatalf("unexpected start of day: %s", start.Format(time.RFC3339Nano))
-	}
-	if !end.Equal(time.Date(2026, 1, 28, 23, 59, 59, int(time.Second-time.Nanosecond), time.UTC)) {
-		t.Fatalf("unexpected end of day: %s", end.Format(time.RFC3339Nano))
 	}
 }
