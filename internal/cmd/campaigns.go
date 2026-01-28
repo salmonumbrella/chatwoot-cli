@@ -217,7 +217,7 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 			}
 
 			if scheduledAt != "" {
-				t, err := cli.ParseRelativeTime(scheduledAt, time.Now())
+				t, err := cli.ParseRelativeTime(scheduledAt, time.Now().UTC())
 				if err != nil {
 					return fmt.Errorf("invalid scheduled-at format (use relative time, YYYY-MM-DD, or RFC3339): %w", err)
 				}
@@ -333,7 +333,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 			}
 
 			if scheduledAt != "" {
-				t, err := cli.ParseRelativeTime(scheduledAt, time.Now())
+				t, err := cli.ParseRelativeTime(scheduledAt, time.Now().UTC())
 				if err != nil {
 					return fmt.Errorf("invalid scheduled-at format (use relative time, YYYY-MM-DD, or RFC3339): %w", err)
 				}

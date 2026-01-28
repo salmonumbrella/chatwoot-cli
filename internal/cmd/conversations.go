@@ -1698,7 +1698,7 @@ func parseSnoozedUntil(s string) (int64, error) {
 		return validateSnoozedUntil(ts, "timestamp")
 	}
 
-	t, err := cli.ParseRelativeTime(s, time.Now())
+	t, err := cli.ParseRelativeTime(s, time.Now().UTC())
 	if err != nil {
 		return 0, fmt.Errorf("invalid format (use Unix timestamp, RFC3339, or relative time): %w", err)
 	}
@@ -1711,7 +1711,7 @@ func validateSnoozedUntil(ts int64, label string) (int64, error) {
 		return 0, fmt.Errorf("timestamp must be positive, got %d", ts)
 	}
 	// Validate reasonable timestamp range (not too far in past or future)
-	now := time.Now().Unix()
+	now := time.Now().UTC().Unix()
 	if ts < now {
 		if label == "timestamp" {
 			return 0, fmt.Errorf("timestamp %d is in the past", ts)

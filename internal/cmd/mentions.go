@@ -69,7 +69,7 @@ mentioned so you can follow up on requests from teammates.`,
 			// Parse --since duration/relative time if provided
 			var sinceTime *time.Time
 			if since != "" {
-				now := time.Now()
+				now := time.Now().UTC()
 				if duration, err := parseDuration(since); err == nil {
 					t := now.Add(-duration)
 					sinceTime = &t
