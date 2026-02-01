@@ -6,7 +6,9 @@ require (
 	github.com/99designs/keyring v1.2.2
 	github.com/itchyny/gojq v0.12.18
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/mod v0.31.0
+	github.com/spf13/pflag v1.0.9
+	golang.org/x/mod v0.32.0
+	golang.org/x/sync v0.19.0
 )
 
 require (
@@ -18,8 +20,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/itchyny/timefmt-go v0.1.7 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
-	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.3.0 // indirect
 )
