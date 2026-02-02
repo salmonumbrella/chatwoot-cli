@@ -332,7 +332,7 @@ func newConversationsGetCmd() *cobra.Command {
 					limit = 20
 				}
 				if len(messages) > limit {
-					messages = messages[:limit]
+					messages = messages[len(messages)-limit:] // Keep most recent
 				}
 
 				detailWithMessages := agentfmt.ConversationDetailWithMessages{
