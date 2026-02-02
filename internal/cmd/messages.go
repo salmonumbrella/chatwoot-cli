@@ -40,6 +40,7 @@ func newMessagesListCmd() *cobra.Command {
 	var all bool
 	var maxPages int
 	var limit int
+	var transcript bool
 
 	cmd := &cobra.Command{
 		Use:   "list <conversation-id>",
@@ -91,6 +92,12 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 			}
 
 			totalMessages := len(messages)
+
+			if transcript {
+				conv, _ := client.Conversations().Get(cmdContext(cmd), conversationID)
+				formatTranscript(cmd.OutOrStdout(), messages, conv)
+				return nil
+			}
 
 			if isAgent(cmd) {
 				var conversationDetail *agentfmt.ConversationDetail
@@ -183,6 +190,7 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all or --limit")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")
+	cmd.Flags().BoolVar(&transcript, "transcript", false, "Output as readable conversation transcript")
 
 	return cmd
 }
