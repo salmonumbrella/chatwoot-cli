@@ -92,6 +92,8 @@ func newConversationsListCmd() *cobra.Command {
 	var teamID int
 	var labels string
 	var search string
+	var unreadOnly bool
+	var since string
 
 	cfg := ListConfig[api.Conversation]{
 		Use:               "list",
@@ -137,9 +139,33 @@ func newConversationsListCmd() *cobra.Command {
 				return ListResult[api.Conversation]{}, fmt.Errorf("failed to list conversations: %w", err)
 			}
 
+			items := result.Data.Payload
+			if unreadOnly {
+				filtered := make([]api.Conversation, 0)
+				for _, conv := range items {
+					if conv.Unread > 0 {
+						filtered = append(filtered, conv)
+					}
+				}
+				items = filtered
+			}
+			if since != "" {
+				sinceTime, err := cli.ParseRelativeTime(since, time.Now())
+				if err != nil {
+					return ListResult[api.Conversation]{}, fmt.Errorf("invalid --since value: %w", err)
+				}
+				filtered := make([]api.Conversation, 0, len(items))
+				for _, conv := range items {
+					if conv.LastActivityAtTime().After(sinceTime) || conv.LastActivityAtTime().Equal(sinceTime) {
+						filtered = append(filtered, conv)
+					}
+				}
+				items = filtered
+			}
+
 			totalPages := int(result.Data.Meta.TotalPages)
 			hasMore := totalPages > 0 && page < totalPages
-			return ListResult[api.Conversation]{Items: result.Data.Payload, HasMore: hasMore}, nil
+			return ListResult[api.Conversation]{Items: items, HasMore: hasMore}, nil
 		},
 	}
 
@@ -160,6 +186,8 @@ func newConversationsListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
+	cmd.Flags().BoolVar(&unreadOnly, "unread-only", false, "Only show conversations with unread messages")
+	cmd.Flags().StringVar(&since, "since", "", "Filter by last activity (e.g., yesterday, 2h ago, 2026-01-30)")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 

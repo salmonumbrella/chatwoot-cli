@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestConversationsListCommand(t *testing.T) {
@@ -1022,5 +1023,77 @@ func TestConversationsListCommand_AgentResolveNames(t *testing.T) {
 	}
 	if !foundInboxLabel {
 		t.Errorf("expected inbox label Support in path, got %#v", payload.Items[0].Path)
+	}
+}
+
+func TestConversationsListUnreadOnly(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"meta": {"total_pages": 1},
+				"payload": [
+					{"id": 1, "status": "open", "inbox_id": 1, "unread_count": 5},
+					{"id": 2, "status": "open", "inbox_id": 1, "unread_count": 0},
+					{"id": 3, "status": "open", "inbox_id": 1, "unread_count": 3}
+				]
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--unread-only", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --unread-only failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct{ ID int } `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Errorf("expected 2 unread conversations, got %d", len(result.Items))
+	}
+}
+
+func TestConversationsListSinceFlag(t *testing.T) {
+	now := time.Now().Unix()
+	yesterday := now - 86400
+	lastWeek := now - 86400*7
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": map[string]any{
+					"meta": map[string]any{"total_pages": 1},
+					"payload": []map[string]any{
+						{"id": 1, "status": "open", "inbox_id": 1, "last_activity_at": now},
+						{"id": 2, "status": "open", "inbox_id": 1, "last_activity_at": yesterday},
+						{"id": 3, "status": "open", "inbox_id": 1, "last_activity_at": lastWeek},
+					},
+				},
+			})
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--since", "2d ago", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --since failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct{ ID int } `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Errorf("expected 2 conversations since 2d ago, got %d", len(result.Items))
 	}
 }

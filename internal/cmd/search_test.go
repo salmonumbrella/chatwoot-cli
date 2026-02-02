@@ -20,7 +20,7 @@ func TestSearchCommand(t *testing.T) {
 			],
 			"meta": {"count": 2}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -66,7 +66,7 @@ func TestSearchCommand_JSON(t *testing.T) {
 			],
 			"meta": {"count": 1}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -146,7 +146,7 @@ func TestSearchCommand_SelectRequiresInteractive(t *testing.T) {
 			],
 			"meta": {"count": 1}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -171,7 +171,7 @@ func TestSearchCommand_SelectInteractive(t *testing.T) {
 			],
 			"meta": {"count": 1}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -216,7 +216,7 @@ func TestSearchCommand_SelectJSONOutput(t *testing.T) {
 			],
 			"meta": {"count": 1}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -272,7 +272,7 @@ func TestSearchCommand_SelectJSONRaw(t *testing.T) {
 			],
 			"meta": {"count": 1}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -315,7 +315,7 @@ func TestSearchCommand_SelectJSONRaw(t *testing.T) {
 
 func TestSearchCommand_TypeFilter_ConversationsOnly(t *testing.T) {
 	handler := newRouteHandler().
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [
 					{"id": 100, "status": "open", "inbox_id": 1}
@@ -396,7 +396,7 @@ func TestSearchCommand_NoResults(t *testing.T) {
 			"payload": [],
 			"meta": {"count": 0}
 		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [],
 				"meta": {"count": 0}
@@ -420,7 +420,7 @@ func TestSearchCommand_NoResults(t *testing.T) {
 func TestSearchCommand_ContactsError(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(500, `{"error": "internal error"}`)).
-		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
 			"data": {
 				"payload": [],
 				"meta": {"count": 0}
@@ -457,7 +457,7 @@ func TestSearchCommand_ContextCancellation(t *testing.T) {
 				"meta": {"count": 1000, "current_page": 1, "total_pages": 100}
 			}`))
 		}).
-		On("GET", "/api/v1/accounts/1/conversations/search", func(w http.ResponseWriter, r *http.Request) {
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
 			mu.Lock()
 			conversationsRequests++
 			mu.Unlock()
@@ -504,5 +504,50 @@ func TestSearchCommand_ContextCancellation(t *testing.T) {
 	if contactsReqs >= 20 || conversationsReqs >= 20 {
 		t.Errorf("context cancellation did not stop pagination early: contacts=%d, conversations=%d requests (expected <20 each)",
 			contactsReqs, conversationsReqs)
+	}
+}
+
+func TestSearchConversationContent(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Query().Get("q") == "shipping" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte(`{
+					"data": {
+						"meta": {"total_pages": 1, "current_page": 1},
+						"payload": [
+							{"id": 1, "status": "open", "inbox_id": 1},
+							{"id": 2, "status": "resolved", "inbox_id": 1}
+						]
+					}
+				}`))
+			} else {
+				http.NotFound(w, r)
+			}
+		}).
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"meta": {"total_pages": 1, "current_page": 1},
+			"payload": []
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "shipping", "--type", "conversations", "--output", "json"})
+		if err != nil {
+			t.Fatalf("search failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Conversations []struct{ ID int } `json:"conversations"`
+		Summary       map[string]int     `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if result.Summary["conversations"] != 2 {
+		t.Errorf("expected 2 conversations, got %d", result.Summary["conversations"])
 	}
 }

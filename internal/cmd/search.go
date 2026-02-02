@@ -148,8 +148,8 @@ of relevant resources with a single query.`,
 						mu.Unlock()
 
 					case "conversations":
-						// Chatwoot conversations search has fixed page size of 25.
-						// We fetch enough pages to satisfy the limit, then truncate client-side.
+						// Use List API with query param instead of Search API
+						// This searches message content, not just metadata
 						var allConversations []api.Conversation
 						page := 1
 						for {
@@ -158,7 +158,11 @@ of relevant resources with a single query.`,
 								return
 							default:
 							}
-							conversations, err := client.Conversations().Search(ctx, query, page)
+							params := api.ListConversationsParams{
+								Query: query,
+								Page:  page,
+							}
+							result, err := client.Conversations().List(ctx, params)
 							if err != nil {
 								mu.Lock()
 								if searchErr == nil {
@@ -167,18 +171,18 @@ of relevant resources with a single query.`,
 								mu.Unlock()
 								return
 							}
-							allConversations = append(allConversations, conversations.Data.Payload...)
+							allConversations = append(allConversations, result.Data.Payload...)
 							// Stop if we have enough results or no more pages
 							if limit > 0 && len(allConversations) >= limit {
 								break
 							}
-							if len(conversations.Data.Payload) == 0 || int(conversations.Data.Meta.CurrentPage) >= int(conversations.Data.Meta.TotalPages) {
+							totalPages := int(result.Data.Meta.TotalPages)
+							if totalPages == 0 || page >= totalPages {
 								break
 							}
 							page++
 						}
 						mu.Lock()
-						// Apply limit
 						if limit > 0 && len(allConversations) > limit {
 							results.Conversations = allConversations[:limit]
 						} else {
