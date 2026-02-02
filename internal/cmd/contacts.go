@@ -1293,7 +1293,7 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 			ctx := cmdContext(cmd)
 
 			// Handle dry-run mode - preview merge without executing
-			if dryrun.IsEnabled(cmd.Context()) {
+			if dryrun.IsEnabled(ctx) {
 				return printMergeDryRun(cmd, client, keepID, deleteID)
 			}
 
