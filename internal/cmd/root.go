@@ -331,6 +331,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newCompletionsCmd())
 	root.AddCommand(newMentionsCmd())
+	root.AddCommand(newAssignCmd())
 
 	if len(args) > 0 {
 		if _, _, findErr := root.Find(args); findErr != nil {

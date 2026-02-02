@@ -1,0 +1,164 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestAssignCommand_Help(t *testing.T) {
+	buf := new(bytes.Buffer)
+	err := Execute(context.Background(), []string{"assign", "--help"})
+
+	// Help should not return an error
+	assert.NoError(t, err)
+	// Note: output goes to stdout which we can't easily capture here
+	// The main test is that the command exists and doesn't error
+	_ = buf
+}
+
+func TestAssignCommand_RequiresConversationID(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"assign", "--agent", "5"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "accepts 1 arg")
+}
+
+func TestAssignCommand_RequiresAgentOrTeam(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	err := Execute(context.Background(), []string{"assign", "123", "--no-input"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--agent or --team")
+}
+
+func TestAssignCommand_AssignsToAgent(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	assignCalled := false
+	getCalled := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/api/v1/accounts/1/conversations/123/assignments":
+			assignCalled = true
+			var payload map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			assert.Equal(t, float64(5), payload["assignee_id"])
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":   5,
+				"name": "Test Agent",
+			})
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/conversations/123":
+			getCalled = true
+			w.WriteHeader(http.StatusOK)
+			displayID := 123
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":          123,
+				"display_id":  displayID,
+				"status":      "open",
+				"assignee_id": 5,
+			})
+		default:
+			t.Errorf("Unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--allow-private"})
+	assert.NoError(t, err)
+	assert.True(t, assignCalled, "assign endpoint should be called")
+	assert.True(t, getCalled, "get endpoint should be called to fetch updated conversation")
+}
+
+func TestAssignCommand_AssignsToTeam(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	assignCalled := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/api/v1/accounts/1/conversations/123/assignments":
+			assignCalled = true
+			var payload map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			assert.Equal(t, float64(2), payload["team_id"])
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":   2,
+				"name": "Test Team",
+			})
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/conversations/123":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":      123,
+				"status":  "open",
+				"team_id": 2,
+			})
+		default:
+			t.Errorf("Unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	err := Execute(context.Background(), []string{"assign", "123", "--team", "2", "--allow-private"})
+	assert.NoError(t, err)
+	assert.True(t, assignCalled, "assign endpoint should be called")
+}
+
+func TestAssignCommand_JSONOutput(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/api/v1/accounts/1/conversations/123/assignments":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":   5,
+				"name": "Test Agent",
+			})
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/conversations/123":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":          123,
+				"status":      "open",
+				"assignee_id": 5,
+				"team_id":     2,
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--team", "2", "--output", "json", "--allow-private"})
+	assert.NoError(t, err)
+}
