@@ -58,3 +58,4 @@ coverage.html
 # Credentials
 .env
 .env.*
+evals/
