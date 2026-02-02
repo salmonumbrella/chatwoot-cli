@@ -1822,3 +1822,185 @@ func TestConversationsGetExplain(t *testing.T) {
 		t.Error("expected non-empty context")
 	}
 }
+
+func TestConversationsTriage(t *testing.T) {
+	// Set up current time for wait time calculation
+	now := time.Now()
+	// Conversation 1: older (longer wait), last activity 2 hours ago
+	oldActivityTime := now.Add(-2 * time.Hour).Unix()
+	// Conversation 2: newer (shorter wait), last activity 30 minutes ago
+	newActivityTime := now.Add(-30 * time.Minute).Unix()
+
+	handler := newRouteHandler().
+		// First call: list open conversations with status=open
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			status := r.URL.Query().Get("status")
+			if status != "open" && status != "pending" {
+				// Return all for other status queries
+				jsonResponse(200, `{
+					"data": {
+						"payload": [],
+						"meta": {"total_pages": 0}
+					}
+				}`)(w, r)
+				return
+			}
+			jsonResponse(200, `{
+				"data": {
+					"payload": [
+						{
+							"id": 1,
+							"inbox_id": 10,
+							"status": "open",
+							"unread_count": 2,
+							"last_activity_at": `+strconv.FormatInt(newActivityTime, 10)+`,
+							"meta": {"sender": {"name": "Alice Customer"}}
+						},
+						{
+							"id": 2,
+							"inbox_id": 20,
+							"status": "open",
+							"unread_count": 1,
+							"last_activity_at": `+strconv.FormatInt(oldActivityTime, 10)+`,
+							"meta": {"sender": {"name": "Bob Waiting"}}
+						}
+					],
+					"meta": {"total_pages": 1}
+				}
+			}`)(w, r)
+		}).
+		// Messages for conversation 1 (newer)
+		On("GET", "/api/v1/accounts/1/conversations/1/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 101, "content": "Hello from Alice, this is a test message", "message_type": 0, "created_at": `+strconv.FormatInt(newActivityTime, 10)+`}
+			]
+		}`)).
+		// Messages for conversation 2 (older)
+		On("GET", "/api/v1/accounts/1/conversations/2/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 201, "content": "Bob has been waiting for a response please help", "message_type": 0, "created_at": `+strconv.FormatInt(oldActivityTime, 10)+`}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "triage"})
+		if err != nil {
+			t.Fatalf("conversations triage failed: %v", err)
+		}
+	})
+
+	// Verify older conversation (ID 2, Bob) appears first in text output
+	// The output should have Bob before Alice since Bob has been waiting longer
+	bobPos := strings.Index(output, "Bob")
+	alicePos := strings.Index(output, "Alice")
+
+	if bobPos == -1 {
+		t.Errorf("expected Bob Waiting in output, got: %s", output)
+	}
+	if alicePos == -1 {
+		t.Errorf("expected Alice Customer in output, got: %s", output)
+	}
+	if bobPos > alicePos && alicePos != -1 {
+		t.Errorf("expected Bob (older) to appear before Alice (newer), but Alice at %d, Bob at %d\nOutput: %s", alicePos, bobPos, output)
+	}
+}
+
+func TestConversationsTriage_JSON(t *testing.T) {
+	now := time.Now()
+	oldActivityTime := now.Add(-2 * time.Hour).Unix()
+	newActivityTime := now.Add(-30 * time.Minute).Unix()
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			status := r.URL.Query().Get("status")
+			if status != "open" && status != "pending" {
+				jsonResponse(200, `{
+					"data": {
+						"payload": [],
+						"meta": {"total_pages": 0}
+					}
+				}`)(w, r)
+				return
+			}
+			jsonResponse(200, `{
+				"data": {
+					"payload": [
+						{
+							"id": 1,
+							"inbox_id": 10,
+							"status": "open",
+							"unread_count": 2,
+							"last_activity_at": `+strconv.FormatInt(newActivityTime, 10)+`,
+							"meta": {"sender": {"name": "Alice Customer"}}
+						},
+						{
+							"id": 2,
+							"inbox_id": 20,
+							"status": "open",
+							"unread_count": 1,
+							"last_activity_at": `+strconv.FormatInt(oldActivityTime, 10)+`,
+							"meta": {"sender": {"name": "Bob Waiting"}}
+						}
+					],
+					"meta": {"total_pages": 1}
+				}
+			}`)(w, r)
+		}).
+		On("GET", "/api/v1/accounts/1/conversations/1/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 101, "content": "Hello from Alice", "message_type": 0, "created_at": `+strconv.FormatInt(newActivityTime, 10)+`}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/2/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 201, "content": "Bob has been waiting", "message_type": 0, "created_at": `+strconv.FormatInt(oldActivityTime, 10)+`}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "triage", "--output", "json"})
+		if err != nil {
+			t.Fatalf("conversations triage --output json failed: %v", err)
+		}
+	})
+
+	// Verify JSON structure
+	var result struct {
+		Items []struct {
+			ID          int    `json:"id"`
+			ContactName string `json:"contact_name"`
+			WaitTime    string `json:"wait_time"`
+			LastMessage string `json:"last_message"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(result.Items))
+	}
+
+	// First item should be Bob (older, longer wait)
+	if result.Items[0].ID != 2 {
+		t.Errorf("expected first item to be conversation 2 (Bob), got %d", result.Items[0].ID)
+	}
+	if result.Items[0].ContactName != "Bob Waiting" {
+		t.Errorf("expected first contact name 'Bob Waiting', got %q", result.Items[0].ContactName)
+	}
+	if result.Items[0].WaitTime == "" {
+		t.Error("expected wait_time to be populated")
+	}
+
+	// Second item should be Alice (newer, shorter wait)
+	if result.Items[1].ID != 1 {
+		t.Errorf("expected second item to be conversation 1 (Alice), got %d", result.Items[1].ID)
+	}
+	if result.Items[1].ContactName != "Alice Customer" {
+		t.Errorf("expected second contact name 'Alice Customer', got %q", result.Items[1].ContactName)
+	}
+}
