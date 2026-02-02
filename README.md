@@ -167,6 +167,8 @@ chatwoot conversations custom-attributes 123 --payload '{"key":"value"}'
 
 # AI context
 chatwoot conversations context 123 --embed-images   # Get full context for AI
+chatwoot conversations context 123 --output agent   # Agent-friendly envelope
+chatwoot conversations context 123 --output agent --resolve-names
 
 # Transcript
 chatwoot conversations transcript 123               # Render transcript locally
@@ -519,6 +521,12 @@ export CHATWOOT_OUTPUT=agent
 
 Use `--resolve-names` to fetch inbox/contact names for conversation results (extra API calls).
 Agent output is available for `conversations context` with message metadata and summary.
+
+**Context commands return a single envelope**:
+```bash
+chatwoot conversations context 123 --output agent | jq '.item.summary'
+chatwoot conversations context 123 --output agent --resolve-names | jq '.item.contact_labels'
+```
 
 **List commands return an object with an "items" array** (plus `has_more` and `meta`):
 ```bash
