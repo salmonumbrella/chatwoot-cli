@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -18,6 +19,7 @@ func newCannedResponsesCmd() *cobra.Command {
 
 	cmd.AddCommand(newCannedResponsesListCmd())
 	cmd.AddCommand(newCannedResponsesGetCmd())
+	cmd.AddCommand(newCannedResponsesSearchCmd())
 	cmd.AddCommand(newCannedResponsesCreateCmd())
 	cmd.AddCommand(newCannedResponsesUpdateCmd())
 	cmd.AddCommand(newCannedResponsesDeleteCmd())
@@ -101,6 +103,77 @@ func newCannedResponsesGetCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	registerFieldPresets(cmd, map[string][]string{
+		"minimal": {"id", "short_code"},
+		"default": {"id", "short_code", "content"},
+		"debug":   {"id", "short_code", "content", "account_id"},
+	})
+
+	return cmd
+}
+
+func newCannedResponsesSearchCmd() *cobra.Command {
+	var query string
+
+	cmd := &cobra.Command{
+		Use:   "search",
+		Short: "Search canned responses by short code or content",
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			if query == "" {
+				return fmt.Errorf("--query is required")
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			responses, err := client.CannedResponses().List(cmdContext(cmd))
+			if err != nil {
+				return fmt.Errorf("failed to list canned responses: %w", err)
+			}
+
+			// Filter by query (case-insensitive match against ShortCode OR Content)
+			queryLower := strings.ToLower(query)
+			var filtered []api.CannedResponse
+			for _, r := range responses {
+				shortCodeLower := strings.ToLower(r.ShortCode)
+				contentLower := strings.ToLower(r.Content)
+				if strings.Contains(shortCodeLower, queryLower) || strings.Contains(contentLower, queryLower) {
+					filtered = append(filtered, r)
+				}
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, map[string]any{
+					"query": query,
+					"items": filtered,
+				})
+			}
+
+			if len(filtered) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No canned responses found matching query")
+				return nil
+			}
+
+			w := newTabWriterFromCmd(cmd)
+			defer func() { _ = w.Flush() }()
+			_, _ = fmt.Fprintln(w, "ID\tSHORT_CODE\tCONTENT")
+			for _, r := range filtered {
+				content := r.Content
+				if len(content) > 50 {
+					content = content[:47] + "..."
+				}
+				content = strings.ReplaceAll(content, "\n", " ")
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", r.ID, r.ShortCode, content)
+			}
+			return nil
+		}),
+	}
+
+	cmd.Flags().StringVar(&query, "query", "", "Search query (required)")
+	_ = cmd.MarkFlagRequired("query")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "short_code"},

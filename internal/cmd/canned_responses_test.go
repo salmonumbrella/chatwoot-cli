@@ -540,3 +540,165 @@ func TestCannedResponsesCommand_APIError(t *testing.T) {
 		t.Error("expected error for API failure")
 	}
 }
+
+func TestCannedResponsesSearchCommand_ByContent(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1, "short_code": "greeting", "content": "Hello! How can I help you?"},
+			{"id": 2, "short_code": "thanks", "content": "Thank you for contacting us!"},
+			{"id": 3, "short_code": "bye", "content": "Goodbye, have a great day!"}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"canned-responses", "search", "--query", "thank"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("canned-responses search failed: %v", err)
+	}
+
+	// Should match "Thank you for contacting us!" (case-insensitive)
+	if !strings.Contains(output, "thanks") {
+		t.Errorf("expected 'thanks' in output, got: %s", output)
+	}
+	// Should NOT match other responses
+	if strings.Contains(output, "greeting") {
+		t.Errorf("should not contain 'greeting', got: %s", output)
+	}
+	if strings.Contains(output, "bye") {
+		t.Errorf("should not contain 'bye', got: %s", output)
+	}
+}
+
+func TestCannedResponsesSearchCommand_ByShortCode(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1, "short_code": "greeting", "content": "Hello! How can I help you?"},
+			{"id": 2, "short_code": "thanks", "content": "Thank you for contacting us!"},
+			{"id": 3, "short_code": "bye", "content": "Goodbye, have a great day!"}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"canned-responses", "search", "--query", "GREET"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("canned-responses search failed: %v", err)
+	}
+
+	// Should match "greeting" short code (case-insensitive)
+	if !strings.Contains(output, "greeting") {
+		t.Errorf("expected 'greeting' in output, got: %s", output)
+	}
+	// Should NOT match other responses
+	if strings.Contains(output, "thanks") {
+		t.Errorf("should not contain 'thanks', got: %s", output)
+	}
+}
+
+func TestCannedResponsesSearchCommand_NoMatches(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1, "short_code": "greeting", "content": "Hello!"}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"canned-responses", "search", "--query", "nonexistent"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("canned-responses search failed: %v", err)
+	}
+
+	if !strings.Contains(output, "No canned responses found matching query") {
+		t.Errorf("expected 'No canned responses found matching query' message, got: %s", output)
+	}
+}
+
+func TestCannedResponsesSearchCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/canned_responses", jsonResponse(200, `[
+			{"id": 1, "short_code": "greeting", "content": "Hello!"},
+			{"id": 2, "short_code": "thanks", "content": "Thank you!"}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"canned-responses", "search", "--query", "hello", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("canned-responses search failed: %v", err)
+	}
+
+	var response map[string]any
+	if err := json.Unmarshal([]byte(output), &response); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if response["query"] != "hello" {
+		t.Errorf("expected query 'hello', got %v", response["query"])
+	}
+
+	items, ok := response["items"].([]any)
+	if !ok {
+		t.Errorf("expected items array, got %T", response["items"])
+	}
+	if len(items) != 1 {
+		t.Errorf("expected 1 item, got %d", len(items))
+	}
+}
+
+func TestCannedResponsesSearchCommand_MissingQuery(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+
+	err := Execute(context.Background(), []string{"canned-responses", "search"})
+	if err == nil {
+		t.Error("expected error when query is missing")
+	}
+}
