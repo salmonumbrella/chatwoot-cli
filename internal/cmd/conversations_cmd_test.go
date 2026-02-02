@@ -1741,3 +1741,84 @@ func TestConversationsGetSuggestedActions(t *testing.T) {
 		t.Errorf("expected 'reply' action for unread conversation, got actions: %+v", result.Item.SuggestedActions)
 	}
 }
+
+func TestConversationsGetExplain(t *testing.T) {
+	// Set last_activity_at to more than 72 hours ago and >3 unread messages to trigger high urgency
+	oldActivityAt := time.Now().Add(-96 * time.Hour).Unix()
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"unread_count": 5,
+			"muted": false,
+			"created_at": 1700000000,
+			"last_activity_at": `+strconv.FormatInt(oldActivityAt, 10)+`
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "conversation_id": 123, "message_type": 0, "content": "Hello", "created_at": 1700000100},
+				{"id": 2, "conversation_id": 123, "message_type": 1, "content": "Hi there", "created_at": 1700000200},
+				{"id": 3, "conversation_id": 123, "message_type": 0, "content": "這個很急，請盡快回覆", "created_at": 1700000300}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 123, "status": "open", "created_at": 1700000000, "last_activity_at": 1700000300},
+				{"id": 100, "status": "resolved", "created_at": 1600000000, "last_activity_at": 1600000300}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--explain", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations get --explain failed: %v", err)
+		}
+	})
+
+	// Verify it's valid JSON with expected structure including _explanation
+	var result struct {
+		Kind string `json:"kind"`
+		Item struct {
+			ID          int `json:"id"`
+			Explanation *struct {
+				Urgency       string   `json:"urgency"`
+				Reasons       []string `json:"reasons"`
+				SentimentHint string   `json:"sentiment_hint"`
+				Context       string   `json:"context"`
+			} `json:"_explanation"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if result.Kind != "conversations.get" {
+		t.Errorf("expected kind 'conversations.get', got %q", result.Kind)
+	}
+	if result.Item.ID != 123 {
+		t.Errorf("expected conversation ID 123, got %d", result.Item.ID)
+	}
+	if result.Item.Explanation == nil {
+		t.Fatal("expected _explanation object, got nil")
+	}
+
+	// Verify urgency is "high" due to long wait time and urgency keywords in Chinese
+	if result.Item.Explanation.Urgency != "high" {
+		t.Errorf("expected urgency 'high', got %q", result.Item.Explanation.Urgency)
+	}
+
+	// Verify reasons are populated
+	if len(result.Item.Explanation.Reasons) == 0 {
+		t.Error("expected at least one reason, got none")
+	}
+
+	// Verify context mentions returning customer (has 2 conversations)
+	if result.Item.Explanation.Context == "" {
+		t.Error("expected non-empty context")
+	}
+}

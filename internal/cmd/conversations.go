@@ -242,6 +242,7 @@ func newConversationsGetCmd() *cobra.Command {
 	var withMessages bool
 	var messageLimit int
 	var suggestedActions bool
+	var explain bool
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -265,6 +266,9 @@ func newConversationsGetCmd() *cobra.Command {
 
   # Get conversation with AI-suggested actions (agent mode)
   chatwoot conversations get 123 --suggested-actions --output agent
+
+  # Get conversation with reasoning hints (agent mode)
+  chatwoot conversations get 123 --explain --output agent
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -382,6 +386,38 @@ func newConversationsGetCmd() *cobra.Command {
 				})
 			}
 
+			// Handle --explain flag in agent mode
+			if explain && isAgent(cmd) {
+				detail := agentfmt.ConversationDetailFromConversation(*conv)
+				detail = resolveConversationDetail(ctx, client, detail)
+
+				// Fetch messages for heuristics
+				messages, _ := client.Messages().List(ctx, id)
+
+				// Fetch contact history if contact ID is available
+				var contactHistory []api.Conversation
+				if conv.ContactID > 0 {
+					contactHistory, _ = client.Contacts().Conversations(ctx, conv.ContactID)
+				}
+
+				// Get analysis from heuristics
+				analysis := heuristics.AnalyzeConversation(conv, messages, contactHistory)
+
+				// Build response with explanation (underscore prefix indicates metadata)
+				type ConversationDetailWithExplanation struct {
+					agentfmt.ConversationDetail
+					Explanation *heuristics.Analysis `json:"_explanation,omitempty"`
+				}
+
+				return printJSON(cmd, agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: ConversationDetailWithExplanation{
+						ConversationDetail: detail,
+						Explanation:        analysis,
+					},
+				})
+			}
+
 			if isAgent(cmd) {
 				detail := agentfmt.ConversationDetailFromConversation(*conv)
 				detail = resolveConversationDetail(ctx, client, detail)
@@ -402,6 +438,7 @@ func newConversationsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&withContext, "context", false, "Include comprehensive context (messages, contact with relationship) - agent mode only")
 	cmd.Flags().IntVar(&messageLimit, "message-limit", 20, "Maximum messages to include (default 20)")
 	cmd.Flags().BoolVar(&suggestedActions, "suggested-actions", false, "Include AI-suggested actions in agent output")
+	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints in agent output")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
