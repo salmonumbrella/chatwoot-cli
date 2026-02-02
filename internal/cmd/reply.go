@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -17,6 +20,7 @@ func newReplyCmd() *cobra.Command {
 		contactID      int
 		conversationID int
 		private        bool
+		dryRunFlag     bool
 	)
 
 	cmd := &cobra.Command{
@@ -46,6 +50,12 @@ If multiple open conversations exist for the contact, disambiguation is required
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			// Enable dry-run mode in context if flag is set
+			if dryRunFlag {
+				ctx := dryrun.WithDryRun(cmd.Context(), true)
+				cmd.SetContext(ctx)
+			}
+
 			// Validate inputs
 			if content == "" {
 				return fmt.Errorf("--content is required")
@@ -127,6 +137,7 @@ If multiple open conversations exist for the contact, disambiguation is required
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Skip search, use specific contact ID")
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Skip all lookups, reply to specific conversation")
 	cmd.Flags().BoolVar(&private, "private", false, "Send as private note (not visible to customer)")
+	cmd.Flags().BoolVar(&dryRunFlag, "dry-run", false, "Preview the reply without sending")
 
 	return cmd
 }
@@ -195,9 +206,19 @@ func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, con
 	return replyToConversation(cmd, client, openConversations[0].ID, content, private, resolve, triageContact)
 }
 
+// isDryRun checks if the command context has dry-run mode enabled
+func isDryRun(cmd *cobra.Command) bool {
+	return dryrun.IsEnabled(cmd.Context())
+}
+
 // replyToConversation sends a message to a specific conversation
 func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID int, content string, private, resolve bool, contact *api.TriageContact) error {
 	ctx := cmdContext(cmd)
+
+	// Check for dry-run mode BEFORE sending
+	if isDryRun(cmd) {
+		return printReplyDryRun(cmd, client, conversationID, content, private, contact)
+	}
 
 	// Send the message
 	messageType := "outgoing"
@@ -308,6 +329,140 @@ func outputDisambiguation(cmd *cobra.Command, disambiguationType string, contact
 	_ = w.Flush()
 	_, _ = fmt.Fprintln(cmd.OutOrStdout())
 	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Hint:", result.Hint)
+
+	return nil
+}
+
+// printReplyDryRun displays a preview of the message without sending it
+func printReplyDryRun(cmd *cobra.Command, client *api.Client, conversationID int, content string, private bool, contact *api.TriageContact) error {
+	ctx := cmdContext(cmd)
+
+	// Fetch conversation to get inbox info
+	conv, err := client.Conversations().Get(ctx, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation %d: %w", conversationID, err)
+	}
+
+	// Fetch inbox info
+	var inbox *api.Inbox
+	if conv.InboxID > 0 {
+		inbox, err = client.Inboxes().Get(ctx, conv.InboxID)
+		if err != nil {
+			// Non-fatal, continue without inbox info
+			inbox = nil
+		}
+	}
+
+	// If we don't have contact info, try to fetch it
+	if contact == nil && conv.ContactID > 0 {
+		contactData, err := client.Contacts().Get(ctx, conv.ContactID)
+		if err == nil {
+			contact = &api.TriageContact{
+				ID:    contactData.ID,
+				Name:  contactData.Name,
+				Email: contactData.Email,
+			}
+		}
+	}
+
+	// Calculate character count
+	charCount := utf8.RuneCountInString(content)
+
+	// Determine channel-specific warnings
+	var warnings []string
+	if inbox != nil {
+		switch inbox.ChannelType {
+		case "Channel::Line":
+			if charCount > 2000 {
+				warnings = append(warnings, fmt.Sprintf("LINE has a 2000 character limit; message is %d characters", charCount))
+			}
+		case "Channel::Whatsapp":
+			if charCount > 4096 {
+				warnings = append(warnings, fmt.Sprintf("WhatsApp has a 4096 character limit; message is %d characters", charCount))
+			}
+		case "Channel::Sms":
+			if charCount > 160 {
+				warnings = append(warnings, fmt.Sprintf("SMS may be split into multiple segments; message is %d characters", charCount))
+			}
+		}
+	}
+
+	// Build dry-run preview
+	messageType := "Public reply (visible to contact)"
+	if private {
+		messageType = "Private note (internal only)"
+	}
+
+	// JSON output
+	if isJSON(cmd) {
+		payload := map[string]any{
+			"dry_run":         true,
+			"operation":       "send",
+			"resource":        "message",
+			"conversation_id": conversationID,
+			"content":         content,
+			"private":         private,
+			"character_count": charCount,
+		}
+		if contact != nil {
+			payload["contact"] = map[string]any{
+				"id":    contact.ID,
+				"name":  contact.Name,
+				"email": contact.Email,
+			}
+		}
+		if inbox != nil {
+			payload["inbox"] = map[string]any{
+				"id":           inbox.ID,
+				"name":         inbox.Name,
+				"channel_type": inbox.ChannelType,
+			}
+		}
+		if len(warnings) > 0 {
+			payload["warnings"] = warnings
+		}
+		return printJSON(cmd, payload)
+	}
+
+	// Text output
+	ioStreams := iocontext.GetIO(ctx)
+	out := ioStreams.Out
+
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "[DRY-RUN] Message will NOT be sent")
+	_, _ = fmt.Fprintln(out, strings.Repeat("─", 45))
+
+	if inbox != nil {
+		_, _ = fmt.Fprintf(out, "Channel: %s (%s)\n", inbox.Name, inbox.ChannelType)
+	}
+	if contact != nil {
+		contactStr := contact.Name
+		if contact.Email != "" {
+			contactStr = fmt.Sprintf("%s <%s>", contact.Name, contact.Email)
+		}
+		_, _ = fmt.Fprintf(out, "Contact: %s\n", contactStr)
+	}
+	_, _ = fmt.Fprintf(out, "Conversation: %d\n", conversationID)
+	_, _ = fmt.Fprintf(out, "Type: %s\n", messageType)
+
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "Message Preview:")
+	_, _ = fmt.Fprintln(out, strings.Repeat("─", 45))
+	_, _ = fmt.Fprintln(out, content)
+	_, _ = fmt.Fprintln(out, strings.Repeat("─", 45))
+
+	_, _ = fmt.Fprintf(out, "Characters: %d\n", charCount)
+
+	if len(warnings) > 0 {
+		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out, "Warnings:")
+		for _, warning := range warnings {
+			_, _ = fmt.Fprintf(out, "  ! %s\n", warning)
+		}
+	}
+
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "To send this message, run without --dry-run")
 
 	return nil
 }

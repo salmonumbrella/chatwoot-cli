@@ -548,3 +548,238 @@ func TestReplyPrivateNote(t *testing.T) {
 		t.Error("Expected private note flag to be set in request")
 	}
 }
+
+func TestReplyDryRun(t *testing.T) {
+	messagesSent := false
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"inbox_id": 10,
+			"status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes/10", jsonResponse(200, `{
+			"id": 10,
+			"name": "LINE Official",
+			"channel_type": "Channel::Line"
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Test Contact", "email": "test@example.com", "created_at": 1700000000}
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			messagesSent = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 100, "conversation_id": 123, "content": "Test message", "message_type": 1, "created_at": 1700000000}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", "Hello from dry-run!", "--dry-run"})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
+
+	// Should NOT have sent a message
+	if messagesSent {
+		t.Error("Expected dry-run to NOT send a message")
+	}
+
+	// Should contain dry-run indicator
+	if !strings.Contains(output, "DRY RUN") && !strings.Contains(output, "DRY-RUN") {
+		t.Errorf("Expected output to contain 'DRY RUN', got: %s", output)
+	}
+
+	// Should contain channel type info
+	if !strings.Contains(output, "Channel::Line") && !strings.Contains(output, "LINE Official") {
+		t.Errorf("Expected output to contain channel info, got: %s", output)
+	}
+
+	// Should contain the message content preview
+	if !strings.Contains(output, "Hello from dry-run!") {
+		t.Errorf("Expected output to contain message content, got: %s", output)
+	}
+}
+
+func TestReplyDryRunPrivateNote(t *testing.T) {
+	messagesSent := false
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"inbox_id": 10,
+			"status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes/10", jsonResponse(200, `{
+			"id": 10,
+			"name": "Support Inbox",
+			"channel_type": "Channel::WebWidget"
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Test Contact", "email": "test@example.com", "created_at": 1700000000}
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			messagesSent = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 100, "conversation_id": 123, "content": "Private note", "message_type": 1, "private": true, "created_at": 1700000000}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", "Private note content", "--private", "--dry-run"})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
+
+	// Should NOT have sent a message
+	if messagesSent {
+		t.Error("Expected dry-run to NOT send a message")
+	}
+
+	// Should indicate private note
+	if !strings.Contains(output, "Private note") || !strings.Contains(output, "internal") {
+		t.Errorf("Expected output to indicate private note, got: %s", output)
+	}
+}
+
+func TestReplyDryRunJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"inbox_id": 10,
+			"status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes/10", jsonResponse(200, `{
+			"id": 10,
+			"name": "LINE Official",
+			"channel_type": "Channel::Line"
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Test Contact", "email": "test@example.com", "created_at": 1700000000}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", "Test message", "--dry-run", "-o", "json"})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
+
+	// Should be valid JSON
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("Expected valid JSON output, got error: %v, output: %s", err, output)
+	}
+
+	// Should have dry_run flag
+	if dryRun, ok := result["dry_run"].(bool); !ok || !dryRun {
+		t.Errorf("Expected dry_run=true in JSON output, got: %v", result)
+	}
+}
+
+func TestReplyDryRunChannelWarning_LINE(t *testing.T) {
+	// Create a message longer than LINE's 2000 character limit
+	longMessage := strings.Repeat("x", 2001)
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"inbox_id": 10,
+			"status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes/10", jsonResponse(200, `{
+			"id": 10,
+			"name": "LINE Official",
+			"channel_type": "Channel::Line"
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Test Contact", "email": "test@example.com", "created_at": 1700000000}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", longMessage, "--dry-run"})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
+
+	// Should contain warning about LINE character limit
+	if !strings.Contains(output, "LINE has a 2000 character limit") {
+		t.Errorf("Expected LINE character limit warning in output, got: %s", output)
+	}
+
+	// Should contain actual character count
+	if !strings.Contains(output, "2001 characters") {
+		t.Errorf("Expected '2001 characters' in warning, got: %s", output)
+	}
+
+	// Should show in Warnings section
+	if !strings.Contains(output, "Warnings:") {
+		t.Errorf("Expected 'Warnings:' section header, got: %s", output)
+	}
+}
+
+func TestReplyDryRunChannelWarning_LINE_JSON(t *testing.T) {
+	// Create a message longer than LINE's 2000 character limit
+	longMessage := strings.Repeat("x", 2500)
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"inbox_id": 10,
+			"status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes/10", jsonResponse(200, `{
+			"id": 10,
+			"name": "LINE Official",
+			"channel_type": "Channel::Line"
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Test Contact", "email": "test@example.com", "created_at": 1700000000}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", longMessage, "--dry-run", "-o", "json"})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
+
+	// Should be valid JSON
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("Expected valid JSON output, got error: %v, output: %s", err, output)
+	}
+
+	// Should have warnings array
+	warnings, ok := result["warnings"].([]any)
+	if !ok {
+		t.Fatalf("Expected warnings array in JSON output, got: %v", result)
+	}
+
+	if len(warnings) == 0 {
+		t.Error("Expected at least one warning in JSON output")
+	}
+
+	// First warning should mention LINE limit
+	warning := warnings[0].(string)
+	if !strings.Contains(warning, "LINE has a 2000 character limit") {
+		t.Errorf("Expected LINE warning in JSON, got: %s", warning)
+	}
+}
