@@ -114,6 +114,20 @@ type ContactDetail struct {
 	CustomAttributes map[string]any `json:"custom_attributes,omitempty"`
 }
 
+// RelationshipSummary provides context about a contact's history.
+type RelationshipSummary struct {
+	FirstContact       *Timestamp `json:"first_contact,omitempty"`
+	TotalConversations int        `json:"total_conversations"`
+	OpenConversations  int        `json:"open_conversations"`
+	LastActivity       *Timestamp `json:"last_activity,omitempty"`
+}
+
+// ContactDetailWithRelationship extends ContactDetail with relationship data.
+type ContactDetailWithRelationship struct {
+	ContactDetail
+	Relationship *RelationshipSummary `json:"relationship,omitempty"`
+}
+
 // ListEnvelope wraps list outputs.
 type ListEnvelope struct {
 	Kind    string         `json:"kind"`
@@ -326,6 +340,42 @@ func ContactDetailFromContact(contact api.Contact) ContactDetail {
 		Thumbnail:        contact.Thumbnail,
 		CustomAttributes: contact.CustomAttributes,
 	}
+}
+
+// ComputeRelationshipSummary calculates relationship stats from conversations.
+func ComputeRelationshipSummary(conversations []api.Conversation) *RelationshipSummary {
+	if len(conversations) == 0 {
+		return &RelationshipSummary{
+			TotalConversations: 0,
+			OpenConversations:  0,
+		}
+	}
+
+	summary := &RelationshipSummary{
+		TotalConversations: len(conversations),
+	}
+
+	var earliest, latest int64
+	for _, conv := range conversations {
+		if conv.Status == "open" || conv.Status == "pending" {
+			summary.OpenConversations++
+		}
+		if earliest == 0 || conv.CreatedAt < earliest {
+			earliest = conv.CreatedAt
+		}
+		if conv.LastActivityAt > latest {
+			latest = conv.LastActivityAt
+		}
+	}
+
+	if earliest > 0 {
+		summary.FirstContact = timestampOrNil(earliest)
+	}
+	if latest > 0 {
+		summary.LastActivity = timestampOrNil(latest)
+	}
+
+	return summary
 }
 
 func timestampOrNil(unix int64) *Timestamp {

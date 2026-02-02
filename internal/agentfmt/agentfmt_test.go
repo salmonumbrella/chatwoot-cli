@@ -76,3 +76,49 @@ func TestTransformUnknown(t *testing.T) {
 		t.Fatalf("unexpected kind: %s", wrapped.Kind)
 	}
 }
+
+func TestComputeRelationshipSummary(t *testing.T) {
+	now := int64(1700000000)
+	lastWeek := now - 86400*7
+
+	conversations := []api.Conversation{
+		{ID: 1, Status: "open", CreatedAt: lastWeek, LastActivityAt: now},
+		{ID: 2, Status: "resolved", CreatedAt: lastWeek - 86400, LastActivityAt: lastWeek},
+		{ID: 3, Status: "pending", CreatedAt: now - 3600, LastActivityAt: now - 1800},
+	}
+
+	summary := ComputeRelationshipSummary(conversations)
+
+	if summary.TotalConversations != 3 {
+		t.Errorf("expected 3 total, got %d", summary.TotalConversations)
+	}
+	if summary.OpenConversations != 2 {
+		t.Errorf("expected 2 open (open+pending), got %d", summary.OpenConversations)
+	}
+	if summary.FirstContact == nil {
+		t.Error("expected first_contact")
+	} else if summary.FirstContact.Unix != lastWeek-86400 {
+		t.Errorf("expected first_contact unix %d, got %d", lastWeek-86400, summary.FirstContact.Unix)
+	}
+	if summary.LastActivity == nil {
+		t.Error("expected last_activity")
+	} else if summary.LastActivity.Unix != now {
+		t.Errorf("expected last_activity unix %d, got %d", now, summary.LastActivity.Unix)
+	}
+}
+
+func TestComputeRelationshipSummaryEmpty(t *testing.T) {
+	summary := ComputeRelationshipSummary([]api.Conversation{})
+	if summary.TotalConversations != 0 {
+		t.Errorf("expected 0 total, got %d", summary.TotalConversations)
+	}
+	if summary.OpenConversations != 0 {
+		t.Errorf("expected 0 open, got %d", summary.OpenConversations)
+	}
+	if summary.FirstContact != nil {
+		t.Errorf("expected nil first_contact, got %v", summary.FirstContact)
+	}
+	if summary.LastActivity != nil {
+		t.Errorf("expected nil last_activity, got %v", summary.LastActivity)
+	}
+}

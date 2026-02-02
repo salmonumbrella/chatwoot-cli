@@ -130,9 +130,33 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	contact, err := client.Contacts().Get(cmdContext(cmd), id)
+	ctx := cmdContext(cmd)
+
+	contact, err := client.Contacts().Get(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get contact %d: %w", id, err)
+	}
+
+	if isAgent(cmd) {
+		detail := agentfmt.ContactDetailFromContact(*contact)
+
+		// Fetch conversations for relationship summary
+		convs, err := client.Contacts().Conversations(ctx, id)
+		if err == nil && convs != nil {
+			relationship := agentfmt.ComputeRelationshipSummary(convs)
+			return printJSON(cmd, agentfmt.ItemEnvelope{
+				Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+				Item: agentfmt.ContactDetailWithRelationship{
+					ContactDetail: detail,
+					Relationship:  relationship,
+				},
+			})
+		}
+
+		return printJSON(cmd, agentfmt.ItemEnvelope{
+			Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+			Item: detail,
+		})
 	}
 
 	if isJSON(cmd) {
