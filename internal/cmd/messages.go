@@ -42,6 +42,7 @@ func newMessagesListCmd() *cobra.Command {
 	var maxPages int
 	var limit int
 	var transcript bool
+	var sinceLastAgent bool
 
 	cmd := &cobra.Command{
 		Use:   "list <conversation-id>",
@@ -90,6 +91,26 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 			}
 			if err != nil {
 				return fmt.Errorf("failed to list messages for conversation %d: %w", conversationID, err)
+			}
+
+			// Filter to only messages since the last agent reply
+			if sinceLastAgent {
+				lastAgentIdx := -1
+				for i := len(messages) - 1; i >= 0; i-- {
+					if messages[i].MessageType == api.MessageTypeOutgoing {
+						lastAgentIdx = i
+						break
+					}
+				}
+
+				if lastAgentIdx >= 0 && lastAgentIdx < len(messages)-1 {
+					// Keep only messages after the last agent message
+					messages = messages[lastAgentIdx+1:]
+				} else if lastAgentIdx == len(messages)-1 {
+					// Agent message is the last one, no new customer messages
+					messages = nil
+				}
+				// If no agent message found (lastAgentIdx == -1), keep all messages
 			}
 
 			totalMessages := len(messages)
@@ -195,6 +216,7 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all or --limit")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")
 	cmd.Flags().BoolVar(&transcript, "transcript", false, "Output as readable conversation transcript")
+	cmd.Flags().BoolVar(&sinceLastAgent, "since-last-agent", false, "Only show messages since the last agent reply")
 
 	return cmd
 }

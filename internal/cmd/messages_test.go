@@ -727,3 +727,122 @@ func TestMessagesCreateCommand_AttachmentOnly(t *testing.T) {
 		t.Errorf("expected attachment info, got: %s", output)
 	}
 }
+
+func TestMessagesListSinceLastAgent(t *testing.T) {
+	tests := []struct {
+		name           string
+		messages       string
+		expectedCount  int
+		expectedIDs    []float64
+		expectedOutput string
+	}{
+		{
+			name: "filters to messages after last agent reply",
+			messages: `{
+				"payload": [
+					{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+					{"id": 2, "content": "Agent reply", "message_type": 1, "private": false, "created_at": 1704067300},
+					{"id": 3, "content": "Customer follow-up", "message_type": 0, "private": false, "created_at": 1704067400},
+					{"id": 4, "content": "Customer question", "message_type": 0, "private": false, "created_at": 1704067500}
+				]
+			}`,
+			expectedCount: 2,
+			expectedIDs:   []float64{3, 4},
+		},
+		{
+			name: "returns empty when agent message is last",
+			messages: `{
+				"payload": [
+					{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+					{"id": 2, "content": "Agent reply", "message_type": 1, "private": false, "created_at": 1704067300}
+				]
+			}`,
+			expectedCount: 0,
+			expectedIDs:   nil,
+		},
+		{
+			name: "returns all when no agent messages",
+			messages: `{
+				"payload": [
+					{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+					{"id": 2, "content": "Customer follow-up", "message_type": 0, "private": false, "created_at": 1704067300}
+				]
+			}`,
+			expectedCount: 2,
+			expectedIDs:   []float64{1, 2},
+		},
+		{
+			name: "handles single customer message after agent",
+			messages: `{
+				"payload": [
+					{"id": 1, "content": "Agent initial", "message_type": 1, "private": false, "created_at": 1704067200},
+					{"id": 2, "content": "Customer reply", "message_type": 0, "private": false, "created_at": 1704067300}
+				]
+			}`,
+			expectedCount: 1,
+			expectedIDs:   []float64{2},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newRouteHandler().
+				On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, tt.messages))
+
+			setupTestEnvWithHandler(t, handler)
+
+			output := captureStdout(t, func() {
+				err := Execute(context.Background(), []string{"messages", "list", "123", "--since-last-agent", "-o", "json"})
+				if err != nil {
+					t.Errorf("messages list --since-last-agent failed: %v", err)
+				}
+			})
+
+			items := decodeItems(t, output)
+			if len(items) != tt.expectedCount {
+				t.Errorf("expected %d messages, got %d", tt.expectedCount, len(items))
+			}
+
+			if tt.expectedIDs != nil {
+				for i, expectedID := range tt.expectedIDs {
+					if i >= len(items) {
+						t.Errorf("missing expected message at index %d", i)
+						continue
+					}
+					if items[i]["id"] != expectedID {
+						t.Errorf("expected message id %v at index %d, got %v", expectedID, i, items[i]["id"])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestMessagesListSinceLastAgent_TextOutput(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+				{"id": 2, "content": "Agent reply", "message_type": 1, "private": false, "created_at": 1704067300},
+				{"id": 3, "content": "New question", "message_type": 0, "private": false, "created_at": 1704067400}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"messages", "list", "123", "--since-last-agent"})
+		if err != nil {
+			t.Errorf("messages list --since-last-agent failed: %v", err)
+		}
+	})
+
+	// Should only show message 3
+	if !strings.Contains(output, "New question") {
+		t.Errorf("expected 'New question' in output, got: %s", output)
+	}
+	// Should NOT show the agent reply
+	if strings.Contains(output, "Agent reply") {
+		t.Errorf("did not expect 'Agent reply' in output, got: %s", output)
+	}
+}
