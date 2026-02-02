@@ -1097,3 +1097,396 @@ func TestConversationsListSinceFlag(t *testing.T) {
 		t.Errorf("expected 2 conversations since 2d ago, got %d", len(result.Items))
 	}
 }
+
+func TestConversationsListWaiting(t *testing.T) {
+	// Conversations with different last_activity_at values
+	// ID 1: most recent activity (should be last after sorting)
+	// ID 2: middle activity
+	// ID 3: oldest activity (should be first after sorting - longest waiting)
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"meta": {"total_pages": 1},
+				"payload": [
+					{"id": 1, "status": "open", "inbox_id": 1, "last_activity_at": 1700003000},
+					{"id": 2, "status": "open", "inbox_id": 1, "last_activity_at": 1700002000},
+					{"id": 3, "status": "open", "inbox_id": 1, "last_activity_at": 1700001000}
+				]
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--waiting", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --waiting failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct {
+			ID             int   `json:"id"`
+			LastActivityAt int64 `json:"last_activity_at"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(result.Items) != 3 {
+		t.Fatalf("expected 3 conversations, got %d", len(result.Items))
+	}
+	// Verify sorted by oldest last_activity_at first (longest waiting)
+	if result.Items[0].ID != 3 {
+		t.Errorf("expected conversation 3 (oldest activity) first, got %d", result.Items[0].ID)
+	}
+	if result.Items[1].ID != 2 {
+		t.Errorf("expected conversation 2 (middle activity) second, got %d", result.Items[1].ID)
+	}
+	if result.Items[2].ID != 1 {
+		t.Errorf("expected conversation 1 (newest activity) last, got %d", result.Items[2].ID)
+	}
+}
+
+func TestConversationsGetWithMessages(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"unread_count": 2,
+			"muted": false,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "conversation_id": 123, "message_type": 0, "content": "Hello", "created_at": 1700000100},
+				{"id": 2, "conversation_id": 123, "message_type": 1, "content": "Hi there", "created_at": 1700000200},
+				{"id": 3, "conversation_id": 123, "message_type": 0, "content": "How can I help?", "created_at": 1700000300}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--with-messages", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations get --with-messages failed: %v", err)
+		}
+	})
+
+	// Verify it's valid JSON with expected structure
+	var result struct {
+		Kind string `json:"kind"`
+		Item struct {
+			ID       int `json:"id"`
+			Messages []struct {
+				ID      int    `json:"id"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if result.Kind != "conversations.get" {
+		t.Errorf("expected kind 'conversations.get', got %q", result.Kind)
+	}
+	if result.Item.ID != 123 {
+		t.Errorf("expected conversation ID 123, got %d", result.Item.ID)
+	}
+	if len(result.Item.Messages) != 3 {
+		t.Errorf("expected 3 messages, got %d", len(result.Item.Messages))
+	}
+	if result.Item.Messages[0].Content != "Hello" {
+		t.Errorf("expected first message content 'Hello', got %q", result.Item.Messages[0].Content)
+	}
+}
+
+func TestConversationsGetWithMessagesLimit(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "conversation_id": 123, "message_type": 0, "content": "Message 1", "created_at": 1700000100},
+				{"id": 2, "conversation_id": 123, "message_type": 0, "content": "Message 2", "created_at": 1700000200},
+				{"id": 3, "conversation_id": 123, "message_type": 0, "content": "Message 3", "created_at": 1700000300},
+				{"id": 4, "conversation_id": 123, "message_type": 0, "content": "Message 4", "created_at": 1700000400},
+				{"id": 5, "conversation_id": 123, "message_type": 0, "content": "Message 5", "created_at": 1700000500}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--with-messages", "--message-limit", "2", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations get --with-messages --message-limit 2 failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Item struct {
+			Messages []struct {
+				ID int `json:"id"`
+			} `json:"messages"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if len(result.Item.Messages) != 2 {
+		t.Errorf("expected 2 messages (limited), got %d", len(result.Item.Messages))
+	}
+}
+
+func TestConversationsGetWithMessagesNoAgent(t *testing.T) {
+	// --with-messages should only work in agent mode
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"created_at": 1700000000
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--with-messages", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations get --with-messages failed: %v", err)
+		}
+	})
+
+	// Should return normal JSON output without messages field
+	var result struct {
+		ID       int   `json:"id"`
+		Messages []any `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if result.ID != 123 {
+		t.Errorf("expected ID 123, got %d", result.ID)
+	}
+	// messages field should not be present in regular JSON output
+	if result.Messages != nil {
+		t.Errorf("expected no messages field in non-agent output, got %v", result.Messages)
+	}
+}
+
+func TestConversationsGetContext(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "conversation_id": 123, "message_type": 0, "content": "Hello", "created_at": 1700000100},
+				{"id": 2, "conversation_id": 123, "message_type": 1, "content": "Hi there", "created_at": 1700000200},
+				{"id": 3, "conversation_id": 123, "message_type": 0, "content": "How can I help?", "created_at": 1700000300}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "John Doe",
+				"email": "john@example.com",
+				"phone_number": "+1234567890"
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 123, "status": "open", "created_at": 1700000000, "last_activity_at": 1700000300},
+				{"id": 100, "status": "resolved", "created_at": 1699000000, "last_activity_at": 1699500000}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--context", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations get --context failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Kind string `json:"kind"`
+		Item struct {
+			Conversation struct {
+				ID     int    `json:"id"`
+				Status string `json:"status"`
+			} `json:"conversation"`
+			Messages []struct {
+				ID      int    `json:"id"`
+				Content string `json:"content"`
+			} `json:"messages"`
+			Contact *struct {
+				ID           int    `json:"id"`
+				Name         string `json:"name"`
+				Email        string `json:"email"`
+				Relationship *struct {
+					TotalConversations int `json:"total_conversations"`
+					OpenConversations  int `json:"open_conversations"`
+				} `json:"relationship"`
+			} `json:"contact"`
+		} `json:"item"`
+	}
+
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	// Verify conversation
+	if result.Item.Conversation.ID != 123 {
+		t.Errorf("expected conversation ID 123, got %d", result.Item.Conversation.ID)
+	}
+	if result.Item.Conversation.Status != "open" {
+		t.Errorf("expected status open, got %s", result.Item.Conversation.Status)
+	}
+
+	// Verify messages
+	if len(result.Item.Messages) != 3 {
+		t.Errorf("expected 3 messages, got %d", len(result.Item.Messages))
+	}
+
+	// Verify contact
+	if result.Item.Contact == nil {
+		t.Fatal("expected contact, got nil")
+	}
+	if result.Item.Contact.ID != 456 {
+		t.Errorf("expected contact ID 456, got %d", result.Item.Contact.ID)
+	}
+	if result.Item.Contact.Name != "John Doe" {
+		t.Errorf("expected contact name 'John Doe', got %q", result.Item.Contact.Name)
+	}
+
+	// Verify relationship
+	if result.Item.Contact.Relationship == nil {
+		t.Fatal("expected relationship, got nil")
+	}
+	if result.Item.Contact.Relationship.TotalConversations != 2 {
+		t.Errorf("expected 2 total conversations, got %d", result.Item.Contact.Relationship.TotalConversations)
+	}
+	if result.Item.Contact.Relationship.OpenConversations != 1 {
+		t.Errorf("expected 1 open conversation, got %d", result.Item.Contact.Relationship.OpenConversations)
+	}
+}
+
+func TestConversationsGetContextWithMessageLimit(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "conversation_id": 123, "message_type": 0, "content": "Message 1", "created_at": 1700000100},
+				{"id": 2, "conversation_id": 123, "message_type": 0, "content": "Message 2", "created_at": 1700000200},
+				{"id": 3, "conversation_id": 123, "message_type": 0, "content": "Message 3", "created_at": 1700000300},
+				{"id": 4, "conversation_id": 123, "message_type": 0, "content": "Message 4", "created_at": 1700000400},
+				{"id": 5, "conversation_id": 123, "message_type": 0, "content": "Message 5", "created_at": 1700000500}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Jane Doe"}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{
+			"payload": [{"id": 123, "status": "open", "created_at": 1700000000}]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--context", "--message-limit", "2", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations get --context --message-limit 2 failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Item struct {
+			Messages []struct {
+				ID int `json:"id"`
+			} `json:"messages"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if len(result.Item.Messages) != 2 {
+		t.Errorf("expected 2 messages (limited), got %d", len(result.Item.Messages))
+	}
+
+	// Should return the most recent messages (IDs 4 and 5)
+	if len(result.Item.Messages) >= 2 {
+		if result.Item.Messages[0].ID != 4 {
+			t.Errorf("expected first message ID 4, got %d", result.Item.Messages[0].ID)
+		}
+		if result.Item.Messages[1].ID != 5 {
+			t.Errorf("expected second message ID 5, got %d", result.Item.Messages[1].ID)
+		}
+	}
+}
+
+func TestConversationsGetContextNoAgent(t *testing.T) {
+	// --context should only work in agent mode
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"status": "open",
+			"created_at": 1700000000
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--context", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations get --context failed: %v", err)
+		}
+	})
+
+	// Should return normal JSON output without context fields
+	var result struct {
+		ID       int   `json:"id"`
+		Messages []any `json:"messages"`
+		Contact  any   `json:"contact"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if result.ID != 123 {
+		t.Errorf("expected ID 123, got %d", result.ID)
+	}
+	// messages and contact fields should not be present in regular JSON output
+	if result.Messages != nil {
+		t.Errorf("expected no messages field in non-agent output, got %v", result.Messages)
+	}
+	if result.Contact != nil {
+		t.Errorf("expected no contact field in non-agent output, got %v", result.Contact)
+	}
+}

@@ -61,6 +61,12 @@ type ConversationDetail struct {
 	CustomAttributes map[string]any `json:"custom_attributes,omitempty"`
 }
 
+// ConversationDetailWithMessages includes recent messages inline.
+type ConversationDetailWithMessages struct {
+	ConversationDetail
+	Messages []MessageSummary `json:"messages,omitempty"`
+}
+
 // SenderRef summarizes a message sender.
 type SenderRef struct {
 	ID   *int   `json:"id,omitempty"`
@@ -125,7 +131,15 @@ type RelationshipSummary struct {
 // ContactDetailWithRelationship extends ContactDetail with relationship data.
 type ContactDetailWithRelationship struct {
 	ContactDetail
-	Relationship *RelationshipSummary `json:"relationship,omitempty"`
+	Relationship      *RelationshipSummary  `json:"relationship,omitempty"`
+	OpenConversations []ConversationSummary `json:"open_conversations,omitempty"`
+}
+
+// ConversationContext provides comprehensive context for a conversation.
+type ConversationContext struct {
+	Conversation ConversationDetail             `json:"conversation"`
+	Messages     []MessageSummary               `json:"messages,omitempty"`
+	Contact      *ContactDetailWithRelationship `json:"contact,omitempty"`
 }
 
 // ListEnvelope wraps list outputs.

@@ -37,6 +37,7 @@ func newConversationsCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsMetaCmd())
 	cmd.AddCommand(newConversationsCountsCmd())
 	cmd.AddCommand(newConversationsToggleStatusCmd())
+	cmd.AddCommand(newConversationsResolveCmd())
 	cmd.AddCommand(newConversationsTogglePriorityCmd())
 	cmd.AddCommand(newConversationsUpdateCmd())
 	cmd.AddCommand(newConversationsAssignCmd())
@@ -94,6 +95,7 @@ func newConversationsListCmd() *cobra.Command {
 	var search string
 	var unreadOnly bool
 	var since string
+	var waiting bool
 
 	cfg := ListConfig[api.Conversation]{
 		Use:               "list",
@@ -162,6 +164,14 @@ func newConversationsListCmd() *cobra.Command {
 				}
 				items = filtered
 			}
+			if waiting {
+				// Sort by customer wait time (longest waiting first).
+				// Wait time is approximated by oldest LastActivityAt, since conversations
+				// with older last activity have been waiting longer for a response.
+				sort.Slice(items, func(i, j int) bool {
+					return items[i].LastActivityAt < items[j].LastActivityAt
+				})
+			}
 
 			totalPages := int(result.Data.Meta.TotalPages)
 			hasMore := totalPages > 0 && page < totalPages
@@ -188,6 +198,7 @@ func newConversationsListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
 	cmd.Flags().BoolVar(&unreadOnly, "unread-only", false, "Only show conversations with unread messages")
 	cmd.Flags().StringVar(&since, "since", "", "Filter by last activity (e.g., yesterday, 2h ago, 2026-01-30)")
+	cmd.Flags().BoolVar(&waiting, "waiting", false, "Sort by customer wait time (longest first)")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 
@@ -226,6 +237,9 @@ func conversationsListSummary(cmd *cobra.Command, summary ListSummary) error {
 }
 
 func newConversationsGetCmd() *cobra.Command {
+	var withContext bool
+	var messageLimit int
+
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get conversation details",
@@ -236,6 +250,12 @@ func newConversationsGetCmd() *cobra.Command {
 
   # Get conversation as JSON
   chatwoot conversations get 123 --output json
+
+  # Get comprehensive context (agent mode only)
+  chatwoot conversations get 123 --context --output agent
+
+  # Get context with limited messages
+  chatwoot conversations get 123 --context --message-limit 10 --output agent
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -249,14 +269,51 @@ func newConversationsGetCmd() *cobra.Command {
 				return err
 			}
 
-			conv, err := client.Conversations().Get(cmdContext(cmd), id)
+			ctx := cmdContext(cmd)
+			conv, err := client.Conversations().Get(ctx, id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d: %w", id, err)
 			}
 
+			// Handle --context flag in agent mode
+			if withContext && isAgent(cmd) {
+				detail := agentfmt.ConversationDetailFromConversation(*conv)
+				detail = resolveConversationDetail(ctx, client, detail)
+
+				// Fetch messages
+				messages, _ := client.Messages().List(ctx, id)
+				if messageLimit > 0 && len(messages) > messageLimit {
+					messages = messages[len(messages)-messageLimit:]
+				}
+
+				// Fetch contact with relationship
+				var contactWithRel *agentfmt.ContactDetailWithRelationship
+				if conv.ContactID > 0 {
+					contact, err := client.Contacts().Get(ctx, conv.ContactID)
+					if err == nil && contact != nil {
+						contactDetail := agentfmt.ContactDetailFromContact(*contact)
+						convs, _ := client.Contacts().Conversations(ctx, conv.ContactID)
+						relationship := agentfmt.ComputeRelationshipSummary(convs)
+						contactWithRel = &agentfmt.ContactDetailWithRelationship{
+							ContactDetail: contactDetail,
+							Relationship:  relationship,
+						}
+					}
+				}
+
+				return printJSON(cmd, agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: agentfmt.ConversationContext{
+						Conversation: detail,
+						Messages:     agentfmt.MessageSummaries(messages),
+						Contact:      contactWithRel,
+					},
+				})
+			}
+
 			if isAgent(cmd) {
 				detail := agentfmt.ConversationDetailFromConversation(*conv)
-				detail = resolveConversationDetail(cmdContext(cmd), client, detail)
+				detail = resolveConversationDetail(ctx, client, detail)
 				payload := agentfmt.ItemEnvelope{
 					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
 					Item: detail,
@@ -269,6 +326,9 @@ func newConversationsGetCmd() *cobra.Command {
 			return printConversationDetails(cmd.OutOrStdout(), conv)
 		}),
 	}
+
+	cmd.Flags().BoolVar(&withContext, "context", false, "Include comprehensive context (messages, contact with relationship) - agent mode only")
+	cmd.Flags().IntVar(&messageLimit, "message-limit", 0, "Limit number of messages returned (0 = all, returns most recent)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
@@ -679,6 +739,109 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 	return cmd
 }
 
+func newConversationsResolveCmd() *cobra.Command {
+	var (
+		concurrency int
+		progress    bool
+		noProgress  bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "resolve <id> [id...]",
+		Short: "Resolve conversations",
+		Long:  "Mark one or more conversations as resolved",
+		Example: strings.TrimSpace(`
+  # Resolve a single conversation
+  chatwoot conversations resolve 123
+
+  # Resolve multiple conversations (space-separated)
+  chatwoot conversations resolve 123 456 789
+
+  # Resolve multiple conversations (comma-separated)
+  chatwoot conversations resolve 123,456,789
+
+  # Resolve with JSON output
+  chatwoot conversations resolve 123 456 --output json
+`),
+		Args: cobra.MinimumNArgs(1),
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			ids, err := parseIDArgs(args)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+
+			// Single ID: simple output
+			if len(ids) == 1 {
+				result, err := client.Conversations().ToggleStatus(ctx, ids[0], "resolved", 0)
+				if err != nil {
+					return fmt.Errorf("failed to resolve conversation %d: %w", ids[0], err)
+				}
+
+				if isJSON(cmd) {
+					return printJSON(cmd, result.Payload)
+				}
+
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d resolved\n", result.Payload.ConversationID)
+				return nil
+			}
+
+			// Multiple IDs: bulk operation
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
+				func(ctx context.Context, id int) (any, error) {
+					result, err := client.Conversations().ToggleStatus(ctx, id, "resolved", 0)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to resolve conversation %d: %v\n", id, err)
+						return nil, err
+					}
+					return result, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
+
+			if isJSON(cmd) {
+				var output []map[string]any
+				for _, r := range results {
+					item := map[string]any{"id": r.ID, "success": r.Success}
+					if r.Error != nil {
+						item["error"] = r.Error.Error()
+					}
+					if r.Success {
+						item["status"] = "resolved"
+					}
+					output = append(output, item)
+				}
+				return printJSON(cmd, map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+					"results":       output,
+				})
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resolved %d conversations (%d failed)\n", successCount, failCount)
+			return nil
+		}),
+	}
+
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations (for multiple IDs)")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running (for multiple IDs)")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+
+	return cmd
+}
+
 func newConversationsTogglePriorityCmd() *cobra.Command {
 	var priority string
 
@@ -823,26 +986,40 @@ func newConversationsUpdateCmd() *cobra.Command {
 }
 
 func newConversationsAssignCmd() *cobra.Command {
-	var assigneeID int
-	var teamID int
+	var (
+		assigneeID  int
+		teamID      int
+		concurrency int
+		progress    bool
+		noProgress  bool
+	)
 
 	cmd := &cobra.Command{
-		Use:   "assign <id>",
-		Short: "Assign conversation to agent or team",
-		Long:  "Assign a conversation to an agent and/or team",
+		Use:   "assign <id> [id...]",
+		Short: "Assign conversations to agent or team",
+		Long:  "Assign one or more conversations to an agent and/or team",
 		Example: strings.TrimSpace(`
   # Assign to agent
-  chatwoot conversations assign 123 --assignee-id 5
+  chatwoot conversations assign 123 --agent 5
 
   # Assign to team
-  chatwoot conversations assign 123 --team-id 2
+  chatwoot conversations assign 123 --team 2
 
   # Assign to both agent and team
-  chatwoot conversations assign 123 --assignee-id 5 --team-id 2
+  chatwoot conversations assign 123 --agent 5 --team 2
+
+  # Assign multiple conversations (space-separated)
+  chatwoot conversations assign 123 456 789 --agent 5
+
+  # Assign multiple conversations (comma-separated)
+  chatwoot conversations assign 123,456,789 --agent 5
+
+  # Assign with JSON output
+  chatwoot conversations assign 123 456 --agent 5 --output json
 `),
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			ids, err := parseIDArgs(args)
 			if err != nil {
 				return err
 			}
@@ -852,7 +1029,8 @@ func newConversationsAssignCmd() *cobra.Command {
 				return err
 			}
 
-			if assigneeID == 0 && teamID == 0 {
+			// Interactive prompts only for single ID when no flags provided
+			if len(ids) == 1 && assigneeID == 0 && teamID == 0 {
 				if isInteractive() {
 					selectedAgent, err := promptAgentID(cmdContext(cmd), client)
 					if err != nil {
@@ -868,41 +1046,101 @@ func newConversationsAssignCmd() *cobra.Command {
 			}
 
 			if assigneeID == 0 && teamID == 0 {
-				return fmt.Errorf("at least one of --assignee-id or --team-id is required")
+				return fmt.Errorf("at least one of --agent or --team is required")
 			}
 
-			if _, err := client.Conversations().Assign(cmdContext(cmd), id, assigneeID, teamID); err != nil {
-				return fmt.Errorf("failed to assign conversation %d: %w", id, err)
+			ctx := cmdContext(cmd)
+
+			// Single ID: simple output
+			if len(ids) == 1 {
+				id := ids[0]
+				if _, err := client.Conversations().Assign(ctx, id, assigneeID, teamID); err != nil {
+					return fmt.Errorf("failed to assign conversation %d: %w", id, err)
+				}
+
+				// Fetch updated conversation since assignments returns the agent/team, not the conversation
+				conv, err := client.Conversations().Get(ctx, id)
+				if err != nil {
+					return fmt.Errorf("failed to get conversation %d after assignment: %w", id, err)
+				}
+
+				if isJSON(cmd) {
+					return printJSON(cmd, conv)
+				}
+
+				displayID := conv.ID
+				if conv.DisplayID != nil {
+					displayID = *conv.DisplayID
+				}
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d assigned\n", displayID)
+				if conv.AssigneeID != nil {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Agent: %d\n", *conv.AssigneeID)
+				}
+				if conv.TeamID != nil {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Team:  %d\n", *conv.TeamID)
+				}
+				return nil
 			}
 
-			// Fetch updated conversation since assignments returns the agent/team, not the conversation
-			conv, err := client.Conversations().Get(cmdContext(cmd), id)
-			if err != nil {
-				return fmt.Errorf("failed to get conversation %d after assignment: %w", id, err)
-			}
+			// Multiple IDs: bulk operation
+			results := runBulkOperation(
+				ctx,
+				ids,
+				int64(concurrency),
+				bulkProgressEnabled(cmd, progress, noProgress),
+				cmd.ErrOrStderr(),
+				func(ctx context.Context, id int) (any, error) {
+					result, err := client.Conversations().Assign(ctx, id, assigneeID, teamID)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
+						return nil, err
+					}
+					return result, nil
+				},
+			)
+
+			successCount, failCount := countResults(results)
 
 			if isJSON(cmd) {
-				return printJSON(cmd, conv)
+				var output []map[string]any
+				for _, r := range results {
+					item := map[string]any{"id": r.ID, "success": r.Success}
+					if r.Error != nil {
+						item["error"] = r.Error.Error()
+					}
+					if r.Success {
+						if assigneeID > 0 {
+							item["agent_id"] = assigneeID
+						}
+						if teamID > 0 {
+							item["team_id"] = teamID
+						}
+					}
+					output = append(output, item)
+				}
+				return printJSON(cmd, map[string]any{
+					"success_count": successCount,
+					"fail_count":    failCount,
+					"results":       output,
+				})
 			}
 
-			displayID := conv.ID
-			if conv.DisplayID != nil {
-				displayID = *conv.DisplayID
-			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d assigned\n", displayID)
-			if conv.AssigneeID != nil {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Agent: %d\n", *conv.AssigneeID)
-			}
-			if conv.TeamID != nil {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Team:  %d\n", *conv.TeamID)
-			}
-
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Assigned %d conversations (%d failed)\n", successCount, failCount)
 			return nil
 		}),
 	}
 
-	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign")
-	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign")
+	cmd.Flags().IntVar(&assigneeID, "agent", 0, "Agent ID to assign")
+	cmd.Flags().IntVar(&teamID, "team", 0, "Team ID to assign")
+	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations (for multiple IDs)")
+	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running (for multiple IDs)")
+	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+
+	// Keep backwards compatibility with old flag names
+	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign (deprecated, use --agent)")
+	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign (deprecated, use --team)")
+	_ = cmd.Flags().MarkHidden("assignee-id")
+	_ = cmd.Flags().MarkHidden("team-id")
 
 	return cmd
 }
