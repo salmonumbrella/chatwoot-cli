@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// maxAsyncWaitIterations is a safety limit to prevent infinite loops in the async wait loop.
+// At the default 1s interval, this allows ~16 minutes of waiting before giving up.
+const maxAsyncWaitIterations = 1000
+
 func (c *Client) waitForAsync(ctx context.Context, location string, headers http.Header) ([]byte, http.Header, int, error) {
 	asyncURL, err := c.resolveAsyncURL(location)
 	if err != nil {
@@ -19,7 +23,7 @@ func (c *Client) waitForAsync(ctx context.Context, location string, headers http
 
 	delay := c.waitDelay(headers)
 
-	for {
+	for iteration := 0; iteration < maxAsyncWaitIterations; iteration++ {
 		if err := sleepWithContext(waitCtx, delay); err != nil {
 			return nil, nil, 0, err
 		}
@@ -34,6 +38,8 @@ func (c *Client) waitForAsync(ctx context.Context, location string, headers http
 		}
 		return respBody, respHeader, status, nil
 	}
+
+	return nil, nil, 0, fmt.Errorf("async wait exceeded maximum iterations (%d); operation may still be in progress", maxAsyncWaitIterations)
 }
 
 func (c *Client) waitDelay(headers http.Header) time.Duration {
