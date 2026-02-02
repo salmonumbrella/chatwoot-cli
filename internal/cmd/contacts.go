@@ -9,6 +9,7 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -1244,7 +1245,6 @@ labels, and updates the contact with the remaining labels.`,
 
 func newContactsMergeCmd() *cobra.Command {
 	var force bool
-	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "merge <keep-id> <delete-id>",
@@ -1293,7 +1293,7 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 			ctx := cmdContext(cmd)
 
 			// Handle dry-run mode - preview merge without executing
-			if dryRun {
+			if dryrun.IsEnabled(cmd.Context()) {
 				return printMergeDryRun(cmd, client, keepID, deleteID)
 			}
 
@@ -1358,7 +1358,6 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt (required for --output json)")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the merge without executing")
 
 	return cmd
 }
