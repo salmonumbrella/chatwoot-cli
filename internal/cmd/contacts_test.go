@@ -1153,3 +1153,173 @@ func TestContactsMergeCmd_CancellationFlow(t *testing.T) {
 		t.Errorf("output missing 'Merge cancelled.' message: %s", output)
 	}
 }
+
+func TestContactsMergeDryRun(t *testing.T) {
+	var mergeAPICalled bool
+
+	handler := newRouteHandler().
+		// Target contact (will be kept)
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {
+				"id": 123,
+				"name": "Alice Smith",
+				"email": "alice@example.com",
+				"phone_number": "+1111111111"
+			}
+		}`)).
+		// Source contact (will be deleted)
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "Bob Jones",
+				"email": "bob@example.com",
+				"phone_number": "+2222222222"
+			}
+		}`)).
+		// Conversations for target contact
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "status": "open"},
+				{"id": 2, "status": "resolved"},
+				{"id": 3, "status": "resolved"}
+			]
+		}`)).
+		// Conversations for source contact
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 4, "status": "open"},
+				{"id": 5, "status": "open"}
+			]
+		}`)).
+		// Merge API - should NOT be called
+		On("POST", "/api/v1/accounts/1/actions/contact_merge", func(w http.ResponseWriter, r *http.Request) {
+			mergeAPICalled = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"id": 123, "name": "Merged Contact"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "--dry-run"})
+		if err != nil {
+			t.Errorf("contacts merge --dry-run failed: %v", err)
+		}
+	})
+
+	// Verify merge API was NOT called
+	if mergeAPICalled {
+		t.Error("merge API should NOT have been called with --dry-run")
+	}
+
+	// Verify DRY RUN header is present
+	if !strings.Contains(output, "DRY RUN") {
+		t.Errorf("output missing 'DRY RUN' header: %s", output)
+	}
+
+	// Verify both contact names appear
+	if !strings.Contains(output, "Alice Smith") {
+		t.Errorf("output missing target contact name 'Alice Smith': %s", output)
+	}
+	if !strings.Contains(output, "Bob Jones") {
+		t.Errorf("output missing source contact name 'Bob Jones': %s", output)
+	}
+
+	// Verify SOURCE and TARGET sections
+	if !strings.Contains(output, "SOURCE") {
+		t.Errorf("output missing 'SOURCE' section: %s", output)
+	}
+	if !strings.Contains(output, "TARGET") {
+		t.Errorf("output missing 'TARGET' section: %s", output)
+	}
+
+	// Verify "without --dry-run" instruction
+	if !strings.Contains(output, "without --dry-run") {
+		t.Errorf("output missing instructions to run without --dry-run: %s", output)
+	}
+}
+
+func TestContactsMergeDryRun_ShowsConflicts(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {
+				"id": 123,
+				"name": "Alice",
+				"email": "alice@example.com",
+				"phone_number": "+1111111111"
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "Bob",
+				"email": "bob@different.com",
+				"phone_number": "+2222222222"
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{"payload": []}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{"payload": []}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "--dry-run"})
+		if err != nil {
+			t.Errorf("contacts merge --dry-run failed: %v", err)
+		}
+	})
+
+	// Should show conflicts when email differs
+	if !strings.Contains(output, "CONFLICTS") {
+		t.Errorf("output missing 'CONFLICTS' section when emails differ: %s", output)
+	}
+}
+
+func TestContactsMergeDryRun_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {
+				"id": 123,
+				"name": "Alice",
+				"email": "alice@example.com"
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "Bob",
+				"email": ""
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{"payload": []}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{"payload": []}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "merge", "123", "456", "--dry-run", "-o", "json"})
+		if err != nil {
+			t.Errorf("contacts merge --dry-run JSON failed: %v", err)
+		}
+	})
+
+	// Should be valid JSON
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Errorf("expected valid JSON output, got error: %v\noutput: %s", err, output)
+	}
+
+	// Should have dry_run field
+	if _, ok := result["dry_run"]; !ok {
+		t.Errorf("JSON output missing 'dry_run' field: %s", output)
+	}
+
+	// Should have source and target
+	if _, ok := result["source"]; !ok {
+		t.Errorf("JSON output missing 'source' field: %s", output)
+	}
+	if _, ok := result["target"]; !ok {
+		t.Errorf("JSON output missing 'target' field: %s", output)
+	}
+}
