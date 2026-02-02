@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// unixTimestampThreshold is used to distinguish Unix timestamps from relative seconds.
+// Values above this (1 billion) are interpreted as Unix timestamps (dates after 2001-09-09).
+// Values below are interpreted as seconds from now.
+const unixTimestampThreshold = 1_000_000_000
+
 // RateLimitInfo holds parsed rate limit header values.
 type RateLimitInfo struct {
 	Limit     *int
@@ -128,7 +133,7 @@ func parseRateLimitReset(value string, now time.Time) (time.Time, bool) {
 	}
 	if secs, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
 		switch {
-		case secs > 1000000000:
+		case secs > unixTimestampThreshold:
 			return time.Unix(secs, 0).UTC(), true
 		case secs >= 0:
 			return now.Add(time.Duration(secs) * time.Second).UTC(), true
