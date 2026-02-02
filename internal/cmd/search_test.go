@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 )
 
 func TestSearchCommand(t *testing.T) {
@@ -596,6 +598,148 @@ func TestSearchIncludeSnippet(t *testing.T) {
 	}
 	if !strings.Contains(snippet200.Content, "refund") {
 		t.Errorf("expected snippet to contain 'refund', got %q", snippet200.Content)
+	}
+}
+
+func TestExtractSnippet_UTF8Safety(t *testing.T) {
+	tests := []struct {
+		name     string
+		messages []api.Message
+		query    string
+		wantOK   bool
+		check    func(t *testing.T, snippet SnippetInfo)
+	}{
+		{
+			name: "Chinese characters",
+			messages: []api.Message{
+				{ID: 1, Content: "这是一条包含关键字的消息，我们需要测试多字节字符的处理", CreatedAt: 1700000000},
+			},
+			query:  "关键字",
+			wantOK: true,
+			check: func(t *testing.T, snippet SnippetInfo) {
+				// Ensure query is found in snippet
+				if !strings.Contains(snippet.Content, "关键字") {
+					t.Errorf("expected snippet to contain query '关键字', got %q", snippet.Content)
+				}
+				// Ensure no corrupted characters (UTF-8 replacement character)
+				if strings.Contains(snippet.Content, "\ufffd") {
+					t.Errorf("snippet contains replacement character (corrupted UTF-8): %q", snippet.Content)
+				}
+			},
+		},
+		{
+			name: "emoji characters",
+			messages: []api.Message{
+				{ID: 2, Content: "Hello! 😀🎉🚀 This message has emojis 🌟 and we search for star", CreatedAt: 1700000100},
+			},
+			query:  "star",
+			wantOK: true,
+			check: func(t *testing.T, snippet SnippetInfo) {
+				if !strings.Contains(snippet.Content, "star") {
+					t.Errorf("expected snippet to contain 'star', got %q", snippet.Content)
+				}
+				if strings.Contains(snippet.Content, "\ufffd") {
+					t.Errorf("snippet contains replacement character (corrupted UTF-8): %q", snippet.Content)
+				}
+			},
+		},
+		{
+			name: "mixed multibyte with ellipsis truncation",
+			messages: []api.Message{
+				// Need >20 runes before and >50 runes after the keyword to trigger truncation
+				// Using 30 Chinese chars before + keyword + 55 Chinese chars after
+				{ID: 3, Content: "这是一段很长的中文前缀文本用于测试截断功能确保有足够字符数keyword这是一段很长的中文后缀文本用于测试截断功能确保有足够的字符来触发省略号添加更多更多更多文字继续继续结束", CreatedAt: 1700000200},
+			},
+			query:  "keyword",
+			wantOK: true,
+			check: func(t *testing.T, snippet SnippetInfo) {
+				if !strings.Contains(snippet.Content, "keyword") {
+					t.Errorf("expected snippet to contain 'keyword', got %q", snippet.Content)
+				}
+				// Should have prefix ellipsis since there's content before (>20 runes)
+				if !strings.HasPrefix(snippet.Content, "...") {
+					t.Errorf("expected snippet to start with '...', got %q", snippet.Content)
+				}
+				// Should have suffix ellipsis since there's content after (>50 runes)
+				if !strings.HasSuffix(snippet.Content, "...") {
+					t.Errorf("expected snippet to end with '...', got %q", snippet.Content)
+				}
+				if strings.Contains(snippet.Content, "\ufffd") {
+					t.Errorf("snippet contains replacement character (corrupted UTF-8): %q", snippet.Content)
+				}
+			},
+		},
+		{
+			name: "Japanese hiragana and katakana",
+			messages: []api.Message{
+				{ID: 4, Content: "こんにちは、これはテストメッセージです。キーワードを探しています。", CreatedAt: 1700000300},
+			},
+			query:  "キーワード",
+			wantOK: true,
+			check: func(t *testing.T, snippet SnippetInfo) {
+				if !strings.Contains(snippet.Content, "キーワード") {
+					t.Errorf("expected snippet to contain 'キーワード', got %q", snippet.Content)
+				}
+				if strings.Contains(snippet.Content, "\ufffd") {
+					t.Errorf("snippet contains replacement character (corrupted UTF-8): %q", snippet.Content)
+				}
+			},
+		},
+		{
+			name: "query at start of message",
+			messages: []api.Message{
+				{ID: 5, Content: "查询词在开头然后是更多的中文内容", CreatedAt: 1700000400},
+			},
+			query:  "查询词",
+			wantOK: true,
+			check: func(t *testing.T, snippet SnippetInfo) {
+				if !strings.Contains(snippet.Content, "查询词") {
+					t.Errorf("expected snippet to contain '查询词', got %q", snippet.Content)
+				}
+				// Should NOT have prefix ellipsis since query is at start
+				if strings.HasPrefix(snippet.Content, "...") {
+					t.Errorf("snippet should not start with '...' when query is at start, got %q", snippet.Content)
+				}
+			},
+		},
+		{
+			name: "query at end of message",
+			messages: []api.Message{
+				{ID: 6, Content: "这是消息内容结尾词", CreatedAt: 1700000500},
+			},
+			query:  "结尾词",
+			wantOK: true,
+			check: func(t *testing.T, snippet SnippetInfo) {
+				if !strings.Contains(snippet.Content, "结尾词") {
+					t.Errorf("expected snippet to contain '结尾词', got %q", snippet.Content)
+				}
+				// Should NOT have suffix ellipsis since query is at end
+				if strings.HasSuffix(snippet.Content, "...") {
+					t.Errorf("snippet should not end with '...' when query is at end, got %q", snippet.Content)
+				}
+			},
+		},
+		{
+			name: "no match",
+			messages: []api.Message{
+				{ID: 7, Content: "This message has no match", CreatedAt: 1700000600},
+			},
+			query:  "xyz",
+			wantOK: false,
+			check:  func(t *testing.T, snippet SnippetInfo) {},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			snippet, ok := extractSnippet(tt.messages, tt.query)
+			if ok != tt.wantOK {
+				t.Fatalf("extractSnippet() ok = %v, wantOK = %v", ok, tt.wantOK)
+			}
+			if ok {
+				tt.check(t, snippet)
+			}
+		})
 	}
 }
 

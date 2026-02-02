@@ -411,27 +411,36 @@ of relevant resources with a single query.`,
 
 // extractSnippet searches messages for the query and returns a snippet with context.
 // It finds the first message containing the query (case-insensitive) and extracts
-// approximately 20 chars before and 50 chars after the match, adding "..." if truncated.
+// approximately 20 runes before and 50 runes after the match, adding "..." if truncated.
+// Uses rune-based slicing to safely handle multi-byte UTF-8 characters.
 func extractSnippet(messages []api.Message, query string) (SnippetInfo, bool) {
 	queryLower := strings.ToLower(query)
+	queryRuneLen := len([]rune(query))
 
 	for _, msg := range messages {
 		content := msg.Content
 		contentLower := strings.ToLower(content)
 
-		idx := strings.Index(contentLower, queryLower)
-		if idx == -1 {
+		byteIdx := strings.Index(contentLower, queryLower)
+		if byteIdx == -1 {
 			continue
 		}
 
-		// Calculate snippet bounds (~20 chars before, ~50 chars after)
+		// Convert content to runes for safe slicing
+		runes := []rune(content)
+		runeCount := len(runes)
+
+		// Convert byte index to rune index by counting runes in the prefix
+		runeIdx := len([]rune(content[:byteIdx]))
+
+		// Calculate snippet bounds (~20 runes before, ~50 runes after)
 		const (
 			contextBefore = 20
 			contextAfter  = 50
 		)
 
-		start := idx - contextBefore
-		end := idx + len(query) + contextAfter
+		start := runeIdx - contextBefore
+		end := runeIdx + queryRuneLen + contextAfter
 
 		// Adjust bounds to stay within content
 		prefix := ""
@@ -443,13 +452,13 @@ func extractSnippet(messages []api.Message, query string) (SnippetInfo, bool) {
 			prefix = "..."
 		}
 
-		if end > len(content) {
-			end = len(content)
+		if end > runeCount {
+			end = runeCount
 		} else {
 			suffix = "..."
 		}
 
-		snippet := prefix + content[start:end] + suffix
+		snippet := prefix + string(runes[start:end]) + suffix
 
 		return SnippetInfo{
 			MessageID: msg.ID,
