@@ -107,6 +107,8 @@ func resolveContactRefs(ctx context.Context, client *api.Client, contactIDs map[
 	results := make(map[int]resolvedContact)
 	var mu sync.Mutex
 
+	// Use 5 workers to parallelize API calls without overwhelming the server.
+	// Reduced if fewer contacts to avoid unnecessary goroutines.
 	workerCount := 5
 	if len(ids) < workerCount {
 		workerCount = len(ids)

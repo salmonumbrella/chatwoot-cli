@@ -264,6 +264,7 @@ func renderItemsTable(cmd *cobra.Command, items []any) {
 		}
 	}
 
+	// Limit to 6 columns to fit typical terminal width and maintain readability
 	if len(columns) > 6 {
 		columns = columns[:6]
 	}
@@ -316,8 +317,22 @@ func formatValue(v any) string {
 			return "yes"
 		}
 		return "no"
+	case []any:
+		if len(val) == 0 {
+			return "[]"
+		}
+		return fmt.Sprintf("[%d items]", len(val))
+	case map[string]any:
+		if len(val) == 0 {
+			return "{}"
+		}
+		return fmt.Sprintf("{%d keys}", len(val))
 	default:
-		return fmt.Sprintf("%v", v)
+		s := fmt.Sprintf("%v", v)
+		if len(s) > 30 {
+			return s[:27] + "..."
+		}
+		return s
 	}
 }
 

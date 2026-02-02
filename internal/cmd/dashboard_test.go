@@ -743,6 +743,15 @@ func TestFormatValue(t *testing.T) {
 			input:    "Product: 🎁 Gift Box Special Edition 2024!", // 41 chars
 			expected: "Product: 🎁 Gift Box Special...",
 		},
+
+		// Slice and map types
+		{name: "empty slice", input: []any{}, expected: "[]"},
+		{name: "slice with items", input: []any{1, 2, 3}, expected: "[3 items]"},
+		{name: "empty map", input: map[string]any{}, expected: "{}"},
+		{name: "map with keys", input: map[string]any{"a": 1, "b": 2}, expected: "{2 keys}"},
+
+		// Default type handling
+		{name: "int type", input: int64(1234567890), expected: "1234567890"},
 	}
 
 	for _, tt := range tests {
