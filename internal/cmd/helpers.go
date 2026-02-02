@@ -619,6 +619,32 @@ func ParseIntList(s string) ([]int, error) {
 	return result, nil
 }
 
+// parseIDArgs parses IDs from command args (supports both space-separated and comma-separated)
+func parseIDArgs(args []string) ([]int, error) {
+	var ids []int
+	for _, arg := range args {
+		parts := strings.Split(arg, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			id, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, fmt.Errorf("invalid ID %q: %w", part, err)
+			}
+			if id <= 0 {
+				return nil, fmt.Errorf("ID must be positive: %d", id)
+			}
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("at least one ID is required")
+	}
+	return ids, nil
+}
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {

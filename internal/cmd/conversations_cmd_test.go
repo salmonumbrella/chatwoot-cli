@@ -519,6 +519,181 @@ func TestConversationsBulkAssign_RequiresAgentOrTeam(t *testing.T) {
 	}
 }
 
+func TestConversationsResolveMultiple(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/3/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 3, "current_status": "resolved"}}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		// Test space-separated IDs
+		cmd.SetArgs([]string{"resolve", "1", "2", "3"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("resolve multiple failed: %v", err)
+		}
+	})
+
+	if callCount != 3 {
+		t.Errorf("expected 3 API calls, got %d", callCount)
+	}
+
+	if !strings.Contains(output, "Resolved 3 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsResolveMultiple_CommaSeparated(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		// Test comma-separated IDs
+		cmd.SetArgs([]string{"resolve", "1,2"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("resolve comma-separated failed: %v", err)
+		}
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
+
+	if !strings.Contains(output, "Resolved 2 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsResolveSingle(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"meta": {},
+			"payload": {"success": true, "conversation_id": 123, "current_status": "resolved"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		cmd.SetArgs([]string{"resolve", "123"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("resolve single failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Conversation #123 resolved") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsAssignMultiple(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/3/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		// Test space-separated IDs with --agent flag
+		cmd.SetArgs([]string{"assign", "1", "2", "3", "--agent", "5"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("assign multiple failed: %v", err)
+		}
+	})
+
+	if callCount != 3 {
+		t.Errorf("expected 3 API calls, got %d", callCount)
+	}
+
+	if !strings.Contains(output, "Assigned 3 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsAssignMultiple_CommaSeparated(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 2, "name": "Team"}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 2, "name": "Team"}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		// Test comma-separated IDs with --team flag
+		cmd.SetArgs([]string{"assign", "1,2", "--team", "2"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("assign comma-separated failed: %v", err)
+		}
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
+
+	if !strings.Contains(output, "Assigned 2 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsAssign_RequiresAgentOrTeam(t *testing.T) {
+	setupTestEnvWithHandler(t, newRouteHandler())
+
+	cmd := newConversationsCmd()
+	cmd.SetArgs([]string{"assign", "1", "2"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("Expected error when neither --agent nor --team is provided")
+	}
+}
+
 func TestConversationsCustomAttributesCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/custom_attributes", jsonResponse(200, `{}`))
