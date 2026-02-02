@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -452,6 +453,15 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}
 
+			if isAgent(cmd) {
+				payload := agentfmt.SearchEnvelope{
+					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Query:   query,
+					Results: agentfmt.ContactSummaries(contacts.Payload),
+					Summary: map[string]int{"contacts": len(contacts.Payload)},
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, contacts.Payload)
 			}
@@ -591,6 +601,19 @@ func newContactsConversationsCmd() *cobra.Command {
 				return fmt.Errorf("failed to get conversations for contact %d: %w", id, err)
 			}
 
+			if isAgent(cmd) {
+				summaries := agentfmt.ConversationSummaries(conversations)
+				summaries = resolveConversationSummaries(cmdContext(cmd), client, summaries)
+				payload := agentfmt.ListEnvelope{
+					Kind:  agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Items: summaries,
+					Meta: map[string]any{
+						"contact_id":  id,
+						"total_items": len(summaries),
+					},
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, conversations)
 			}

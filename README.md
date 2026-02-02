@@ -101,6 +101,8 @@ export CHATWOOT_ACCOUNT_ID=1
 export CHATWOOT_PROFILE=staging
 export CHATWOOT_PLATFORM_TOKEN=your_platform_token
 export CHATWOOT_ALLOW_PRIVATE=1
+export CHATWOOT_OUTPUT=agent
+export CHATWOOT_RESOLVE_NAMES=1
 ```
 
 ## Security
@@ -165,6 +167,12 @@ chatwoot conversations custom-attributes 123 --payload '{"key":"value"}'
 
 # AI context
 chatwoot conversations context 123 --embed-images   # Get full context for AI
+
+# Transcript
+chatwoot conversations transcript 123               # Render transcript locally
+chatwoot conversations transcript 123 --public-only # Exclude private notes
+chatwoot conversations transcript 123 --limit 200   # Limit to most recent messages
+chatwoot conversations transcript 123 --email user@example.com
 ```
 
 ### Messages
@@ -174,6 +182,7 @@ chatwoot conversations context 123 --embed-images   # Get full context for AI
 chatwoot messages list 123
 chatwoot messages list 123 --all
 chatwoot messages list 123 --limit 500
+chatwoot messages list 123 --output agent --resolve-names
 
 # Create messages
 chatwoot messages create 123 --content "Hello!"
@@ -499,16 +508,28 @@ $ chatwoot conversations list --output json
 
 Tip: `--json` is a shorthand for `--output json`.
 
+### Agent JSON
+
+Agent-optimized JSON output with consistent `kind` envelopes, compact summaries, and readable timestamps.
+Enable it per command with `--output agent`, or set a default for your shell:
+
+```bash
+export CHATWOOT_OUTPUT=agent
+```
+
+Use `--resolve-names` to fetch inbox/contact names for conversation results (extra API calls).
+Agent output is available for `conversations context` with message metadata and summary.
+
 **List commands return an object with an "items" array** (plus `has_more` and `meta`):
 ```bash
-chatwoot contacts list --output json | jq '.items[0]'
-chatwoot conversations list --output json | jq '.items[] | select(.status == "open")'
+chatwoot contacts list --output agent | jq '.items[0]'
+chatwoot conversations list --output agent | jq '.items[] | select(.status == "open")'
 ```
 
 **Get commands return single objects**:
 ```bash
-chatwoot contacts get 123 --output json | jq '.email'
-chatwoot conversations get 456 --output json | jq '.messages | length'
+chatwoot contacts get 123 --output agent | jq '.item.email'
+chatwoot conversations get 456 --output agent | jq '.item.messages_count'
 ```
 
 Data goes to stdout, errors and progress to stderr for clean piping.
@@ -664,6 +685,7 @@ chatwoot contacts search --query "john@example.com"
 
 # Get the conversations for a contact
 chatwoot contacts conversations 123
+chatwoot contacts conversations 123 --output agent --resolve-names
 ```
 
 ## Troubleshooting

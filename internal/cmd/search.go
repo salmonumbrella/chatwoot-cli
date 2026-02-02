@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/spf13/cobra"
 )
@@ -246,7 +247,18 @@ of relevant resources with a single query.`,
 				if chosen.contact != nil {
 					if isJSON(cmd) {
 						if selectRaw {
-							return printJSON(cmd, chosen.contact)
+							return printRawJSON(cmd, chosen.contact)
+						}
+						if isAgent(cmd) {
+							kind := agentfmt.KindFromCommandPath(cmd.CommandPath()) + ".select"
+							item := agentfmt.ContactDetailFromContact(*chosen.contact)
+							return printJSON(cmd, agentfmt.ItemEnvelope{
+								Kind: kind,
+								Item: map[string]any{
+									"type": "contact",
+									"item": item,
+								},
+							})
 						}
 						return printJSON(cmd, map[string]any{
 							"type": "contact",
@@ -258,7 +270,19 @@ of relevant resources with a single query.`,
 				if chosen.conversation != nil {
 					if isJSON(cmd) {
 						if selectRaw {
-							return printJSON(cmd, chosen.conversation)
+							return printRawJSON(cmd, chosen.conversation)
+						}
+						if isAgent(cmd) {
+							kind := agentfmt.KindFromCommandPath(cmd.CommandPath()) + ".select"
+							item := agentfmt.ConversationDetailFromConversation(*chosen.conversation)
+							item = resolveConversationDetail(ctx, client, item)
+							return printJSON(cmd, agentfmt.ItemEnvelope{
+								Kind: kind,
+								Item: map[string]any{
+									"type": "conversation",
+									"item": item,
+								},
+							})
 						}
 						return printJSON(cmd, map[string]any{
 							"type": "conversation",
@@ -268,6 +292,46 @@ of relevant resources with a single query.`,
 					return printConversationDetails(cmd.OutOrStdout(), chosen.conversation)
 				}
 				return nil
+			}
+
+			if isAgent(cmd) {
+				type agentSearchResult struct {
+					Type         string                        `json:"type"`
+					ID           int                           `json:"id"`
+					Contact      *agentfmt.ContactSummary      `json:"contact,omitempty"`
+					Conversation *agentfmt.ConversationSummary `json:"conversation,omitempty"`
+				}
+
+				resultsList := make([]agentSearchResult, 0, len(results.Contacts)+len(results.Conversations))
+				for _, contact := range results.Contacts {
+					summary := agentfmt.ContactSummaryFromContact(contact)
+					resultsList = append(resultsList, agentSearchResult{
+						Type:    "contact",
+						ID:      contact.ID,
+						Contact: &summary,
+					})
+				}
+				convSummaries := make([]agentfmt.ConversationSummary, len(results.Conversations))
+				for i, conv := range results.Conversations {
+					convSummaries[i] = agentfmt.ConversationSummaryFromConversation(conv)
+				}
+				convSummaries = resolveConversationSummaries(ctx, client, convSummaries)
+				for i, conv := range results.Conversations {
+					summary := convSummaries[i]
+					resultsList = append(resultsList, agentSearchResult{
+						Type:         "conversation",
+						ID:           conv.ID,
+						Conversation: &summary,
+					})
+				}
+
+				payload := agentfmt.SearchEnvelope{
+					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Query:   query,
+					Results: resultsList,
+					Summary: map[string]int{"contacts": len(results.Contacts), "conversations": len(results.Conversations)},
+				}
+				return printJSON(cmd, payload)
 			}
 
 			if isJSON(cmd) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
@@ -53,6 +54,8 @@ type ListConfig[T any] struct {
 	DefaultMaxPages int
 	// AfterOutput runs after table output (text mode only).
 	AfterOutput func(cmd *cobra.Command, summary ListSummary) error
+	// AgentTransform overrides agent-mode item transformation.
+	AgentTransform func(ctx context.Context, client *api.Client, items []T) (any, error)
 }
 
 func writeJSONLItem(w io.Writer, item any, query, tmpl string) error {
@@ -154,13 +157,14 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					return nil
 				}
 
-				if mode == outfmt.JSON {
+				if mode == outfmt.JSON || mode == outfmt.Agent {
 					summaryPageSize := pageSize
 					if cfg.DisablePagination {
 						summaryPageSize = len(result.Items)
 					}
-					return f.Output(map[string]interface{}{
-						"items":    result.Items,
+					items := result.Items
+					payload := map[string]interface{}{
+						"items":    items,
 						"has_more": result.HasMore,
 						"meta": map[string]any{
 							"page":          page,
@@ -169,7 +173,20 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 							"total_items":   len(result.Items),
 							"all":           false,
 						},
-					})
+					}
+					if mode == outfmt.Agent {
+						payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
+						if cfg.AgentTransform != nil {
+							agentItems, err := cfg.AgentTransform(cmd.Context(), client, items)
+							if err != nil {
+								return err
+							}
+							payload["items"] = agentItems
+						} else {
+							payload["items"] = agentfmt.TransformListItems(items)
+						}
+					}
+					return f.Output(payload)
 				}
 
 				if len(result.Items) == 0 {
@@ -335,7 +352,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			if cfg.DisablePagination {
 				summaryPageSize = len(allItems)
 			}
-			return f.Output(map[string]interface{}{
+			payload := map[string]interface{}{
 				"items":    allItems,
 				"has_more": false,
 				"meta": map[string]any{
@@ -345,7 +362,20 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					"total_items":   len(allItems),
 					"all":           true,
 				},
-			})
+			}
+			if mode == outfmt.Agent {
+				payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
+				if cfg.AgentTransform != nil {
+					agentItems, err := cfg.AgentTransform(cmd.Context(), client, allItems)
+					if err != nil {
+						return err
+					}
+					payload["items"] = agentItems
+				} else {
+					payload["items"] = agentfmt.TransformListItems(allItems)
+				}
+			}
+			return f.Output(payload)
 		}),
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
 	"github.com/spf13/cobra"
 )
@@ -68,6 +69,15 @@ Supported URL formats:
 				conv, err := client.Conversations().Get(ctx, parsed.ResourceID)
 				if err != nil {
 					return fmt.Errorf("failed to get conversation %d: %w", parsed.ResourceID, err)
+				}
+				if isAgent(cmd) {
+					detail := agentfmt.ConversationDetailFromConversation(*conv)
+					detail = resolveConversationDetail(ctx, client, detail)
+					payload := agentfmt.ItemEnvelope{
+						Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+						Item: detail,
+					}
+					return printJSON(cmd, payload)
 				}
 				if isJSON(cmd) {
 					return printJSON(cmd, conv)

@@ -7,12 +7,14 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
@@ -111,6 +113,10 @@ func newConversationsListCmd() *cobra.Command {
   # Fetch all pages
   chatwoot conversations list --status open --all
 `),
+		AgentTransform: func(ctx context.Context, client *api.Client, items []api.Conversation) (any, error) {
+			summaries := agentfmt.ConversationSummaries(items)
+			return resolveConversationSummaries(ctx, client, summaries), nil
+		},
 		Fetch: func(ctx context.Context, client *api.Client, page, _ int) (ListResult[api.Conversation], error) {
 			params := api.ListConversationsParams{
 				Status:       status,
@@ -218,6 +224,15 @@ func newConversationsGetCmd() *cobra.Command {
 				return fmt.Errorf("failed to get conversation %d: %w", id, err)
 			}
 
+			if isAgent(cmd) {
+				detail := agentfmt.ConversationDetailFromConversation(*conv)
+				detail = resolveConversationDetail(cmdContext(cmd), client, detail)
+				payload := agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: detail,
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, conv)
 			}
@@ -382,6 +397,18 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 				return fmt.Errorf("failed to filter conversations: %w", err)
 			}
 
+			if isAgent(cmd) {
+				summaries := agentfmt.ConversationSummaries(result.Data.Payload)
+				summaries = resolveConversationSummaries(cmdContext(cmd), client, summaries)
+				payload := agentfmt.ListEnvelope{
+					Kind:  agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Items: summaries,
+					Meta: map[string]any{
+						"total_items": len(summaries),
+					},
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, result.Data.Payload)
 			}
@@ -1136,6 +1163,64 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 				return fmt.Errorf("failed to get conversation context: %w", err)
 			}
 
+			if isAgent(cmd) {
+				var detail any
+				if ctx.Conversation != nil {
+					convDetail := agentfmt.ConversationDetailFromConversation(*ctx.Conversation)
+					convDetail = resolveConversationDetail(cmdContext(cmd), client, convDetail)
+					detail = convDetail
+				}
+
+				var contactDetail any
+				if ctx.Contact != nil {
+					contactDetail = agentfmt.ContactDetailFromContact(*ctx.Contact)
+				}
+
+				var contactLabels []string
+				var contactInboxes []contextInboxSummary
+				if ctx.Contact != nil && ctx.Contact.ID > 0 {
+					labels, err := client.Contacts().Labels(cmdContext(cmd), ctx.Contact.ID)
+					if err == nil {
+						contactLabels = labels
+					}
+					inboxes, err := client.Contacts().ContactableInboxes(cmdContext(cmd), ctx.Contact.ID)
+					if err == nil {
+						contactInboxes = contextInboxSummaries(inboxes)
+					}
+				}
+
+				messages, publicCount, privateCount, embeddedCount := contextMessageSummaries(ctx.Messages)
+				meta := map[string]any{
+					"conversation_id":  id,
+					"message_count":    len(ctx.Messages),
+					"public_messages":  publicCount,
+					"private_messages": privateCount,
+					"embed_images":     embedImages,
+				}
+				if embeddedCount > 0 {
+					meta["embedded_attachments"] = embeddedCount
+				}
+
+				item := map[string]any{
+					"conversation": detail,
+					"contact":      contactDetail,
+					"messages":     messages,
+					"summary":      ctx.Summary,
+					"meta":         meta,
+				}
+				if len(contactLabels) > 0 {
+					item["contact_labels"] = contactLabels
+				}
+				if len(contactInboxes) > 0 {
+					item["contact_inboxes"] = contactInboxes
+				}
+
+				payload := agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: item,
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, ctx)
 			}
@@ -1184,6 +1269,116 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
 
 	return cmd
+}
+
+type contextMessageAttachmentSummary struct {
+	ID       int    `json:"id"`
+	FileType string `json:"file_type,omitempty"`
+	DataURL  string `json:"data_url,omitempty"`
+	FileSize int    `json:"file_size,omitempty"`
+	Embedded string `json:"embedded,omitempty"`
+}
+
+type contextInboxSummary struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	ChannelType string `json:"channel_type,omitempty"`
+}
+
+type contextMessageSummary struct {
+	ID          int                               `json:"id"`
+	Type        string                            `json:"type"`
+	Private     bool                              `json:"private"`
+	Content     string                            `json:"content"`
+	ContentType string                            `json:"content_type,omitempty"`
+	SenderType  string                            `json:"sender_type,omitempty"`
+	CreatedAt   *agentfmt.Timestamp               `json:"created_at,omitempty"`
+	Attachments []contextMessageAttachmentSummary `json:"attachments,omitempty"`
+}
+
+func contextMessageSummaries(messages []api.MessageWithEmbeddings) ([]contextMessageSummary, int, int, int) {
+	if len(messages) == 0 {
+		return nil, 0, 0, 0
+	}
+	out := make([]contextMessageSummary, 0, len(messages))
+	publicCount := 0
+	privateCount := 0
+	embeddedCount := 0
+
+	for _, msg := range messages {
+		if msg.Private {
+			privateCount++
+		} else {
+			publicCount++
+		}
+		summary := contextMessageSummary{
+			ID:          msg.ID,
+			Type:        messageTypeNameFromValue(msg.MessageType),
+			Private:     msg.Private,
+			Content:     msg.Content,
+			ContentType: msg.ContentType,
+			SenderType:  msg.SenderType,
+			CreatedAt:   agentTimestampFromUnix(msg.CreatedAt),
+		}
+		if len(msg.Attachments) > 0 {
+			attachments := make([]contextMessageAttachmentSummary, 0, len(msg.Attachments))
+			for _, att := range msg.Attachments {
+				if att.Embedded != "" {
+					embeddedCount++
+				}
+				attachments = append(attachments, contextMessageAttachmentSummary{
+					ID:       att.ID,
+					FileType: att.FileType,
+					DataURL:  att.DataURL,
+					FileSize: att.FileSize,
+					Embedded: att.Embedded,
+				})
+			}
+			summary.Attachments = attachments
+		}
+		out = append(out, summary)
+	}
+	return out, publicCount, privateCount, embeddedCount
+}
+
+func contextInboxSummaries(inboxes []api.Inbox) []contextInboxSummary {
+	if len(inboxes) == 0 {
+		return nil
+	}
+	out := make([]contextInboxSummary, 0, len(inboxes))
+	for _, inbox := range inboxes {
+		out = append(out, contextInboxSummary{
+			ID:          inbox.ID,
+			Name:        inbox.Name,
+			ChannelType: inbox.ChannelType,
+		})
+	}
+	return out
+}
+
+func messageTypeNameFromValue(value int) string {
+	switch value {
+	case api.MessageTypeIncoming:
+		return "incoming"
+	case api.MessageTypeOutgoing:
+		return "outgoing"
+	case api.MessageTypeActivity:
+		return "activity"
+	case api.MessageTypeTemplate:
+		return "template"
+	default:
+		return "unknown"
+	}
+}
+
+func agentTimestampFromUnix(unix int64) *agentfmt.Timestamp {
+	if unix == 0 {
+		return nil
+	}
+	return &agentfmt.Timestamp{
+		Unix: unix,
+		ISO:  time.Unix(unix, 0).UTC().Format(time.RFC3339),
+	}
 }
 
 func newConversationsMarkUnreadCmd() *cobra.Command {
@@ -1297,6 +1492,21 @@ func newConversationsSearchCmd() *cobra.Command {
 
 			conversations := result.Data.Payload
 
+			if isAgent(cmd) {
+				summaries := agentfmt.ConversationSummaries(conversations)
+				summaries = resolveConversationSummaries(cmdContext(cmd), client, summaries)
+				payload := agentfmt.SearchEnvelope{
+					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Query:   query,
+					Results: summaries,
+					Summary: map[string]int{"conversations": len(conversations)},
+					Meta: map[string]any{
+						"page": page,
+						"meta": result.Data.Meta,
+					},
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, conversations)
 			}
@@ -1355,6 +1565,22 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 		currentPage++
 	}
 
+	if isAgent(cmd) {
+		summaries := agentfmt.ConversationSummaries(allConversations)
+		summaries = resolveConversationSummaries(cmdContext(cmd), client, summaries)
+		payload := agentfmt.SearchEnvelope{
+			Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
+			Query:   query,
+			Results: summaries,
+			Summary: map[string]int{"conversations": len(allConversations)},
+			Meta: map[string]any{
+				"pages_fetched": pagesFetched,
+				"total_items":   len(allConversations),
+				"all":           true,
+			},
+		}
+		return printJSON(cmd, payload)
+	}
 	if isJSON(cmd) {
 		return printJSON(cmd, allConversations)
 	}
@@ -1538,16 +1764,31 @@ Unmuted conversations will trigger desktop and push notifications for new messag
 }
 
 func newConversationsTranscriptCmd() *cobra.Command {
-	var email string
+	var (
+		email      string
+		limit      int
+		maxPages   int
+		publicOnly bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "transcript <id>",
-		Short: "Send conversation transcript via email",
-		Long: `Send a conversation transcript to an email address.
+		Short: "Render or send a conversation transcript",
+		Long: `Render a conversation transcript to stdout, or send it via email.
 
-The transcript includes all messages in the conversation and is sent
-to the specified email address.`,
+When --email is provided, the transcript is sent via Chatwoot and no
+message content is printed. Without --email, the transcript is rendered
+locally with private notes included by default.`,
 		Example: strings.TrimSpace(`
+  # Render transcript to stdout (includes private notes)
+  chatwoot conversations transcript 123
+
+  # Render public-only transcript
+  chatwoot conversations transcript 123 --public-only
+
+  # Limit to the most recent messages
+  chatwoot conversations transcript 123 --limit 200
+
   # Send transcript to an email address
   chatwoot conversations transcript 123 --email user@example.com
 `),
@@ -1558,8 +1799,11 @@ to the specified email address.`,
 				return err
 			}
 
-			if email == "" {
-				return fmt.Errorf("--email is required")
+			if cmd.Flags().Changed("limit") && limit < 1 {
+				return fmt.Errorf("--limit must be at least 1")
+			}
+			if cmd.Flags().Changed("max-pages") && maxPages < 1 {
+				return fmt.Errorf("--max-pages must be at least 1")
 			}
 
 			client, err := getClient()
@@ -1567,26 +1811,235 @@ to the specified email address.`,
 				return err
 			}
 
-			if err := client.Conversations().Transcript(cmdContext(cmd), id, email); err != nil {
-				return fmt.Errorf("failed to send transcript for conversation %d: %w", id, err)
+			if email != "" {
+				if err := client.Conversations().Transcript(cmdContext(cmd), id, email); err != nil {
+					return fmt.Errorf("failed to send transcript for conversation %d: %w", id, err)
+				}
+
+				if isJSON(cmd) {
+					return printJSON(cmd, map[string]any{
+						"conversation_id": id,
+						"email":           email,
+						"status":          "sent",
+					})
+				}
+
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Transcript for conversation #%d sent to %s\n", id, email)
+				return nil
 			}
 
+			conv, err := client.Conversations().Get(cmdContext(cmd), id)
+			if err != nil {
+				return fmt.Errorf("failed to get conversation %d: %w", id, err)
+			}
+
+			var messages []api.Message
+			if limit > 0 {
+				messages, err = client.Messages().ListWithLimit(cmdContext(cmd), id, limit, maxPages)
+			} else {
+				messages, err = client.Messages().ListAllWithMaxPages(cmdContext(cmd), id, maxPages)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to list messages for conversation %d: %w", id, err)
+			}
+
+			filtered, publicCount, privateCount := filterTranscriptMessages(messages, publicOnly)
+			sort.SliceStable(filtered, func(i, j int) bool {
+				if filtered[i].CreatedAt == filtered[j].CreatedAt {
+					return filtered[i].ID < filtered[j].ID
+				}
+				return filtered[i].CreatedAt < filtered[j].CreatedAt
+			})
+
+			meta := map[string]any{
+				"conversation_id":   id,
+				"total_messages":    len(messages),
+				"public_messages":   publicCount,
+				"private_messages":  privateCount,
+				"included_messages": len(filtered),
+				"public_only":       publicOnly,
+			}
+			if limit > 0 {
+				meta["limit"] = limit
+			}
+
+			if isAgent(cmd) {
+				detail := agentfmt.ConversationDetailFromConversation(*conv)
+				detail = resolveConversationDetail(cmdContext(cmd), client, detail)
+				wrapped := make([]agentfmt.MessageSummaryWithPosition, len(filtered))
+				for i, msg := range filtered {
+					summary := agentfmt.MessageSummaryFromMessage(msg)
+					wrapped[i] = agentfmt.MessageSummaryWithPosition{
+						MessageSummary: summary,
+						Position:       i + 1,
+						TotalMessages:  len(filtered),
+					}
+				}
+				payload := agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: map[string]any{
+						"conversation": detail,
+						"messages":     wrapped,
+						"meta":         meta,
+					},
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{
-					"conversation_id": id,
-					"email":           email,
-					"status":          "sent",
+					"conversation": conv,
+					"messages":     filtered,
+					"meta":         meta,
 				})
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Transcript for conversation #%d sent to %s\n", id, email)
+			writeTranscript(cmd.OutOrStdout(), conv, filtered, publicOnly, publicCount, privateCount, limit)
 			return nil
 		}),
 	}
 
-	cmd.Flags().StringVar(&email, "email", "", "Email address to send transcript to (required)")
+	cmd.Flags().StringVar(&email, "email", "", "Email address to send transcript to")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Limit the number of messages to include (default: all)")
+	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when listing messages")
+	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from the transcript")
 
 	return cmd
+}
+
+func filterTranscriptMessages(messages []api.Message, publicOnly bool) ([]api.Message, int, int) {
+	if len(messages) == 0 {
+		return nil, 0, 0
+	}
+	filtered := make([]api.Message, 0, len(messages))
+	publicCount := 0
+	privateCount := 0
+
+	for _, msg := range messages {
+		if msg.Private {
+			privateCount++
+		} else {
+			publicCount++
+		}
+		if publicOnly && msg.Private {
+			continue
+		}
+		filtered = append(filtered, msg)
+	}
+	return filtered, publicCount, privateCount
+}
+
+func transcriptActor(msg api.Message) string {
+	if msg.Private {
+		if msg.Sender != nil && msg.Sender.Name != "" {
+			return fmt.Sprintf("Private note (%s)", msg.Sender.Name)
+		}
+		return "Private note"
+	}
+	switch msg.MessageType {
+	case api.MessageTypeIncoming:
+		if msg.Sender != nil && msg.Sender.Name != "" {
+			return fmt.Sprintf("Customer (%s)", msg.Sender.Name)
+		}
+		return "Customer"
+	case api.MessageTypeOutgoing:
+		if msg.Sender != nil && msg.Sender.Name != "" {
+			return fmt.Sprintf("Agent (%s)", msg.Sender.Name)
+		}
+		return "Agent"
+	case api.MessageTypeActivity:
+		return "Activity"
+	case api.MessageTypeTemplate:
+		return "Template"
+	default:
+		if msg.Sender != nil && msg.Sender.Name != "" {
+			return msg.Sender.Name
+		}
+		return msg.MessageTypeName()
+	}
+}
+
+func writeTranscript(out io.Writer, conv *api.Conversation, messages []api.Message, publicOnly bool, publicCount, privateCount, limit int) {
+	displayID := conv.ID
+	if conv.DisplayID != nil {
+		displayID = *conv.DisplayID
+	}
+	summary := agentfmt.ConversationSummaryFromConversation(*conv)
+
+	_, _ = fmt.Fprintf(out, "Conversation #%d\n", displayID)
+	_, _ = fmt.Fprintf(out, "ID: %d\n", conv.ID)
+	_, _ = fmt.Fprintf(out, "Status: %s\n", conv.Status)
+	if conv.Priority != nil {
+		_, _ = fmt.Fprintf(out, "Priority: %s\n", *conv.Priority)
+	}
+	_, _ = fmt.Fprintf(out, "Inbox ID: %d\n", conv.InboxID)
+	if summary.Contact != nil && (summary.Contact.Name != "" || summary.Contact.Email != "" || summary.Contact.Phone != "") {
+		label := summary.Contact.Name
+		if label == "" {
+			if conv.ContactID > 0 {
+				label = fmt.Sprintf("Contact %d", conv.ContactID)
+			} else {
+				label = "Contact"
+			}
+		}
+		_, _ = fmt.Fprintf(out, "Contact: %s", label)
+		if summary.Contact.Email != "" {
+			_, _ = fmt.Fprintf(out, " <%s>", summary.Contact.Email)
+		}
+		if summary.Contact.Phone != "" {
+			_, _ = fmt.Fprintf(out, " (%s)", summary.Contact.Phone)
+		}
+		if conv.ContactID > 0 {
+			_, _ = fmt.Fprintf(out, " [id %d]", conv.ContactID)
+		}
+		_, _ = fmt.Fprintln(out)
+	} else if conv.ContactID > 0 {
+		_, _ = fmt.Fprintf(out, "Contact ID: %d\n", conv.ContactID)
+	}
+	if conv.AssigneeID != nil {
+		_, _ = fmt.Fprintf(out, "Assignee ID: %d\n", *conv.AssigneeID)
+	}
+	if conv.TeamID != nil {
+		_, _ = fmt.Fprintf(out, "Team ID: %d\n", *conv.TeamID)
+	}
+	_, _ = fmt.Fprintf(out, "Created: %s\n", formatTimestamp(conv.CreatedAtTime()))
+	if conv.LastActivityAt > 0 {
+		_, _ = fmt.Fprintf(out, "Last activity: %s\n", formatTimestamp(conv.LastActivityAtTime()))
+	}
+	_, _ = fmt.Fprintf(out, "Messages: %d (public %d, private %d)\n", len(messages), publicCount, privateCount)
+	if publicOnly {
+		_, _ = fmt.Fprintln(out, "Public only: true")
+	}
+	if limit > 0 {
+		_, _ = fmt.Fprintf(out, "Limit: %d\n", limit)
+	}
+
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "--- Transcript ---")
+
+	for _, msg := range messages {
+		_, _ = fmt.Fprintf(out, "[%s] %s\n", formatTimestamp(msg.CreatedAtTime()), transcriptActor(msg))
+
+		content := strings.TrimSpace(msg.Content)
+		if content == "" {
+			content = "(no content)"
+		}
+		for _, line := range strings.Split(content, "\n") {
+			_, _ = fmt.Fprintf(out, "  %s\n", line)
+		}
+
+		for _, att := range msg.Attachments {
+			label := att.FileType
+			if label == "" {
+				label = "attachment"
+			}
+			if att.DataURL != "" {
+				_, _ = fmt.Fprintf(out, "  [attachment] %s %s\n", label, att.DataURL)
+			} else {
+				_, _ = fmt.Fprintf(out, "  [attachment] %s\n", label)
+			}
+		}
+		_, _ = fmt.Fprintln(out)
+	}
 }
 
 func newConversationsTypingCmd() *cobra.Command {

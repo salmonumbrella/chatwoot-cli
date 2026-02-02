@@ -31,6 +31,7 @@ type rootFlags struct {
 	NoInput                 bool
 	JSON                    bool
 	AllowPrivate            bool
+	ResolveNames            bool
 	Query                   string
 	JQ                      string
 	Fields                  string
@@ -56,18 +57,47 @@ type rootFlags struct {
 
 // flags holds the global command flags, accessible to helper functions
 var flags = rootFlags{
-	Output:  "text",
-	Color:   "auto",
-	Timeout: api.DefaultTimeout,
+	Output:       defaultOutput(),
+	Color:        "auto",
+	ResolveNames: defaultResolveNames(),
+	Timeout:      api.DefaultTimeout,
+}
+
+func defaultOutput() string {
+	value := strings.TrimSpace(os.Getenv("CHATWOOT_OUTPUT"))
+	if value != "" {
+		return value
+	}
+	return "text"
+}
+
+func defaultResolveNames() bool {
+	return parseBoolEnv("CHATWOOT_RESOLVE_NAMES")
+}
+
+func parseBoolEnv(key string) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return false
+	}
+	switch strings.ToLower(value) {
+	case "1", "true", "yes", "y", "on":
+		return true
+	case "0", "false", "no", "n", "off":
+		return false
+	default:
+		return false
+	}
 }
 
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
 	// Reset flags to defaults for each execution (important for tests)
 	flags = rootFlags{
-		Output:  "text",
-		Color:   "auto",
-		Timeout: api.DefaultTimeout,
+		Output:       defaultOutput(),
+		Color:        "auto",
+		ResolveNames: defaultResolveNames(),
+		Timeout:      api.DefaultTimeout,
 	}
 	setTimeLocation(nil)
 	completionsNoCache = false
@@ -124,9 +154,9 @@ func Execute(ctx context.Context, args []string) error {
 				flags.Output = "json"
 			}
 			needsJSON := flags.Query != "" || flags.JQ != "" || flags.Fields != "" || flags.Template != ""
-			if needsJSON && flags.Output != "json" && flags.Output != "jsonl" {
+			if needsJSON && flags.Output != "json" && flags.Output != "jsonl" && flags.Output != "agent" {
 				if cmd.Flags().Changed("output") {
-					return fmt.Errorf("--jq/--query/--fields/--template require --output json or jsonl (or --json)")
+					return fmt.Errorf("--jq/--query/--fields/--template require --output json, jsonl, or agent (or --json)")
 				}
 				flags.Output = "json"
 			}
@@ -235,9 +265,10 @@ func Execute(ctx context.Context, args []string) error {
 
 	root.SetContext(ctx)
 	root.SetArgs(args)
-	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl")
+	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl|agent")
 	root.PersistentFlags().BoolVar(&flags.JSON, "json", false, "Output JSON (alias for --output json)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
+	root.PersistentFlags().BoolVar(&flags.ResolveNames, "resolve-names", false, "Resolve contact/inbox names in agent output (extra API calls; env CHATWOOT_RESOLVE_NAMES=1)")
 	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", false, "Allow private/localhost URLs (unsafe)")
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")

@@ -213,6 +213,18 @@ func TestExecute_OutputFlagShorthand(t *testing.T) {
 	}
 }
 
+func TestDefaultResolveNamesFromEnv(t *testing.T) {
+	t.Setenv("CHATWOOT_RESOLVE_NAMES", "1")
+	if !defaultResolveNames() {
+		t.Fatalf("expected resolve-names default true when CHATWOOT_RESOLVE_NAMES=1")
+	}
+
+	t.Setenv("CHATWOOT_RESOLVE_NAMES", "0")
+	if defaultResolveNames() {
+		t.Fatalf("expected resolve-names default false when CHATWOOT_RESOLVE_NAMES=0")
+	}
+}
+
 func TestExecute_InvalidOutputFormat(t *testing.T) {
 	// Capture stderr
 	oldStderr := os.Stderr

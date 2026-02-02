@@ -17,6 +17,8 @@ const (
 	JSON
 	// JSONL outputs newline-delimited JSON
 	JSONL
+	// Agent outputs agent-friendly structured JSON
+	Agent
 )
 
 type contextKey struct{}
@@ -30,8 +32,10 @@ func Parse(s string) (Mode, error) {
 		return JSON, nil
 	case "jsonl":
 		return JSONL, nil
+	case "agent":
+		return Agent, nil
 	default:
-		return Text, fmt.Errorf("invalid output format: %q (use 'text', 'json', or 'jsonl')", s)
+		return Text, fmt.Errorf("invalid output format: %q (use 'text', 'json', 'jsonl', or 'agent')", s)
 	}
 }
 
@@ -51,12 +55,17 @@ func ModeFromContext(ctx context.Context) Mode {
 // IsJSON returns true if the context is set to JSON output
 func IsJSON(ctx context.Context) bool {
 	mode := ModeFromContext(ctx)
-	return mode == JSON || mode == JSONL
+	return mode == JSON || mode == JSONL || mode == Agent
 }
 
 // IsJSONL returns true if the context is set to JSONL output
 func IsJSONL(ctx context.Context) bool {
 	return ModeFromContext(ctx) == JSONL
+}
+
+// IsAgent returns true if the context is set to agent output.
+func IsAgent(ctx context.Context) bool {
+	return ModeFromContext(ctx) == Agent
 }
 
 // WriteJSON writes a value as pretty-printed JSON
@@ -73,6 +82,8 @@ func (m Mode) String() string {
 		return "json"
 	case JSONL:
 		return "jsonl"
+	case Agent:
+		return "agent"
 	default:
 		return "text"
 	}

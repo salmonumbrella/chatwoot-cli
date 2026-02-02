@@ -281,6 +281,64 @@ func TestContactsConversationsCommand(t *testing.T) {
 	}
 }
 
+func TestContactsConversationsCommand_AgentResolveNames(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 10, "status": "open", "inbox_id": 7, "contact_id": 123, "unread_count": 1, "created_at": 1700000000}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 7, "name": "Support"}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {"id": 123, "name": "Jane Doe", "email": "jane@example.com"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "conversations", "123", "--output", "agent", "--resolve-names"})
+		if err != nil {
+			t.Errorf("contacts conversations --output agent --resolve-names failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			Path []struct {
+				Type  string `json:"type"`
+				ID    int    `json:"id"`
+				Label string `json:"label"`
+			} `json:"path"`
+			Contact *struct {
+				Name string `json:"name"`
+			} `json:"contact"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Contact == nil || payload.Items[0].Contact.Name != "Jane Doe" {
+		t.Fatalf("expected resolved contact name, got %#v", payload.Items[0].Contact)
+	}
+	foundInbox := false
+	for _, entry := range payload.Items[0].Path {
+		if entry.Type == "inbox" && entry.ID == 7 && entry.Label == "Support" {
+			foundInbox = true
+			break
+		}
+	}
+	if !foundInbox {
+		t.Fatalf("expected inbox label Support in path, got %#v", payload.Items[0].Path)
+	}
+}
+
 func TestContactsBulkAddLabel(t *testing.T) {
 	callCount := 0
 	handler := newRouteHandler().

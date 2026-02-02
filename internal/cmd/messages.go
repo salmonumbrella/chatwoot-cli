@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -91,6 +92,41 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 
 			totalMessages := len(messages)
 
+			if isAgent(cmd) {
+				var conversationDetail *agentfmt.ConversationDetail
+				if flags.ResolveNames {
+					conv, err := client.Conversations().Get(cmdContext(cmd), conversationID)
+					if err != nil {
+						return fmt.Errorf("failed to resolve conversation %d: %w", conversationID, err)
+					}
+					detail := agentfmt.ConversationDetailFromConversation(*conv)
+					detail = resolveConversationDetail(cmdContext(cmd), client, detail)
+					conversationDetail = &detail
+				}
+
+				wrapped := make([]agentfmt.MessageSummaryWithPosition, len(messages))
+				for i, msg := range messages {
+					summary := agentfmt.MessageSummaryFromMessage(msg)
+					wrapped[i] = agentfmt.MessageSummaryWithPosition{
+						MessageSummary: summary,
+						Position:       i + 1,
+						TotalMessages:  totalMessages,
+					}
+				}
+				meta := map[string]any{
+					"conversation_id": conversationID,
+					"total_messages":  totalMessages,
+				}
+				if conversationDetail != nil {
+					meta["conversation"] = conversationDetail
+				}
+				payload := agentfmt.ListEnvelope{
+					Kind:  agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Items: wrapped,
+					Meta:  meta,
+				}
+				return printJSON(cmd, payload)
+			}
 			if isJSON(cmd) {
 				// Wrap messages with position metadata
 				type messageWithPosition struct {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -858,3 +859,168 @@ func TestConversationsLabelsRemoveCommand(t *testing.T) {
 
 // TestConversationsContextCommand_JSON is complex because it makes multiple
 // sequential API calls with pagination. Covered by API tests.
+
+func TestConversationsTranscriptCommand_JSONIncludesPrivate(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 99,
+			"status": "open",
+			"unread_count": 0,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if r.URL.Query().Get("before") != "" {
+				_, _ = w.Write([]byte(`{"payload": []}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"payload": [
+				{"id": 2, "conversation_id": 123, "content": "Internal note", "message_type": 1, "private": true, "created_at": 1700000002},
+				{"id": 1, "conversation_id": 123, "content": "Hello", "message_type": 0, "private": false, "created_at": 1700000001}
+			]}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "transcript", "123", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations transcript --output json failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Messages []struct {
+			Private bool `json:"private"`
+		} `json:"messages"`
+		Meta map[string]any `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if len(payload.Messages) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(payload.Messages))
+	}
+	if payload.Messages[0].Private == false && payload.Messages[1].Private == false {
+		t.Errorf("expected at least one private message in transcript")
+	}
+	if payload.Meta["public_only"] != false {
+		t.Errorf("expected public_only false, got %v", payload.Meta["public_only"])
+	}
+}
+
+func TestConversationsTranscriptCommand_PublicOnly(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 99,
+			"status": "open",
+			"unread_count": 0,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if r.URL.Query().Get("before") != "" {
+				_, _ = w.Write([]byte(`{"payload": []}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"payload": [
+				{"id": 2, "conversation_id": 123, "content": "Internal note", "message_type": 1, "private": true, "created_at": 1700000002},
+				{"id": 1, "conversation_id": 123, "content": "Hello", "message_type": 0, "private": false, "created_at": 1700000001}
+			]}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "transcript", "123", "--public-only", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations transcript --public-only failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Messages []struct {
+			Private bool `json:"private"`
+		} `json:"messages"`
+		Meta map[string]any `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if len(payload.Messages) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(payload.Messages))
+	}
+	if payload.Messages[0].Private {
+		t.Errorf("expected public-only transcript to exclude private messages")
+	}
+	if payload.Meta["public_only"] != true {
+		t.Errorf("expected public_only true, got %v", payload.Meta["public_only"])
+	}
+}
+
+func TestConversationsListCommand_AgentResolveNames(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 10, "inbox_id": 7, "contact_id": 42, "status": "open", "unread_count": 1, "created_at": 1700000000}
+				],
+				"meta": {"total_pages": 1}
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 7, "name": "Support"}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/42", jsonResponse(200, `{
+			"payload": {"id": 42, "name": "Jane Doe", "email": "jane@example.com"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--output", "agent", "--resolve-names"})
+		if err != nil {
+			t.Errorf("conversations list --output agent --resolve-names failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			Path []struct {
+				Type  string `json:"type"`
+				ID    int    `json:"id"`
+				Label string `json:"label"`
+			} `json:"path"`
+			Contact *struct {
+				Name string `json:"name"`
+			} `json:"contact"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Contact == nil || payload.Items[0].Contact.Name != "Jane Doe" {
+		t.Errorf("expected resolved contact name, got %#v", payload.Items[0].Contact)
+	}
+	foundInboxLabel := false
+	for _, entry := range payload.Items[0].Path {
+		if entry.Type == "inbox" && entry.ID == 7 && entry.Label == "Support" {
+			foundInboxLabel = true
+			break
+		}
+	}
+	if !foundInboxLabel {
+		t.Errorf("expected inbox label Support in path, got %#v", payload.Items[0].Path)
+	}
+}

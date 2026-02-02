@@ -83,6 +83,55 @@ func TestMessagesListCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestMessagesListCommand_AgentResolveNames(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello", "message_type": 0, "private": false, "created_at": 1704067200}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 7,
+			"contact_id": 42,
+			"status": "open",
+			"unread_count": 0,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 7, "name": "Support"}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/42", jsonResponse(200, `{
+			"payload": {"id": 42, "name": "Jane Doe"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"messages", "list", "123", "--output", "agent", "--resolve-names"})
+		if err != nil {
+			t.Errorf("messages list --output agent --resolve-names failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Meta map[string]any `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	conversation, ok := payload.Meta["conversation"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected conversation detail in meta, got %#v", payload.Meta["conversation"])
+	}
+	path, ok := conversation["path"].([]any)
+	if !ok || len(path) == 0 {
+		t.Fatalf("expected conversation path in meta, got %#v", conversation["path"])
+	}
+}
+
 func TestMessagesListCommand_Limit(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/accounts/1/conversations/123/messages" {

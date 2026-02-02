@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"strconv"
@@ -391,6 +392,81 @@ func TestConversationsContextCommand_JSON(t *testing.T) {
 
 	if !strings.Contains(output, `"summary"`) {
 		t.Errorf("JSON output missing summary: %s", output)
+	}
+}
+
+func TestConversationsContextCommand_Agent(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"status": "open",
+			"inbox_id": 1,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello", "message_type": 0, "private": false, "created_at": 1700000001},
+				{"id": 2, "content": "Internal", "message_type": 1, "private": true, "created_at": 1700000002}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "John Doe",
+				"email": "john@example.com"
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/labels", jsonResponse(200, `{
+			"labels": ["vip", "trial"]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/contactable_inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 9, "name": "Support", "channel_type": "Channel::Email"}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "context", "123", "-o", "agent"})
+		if err != nil {
+			t.Errorf("conversations context --output agent failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Kind string         `json:"kind"`
+		Item map[string]any `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if payload.Kind != "conversations.context" {
+		t.Fatalf("expected kind conversations.context, got %q", payload.Kind)
+	}
+	messages, ok := payload.Item["messages"].([]any)
+	if !ok {
+		t.Fatalf("expected messages array, got %#v", payload.Item["messages"])
+	}
+	if len(messages) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(messages))
+	}
+	meta, ok := payload.Item["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected meta map, got %#v", payload.Item["meta"])
+	}
+	if meta["message_count"] != float64(2) {
+		t.Fatalf("expected message_count 2, got %#v", meta["message_count"])
+	}
+
+	labels, ok := payload.Item["contact_labels"].([]any)
+	if !ok || len(labels) != 2 {
+		t.Fatalf("expected contact_labels with 2 entries, got %#v", payload.Item["contact_labels"])
+	}
+	inboxes, ok := payload.Item["contact_inboxes"].([]any)
+	if !ok || len(inboxes) != 1 {
+		t.Fatalf("expected contact_inboxes with 1 entry, got %#v", payload.Item["contact_inboxes"])
 	}
 }
 

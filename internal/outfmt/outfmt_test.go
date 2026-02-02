@@ -16,6 +16,7 @@ func TestParse(t *testing.T) {
 		{"", Text, false},
 		{"json", JSON, false},
 		{"jsonl", JSONL, false},
+		{"agent", Agent, false},
 		{"invalid", Text, true},
 		{"JSON", Text, true}, // case sensitive
 	}
@@ -68,6 +69,18 @@ func TestModeContext(t *testing.T) {
 		t.Error("Expected IsJSONL to be true for JSONL")
 	}
 
+	// With Agent mode
+	agentCtx := WithMode(ctx, Agent)
+	if ModeFromContext(agentCtx) != Agent {
+		t.Error("Expected mode to be Agent")
+	}
+	if !IsJSON(agentCtx) {
+		t.Error("Expected IsJSON to be true for Agent")
+	}
+	if !IsAgent(agentCtx) {
+		t.Error("Expected IsAgent to be true for Agent")
+	}
+
 	// With Text mode
 	textCtx := WithMode(ctx, Text)
 	if ModeFromContext(textCtx) != Text {
@@ -84,6 +97,9 @@ func TestModeString(t *testing.T) {
 	}
 	if JSONL.String() != "jsonl" {
 		t.Errorf("Expected 'jsonl', got %q", JSONL.String())
+	}
+	if Agent.String() != "agent" {
+		t.Errorf("Expected 'agent', got %q", Agent.String())
 	}
 }
 
