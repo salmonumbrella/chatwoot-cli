@@ -48,6 +48,36 @@ func (fi *FlexInt) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("cannot unmarshal %s into FlexInt", data)
 }
 
+// FlexFloat handles JSON numbers that may come as strings or numbers
+type FlexFloat float64
+
+func (ff *FlexFloat) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	// Try as float first
+	var f float64
+	if err := json.Unmarshal(data, &f); err == nil {
+		*ff = FlexFloat(f)
+		return nil
+	}
+	// Try as string
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		if s == "" {
+			*ff = 0
+			return nil
+		}
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return err
+		}
+		*ff = FlexFloat(f)
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal %s into FlexFloat", data)
+}
+
 // FlexString handles JSON values that may come as strings or numbers
 // and stores them as strings
 type FlexString string

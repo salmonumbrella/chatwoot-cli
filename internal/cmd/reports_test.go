@@ -463,6 +463,282 @@ func TestReportsAgentsCommand_Empty(t *testing.T) {
 	}
 }
 
+func TestReportsAgentSummaryCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/agent", jsonResponse(200, `[
+			{"id": 1, "conversations_count": 12, "resolved_conversations_count": 10, "avg_resolution_time": 3600, "avg_first_response_time": 120, "avg_reply_time": 240}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "agent-summary"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports agent-summary failed: %v", err)
+	}
+
+	if !strings.Contains(output, "AVG_FIRST_RESPONSE") || !strings.Contains(output, "AVG_REPLY") {
+		t.Errorf("output missing expected headers: %s", output)
+	}
+	if !strings.Contains(output, "3600") {
+		t.Errorf("output missing expected data row: %s", output)
+	}
+}
+
+func TestReportsAgentSummaryCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/agent", jsonResponse(200, `[
+			{"id": 1, "conversations_count": 12, "resolved_conversations_count": 10, "avg_resolution_time": 3600, "avg_first_response_time": 120, "avg_reply_time": 240}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "agent-summary", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports agent-summary failed: %v", err)
+	}
+
+	entries := decodeItems(t, output)
+	if len(entries) == 0 {
+		t.Errorf("expected summary entries, got: %v", entries)
+	}
+}
+
+func TestReportsAgentSummaryCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/agent", jsonResponse(200, `[]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "agent-summary"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports agent-summary failed: %v", err)
+	}
+
+	if !strings.Contains(output, "No agent summary data found") {
+		t.Errorf("expected 'No agent summary data found' message, got: %s", output)
+	}
+}
+
+func TestReportsInboxesCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/inbox", jsonResponse(200, `[
+			{"id": 2, "conversations_count": 8, "resolved_conversations_count": 6, "avg_resolution_time": 1800, "avg_first_response_time": 90, "avg_reply_time": 180}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "inboxes"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports inboxes failed: %v", err)
+	}
+
+	if !strings.Contains(output, "AVG_FIRST_RESPONSE") || !strings.Contains(output, "AVG_REPLY") {
+		t.Errorf("output missing expected headers: %s", output)
+	}
+	if !strings.Contains(output, "1800") {
+		t.Errorf("output missing expected data row: %s", output)
+	}
+}
+
+func TestReportsInboxesCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/inbox", jsonResponse(200, `[
+			{"id": 2, "conversations_count": 8, "resolved_conversations_count": 6, "avg_resolution_time": 1800, "avg_first_response_time": 90, "avg_reply_time": 180}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "inboxes", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports inboxes failed: %v", err)
+	}
+
+	entries := decodeItems(t, output)
+	if len(entries) == 0 {
+		t.Errorf("expected summary entries, got: %v", entries)
+	}
+}
+
+func TestReportsInboxesCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/inbox", jsonResponse(200, `[]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "inboxes"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports inboxes failed: %v", err)
+	}
+
+	if !strings.Contains(output, "No inbox summary data found") {
+		t.Errorf("expected 'No inbox summary data found' message, got: %s", output)
+	}
+}
+
+func TestReportsTeamsCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/team", jsonResponse(200, `[
+			{"id": 3, "conversations_count": 20, "resolved_conversations_count": 15, "avg_resolution_time": 2400, "avg_first_response_time": 150, "avg_reply_time": 300}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "teams"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports teams failed: %v", err)
+	}
+
+	if !strings.Contains(output, "AVG_FIRST_RESPONSE") || !strings.Contains(output, "AVG_REPLY") {
+		t.Errorf("output missing expected headers: %s", output)
+	}
+	if !strings.Contains(output, "2400") {
+		t.Errorf("output missing expected data row: %s", output)
+	}
+}
+
+func TestReportsTeamsCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/team", jsonResponse(200, `[
+			{"id": 3, "conversations_count": 20, "resolved_conversations_count": 15, "avg_resolution_time": 2400, "avg_first_response_time": 150, "avg_reply_time": 300}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "teams", "-o", "json"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports teams failed: %v", err)
+	}
+
+	entries := decodeItems(t, output)
+	if len(entries) == 0 {
+		t.Errorf("expected summary entries, got: %v", entries)
+	}
+}
+
+func TestReportsTeamsCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/summary_reports/team", jsonResponse(200, `[]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Execute(context.Background(), []string{"reports", "teams"})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("reports teams failed: %v", err)
+	}
+
+	if !strings.Contains(output, "No team summary data found") {
+		t.Errorf("expected 'No team summary data found' message, got: %s", output)
+	}
+}
+
 func TestReportsChannelsCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v2/accounts/1/summary_reports/channel", jsonResponse(200, `{

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -23,7 +24,10 @@ Available report types:
   summary      - Get summary statistics (conversations, messages, response times)
   data         - Get time-series report data for a specific metric
   live         - Get real-time conversation metrics (open/unattended/unassigned)
-  agents       - Get agent conversation metrics
+  agents       - Get live agent conversation metrics
+  agent-summary - Get summary report grouped by agent
+  inboxes      - Get summary report grouped by inbox
+  teams        - Get summary report grouped by team
   channels     - Get conversation statistics grouped by channel type
 
 Date parameters use Unix timestamps. Use --from and --to flags with dates like
@@ -35,6 +39,9 @@ to timestamps automatically.`,
 	cmd.AddCommand(newReportsDataCmd())
 	cmd.AddCommand(newReportsLiveCmd())
 	cmd.AddCommand(newReportsAgentsCmd())
+	cmd.AddCommand(newReportsAgentSummaryCmd())
+	cmd.AddCommand(newReportsInboxesCmd())
+	cmd.AddCommand(newReportsTeamsCmd())
 	cmd.AddCommand(newReportsChannelsCmd())
 	cmd.AddCommand(newReportingEventsCmd())
 
@@ -56,6 +63,42 @@ func parseDateTime(date string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid date format %q (expected YYYY-MM-DD or relative): %w", date, err)
 	}
 	return t, nil
+}
+
+func parseOptionalDateRange(from, to string) (string, string, error) {
+	var sinceTS string
+	var untilTS string
+	var fromTime, toTime time.Time
+
+	if from != "" {
+		parsed, err := parseDateTime(from)
+		if err != nil {
+			return "", "", err
+		}
+		sinceTS = fmt.Sprintf("%d", parsed.Unix())
+		fromTime = parsed
+	}
+	if to != "" {
+		parsed, err := parseDateTime(to)
+		if err != nil {
+			return "", "", err
+		}
+		untilTS = fmt.Sprintf("%d", parsed.Unix())
+		toTime = parsed
+	}
+
+	if !fromTime.IsZero() && !toTime.IsZero() && toTime.Before(fromTime) {
+		return "", "", fmt.Errorf("--to date (%s) must be on or after --from date (%s)", to, from)
+	}
+
+	return sinceTS, untilTS, nil
+}
+
+func formatOptionalFloat(value *api.FlexFloat) string {
+	if value == nil {
+		return "-"
+	}
+	return formatValue(float64(*value))
 }
 
 func newReportsSummaryCmd() *cobra.Command {
@@ -320,29 +363,9 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
   chatwoot reports channels --business-hours
   chatwoot reports channels -o json`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
-			var sinceTS string
-			var untilTS string
-			var fromTime, toTime time.Time
-			if from != "" {
-				parsed, err := parseDateTime(from)
-				if err != nil {
-					return err
-				}
-				sinceTS = fmt.Sprintf("%d", parsed.Unix())
-				fromTime = parsed
-			}
-			if to != "" {
-				parsed, err := parseDateTime(to)
-				if err != nil {
-					return err
-				}
-				untilTS = fmt.Sprintf("%d", parsed.Unix())
-				toTime = parsed
-			}
-
-			// Validate date range: --to must be >= --from
-			if from != "" && to != "" && toTime.Before(fromTime) {
-				return fmt.Errorf("--to date (%s) must be on or after --from date (%s)", to, from)
+			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
+			if err != nil {
+				return err
 			}
 
 			client, err := getClient()
@@ -379,6 +402,153 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
 			}
 			_ = w.Flush()
 			return nil
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
+	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+
+	return cmd
+}
+
+func renderSummaryReportEntries(cmd *cobra.Command, entries []api.SummaryReportEntry, emptyMessage string) error {
+	if isJSON(cmd) {
+		return printJSON(cmd, entries)
+	}
+
+	if len(entries) == 0 {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), emptyMessage)
+		return nil
+	}
+
+	w := newTabWriterFromCmd(cmd)
+	_, _ = fmt.Fprintln(w, "ID\tCONVERSATIONS\tRESOLVED\tAVG_FIRST_RESPONSE\tAVG_RESOLUTION\tAVG_REPLY")
+	for _, entry := range entries {
+		_, _ = fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%s\n",
+			entry.ID,
+			entry.ConversationsCount,
+			entry.ResolvedConversationsCount,
+			formatOptionalFloat(entry.AvgFirstResponseTime),
+			formatOptionalFloat(entry.AvgResolutionTime),
+			formatOptionalFloat(entry.AvgReplyTime),
+		)
+	}
+	_ = w.Flush()
+	return nil
+}
+
+func newReportsAgentSummaryCmd() *cobra.Command {
+	var from string
+	var to string
+	var businessHours bool
+
+	cmd := &cobra.Command{
+		Use:     "agent-summary",
+		Aliases: []string{"agents-summary"},
+		Short:   "Get summary report grouped by agent",
+		Long: `Get summary report grouped by agent.
+
+Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
+		Example: `  chatwoot reports agent-summary --from 2024-01-01 --to 2024-01-31
+  chatwoot reports agent-summary --business-hours`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			entries, err := client.Reports().SummaryByAgent(cmdContext(cmd), sinceTS, untilTS, boolPtrIfChanged(cmd, "business-hours", businessHours))
+			if err != nil {
+				return err
+			}
+
+			return renderSummaryReportEntries(cmd, entries, "No agent summary data found")
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
+	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+
+	return cmd
+}
+
+func newReportsInboxesCmd() *cobra.Command {
+	var from string
+	var to string
+	var businessHours bool
+
+	cmd := &cobra.Command{
+		Use:   "inboxes",
+		Short: "Get summary report grouped by inbox",
+		Long: `Get summary report grouped by inbox.
+
+Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
+		Example: `  chatwoot reports inboxes --from 2024-01-01 --to 2024-01-31
+  chatwoot reports inboxes --business-hours`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			entries, err := client.Reports().SummaryByInbox(cmdContext(cmd), sinceTS, untilTS, boolPtrIfChanged(cmd, "business-hours", businessHours))
+			if err != nil {
+				return err
+			}
+
+			return renderSummaryReportEntries(cmd, entries, "No inbox summary data found")
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
+	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+
+	return cmd
+}
+
+func newReportsTeamsCmd() *cobra.Command {
+	var from string
+	var to string
+	var businessHours bool
+
+	cmd := &cobra.Command{
+		Use:   "teams",
+		Short: "Get summary report grouped by team",
+		Long: `Get summary report grouped by team.
+
+Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
+		Example: `  chatwoot reports teams --from 2024-01-01 --to 2024-01-31
+  chatwoot reports teams --business-hours`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			entries, err := client.Reports().SummaryByTeam(cmdContext(cmd), sinceTS, untilTS, boolPtrIfChanged(cmd, "business-hours", businessHours))
+			if err != nil {
+				return err
+			}
+
+			return renderSummaryReportEntries(cmd, entries, "No team summary data found")
 		}),
 	}
 

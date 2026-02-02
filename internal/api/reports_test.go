@@ -699,6 +699,81 @@ func TestGetChannelSummary(t *testing.T) {
 	}
 }
 
+func TestSummaryReportEntries(t *testing.T) {
+	boolPtr := func(v bool) *bool { return &v }
+
+	tests := []struct {
+		name          string
+		expectedPath  string
+		call          func(ReportsService, context.Context, string, string, *bool) ([]SummaryReportEntry, error)
+		businessHours *bool
+	}{
+		{
+			name:          "summary by inbox",
+			expectedPath:  "/api/v2/accounts/1/summary_reports/inbox",
+			call:          ReportsService.SummaryByInbox,
+			businessHours: boolPtr(true),
+		},
+		{
+			name:          "summary by agent",
+			expectedPath:  "/api/v2/accounts/1/summary_reports/agent",
+			call:          ReportsService.SummaryByAgent,
+			businessHours: boolPtr(true),
+		},
+		{
+			name:          "summary by team",
+			expectedPath:  "/api/v2/accounts/1/summary_reports/team",
+			call:          ReportsService.SummaryByTeam,
+			businessHours: boolPtr(true),
+		},
+	}
+
+	responseBody := `[
+		{"id": 1, "conversations_count": 12, "resolved_conversations_count": 10, "avg_resolution_time": 3600, "avg_first_response_time": 120, "avg_reply_time": 240},
+		{"id": 2, "conversations_count": 5, "resolved_conversations_count": 3, "avg_resolution_time": null, "avg_first_response_time": 60, "avg_reply_time": null}
+	]`
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedURL string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedURL = r.URL.String()
+				if r.Method != http.MethodGet {
+					t.Errorf("Expected GET, got %s", r.Method)
+				}
+				if r.URL.Path != tt.expectedPath {
+					t.Errorf("Expected path %s, got %s", tt.expectedPath, r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			result, err := tt.call(client.Reports(), context.Background(), "1609459200", "1609545600", tt.businessHours)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+			if len(result) != 2 {
+				t.Errorf("Expected 2 summary entries, got %d", len(result))
+			}
+			if len(result) > 0 && result[0].ID != 1 {
+				t.Errorf("Expected first entry ID 1, got %d", result[0].ID)
+			}
+			if len(result) > 1 && result[1].AvgResolutionTime != nil {
+				t.Error("Expected second entry avg_resolution_time to be nil")
+			}
+			if !strings.Contains(capturedURL, "since=1609459200") || !strings.Contains(capturedURL, "until=1609545600") {
+				t.Error("Expected URL to include since/until query params")
+			}
+			if !strings.Contains(capturedURL, "business_hours=true") {
+				t.Error("Expected URL to include business_hours=true")
+			}
+		})
+	}
+}
+
 func TestListReportingEvents(t *testing.T) {
 	tests := []struct {
 		name         string

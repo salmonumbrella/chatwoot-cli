@@ -54,6 +54,16 @@ type ChannelSummary struct {
 	Total    int `json:"total"`
 }
 
+// SummaryReportEntry represents a summary report entry grouped by inbox, agent, or team.
+type SummaryReportEntry struct {
+	ID                         int        `json:"id"`
+	ConversationsCount         FlexInt    `json:"conversations_count"`
+	ResolvedConversationsCount FlexInt    `json:"resolved_conversations_count"`
+	AvgResolutionTime          *FlexFloat `json:"avg_resolution_time,omitempty"`
+	AvgFirstResponseTime       *FlexFloat `json:"avg_first_response_time,omitempty"`
+	AvgReplyTime               *FlexFloat `json:"avg_reply_time,omitempty"`
+}
+
 // v2ReportPath returns the base path for v2 reports API
 func (c *Client) v2ReportPath(path string) string {
 	return fmt.Sprintf("%s/api/v2/accounts/%d%s", c.BaseURL, c.AccountID, path)
@@ -155,6 +165,45 @@ func (s ReportsService) ChannelSummary(ctx context.Context, since, until string,
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s ReportsService) summaryReportEntries(ctx context.Context, path, since, until string, businessHours *bool) ([]SummaryReportEntry, error) {
+	params := url.Values{}
+	if since != "" {
+		params.Set("since", since)
+	}
+	if until != "" {
+		params.Set("until", until)
+	}
+	if businessHours != nil {
+		params.Set("business_hours", strconv.FormatBool(*businessHours))
+	}
+
+	reqURL := s.v2ReportPath(path)
+	if len(params) > 0 {
+		reqURL += "?" + params.Encode()
+	}
+
+	var result []SummaryReportEntry
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// SummaryByInbox gets summary report entries grouped by inbox.
+func (s ReportsService) SummaryByInbox(ctx context.Context, since, until string, businessHours *bool) ([]SummaryReportEntry, error) {
+	return s.summaryReportEntries(ctx, "/summary_reports/inbox", since, until, businessHours)
+}
+
+// SummaryByAgent gets summary report entries grouped by agent.
+func (s ReportsService) SummaryByAgent(ctx context.Context, since, until string, businessHours *bool) ([]SummaryReportEntry, error) {
+	return s.summaryReportEntries(ctx, "/summary_reports/agent", since, until, businessHours)
+}
+
+// SummaryByTeam gets summary report entries grouped by team.
+func (s ReportsService) SummaryByTeam(ctx context.Context, since, until string, businessHours *bool) ([]SummaryReportEntry, error) {
+	return s.summaryReportEntries(ctx, "/summary_reports/team", since, until, businessHours)
 }
 
 // ReportingEvent represents a reporting event
