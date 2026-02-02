@@ -17,6 +17,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
+	"github.com/chatwoot/chatwoot-cli/internal/heuristics"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -240,6 +241,7 @@ func newConversationsGetCmd() *cobra.Command {
 	var withContext bool
 	var withMessages bool
 	var messageLimit int
+	var suggestedActions bool
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -260,6 +262,9 @@ func newConversationsGetCmd() *cobra.Command {
 
   # Get context with limited messages
   chatwoot conversations get 123 --context --message-limit 10 --output agent
+
+  # Get conversation with AI-suggested actions (agent mode)
+  chatwoot conversations get 123 --suggested-actions --output agent
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -345,6 +350,38 @@ func newConversationsGetCmd() *cobra.Command {
 				})
 			}
 
+			// Handle --suggested-actions flag in agent mode
+			if suggestedActions && isAgent(cmd) {
+				detail := agentfmt.ConversationDetailFromConversation(*conv)
+				detail = resolveConversationDetail(ctx, client, detail)
+
+				// Fetch messages for heuristics
+				messages, _ := client.Messages().List(ctx, id)
+
+				// Fetch contact history if contact ID is available
+				var contactHistory []api.Conversation
+				if conv.ContactID > 0 {
+					contactHistory, _ = client.Contacts().Conversations(ctx, conv.ContactID)
+				}
+
+				// Get suggested actions from heuristics
+				actions := heuristics.SuggestActions(conv, messages, contactHistory)
+
+				// Build response with suggested actions
+				type ConversationDetailWithSuggestedActions struct {
+					agentfmt.ConversationDetail
+					SuggestedActions []heuristics.SuggestedAction `json:"suggested_actions,omitempty"`
+				}
+
+				return printJSON(cmd, agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: ConversationDetailWithSuggestedActions{
+						ConversationDetail: detail,
+						SuggestedActions:   actions,
+					},
+				})
+			}
+
 			if isAgent(cmd) {
 				detail := agentfmt.ConversationDetailFromConversation(*conv)
 				detail = resolveConversationDetail(ctx, client, detail)
@@ -364,6 +401,7 @@ func newConversationsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&withMessages, "with-messages", false, "Include recent messages in agent output")
 	cmd.Flags().BoolVar(&withContext, "context", false, "Include comprehensive context (messages, contact with relationship) - agent mode only")
 	cmd.Flags().IntVar(&messageLimit, "message-limit", 20, "Maximum messages to include (default 20)")
+	cmd.Flags().BoolVar(&suggestedActions, "suggested-actions", false, "Include AI-suggested actions in agent output")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},

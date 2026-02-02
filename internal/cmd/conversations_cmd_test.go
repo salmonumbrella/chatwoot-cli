@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1663,5 +1664,80 @@ func TestConversationsGetContextNoAgent(t *testing.T) {
 	}
 	if result.Contact != nil {
 		t.Errorf("expected no contact field in non-agent output, got %v", result.Contact)
+	}
+}
+
+func TestConversationsGetSuggestedActions(t *testing.T) {
+	// Set last_activity_at to more than 24 hours ago to trigger "high" priority reply suggestion
+	oldActivityAt := time.Now().Add(-48 * time.Hour).Unix()
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"unread_count": 3,
+			"muted": false,
+			"created_at": 1700000000,
+			"last_activity_at": `+strconv.FormatInt(oldActivityAt, 10)+`
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "conversation_id": 123, "message_type": 0, "content": "Hello", "created_at": 1700000100},
+				{"id": 2, "conversation_id": 123, "message_type": 1, "content": "Hi there", "created_at": 1700000200}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 123, "status": "open", "created_at": 1700000000, "last_activity_at": 1700000300}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "get", "123", "--suggested-actions", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations get --suggested-actions failed: %v", err)
+		}
+	})
+
+	// Verify it's valid JSON with expected structure including suggested_actions
+	var result struct {
+		Kind string `json:"kind"`
+		Item struct {
+			ID               int `json:"id"`
+			SuggestedActions []struct {
+				Action   string `json:"action"`
+				Reason   string `json:"reason"`
+				Priority string `json:"priority"`
+			} `json:"suggested_actions"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, output)
+	}
+
+	if result.Kind != "conversations.get" {
+		t.Errorf("expected kind 'conversations.get', got %q", result.Kind)
+	}
+	if result.Item.ID != 123 {
+		t.Errorf("expected conversation ID 123, got %d", result.Item.ID)
+	}
+	if len(result.Item.SuggestedActions) == 0 {
+		t.Error("expected at least one suggested action, got none")
+	}
+
+	// Verify at least one action is "reply" (for unread conversation)
+	hasReplyAction := false
+	for _, action := range result.Item.SuggestedActions {
+		if action.Action == "reply" {
+			hasReplyAction = true
+			break
+		}
+	}
+	if !hasReplyAction {
+		t.Errorf("expected 'reply' action for unread conversation, got actions: %+v", result.Item.SuggestedActions)
 	}
 }
