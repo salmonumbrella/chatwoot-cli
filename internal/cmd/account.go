@@ -8,8 +8,9 @@ import (
 
 func newAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "account",
-		Short: "Manage account",
+		Use:     "account",
+		Aliases: []string{"acc"},
+		Short:   "Manage account",
 	}
 
 	cmd.AddCommand(newAccountGetCmd())

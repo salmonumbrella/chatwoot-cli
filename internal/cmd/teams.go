@@ -11,9 +11,10 @@ import (
 
 func newTeamsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "teams",
-		Short: "Manage teams",
-		Long:  "Create, list, update, and manage teams and their members",
+		Use:     "teams",
+		Aliases: []string{"team", "t"},
+		Short:   "Manage teams",
+		Long:    "Create, list, update, and manage teams and their members",
 	}
 
 	cmd.AddCommand(newTeamsListCmd())

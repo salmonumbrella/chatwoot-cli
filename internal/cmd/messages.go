@@ -20,9 +20,10 @@ import (
 // newMessagesCmd creates the messages command
 func newMessagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "messages",
-		Short: "Manage conversation messages",
-		Long:  "List, create, and delete messages in conversations",
+		Use:     "messages",
+		Aliases: []string{"message", "msg"},
+		Short:   "Manage conversation messages",
+		Long:    "List, create, and delete messages in conversations",
 	}
 
 	cmd.AddCommand(newMessagesListCmd())

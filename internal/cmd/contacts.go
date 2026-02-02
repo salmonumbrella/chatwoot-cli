@@ -16,9 +16,10 @@ import (
 
 func newContactsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "contacts",
-		Short: "Manage contacts",
-		Long:  "List, create, update, delete, and search contacts in your Chatwoot account",
+		Use:     "contacts",
+		Aliases: []string{"contact", "co"},
+		Short:   "Manage contacts",
+		Long:    "List, create, update, delete, and search contacts in your Chatwoot account",
 	}
 
 	cmd.AddCommand(newContactsListCmd())

@@ -12,9 +12,10 @@ import (
 
 func newAgentsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "agents",
-		Short: "Manage agents",
-		Long:  "List, create, update, and delete agents in your Chatwoot account",
+		Use:     "agents",
+		Aliases: []string{"agent", "a"},
+		Short:   "Manage agents",
+		Long:    "List, create, update, and delete agents in your Chatwoot account",
 	}
 
 	cmd.AddCommand(newAgentsListCmd())

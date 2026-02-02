@@ -14,7 +14,7 @@ import (
 func newLabelsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "labels",
-		Aliases: []string{"label"},
+		Aliases: []string{"label", "l"},
 		Short:   "Manage account labels",
 		Long:    "Create, list, update, and delete account-level labels",
 	}

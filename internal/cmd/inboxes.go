@@ -14,9 +14,10 @@ import (
 
 func newInboxesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "inboxes",
-		Short: "Manage inboxes",
-		Long:  "List, create, update, and delete inboxes in your Chatwoot account",
+		Use:     "inboxes",
+		Aliases: []string{"inbox", "in"},
+		Short:   "Manage inboxes",
+		Long:    "List, create, update, and delete inboxes in your Chatwoot account",
 	}
 
 	cmd.AddCommand(newInboxesListCmd())

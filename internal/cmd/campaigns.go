@@ -15,9 +15,10 @@ import (
 
 func newCampaignsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "campaigns",
-		Short: "Manage campaigns",
-		Long:  "Create, list, update, and delete campaigns for SMS and other channels.",
+		Use:     "campaigns",
+		Aliases: []string{"campaign", "camp"},
+		Short:   "Manage campaigns",
+		Long:    "Create, list, update, and delete campaigns for SMS and other channels.",
 	}
 
 	cmd.AddCommand(newCampaignsListCmd())

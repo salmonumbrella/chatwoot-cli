@@ -16,7 +16,7 @@ import (
 func newReportsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "reports",
-		Aliases: []string{"report"},
+		Aliases: []string{"report", "rpt"},
 		Short:   "View reports and analytics",
 		Long: `View reports and analytics from the Chatwoot API.
 

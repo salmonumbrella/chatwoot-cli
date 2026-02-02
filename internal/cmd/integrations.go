@@ -12,7 +12,7 @@ import (
 func newIntegrationsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "integrations",
-		Aliases: []string{"integration"},
+		Aliases: []string{"integration", "int"},
 		Short:   "Manage integrations",
 	}
 
