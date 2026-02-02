@@ -238,6 +238,7 @@ func conversationsListSummary(cmd *cobra.Command, summary ListSummary) error {
 
 func newConversationsGetCmd() *cobra.Command {
 	var withContext bool
+	var withMessages bool
 	var messageLimit int
 
 	cmd := &cobra.Command{
@@ -250,6 +251,9 @@ func newConversationsGetCmd() *cobra.Command {
 
   # Get conversation as JSON
   chatwoot conversations get 123 --output json
+
+  # Get conversation with recent messages (agent mode)
+  chatwoot conversations get 123 --with-messages --output agent
 
   # Get comprehensive context (agent mode only)
   chatwoot conversations get 123 --context --output agent
@@ -311,6 +315,36 @@ func newConversationsGetCmd() *cobra.Command {
 				})
 			}
 
+			// Handle --with-messages flag in agent mode
+			if withMessages && isAgent(cmd) {
+				detail := agentfmt.ConversationDetailFromConversation(*conv)
+				detail = resolveConversationDetail(ctx, client, detail)
+
+				// Fetch messages
+				messages, err := client.Messages().List(ctx, id)
+				if err != nil {
+					return fmt.Errorf("failed to fetch messages for conversation %d: %w", id, err)
+				}
+
+				// Apply message limit (default 20)
+				limit := messageLimit
+				if limit == 0 {
+					limit = 20
+				}
+				if len(messages) > limit {
+					messages = messages[:limit]
+				}
+
+				detailWithMessages := agentfmt.ConversationDetailWithMessages{
+					ConversationDetail: detail,
+					Messages:           agentfmt.MessageSummaries(messages),
+				}
+				return printJSON(cmd, agentfmt.ItemEnvelope{
+					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
+					Item: detailWithMessages,
+				})
+			}
+
 			if isAgent(cmd) {
 				detail := agentfmt.ConversationDetailFromConversation(*conv)
 				detail = resolveConversationDetail(ctx, client, detail)
@@ -327,8 +361,9 @@ func newConversationsGetCmd() *cobra.Command {
 		}),
 	}
 
+	cmd.Flags().BoolVar(&withMessages, "with-messages", false, "Include recent messages in agent output")
 	cmd.Flags().BoolVar(&withContext, "context", false, "Include comprehensive context (messages, contact with relationship) - agent mode only")
-	cmd.Flags().IntVar(&messageLimit, "message-limit", 0, "Limit number of messages returned (0 = all, returns most recent)")
+	cmd.Flags().IntVar(&messageLimit, "message-limit", 20, "Maximum messages to include (default 20)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
