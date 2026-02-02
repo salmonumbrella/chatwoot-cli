@@ -10,20 +10,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// SnippetInfo contains a matching message snippet for a conversation
+type SnippetInfo struct {
+	MessageID int    `json:"message_id"`
+	Content   string `json:"content"`
+	CreatedAt int64  `json:"created_at"`
+}
+
 // SearchResults represents the combined search results from multiple resource types
 type SearchResults struct {
-	Query         string             `json:"query"`
-	Contacts      []api.Contact      `json:"contacts,omitempty"`
-	Conversations []api.Conversation `json:"conversations,omitempty"`
-	Summary       map[string]int     `json:"summary"`
+	Query         string                 `json:"query"`
+	Contacts      []api.Contact          `json:"contacts,omitempty"`
+	Conversations []api.Conversation     `json:"conversations,omitempty"`
+	Snippets      map[string]SnippetInfo `json:"snippets,omitempty"`
+	Summary       map[string]int         `json:"summary"`
 }
 
 func newSearchCmd() *cobra.Command {
 	var (
-		types     []string
-		limit     int
-		selectOne bool
-		selectRaw bool
+		types          []string
+		limit          int
+		selectOne      bool
+		selectRaw      bool
+		includeSnippet bool
 	)
 
 	cmd := &cobra.Command{
@@ -198,6 +207,21 @@ of relevant resources with a single query.`,
 
 			if searchErr != nil {
 				return searchErr
+			}
+
+			// Fetch message snippets if requested
+			if includeSnippet && len(results.Conversations) > 0 {
+				results.Snippets = make(map[string]SnippetInfo)
+				for _, conv := range results.Conversations {
+					messages, err := client.Messages().List(ctx, conv.ID)
+					if err != nil {
+						// Skip conversations where we can't fetch messages
+						continue
+					}
+					if snippet, found := extractSnippet(messages, query); found {
+						results.Snippets[fmt.Sprintf("%d", conv.ID)] = snippet
+					}
+				}
 			}
 
 			if selectOne {
@@ -380,6 +404,59 @@ of relevant resources with a single query.`,
 	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum results per type")
 	cmd.Flags().BoolVar(&selectOne, "select", false, "Interactively select a single result")
 	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")
+	cmd.Flags().BoolVar(&includeSnippet, "include-snippet", false, "Include matching message snippet for conversations")
 
 	return cmd
+}
+
+// extractSnippet searches messages for the query and returns a snippet with context.
+// It finds the first message containing the query (case-insensitive) and extracts
+// approximately 20 chars before and 50 chars after the match, adding "..." if truncated.
+func extractSnippet(messages []api.Message, query string) (SnippetInfo, bool) {
+	queryLower := strings.ToLower(query)
+
+	for _, msg := range messages {
+		content := msg.Content
+		contentLower := strings.ToLower(content)
+
+		idx := strings.Index(contentLower, queryLower)
+		if idx == -1 {
+			continue
+		}
+
+		// Calculate snippet bounds (~20 chars before, ~50 chars after)
+		const (
+			contextBefore = 20
+			contextAfter  = 50
+		)
+
+		start := idx - contextBefore
+		end := idx + len(query) + contextAfter
+
+		// Adjust bounds to stay within content
+		prefix := ""
+		suffix := ""
+
+		if start < 0 {
+			start = 0
+		} else {
+			prefix = "..."
+		}
+
+		if end > len(content) {
+			end = len(content)
+		} else {
+			suffix = "..."
+		}
+
+		snippet := prefix + content[start:end] + suffix
+
+		return SnippetInfo{
+			MessageID: msg.ID,
+			Content:   snippet,
+			CreatedAt: msg.CreatedAt,
+		}, true
+	}
+
+	return SnippetInfo{}, false
 }

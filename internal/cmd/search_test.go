@@ -507,6 +507,98 @@ func TestSearchCommand_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestSearchIncludeSnippet(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [],
+			"meta": {"count": 0}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1},
+					{"id": 200, "status": "pending", "inbox_id": 2}
+				],
+				"meta": {"count": 2}
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/100/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello there, I really need a refund for my order #12345 from last week because the item was damaged", "message_type": 0, "created_at": 1700000000},
+				{"id": 2, "content": "Thanks for your help", "message_type": 1, "created_at": 1700000100}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/200/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 3, "content": "Can I get a refund?", "message_type": 0, "created_at": 1700000200}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "refund", "--type", "conversations", "--include-snippet", "--output", "json"})
+		if err != nil {
+			t.Fatalf("search --include-snippet failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Query         string             `json:"query"`
+		Conversations []struct{ ID int } `json:"conversations"`
+		Snippets      map[string]struct {
+			MessageID int    `json:"message_id"`
+			Content   string `json:"content"`
+			CreatedAt int64  `json:"created_at"`
+		} `json:"snippets"`
+		Summary map[string]int `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	// Check that we got 2 conversations
+	if result.Summary["conversations"] != 2 {
+		t.Errorf("expected 2 conversations, got %d", result.Summary["conversations"])
+	}
+
+	// Check that snippets map exists and has entries
+	if result.Snippets == nil {
+		t.Fatal("expected snippets map in output, got nil")
+	}
+	if len(result.Snippets) != 2 {
+		t.Errorf("expected 2 snippets, got %d", len(result.Snippets))
+	}
+
+	// Check snippet for conversation 100
+	snippet100, ok := result.Snippets["100"]
+	if !ok {
+		t.Fatal("expected snippet for conversation 100")
+	}
+	if snippet100.MessageID != 1 {
+		t.Errorf("expected message_id 1 for conversation 100, got %d", snippet100.MessageID)
+	}
+	if !strings.Contains(snippet100.Content, "refund") {
+		t.Errorf("expected snippet to contain 'refund', got %q", snippet100.Content)
+	}
+	// Verify truncation with ellipsis (message is long enough to truncate)
+	if !strings.HasPrefix(snippet100.Content, "...") {
+		t.Errorf("expected snippet to start with '...', got %q", snippet100.Content)
+	}
+
+	// Check snippet for conversation 200
+	snippet200, ok := result.Snippets["200"]
+	if !ok {
+		t.Fatal("expected snippet for conversation 200")
+	}
+	if snippet200.MessageID != 3 {
+		t.Errorf("expected message_id 3 for conversation 200, got %d", snippet200.MessageID)
+	}
+	if !strings.Contains(snippet200.Content, "refund") {
+		t.Errorf("expected snippet to contain 'refund', got %q", snippet200.Content)
+	}
+}
+
 func TestSearchConversationContent(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
