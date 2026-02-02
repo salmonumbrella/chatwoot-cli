@@ -60,7 +60,7 @@ func newConversationsCmd() *cobra.Command {
 
 func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 	w := newTabWriter(out)
-	_, _ = fmt.Fprintln(w, "ID\tINBOX\tSTATUS\tPRIORITY\tUNREAD\tMSGS\tCREATED")
+	_, _ = fmt.Fprintln(w, "ID\tINBOX\tSTATUS\tPRIORITY\tUNREAD\tMSGS\tCREATED\tLAST_ACTIVITY")
 	for _, conv := range conversations {
 		priority := "-"
 		if conv.Priority != nil {
@@ -71,7 +71,7 @@ func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 			displayID = *conv.DisplayID
 		}
 		msgs := formatMessageCount(conv.MessagesCount)
-		_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%d\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n",
 			displayID,
 			conv.InboxID,
 			conv.Status,
@@ -79,6 +79,7 @@ func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 			conv.Unread,
 			msgs,
 			formatTimestampShort(conv.CreatedAtTime()),
+			formatTimestampShort(conv.LastActivityAtTime()),
 		)
 	}
 	_ = w.Flush()
@@ -99,7 +100,7 @@ func newConversationsListCmd() *cobra.Command {
 		EmptyMessage:      "",
 		DisableLimit:      true,
 		DefaultMaxPages:   100,
-		Headers:           []string{"ID", "INBOX", "STATUS", "PRIORITY", "UNREAD", "MSGS", "CREATED"},
+		Headers:           []string{"ID", "INBOX", "STATUS", "PRIORITY", "UNREAD", "MSGS", "CREATED", "LAST_ACTIVITY"},
 		RowFunc:           conversationRow,
 		AfterOutput:       conversationsListSummary,
 		DisablePagination: false,
@@ -182,6 +183,7 @@ func conversationRow(conv api.Conversation) []string {
 		fmt.Sprintf("%d", conv.Unread),
 		formatMessageCount(conv.MessagesCount),
 		formatTimestampShort(conv.CreatedAtTime()),
+		formatTimestampShort(conv.LastActivityAtTime()),
 	}
 }
 

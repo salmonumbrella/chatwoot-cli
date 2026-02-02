@@ -265,7 +265,7 @@ func Execute(ctx context.Context, args []string) error {
 
 	root.SetContext(ctx)
 	root.SetArgs(args)
-	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl|agent")
+	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl|agent (env CHATWOOT_OUTPUT)")
 	root.PersistentFlags().BoolVar(&flags.JSON, "json", false, "Output JSON (alias for --output json)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
 	root.PersistentFlags().BoolVar(&flags.ResolveNames, "resolve-names", false, "Resolve contact/inbox names in agent output (extra API calls; env CHATWOOT_RESOLVE_NAMES=1)")
