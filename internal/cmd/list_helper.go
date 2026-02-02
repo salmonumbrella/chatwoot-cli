@@ -163,16 +163,18 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						summaryPageSize = len(result.Items)
 					}
 					items := result.Items
+					meta := map[string]any{
+						"page":          page,
+						"page_size":     summaryPageSize,
+						"pages_fetched": 1,
+						"total_items":   len(result.Items),
+						"all":           false,
+					}
+					addRateLimitMeta(meta, client)
 					payload := map[string]interface{}{
 						"items":    items,
 						"has_more": result.HasMore,
-						"meta": map[string]any{
-							"page":          page,
-							"page_size":     summaryPageSize,
-							"pages_fetched": 1,
-							"total_items":   len(result.Items),
-							"all":           false,
-						},
+						"meta":     meta,
 					}
 					if mode == outfmt.Agent {
 						payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
@@ -352,16 +354,18 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			if cfg.DisablePagination {
 				summaryPageSize = len(allItems)
 			}
+			meta := map[string]any{
+				"page":          page,
+				"page_size":     summaryPageSize,
+				"pages_fetched": pagesFetched,
+				"total_items":   len(allItems),
+				"all":           true,
+			}
+			addRateLimitMeta(meta, client)
 			payload := map[string]interface{}{
 				"items":    allItems,
 				"has_more": false,
-				"meta": map[string]any{
-					"page":          page,
-					"page_size":     summaryPageSize,
-					"pages_fetched": pagesFetched,
-					"total_items":   len(allItems),
-					"all":           true,
-				},
+				"meta":     meta,
 			}
 			if mode == outfmt.Agent {
 				payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
@@ -393,4 +397,17 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 		pageSize = defaultLimit
 	}
 	return cmd
+}
+
+func addRateLimitMeta(meta map[string]any, client *api.Client) {
+	if meta == nil || client == nil {
+		return
+	}
+	info := client.LastRateLimit()
+	if info == nil {
+		return
+	}
+	if rateMeta := info.Meta(); rateMeta != nil {
+		meta["rate_limit"] = rateMeta
+	}
 }

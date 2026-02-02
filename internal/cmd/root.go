@@ -37,6 +37,7 @@ type rootFlags struct {
 	Fields                  string
 	Template                string
 	Timeout                 time.Duration
+	Wait                    bool
 	IdempotencyKey          string
 	UTC                     bool
 	TimeZone                string
@@ -280,6 +281,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
+	root.PersistentFlags().BoolVar(&flags.Wait, "wait", false, "Wait for asynchronous operations to complete")
 	root.PersistentFlags().StringVar(&flags.IdempotencyKey, "idempotency-key", "", "Idempotency key for write requests (use 'auto' for per-request keys)")
 	root.PersistentFlags().BoolVar(&flags.UTC, "utc", false, "Display timestamps in UTC")
 	root.PersistentFlags().StringVar(&flags.TimeZone, "time-zone", "", "Time zone for displayed timestamps (e.g., America/Los_Angeles)")

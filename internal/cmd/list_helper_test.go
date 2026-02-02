@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
@@ -119,6 +120,61 @@ func TestListCommand_JSONOutput(t *testing.T) {
 	}
 	if _, ok := meta["total_items"]; !ok {
 		t.Fatalf("expected meta to contain total_items, got %v", meta)
+	}
+}
+
+func TestListCommand_JSONOutput_IncludesRateLimitMeta(t *testing.T) {
+	cfg := ListConfig[testItem]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			return ListResult[testItem]{Items: []testItem{{ID: 1, Name: "test"}}, HasMore: false}, nil
+		},
+	}
+
+	client := api.New("https://example.com", "", 1)
+	limit := 100
+	remaining := 42
+	resetAt := time.Date(2026, 2, 2, 15, 30, 0, 0, time.UTC)
+	client.SetRateLimitInfo(&api.RateLimitInfo{
+		Limit:     &limit,
+		Remaining: &remaining,
+		ResetAt:   &resetAt,
+	})
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return client, nil })
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	meta, ok := payload["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected meta in payload, got %v", payload)
+	}
+	rateLimit, ok := meta["rate_limit"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected rate_limit metadata, got %v", meta)
+	}
+	if rateLimit["limit"] != float64(limit) {
+		t.Fatalf("expected limit %d, got %v", limit, rateLimit["limit"])
+	}
+	if rateLimit["remaining"] != float64(remaining) {
+		t.Fatalf("expected remaining %d, got %v", remaining, rateLimit["remaining"])
+	}
+	if rateLimit["reset_at"] != resetAt.Format(time.RFC3339) {
+		t.Fatalf("expected reset_at %s, got %v", resetAt.Format(time.RFC3339), rateLimit["reset_at"])
 	}
 }
 

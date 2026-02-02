@@ -134,5 +134,5 @@ func ExitWithError(err error) {
 		return
 	}
 	_, _ = fmt.Fprint(os.Stderr, HandleError(err))
-	os.Exit(1)
+	os.Exit(ExitCode(err))
 }

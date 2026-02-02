@@ -491,7 +491,8 @@ func promptTeamID(ctx context.Context, client *api.Client) (int, error) {
 var errAlreadyHandled = errors.New("error already handled")
 
 type handledError struct {
-	err error
+	err      error
+	exitCode int
 }
 
 func (e *handledError) Error() string {
@@ -500,6 +501,10 @@ func (e *handledError) Error() string {
 
 func (e *handledError) Unwrap() error {
 	return errAlreadyHandled
+}
+
+func (e *handledError) ExitCode() int {
+	return e.exitCode
 }
 
 // ANSI color codes
@@ -659,7 +664,7 @@ func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Comm
 				_, _ = fmt.Fprint(cmd.ErrOrStderr(), HandleError(err))
 			}
 			// Return a handled error so tests can still inspect the original message.
-			return &handledError{err: err}
+			return &handledError{err: err, exitCode: ExitCode(err)}
 		}
 		return nil
 	}

@@ -20,7 +20,11 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 )
 
-const DefaultTimeout = 30 * time.Second
+const (
+	DefaultTimeout      = 30 * time.Second
+	DefaultWaitTimeout  = 5 * time.Minute
+	DefaultWaitInterval = 2 * time.Second
+)
 
 // Client is the Chatwoot API client.
 //
@@ -43,6 +47,11 @@ type Client struct {
 	circuitBreaker     *circuitBreaker // circuit breaker for retry logic
 	validatedBaseURL   bool
 	validateMu         sync.Mutex
+	WaitForAsync       bool
+	WaitTimeout        time.Duration
+	WaitInterval       time.Duration
+	rateLimitMu        sync.Mutex
+	lastRateLimit      *RateLimitInfo
 }
 
 // Compile-time interface implementation checks
@@ -87,6 +96,8 @@ func New(baseURL, token string, accountID int) *Client {
 			threshold: retryCfg.CircuitBreakerThreshold,
 			resetTime: retryCfg.CircuitBreakerResetTime,
 		},
+		WaitTimeout:  DefaultWaitTimeout,
+		WaitInterval: DefaultWaitInterval,
 	}
 }
 
@@ -185,6 +196,12 @@ func (c *Client) executeRequest(ctx context.Context, method, url string, body an
 // executeRequestWithBody performs HTTP requests with retry logic for raw request bodies.
 // contentType can be empty to omit the Content-Type header.
 func (c *Client) executeRequestWithBody(ctx context.Context, method, url string, body []byte, contentType string) ([]byte, http.Header, int, error) {
+	return c.executeRequestWithBodyInternal(ctx, method, url, body, contentType, true)
+}
+
+// executeRequestWithBodyInternal performs HTTP requests with retry logic and optional async waiting.
+// allowWait controls whether 202 responses trigger async polling.
+func (c *Client) executeRequestWithBodyInternal(ctx context.Context, method, url string, body []byte, contentType string, allowWait bool) ([]byte, http.Header, int, error) {
 	// Check circuit breaker at start
 	if c.circuitBreaker != nil && c.circuitBreaker.isOpen() {
 		return nil, nil, 0, &CircuitBreakerError{}
@@ -251,8 +268,17 @@ func (c *Client) executeRequestWithBody(ctx context.Context, method, url string,
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("failed to read response: %w", err)
 		}
+		c.recordRateLimit(resp.Header)
 		if debug.IsEnabled(ctx) {
 			slog.Debug("request complete", "method", method, "url", url, "status", resp.StatusCode, "attempt", attempt, "duration", time.Since(start))
+		}
+
+		// Handle async operations (202 Accepted) when requested.
+		if resp.StatusCode == http.StatusAccepted && allowWait && c.WaitForAsync {
+			location := strings.TrimSpace(resp.Header.Get("Location"))
+			if location != "" {
+				return c.waitForAsync(ctx, location, resp.Header)
+			}
 		}
 
 		// Handle 429 rate limiting with exponential backoff (idempotent only)

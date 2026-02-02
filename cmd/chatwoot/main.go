@@ -14,6 +14,6 @@ func main() {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			os.Exit(exitErr.ExitCode())
 		}
-		os.Exit(1)
+		os.Exit(cmd.ExitCode(err))
 	}
 }

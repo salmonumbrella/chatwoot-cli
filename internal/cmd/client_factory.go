@@ -60,6 +60,12 @@ func (f *clientFactory) newClient(cfg config.ClientConfig) *api.Client {
 			client.IdempotencyKey = flags.IdempotencyKey
 		}
 	}
+	if flags.Wait {
+		client.WaitForAsync = true
+		if flags.Timeout > 0 {
+			client.WaitTimeout = flags.Timeout
+		}
+	}
 	applyRetryOverrides(client)
 	return client
 }

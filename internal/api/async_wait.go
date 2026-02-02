@@ -1,0 +1,87 @@
+package api
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+)
+
+func (c *Client) waitForAsync(ctx context.Context, location string, headers http.Header) ([]byte, http.Header, int, error) {
+	asyncURL, err := c.resolveAsyncURL(location)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	waitCtx, cancel := withOptionalTimeout(ctx, c.WaitTimeout)
+	defer cancel()
+
+	delay := c.waitDelay(headers)
+
+	for {
+		if err := sleepWithContext(waitCtx, delay); err != nil {
+			return nil, nil, 0, err
+		}
+
+		respBody, respHeader, status, err := c.executeRequestWithBodyInternal(waitCtx, http.MethodGet, asyncURL, nil, "", false)
+		if err != nil {
+			return nil, respHeader, status, err
+		}
+		if status == http.StatusAccepted {
+			delay = c.waitDelay(respHeader)
+			continue
+		}
+		return respBody, respHeader, status, nil
+	}
+}
+
+func (c *Client) waitDelay(headers http.Header) time.Duration {
+	if delay, ok := retryAfterDuration(headers); ok {
+		return delay
+	}
+	if c.WaitInterval > 0 {
+		return c.WaitInterval
+	}
+	return DefaultWaitInterval
+}
+
+func (c *Client) resolveAsyncURL(location string) (string, error) {
+	trimmed := strings.TrimSpace(location)
+	if trimmed == "" {
+		return "", fmt.Errorf("async wait location is empty")
+	}
+
+	base, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
+	}
+	loc, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("invalid async wait location %q: %w", trimmed, err)
+	}
+	if loc.IsAbs() {
+		if !sameHost(base, loc) {
+			return "", fmt.Errorf("async wait location host mismatch: %s", loc.Host)
+		}
+		return loc.String(), nil
+	}
+	return base.ResolveReference(loc).String(), nil
+}
+
+func sameHost(a, b *url.URL) bool {
+	return strings.EqualFold(a.Host, b.Host) && strings.EqualFold(a.Scheme, b.Scheme)
+}
+
+func withOptionalTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		return ctx, func() {}
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 || remaining <= timeout {
+			return ctx, func() {}
+		}
+	}
+	return context.WithTimeout(ctx, timeout)
+}
