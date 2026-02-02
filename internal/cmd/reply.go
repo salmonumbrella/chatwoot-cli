@@ -20,7 +20,6 @@ func newReplyCmd() *cobra.Command {
 		contactID      int
 		conversationID int
 		private        bool
-		dryRunFlag     bool
 	)
 
 	cmd := &cobra.Command{
@@ -50,12 +49,6 @@ If multiple open conversations exist for the contact, disambiguation is required
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			// Enable dry-run mode in context if flag is set
-			if dryRunFlag {
-				ctx := dryrun.WithDryRun(cmd.Context(), true)
-				cmd.SetContext(ctx)
-			}
-
 			// Validate inputs
 			if content == "" {
 				return fmt.Errorf("--content is required")
@@ -137,7 +130,6 @@ If multiple open conversations exist for the contact, disambiguation is required
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Skip search, use specific contact ID")
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Skip all lookups, reply to specific conversation")
 	cmd.Flags().BoolVar(&private, "private", false, "Send as private note (not visible to customer)")
-	cmd.Flags().BoolVar(&dryRunFlag, "dry-run", false, "Preview the reply without sending")
 
 	return cmd
 }
