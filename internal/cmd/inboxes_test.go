@@ -797,3 +797,82 @@ func TestFormatDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestInboxesTriage_Overview(t *testing.T) {
+	// Cross-inbox triage overview: when no ID is provided, show all inboxes
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "Support Inbox", "channel_type": "Channel::Email"},
+				{"id": 2, "name": "Sales Chat", "channel_type": "Channel::WebWidget"}
+			]
+		}`)).
+		// Conversations for inbox 1
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 101, "status": "open", "inbox_id": 1, "unread_count": 3, "last_activity_at": 1700000000},
+					{"id": 102, "status": "pending", "inbox_id": 1, "unread_count": 1, "last_activity_at": 1700000500}
+				],
+				"meta": {"count": 2}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "triage"})
+		if err != nil {
+			t.Errorf("inboxes triage (no args) failed: %v", err)
+		}
+	})
+
+	// Should show overview with all inboxes
+	if !strings.Contains(output, "Support Inbox") {
+		t.Errorf("output missing 'Support Inbox': %s", output)
+	}
+	if !strings.Contains(output, "Sales Chat") {
+		t.Errorf("output missing 'Sales Chat': %s", output)
+	}
+	// Should show tabular headers
+	if !strings.Contains(output, "INBOX") {
+		t.Errorf("output missing 'INBOX' header: %s", output)
+	}
+}
+
+func TestInboxesTriage_Overview_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "Support Inbox", "channel_type": "Channel::Email"},
+				{"id": 2, "name": "Sales Chat", "channel_type": "Channel::WebWidget"}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 101, "status": "open", "inbox_id": 1, "unread_count": 3, "last_activity_at": 1700000000}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "triage", "--output", "json"})
+		if err != nil {
+			t.Errorf("inboxes triage --json (no args) failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"items"`) {
+		t.Errorf("JSON output missing 'items' field: %s", output)
+	}
+	if !strings.Contains(output, `"inbox_id"`) {
+		t.Errorf("JSON output missing 'inbox_id' field: %s", output)
+	}
+	if !strings.Contains(output, `"inbox_name"`) {
+		t.Errorf("JSON output missing 'inbox_name' field: %s", output)
+	}
+}

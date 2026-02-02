@@ -472,6 +472,18 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 	return cmd
 }
 
+// inboxTriageItem represents a single inbox in the cross-inbox triage overview
+type inboxTriageItem struct {
+	InboxID        int    `json:"inbox_id"`
+	InboxName      string `json:"inbox_name"`
+	OpenCount      int    `json:"open_count"`
+	PendingCount   int    `json:"pending_count"`
+	UnreadCount    int    `json:"unread_count"`
+	OldestWaiting  string `json:"oldest_waiting,omitempty"`
+	OldestContact  string `json:"oldest_contact,omitempty"`
+	OldestWaitTime string `json:"oldest_wait_time,omitempty"`
+}
+
 func newInboxesTriageCmd() *cobra.Command {
 	var (
 		status string
@@ -479,22 +491,35 @@ func newInboxesTriageCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "triage <id>",
+		Use:   "triage [id]",
 		Short: "Get conversations with enriched context for triage",
-		Long:  "Returns conversations for an inbox with contact info and last message for decision-making",
-		Args:  cobra.ExactArgs(1),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
-			if err != nil {
-				return err
-			}
+		Long: `Returns conversations for an inbox with contact info and last message for decision-making.
 
+When called without an inbox ID, shows a cross-inbox overview of all inboxes
+sorted by urgency (highest unread first, then most open).
+
+When called with an inbox ID, shows detailed triage info for that specific inbox.`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
 			}
 
-			triage, err := client.Inboxes().Triage(cmdContext(cmd), id, status, limit)
+			ctx := cmdContext(cmd)
+
+			// Cross-inbox mode: no ID provided
+			if len(args) == 0 {
+				return runCrossInboxTriage(cmd, client, ctx)
+			}
+
+			// Single inbox mode
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			triage, err := client.Inboxes().Triage(ctx, id, status, limit)
 			if err != nil {
 				return err
 			}
@@ -539,6 +564,117 @@ func newInboxesTriageCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum number of conversations to return")
 
 	return cmd
+}
+
+// runCrossInboxTriage shows a health overview of all inboxes sorted by urgency
+func runCrossInboxTriage(cmd *cobra.Command, client *api.Client, ctx context.Context) error {
+	// Fetch all inboxes
+	inboxes, err := client.Inboxes().List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list inboxes: %w", err)
+	}
+
+	if len(inboxes) == 0 {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No inboxes found")
+		return nil
+	}
+
+	// Fetch all conversations to calculate stats per inbox
+	convResult, err := client.Conversations().List(ctx, api.ListConversationsParams{
+		Status: "all",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list conversations: %w", err)
+	}
+
+	// Build stats per inbox
+	inboxStats := make(map[int]*inboxTriageItem)
+	for _, inbox := range inboxes {
+		inboxStats[inbox.ID] = &inboxTriageItem{
+			InboxID:   inbox.ID,
+			InboxName: inbox.Name,
+		}
+	}
+
+	now := time.Now().Unix()
+	// Track oldest waiting conversation per inbox
+	oldestWaiting := make(map[int]*api.Conversation)
+
+	for i := range convResult.Data.Payload {
+		conv := &convResult.Data.Payload[i]
+		stats, ok := inboxStats[conv.InboxID]
+		if !ok {
+			continue // conversation belongs to an inbox not in our list
+		}
+
+		switch conv.Status {
+		case "open":
+			stats.OpenCount++
+		case "pending":
+			stats.PendingCount++
+		}
+
+		if conv.Unread > 0 {
+			stats.UnreadCount += conv.Unread
+		}
+
+		// Track oldest waiting (open or pending with unread)
+		if (conv.Status == "open" || conv.Status == "pending") && conv.Unread > 0 {
+			existing := oldestWaiting[conv.InboxID]
+			if existing == nil || conv.LastActivityAt < existing.LastActivityAt {
+				oldestWaiting[conv.InboxID] = conv
+			}
+		}
+	}
+
+	// Calculate wait times for oldest waiting conversations
+	for inboxID, conv := range oldestWaiting {
+		stats := inboxStats[inboxID]
+		if conv.LastActivityAt > 0 {
+			waitSeconds := now - conv.LastActivityAt
+			stats.OldestWaitTime = formatDuration(waitSeconds)
+			stats.OldestWaiting = fmt.Sprintf("#%d", conv.ID)
+			// We don't have contact info readily available, leave OldestContact empty
+		}
+	}
+
+	// Build result slice and sort by urgency: highest unread first, then most open
+	items := make([]inboxTriageItem, 0, len(inboxes))
+	for _, inbox := range inboxes {
+		items = append(items, *inboxStats[inbox.ID])
+	}
+
+	// Sort by unread (desc), then open (desc)
+	for i := 0; i < len(items)-1; i++ {
+		for j := i + 1; j < len(items); j++ {
+			// Higher unread first
+			if items[j].UnreadCount > items[i].UnreadCount {
+				items[i], items[j] = items[j], items[i]
+			} else if items[j].UnreadCount == items[i].UnreadCount && items[j].OpenCount > items[i].OpenCount {
+				// Same unread, higher open first
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+
+	if isJSON(cmd) {
+		return printJSON(cmd, map[string]any{"items": items})
+	}
+
+	// Text output
+	w := newTabWriterFromCmd(cmd)
+	_, _ = fmt.Fprintln(w, "INBOX\tOPEN\tPENDING\tUNREAD\tOLDEST WAITING")
+	for _, item := range items {
+		oldestInfo := "-"
+		if item.OldestWaiting != "" {
+			oldestInfo = fmt.Sprintf("%s (%s)", item.OldestWaiting, item.OldestWaitTime)
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%s\n",
+			item.InboxName, item.OpenCount, item.PendingCount, item.UnreadCount, oldestInfo)
+	}
+	_ = w.Flush()
+
+	return nil
 }
 
 // truncateString truncates a string to maxLen characters, adding "..." if truncated
