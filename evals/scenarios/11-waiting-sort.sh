@@ -27,8 +27,9 @@ fi
 
 # Verify sort order: oldest last_activity_at should be first
 # (using last_activity_at as proxy for wait time)
-first_activity=$(echo "$output" | jq '.items[0].last_activity_at.unix // .items[0].last_activity_at // 0')
-last_activity=$(echo "$output" | jq '.items[-1].last_activity_at.unix // .items[-1].last_activity_at // 0')
+# Handle both formats: plain integer or object with .unix field
+first_activity=$(echo "$output" | jq 'if .items[0].last_activity_at | type == "object" then .items[0].last_activity_at.unix else .items[0].last_activity_at end // 0')
+last_activity=$(echo "$output" | jq 'if .items[-1].last_activity_at | type == "object" then .items[-1].last_activity_at.unix else .items[-1].last_activity_at end // 0')
 
 if [[ "$first_activity" -gt "$last_activity" && "$last_activity" -gt 0 ]]; then
     log "  ✗ Sort order wrong: first=$first_activity, last=$last_activity"

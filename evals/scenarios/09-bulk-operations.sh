@@ -47,8 +47,8 @@ fi
 
 log_verbose "  ✓ Proper error handling for invalid IDs"
 
-# Test 4: Assign requires --agent or --team
-error_output=$(run_cli conversations assign 123 2>&1 || true)
+# Test 4: Assign requires --agent or --team (with --no-input to disable interactive prompts)
+error_output=$(run_cli conversations assign 123 --no-input 2>&1 || true)
 
 if ! assert_contains "$error_output" "required"; then
     log "  ✗ No error when --agent/--team missing"
