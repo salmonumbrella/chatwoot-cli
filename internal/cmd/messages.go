@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -94,7 +95,10 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 			totalMessages := len(messages)
 
 			if transcript {
-				conv, _ := client.Conversations().Get(cmdContext(cmd), conversationID)
+				conv, err := client.Conversations().Get(cmdContext(cmd), conversationID)
+				if err != nil {
+					slog.Debug("Failed to fetch conversation metadata for transcript", "error", err)
+				}
 				formatTranscript(cmd.OutOrStdout(), messages, conv)
 				return nil
 			}

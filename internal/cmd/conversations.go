@@ -141,7 +141,7 @@ func newConversationsListCmd() *cobra.Command {
 
 			items := result.Data.Payload
 			if unreadOnly {
-				filtered := make([]api.Conversation, 0)
+				filtered := make([]api.Conversation, 0, len(items))
 				for _, conv := range items {
 					if conv.Unread > 0 {
 						filtered = append(filtered, conv)
