@@ -144,12 +144,27 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 		convs, err := client.Contacts().Conversations(ctx, id)
 		if err == nil && convs != nil {
 			relationship := agentfmt.ComputeRelationshipSummary(convs)
+
+			result := agentfmt.ContactDetailWithRelationship{
+				ContactDetail: detail,
+				Relationship:  relationship,
+			}
+
+			// Check if --with-open-conversations flag is set
+			withOpenConversations, _ := cmd.Flags().GetBool("with-open-conversations")
+			if withOpenConversations {
+				var openConvs []api.Conversation
+				for _, conv := range convs {
+					if conv.Status == "open" || conv.Status == "pending" {
+						openConvs = append(openConvs, conv)
+					}
+				}
+				result.OpenConversations = agentfmt.ConversationSummaries(openConvs)
+			}
+
 			return printJSON(cmd, agentfmt.ItemEnvelope{
 				Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
-				Item: agentfmt.ContactDetailWithRelationship{
-					ContactDetail: detail,
-					Relationship:  relationship,
-				},
+				Item: result,
 			})
 		}
 
@@ -176,7 +191,10 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
   chatwoot contacts get 123
 
   # Get contact as JSON
-  chatwoot contacts get 123 --output json`,
+  chatwoot contacts get 123 --output json
+
+  # Agent mode with open conversations
+  chatwoot contacts get 123 --output agent --with-open-conversations`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}
@@ -187,6 +205,8 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
 	registerFieldSchema(cmd, "contact")
+
+	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 
 	return cmd
 }
@@ -203,7 +223,10 @@ This is an alias for 'chatwoot contacts get <id>'.`,
   chatwoot contacts show 123
 
   # Show contact as JSON
-  chatwoot contacts show 123 --output json`,
+  chatwoot contacts show 123 --output json
+
+  # Agent mode with open conversations
+  chatwoot contacts show 123 --output agent --with-open-conversations`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}
@@ -214,6 +237,8 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 		"debug":   {"id", "name", "email", "phone_number", "identifier", "thumbnail", "custom_attributes", "created_at", "last_activity_at"},
 	})
 	registerFieldSchema(cmd, "contact")
+
+	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 
 	return cmd
 }

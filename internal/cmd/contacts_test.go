@@ -940,6 +940,170 @@ func TestContactsMergeCmd_VerifiesIDMapping(t *testing.T) {
 
 // TestContactsMergeCmd_CancellationFlow verifies that when user provides input
 // that is NOT "merge", the merge is cancelled and the API is not called.
+func TestContactsGetWithOpenConversations(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {"id": 123, "name": "John Doe", "email": "john@example.com"}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "status": "open", "inbox_id": 1, "unread_count": 5, "created_at": 1700000000},
+				{"id": 2, "status": "pending", "inbox_id": 2, "unread_count": 2, "created_at": 1700001000},
+				{"id": 3, "status": "resolved", "inbox_id": 1, "unread_count": 0, "created_at": 1699000000}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "get", "123", "--output", "agent", "--with-open-conversations"})
+		if err != nil {
+			t.Errorf("contacts get with open conversations failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Kind string `json:"kind"`
+		Item struct {
+			ID           int `json:"id"`
+			Relationship *struct {
+				TotalConversations int `json:"total_conversations"`
+				OpenConversations  int `json:"open_conversations"`
+			} `json:"relationship"`
+			OpenConversations []struct {
+				ID     int    `json:"id"`
+				Status string `json:"status"`
+			} `json:"open_conversations"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	// Verify kind
+	if payload.Kind != "contacts.get" {
+		t.Errorf("expected kind 'contacts.get', got %s", payload.Kind)
+	}
+
+	// Verify contact ID
+	if payload.Item.ID != 123 {
+		t.Errorf("expected contact ID 123, got %d", payload.Item.ID)
+	}
+
+	// Verify relationship stats
+	if payload.Item.Relationship == nil {
+		t.Fatal("expected relationship data to be present")
+	}
+	if payload.Item.Relationship.TotalConversations != 3 {
+		t.Errorf("expected 3 total conversations, got %d", payload.Item.Relationship.TotalConversations)
+	}
+	if payload.Item.Relationship.OpenConversations != 2 {
+		t.Errorf("expected 2 open conversations in relationship, got %d", payload.Item.Relationship.OpenConversations)
+	}
+
+	// Verify open_conversations array contains only open/pending
+	if len(payload.Item.OpenConversations) != 2 {
+		t.Errorf("expected 2 open conversations in array, got %d", len(payload.Item.OpenConversations))
+	}
+	for _, conv := range payload.Item.OpenConversations {
+		if conv.Status != "open" && conv.Status != "pending" {
+			t.Errorf("expected only open/pending conversations, got status %s for ID %d", conv.Status, conv.ID)
+		}
+	}
+}
+
+func TestContactsShowWithOpenConversations(t *testing.T) {
+	// Test that the 'show' alias also supports --with-open-conversations
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {"id": 123, "name": "Jane Doe", "email": "jane@example.com"}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 10, "status": "pending", "inbox_id": 1, "unread_count": 3, "created_at": 1700000000}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "show", "123", "--output", "agent", "--with-open-conversations"})
+		if err != nil {
+			t.Errorf("contacts show with open conversations failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Kind string `json:"kind"`
+		Item struct {
+			OpenConversations []struct {
+				ID     int    `json:"id"`
+				Status string `json:"status"`
+			} `json:"open_conversations"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	// Verify kind is contacts.show (not contacts.get)
+	if payload.Kind != "contacts.show" {
+		t.Errorf("expected kind 'contacts.show', got %s", payload.Kind)
+	}
+
+	// Verify open_conversations is populated
+	if len(payload.Item.OpenConversations) != 1 {
+		t.Errorf("expected 1 open conversation, got %d", len(payload.Item.OpenConversations))
+	}
+	if payload.Item.OpenConversations[0].Status != "pending" {
+		t.Errorf("expected pending status, got %s", payload.Item.OpenConversations[0].Status)
+	}
+}
+
+func TestContactsGetWithOpenConversations_WithoutFlag(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123", jsonResponse(200, `{
+			"payload": {"id": 123, "name": "John Doe", "email": "john@example.com"}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "status": "open", "inbox_id": 1, "unread_count": 5, "created_at": 1700000000}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "get", "123", "--output", "agent"})
+		if err != nil {
+			t.Errorf("contacts get without open conversations flag failed: %v", err)
+		}
+	})
+
+	// Parse the JSON output to verify structure
+	var payload struct {
+		Kind string `json:"kind"`
+		Item struct {
+			ID                int   `json:"id"`
+			OpenConversations []any `json:"open_conversations"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	// Verify open_conversations array is NOT present when flag is not set
+	// (nil means the field was not in JSON, empty slice means it was present but empty)
+	if payload.Item.OpenConversations != nil {
+		t.Errorf("expected no open_conversations array when flag not set, got: %v", payload.Item.OpenConversations)
+	}
+
+	// Relationship should still be present (check via raw string since we didn't parse it)
+	if !strings.Contains(output, `"relationship"`) {
+		t.Errorf("expected relationship field to be present, got: %s", output)
+	}
+}
+
 func TestContactsMergeCmd_CancellationFlow(t *testing.T) {
 	var mergeAPICalled bool
 
