@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
@@ -31,6 +32,7 @@ func newInboxesCmd() *cobra.Command {
 	cmd.AddCommand(newInboxesHealthCmd())
 	cmd.AddCommand(newInboxesDeleteAvatarCmd())
 	cmd.AddCommand(newInboxesCSATTemplateCmd())
+	cmd.AddCommand(newInboxesStatsCmd())
 
 	return cmd
 }
@@ -778,6 +780,111 @@ func addInboxSettingsDetails(details map[string]any, settings api.InboxSettings)
 	if settings.OutOfOfficeEnabled != nil {
 		details["out_of_office_enabled"] = *settings.OutOfOfficeEnabled
 	}
+}
+
+func newInboxesStatsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stats <id>",
+		Short: "Get inbox statistics",
+		Long:  "Returns inbox health metrics: open count, pending count, unread messages, average wait time",
+		Args:  cobra.ExactArgs(1),
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			id, err := validation.ParsePositiveInt(args[0], "ID")
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			ctx := cmdContext(cmd)
+
+			// Get inbox info
+			inbox, err := client.Inboxes().Get(ctx, id)
+			if err != nil {
+				return fmt.Errorf("failed to get inbox: %w", err)
+			}
+
+			// Get conversations for this inbox
+			result, err := client.Conversations().List(ctx, api.ListConversationsParams{
+				InboxID: fmt.Sprintf("%d", id),
+				Status:  "all",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to list conversations: %w", err)
+			}
+
+			// Calculate stats
+			var openCount, pendingCount, totalUnread int
+			var totalWaitTime int64
+			var waitingCount int
+			now := time.Now().Unix()
+
+			for _, conv := range result.Data.Payload {
+				switch conv.Status {
+				case "open":
+					openCount++
+				case "pending":
+					pendingCount++
+				}
+				totalUnread += conv.Unread
+
+				// Calculate wait time for open/pending conversations
+				// Use time since last activity as approximation
+				if conv.Status == "open" || conv.Status == "pending" {
+					if conv.LastActivityAt > 0 {
+						totalWaitTime += now - conv.LastActivityAt
+						waitingCount++
+					}
+				}
+			}
+
+			avgWaitSeconds := int64(0)
+			if waitingCount > 0 {
+				avgWaitSeconds = totalWaitTime / int64(waitingCount)
+			}
+
+			stats := map[string]any{
+				"inbox_id":         inbox.ID,
+				"inbox_name":       inbox.Name,
+				"open_count":       openCount,
+				"pending_count":    pendingCount,
+				"unread_count":     totalUnread,
+				"avg_wait_seconds": avgWaitSeconds,
+				"waiting_count":    waitingCount,
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, stats)
+			}
+
+			// Text output
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Inbox: %s (ID: %d)\n", inbox.Name, inbox.ID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Open: %d | Pending: %d | Unread: %d\n", openCount, pendingCount, totalUnread)
+			if waitingCount > 0 {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Avg wait: %s (%d waiting)\n", formatDuration(avgWaitSeconds), waitingCount)
+			}
+			return nil
+		}),
+	}
+	return cmd
+}
+
+func formatDuration(seconds int64) string {
+	if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	if seconds < 3600 {
+		return fmt.Sprintf("%dm", seconds/60)
+	}
+	hours := seconds / 3600
+	mins := (seconds % 3600) / 60
+	if mins == 0 {
+		return fmt.Sprintf("%dh", hours)
+	}
+	return fmt.Sprintf("%dh%dm", hours, mins)
 }
 
 func newInboxesCSATTemplateGetCmd() *cobra.Command {

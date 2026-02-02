@@ -638,3 +638,162 @@ func TestInboxesTriageCommand_EmptyConversations(t *testing.T) {
 		t.Errorf("output missing empty message: %s", output)
 	}
 }
+
+func TestInboxesStatsCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes/1", jsonResponse(200, `{
+			"id": 1,
+			"name": "Support Inbox",
+			"channel_type": "Channel::Email"
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 101, "status": "open", "unread_count": 3, "last_activity_at": 1700000000},
+					{"id": 102, "status": "pending", "unread_count": 1, "last_activity_at": 1700000500},
+					{"id": 103, "status": "resolved", "unread_count": 0, "last_activity_at": 1700001000}
+				],
+				"meta": {"count": 3}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "stats", "1"})
+		if err != nil {
+			t.Errorf("inboxes stats failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Support Inbox") {
+		t.Errorf("output missing inbox name: %s", output)
+	}
+	if !strings.Contains(output, "Open: 1") {
+		t.Errorf("output missing open count: %s", output)
+	}
+	if !strings.Contains(output, "Pending: 1") {
+		t.Errorf("output missing pending count: %s", output)
+	}
+	if !strings.Contains(output, "Unread: 4") {
+		t.Errorf("output missing unread count: %s", output)
+	}
+}
+
+func TestInboxesStatsCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes/1", jsonResponse(200, `{
+			"id": 1,
+			"name": "Support Inbox",
+			"channel_type": "Channel::Email"
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 101, "status": "open", "unread_count": 2, "last_activity_at": 1700000000}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "stats", "1", "--output", "json"})
+		if err != nil {
+			t.Errorf("inboxes stats --json failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"inbox_id"`) {
+		t.Errorf("JSON output missing 'inbox_id' field: %s", output)
+	}
+	if !strings.Contains(output, `"open_count"`) {
+		t.Errorf("JSON output missing 'open_count' field: %s", output)
+	}
+	if !strings.Contains(output, `"pending_count"`) {
+		t.Errorf("JSON output missing 'pending_count' field: %s", output)
+	}
+	if !strings.Contains(output, `"unread_count"`) {
+		t.Errorf("JSON output missing 'unread_count' field: %s", output)
+	}
+	if !strings.Contains(output, `"avg_wait_seconds"`) {
+		t.Errorf("JSON output missing 'avg_wait_seconds' field: %s", output)
+	}
+}
+
+func TestInboxesStatsCommand_InvalidID(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"inboxes", "stats", "invalid"})
+	if err == nil {
+		t.Error("expected error for invalid ID")
+	}
+}
+
+func TestInboxesStatsCommand_MissingID(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"inboxes", "stats"})
+	if err == nil {
+		t.Error("expected error for missing ID argument")
+	}
+}
+
+func TestInboxesStatsCommand_EmptyConversations(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes/1", jsonResponse(200, `{
+			"id": 1,
+			"name": "Empty Inbox",
+			"channel_type": "Channel::Email"
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [],
+				"meta": {"count": 0}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "stats", "1"})
+		if err != nil {
+			t.Errorf("inboxes stats failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Empty Inbox") {
+		t.Errorf("output missing inbox name: %s", output)
+	}
+	if !strings.Contains(output, "Open: 0") {
+		t.Errorf("output missing zero open count: %s", output)
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		seconds  int64
+		expected string
+	}{
+		{0, "0s"},
+		{30, "30s"},
+		{59, "59s"},
+		{60, "1m"},
+		{90, "1m"},
+		{120, "2m"},
+		{3599, "59m"},
+		{3600, "1h"},
+		{3660, "1h1m"},
+		{7200, "2h"},
+		{7320, "2h2m"},
+		{86400, "24h"},
+	}
+
+	for _, tt := range tests {
+		result := formatDuration(tt.seconds)
+		if result != tt.expected {
+			t.Errorf("formatDuration(%d) = %s, expected %s", tt.seconds, result, tt.expected)
+		}
+	}
+}
