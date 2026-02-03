@@ -27,6 +27,7 @@ func newAuthCmd() *cobra.Command {
 	cmd.AddCommand(newAuthLoginCmd())
 	cmd.AddCommand(newAuthStatusCmd())
 	cmd.AddCommand(newAuthLogoutCmd())
+	cmd.AddCommand(newAuthSkillCmd())
 
 	return cmd
 }
@@ -186,6 +187,41 @@ func generateWorkspaceSkill(ctx context.Context, out io.Writer, account config.A
 
 	skillPath, _ := skill.SkillPath()
 	_, _ = fmt.Fprintf(out, "Generated %s\n", skillPath)
+}
+
+// newAuthSkillCmd creates the auth skill command
+func newAuthSkillCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "skill",
+		Short: "Regenerate workspace skill file",
+		Long: strings.TrimSpace(`
+Regenerate the Claude workspace skill file with current workspace data.
+
+The skill file is created at ~/.claude/skills/chatwoot-workspace/SKILL.md
+and contains workspace-specific context like inboxes, agents, teams, and labels.
+
+This is automatically done during 'auth login', but you can regenerate it
+if your workspace configuration changes.
+`),
+		Example: strings.TrimSpace(`
+  # Regenerate workspace skill
+  chatwoot auth skill
+`),
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			account, err := config.LoadAccount()
+			if err != nil {
+				if err == config.ErrNotConfigured {
+					return fmt.Errorf("not authenticated; run 'chatwoot auth login' first")
+				}
+				return fmt.Errorf("failed to load credentials: %w", err)
+			}
+
+			generateWorkspaceSkill(cmd.Context(), cmd.OutOrStdout(), account)
+			return nil
+		}),
+	}
+
+	return cmd
 }
 
 // newAuthStatusCmd creates the auth status command
