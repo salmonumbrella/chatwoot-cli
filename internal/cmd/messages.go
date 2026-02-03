@@ -65,10 +65,13 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
   chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'
 
   # Get last 6 messages (most recent) - messages are oldest-first in the array
-  chatwoot messages list 123 --json | jq '.items[-6:]'`,
+  chatwoot messages list 123 --json | jq '.items[-6:]'
+
+  # Use conversation URL from browser
+  chatwoot messages list https://app.chatwoot.com/app/accounts/1/conversations/123`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}

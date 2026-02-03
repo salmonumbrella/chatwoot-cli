@@ -20,6 +20,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
 	"github.com/spf13/cobra"
 )
 
@@ -648,6 +649,36 @@ func parseIDArgs(args []string) ([]int, error) {
 		return nil, fmt.Errorf("at least one ID is required")
 	}
 	return ids, nil
+}
+
+// parseIDOrURL accepts either a numeric ID or a Chatwoot URL.
+// If a URL is provided, it extracts the resource ID from it.
+// The expectedResource parameter validates the URL resource type matches.
+func parseIDOrURL(input string, expectedResource string) (int, error) {
+	// First try as plain integer
+	if id, err := strconv.Atoi(input); err == nil {
+		if id <= 0 {
+			return 0, fmt.Errorf("invalid ID: must be positive")
+		}
+		return id, nil
+	}
+
+	// Try parsing as URL
+	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+		parsed, err := urlparse.Parse(input)
+		if err != nil {
+			return 0, fmt.Errorf("invalid URL: %w", err)
+		}
+		if expectedResource != "" && parsed.ResourceType != expectedResource {
+			return 0, fmt.Errorf("URL is for %s, expected %s", parsed.ResourceType, expectedResource)
+		}
+		if parsed.ResourceID == 0 {
+			return 0, fmt.Errorf("URL does not contain a resource ID")
+		}
+		return parsed.ResourceID, nil
+	}
+
+	return 0, fmt.Errorf("invalid ID: %q is not a number or URL", input)
 }
 
 // RunE wraps a command function with enhanced error handling

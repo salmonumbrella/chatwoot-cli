@@ -122,7 +122,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
 // contactGetRunE is the shared implementation for get/show commands
 func contactGetRunE(cmd *cobra.Command, args []string) error {
-	id, err := validation.ParsePositiveInt(args[0], "contact ID")
+	id, err := parseIDOrURL(args[0], "contact")
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,10 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
   chatwoot contacts get 123 --output json
 
   # Agent mode with open conversations
-  chatwoot contacts get 123 --output agent --with-open-conversations`,
+  chatwoot contacts get 123 --output agent --with-open-conversations
+
+  # Get contact using URL from browser
+  chatwoot contacts get https://app.chatwoot.com/app/accounts/1/contacts/123`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}

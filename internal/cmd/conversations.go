@@ -270,10 +270,13 @@ func newConversationsGetCmd() *cobra.Command {
 
   # Get conversation with reasoning hints (agent mode)
   chatwoot conversations get 123 --explain --output agent
+
+  # Get conversation using URL from browser
+  chatwoot conversations get https://app.chatwoot.com/app/accounts/1/conversations/123
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}

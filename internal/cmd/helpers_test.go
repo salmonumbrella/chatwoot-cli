@@ -421,3 +421,36 @@ func TestRunE_ReturnsSentinelErrorOnFailure(t *testing.T) {
 		t.Errorf("RunE wrapper should return errAlreadyHandled sentinel, got: %v", err)
 	}
 }
+
+func TestParseIDOrURL(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		expectedResource string
+		wantID           int
+		wantErr          bool
+	}{
+		{"plain ID", "123", "", 123, false},
+		{"plain ID with resource", "456", "conversation", 456, false},
+		{"conversation URL", "https://app.chatwoot.com/app/accounts/1/conversations/789", "conversation", 789, false},
+		{"contact URL", "https://app.chatwoot.com/app/accounts/1/contacts/42", "contact", 42, false},
+		{"wrong resource type", "https://app.chatwoot.com/app/accounts/1/contacts/42", "conversation", 0, true},
+		{"invalid number", "abc", "", 0, true},
+		{"zero ID", "0", "", 0, true},
+		{"negative ID", "-5", "", 0, true},
+		{"URL without resource ID", "https://app.chatwoot.com/app/accounts/1/conversations", "", 0, true},
+		{"inbox URL", "https://app.chatwoot.com/app/accounts/1/inboxes/5", "inbox", 5, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseIDOrURL(tt.input, tt.expectedResource)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseIDOrURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.wantID {
+				t.Errorf("parseIDOrURL() = %v, want %v", got, tt.wantID)
+			}
+		})
+	}
+}
