@@ -8,8 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/auth"
 	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/skill"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -111,6 +113,9 @@ Optional:
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Profile: %s\n", profile)
 			}
 
+			// Generate workspace skill
+			generateWorkspaceSkill(cmd.Context(), cmd.OutOrStdout(), account)
+
 			return nil
 		}),
 	}
@@ -162,7 +167,25 @@ func runBrowserSetup(out io.Writer, profile string) error {
 		_, _ = fmt.Fprintf(out, "  Email: %s\n", result.Email)
 	}
 
+	// Generate workspace skill
+	generateWorkspaceSkill(ctx, out, result.Account)
+
 	return nil
+}
+
+// generateWorkspaceSkill creates a Claude skill file with workspace context.
+// Errors are non-fatal and just logged as warnings.
+func generateWorkspaceSkill(ctx context.Context, out io.Writer, account config.Account) {
+	_, _ = fmt.Fprintln(out, "Generating workspace skill...")
+
+	client := api.New(account.BaseURL, account.APIToken, account.AccountID)
+	if err := skill.GenerateWorkspaceSkill(ctx, client, account.BaseURL); err != nil {
+		_, _ = fmt.Fprintf(out, "Warning: failed to generate workspace skill: %v\n", err)
+		return
+	}
+
+	skillPath, _ := skill.SkillPath()
+	_, _ = fmt.Fprintf(out, "Generated %s\n", skillPath)
 }
 
 // newAuthStatusCmd creates the auth status command
