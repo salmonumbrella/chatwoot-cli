@@ -30,6 +30,7 @@ type rootFlags struct {
 	Silent                  bool
 	NoInput                 bool
 	JSON                    bool
+	HelpJSON                bool
 	AllowPrivate            bool
 	ResolveNames            bool
 	Query                   string
@@ -145,6 +146,14 @@ func Execute(ctx context.Context, args []string) error {
   chatwoot completion zsh > "${fpath[1]}/_chatwoot"
 `),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Handle --help-json flag
+			if flags.HelpJSON {
+				if err := printHelpJSON(cmd); err != nil {
+					return err
+				}
+				os.Exit(0)
+			}
+
 			ctx := cmd.Context()
 
 			// Ensure JSON output when requested or required
@@ -268,6 +277,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.SetArgs(args)
 	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl|agent (env CHATWOOT_OUTPUT)")
 	root.PersistentFlags().BoolVar(&flags.JSON, "json", false, "Output JSON (alias for --output json)")
+	root.PersistentFlags().BoolVar(&flags.HelpJSON, "help-json", false, "Output command help as JSON (for agent discovery)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
 	root.PersistentFlags().BoolVar(&flags.ResolveNames, "resolve-names", false, "Resolve contact/inbox names in agent output (extra API calls; env CHATWOOT_RESOLVE_NAMES=1)")
 	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", false, "Allow private/localhost URLs (unsafe)")
