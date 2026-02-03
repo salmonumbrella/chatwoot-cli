@@ -40,23 +40,31 @@ func TestSearchCommand(t *testing.T) {
 		}
 	})
 
-	// Check contacts section
-	if !strings.Contains(output, "Contacts (2)") {
-		t.Errorf("output missing contacts count: %s", output)
-	}
+	// Check unified output contains contacts
 	if !strings.Contains(output, "John Doe") {
 		t.Errorf("output missing 'John Doe': %s", output)
 	}
 	if !strings.Contains(output, "John Smith") {
 		t.Errorf("output missing 'John Smith': %s", output)
 	}
-
-	// Check conversations section
-	if !strings.Contains(output, "Conversations (1)") {
-		t.Errorf("output missing conversations count: %s", output)
+	if !strings.Contains(output, "[contact]") {
+		t.Errorf("output missing contact type indicator: %s", output)
 	}
+
+	// Check unified output contains conversation
 	if !strings.Contains(output, "#100") {
 		t.Errorf("output missing conversation ID: %s", output)
+	}
+	if !strings.Contains(output, "[conv]") {
+		t.Errorf("output missing conversation type indicator: %s", output)
+	}
+
+	// Check totals at bottom
+	if !strings.Contains(output, "2 contacts") {
+		t.Errorf("output missing contacts total: %s", output)
+	}
+	if !strings.Contains(output, "1 conversations") {
+		t.Errorf("output missing conversations total: %s", output)
 	}
 }
 
@@ -132,11 +140,15 @@ func TestSearchCommand_TypeFilter_ContactsOnly(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Contacts (1)") {
-		t.Errorf("output missing contacts count: %s", output)
+	// Unified output shows results sorted by activity, with totals at the bottom
+	if !strings.Contains(output, "[contact]") {
+		t.Errorf("output missing contact result: %s", output)
 	}
-	if strings.Contains(output, "Conversations") {
-		t.Errorf("output should not contain Conversations when filtering by contacts: %s", output)
+	if !strings.Contains(output, "1 contacts") {
+		t.Errorf("output missing contacts total: %s", output)
+	}
+	if strings.Contains(output, "[conv]") {
+		t.Errorf("output should not contain conversations when filtering by contacts: %s", output)
 	}
 }
 
@@ -336,11 +348,15 @@ func TestSearchCommand_TypeFilter_ConversationsOnly(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Conversations (1)") {
-		t.Errorf("output missing conversations count: %s", output)
+	// Unified output shows results sorted by activity, with totals at the bottom
+	if !strings.Contains(output, "[conv]") {
+		t.Errorf("output missing conversation result: %s", output)
 	}
-	if strings.Contains(output, "Contacts") {
-		t.Errorf("output should not contain Contacts when filtering by conversations: %s", output)
+	if !strings.Contains(output, "1 conversations") {
+		t.Errorf("output missing conversations total: %s", output)
+	}
+	if strings.Contains(output, "[contact]") {
+		t.Errorf("output should not contain contacts when filtering by conversations: %s", output)
 	}
 }
 

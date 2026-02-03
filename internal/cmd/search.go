@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -31,9 +32,21 @@ type SenderMatch struct {
 	MessageCount   int    `json:"message_count,omitempty"`
 }
 
+// UnifiedSearchResult represents a single search result of any type, sortable by activity
+type UnifiedSearchResult struct {
+	Type           string            `json:"type"`                   // "contact", "conversation", or "sender"
+	ID             int               `json:"id"`                     // primary ID for the result
+	Name           string            `json:"name"`                   // display name
+	LastActivityAt int64             `json:"last_activity_at"`       // for sorting
+	Contact        *api.Contact      `json:"contact,omitempty"`      // populated if type=contact
+	Conversation   *api.Conversation `json:"conversation,omitempty"` // populated if type=conversation
+	Sender         *SenderMatch      `json:"sender,omitempty"`       // populated if type=sender
+}
+
 // SearchResults represents the combined search results from multiple resource types
 type SearchResults struct {
 	Query         string                 `json:"query"`
+	Results       []UnifiedSearchResult  `json:"results,omitempty"` // unified sorted list
 	Contacts      []api.Contact          `json:"contacts,omitempty"`
 	Conversations []api.Conversation     `json:"conversations,omitempty"`
 	Senders       []SenderMatch          `json:"senders,omitempty"`
@@ -408,6 +421,56 @@ of relevant resources with a single query.`,
 				}
 			}
 
+			// Build unified results list sorted by last_activity_at descending
+			var unified []UnifiedSearchResult
+			for i := range results.Contacts {
+				c := &results.Contacts[i]
+				lastActivity := int64(0)
+				if c.LastActivityAt != nil {
+					lastActivity = *c.LastActivityAt
+				}
+				unified = append(unified, UnifiedSearchResult{
+					Type:           "contact",
+					ID:             c.ID,
+					Name:           c.Name,
+					LastActivityAt: lastActivity,
+					Contact:        c,
+				})
+			}
+			for i := range results.Conversations {
+				conv := &results.Conversations[i]
+				name := ""
+				if conv.Meta != nil {
+					if sender, ok := conv.Meta["sender"].(map[string]any); ok {
+						if n, ok := sender["name"].(string); ok {
+							name = n
+						}
+					}
+				}
+				unified = append(unified, UnifiedSearchResult{
+					Type:           "conversation",
+					ID:             conv.ID,
+					Name:           name,
+					LastActivityAt: conv.LastActivityAt,
+					Conversation:   conv,
+				})
+			}
+			for i := range results.Senders {
+				s := &results.Senders[i]
+				unified = append(unified, UnifiedSearchResult{
+					Type:           "sender",
+					ID:             s.ConversationID,
+					Name:           s.Name,
+					LastActivityAt: s.LastMessageAt,
+					Sender:         s,
+				})
+			}
+			// Sort by last_activity_at descending (most recent first)
+			sort.Slice(unified, func(i, j int) bool {
+				return unified[i].LastActivityAt > unified[j].LastActivityAt
+			})
+			results.Results = unified
+
 			if selectOne {
 				if flags.NoInput || !isInteractive() {
 					return fmt.Errorf("--select requires interactive input (omit --select or run in a terminal)")
@@ -508,20 +571,26 @@ of relevant resources with a single query.`,
 
 			if isAgent(cmd) {
 				type agentSearchResult struct {
-					Type         string                        `json:"type"`
-					ID           int                           `json:"id,omitempty"`
-					Contact      *agentfmt.ContactSummary      `json:"contact,omitempty"`
-					Conversation *agentfmt.ConversationSummary `json:"conversation,omitempty"`
-					Sender       *SenderMatch                  `json:"sender,omitempty"`
+					Type           string                        `json:"type"`
+					ID             int                           `json:"id,omitempty"`
+					LastActivityAt int64                         `json:"last_activity_at,omitempty"`
+					Contact        *agentfmt.ContactSummary      `json:"contact,omitempty"`
+					Conversation   *agentfmt.ConversationSummary `json:"conversation,omitempty"`
+					Sender         *SenderMatch                  `json:"sender,omitempty"`
 				}
 
 				resultsList := make([]agentSearchResult, 0, len(results.Contacts)+len(results.Conversations)+len(results.Senders))
 				for _, contact := range results.Contacts {
 					summary := agentfmt.ContactSummaryFromContact(contact)
+					lastActivity := int64(0)
+					if contact.LastActivityAt != nil {
+						lastActivity = *contact.LastActivityAt
+					}
 					resultsList = append(resultsList, agentSearchResult{
-						Type:    "contact",
-						ID:      contact.ID,
-						Contact: &summary,
+						Type:           "contact",
+						ID:             contact.ID,
+						LastActivityAt: lastActivity,
+						Contact:        &summary,
 					})
 				}
 				convSummaries := make([]agentfmt.ConversationSummary, len(results.Conversations))
@@ -532,19 +601,26 @@ of relevant resources with a single query.`,
 				for i, conv := range results.Conversations {
 					summary := convSummaries[i]
 					resultsList = append(resultsList, agentSearchResult{
-						Type:         "conversation",
-						ID:           conv.ID,
-						Conversation: &summary,
+						Type:           "conversation",
+						ID:             conv.ID,
+						LastActivityAt: conv.LastActivityAt,
+						Conversation:   &summary,
 					})
 				}
 				for _, sender := range results.Senders {
 					senderCopy := sender
 					resultsList = append(resultsList, agentSearchResult{
-						Type:   "sender",
-						ID:     sender.ConversationID,
-						Sender: &senderCopy,
+						Type:           "sender",
+						ID:             sender.ConversationID,
+						LastActivityAt: sender.LastMessageAt,
+						Sender:         &senderCopy,
 					})
 				}
+
+				// Sort by last_activity_at descending (most recent first)
+				sort.Slice(resultsList, func(i, j int) bool {
+					return resultsList[i].LastActivityAt > resultsList[j].LastActivityAt
+				})
 
 				payload := agentfmt.SearchEnvelope{
 					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
@@ -559,42 +635,29 @@ of relevant resources with a single query.`,
 				return printJSON(cmd, results)
 			}
 
-			// Text output
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Search results for %q:\n\n", query)
+			// Text output - unified sorted list
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Search results for %q (sorted by recent activity):\n\n", query)
 
-			if len(results.Contacts) > 0 {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contacts (%d):\n", len(results.Contacts))
-				for _, c := range results.Contacts {
-					email := c.Email
-					if email == "" {
-						email = "-"
-					}
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  #%-6d %s <%s>\n", c.ID, c.Name, email)
-				}
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-			}
-
-			if len(results.Conversations) > 0 {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversations (%d):\n", len(results.Conversations))
-				for _, conv := range results.Conversations {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  #%-6d [%s] inbox:%d\n", conv.ID, conv.Status, conv.InboxID)
-				}
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-			}
-
-			if len(results.Senders) > 0 {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Senders (%d):\n", len(results.Senders))
-				for _, s := range results.Senders {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s → %s (conv #%d)\n", s.Name, s.ContactName, s.ConversationID)
-				}
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-			}
-
-			// Show empty message if no results
-			total := len(results.Contacts) + len(results.Conversations) + len(results.Senders)
-			if total == 0 {
+			if len(results.Results) == 0 {
 				searchedTypes := strings.Join(searchTypes, ", ")
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No results found in %s\n", searchedTypes)
+			} else {
+				for _, r := range results.Results {
+					switch r.Type {
+					case "contact":
+						email := r.Contact.Email
+						if email == "" {
+							email = "-"
+						}
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  [contact]  #%-6d %s <%s>\n", r.ID, r.Name, email)
+					case "conversation":
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  [conv]     #%-6d %s [%s]\n", r.ID, r.Name, r.Conversation.Status)
+					case "sender":
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  [sender]   %s → %s (conv #%d)\n", r.Name, r.Sender.ContactName, r.ID)
+					}
+				}
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d contacts, %d conversations, %d senders\n",
+					len(results.Contacts), len(results.Conversations), len(results.Senders))
 			}
 
 			return nil
