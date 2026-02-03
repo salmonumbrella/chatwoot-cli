@@ -454,3 +454,25 @@ func TestParseIDOrURL(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveContactID_NumericID(t *testing.T) {
+	// Plain numeric ID should return immediately without API call
+	id, err := resolveContactID(context.Background(), nil, "123")
+	if err != nil {
+		t.Errorf("resolveContactID() unexpected error: %v", err)
+	}
+	if id != 123 {
+		t.Errorf("resolveContactID() = %v, want 123", id)
+	}
+}
+
+func TestResolveContactID_URL(t *testing.T) {
+	// URL should be parsed without API call
+	id, err := resolveContactID(context.Background(), nil, "https://app.chatwoot.com/app/accounts/1/contacts/456")
+	if err != nil {
+		t.Errorf("resolveContactID() unexpected error: %v", err)
+	}
+	if id != 456 {
+		t.Errorf("resolveContactID() = %v, want 456", id)
+	}
+}

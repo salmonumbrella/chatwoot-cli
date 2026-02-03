@@ -122,17 +122,17 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
 // contactGetRunE is the shared implementation for get/show commands
 func contactGetRunE(cmd *cobra.Command, args []string) error {
-	id, err := parseIDOrURL(args[0], "contact")
-	if err != nil {
-		return err
-	}
-
 	client, err := getClient()
 	if err != nil {
 		return err
 	}
 
 	ctx := cmdContext(cmd)
+
+	id, err := resolveContactID(ctx, client, args[0])
+	if err != nil {
+		return err
+	}
 
 	contact, err := client.Contacts().Get(ctx, id)
 	if err != nil {
@@ -184,13 +184,20 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 
 func newContactsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get contact by ID",
-		Long: `Get a specific contact by their ID.
+		Use:   "get <id-or-email>",
+		Short: "Get contact by ID, email, or name",
+		Long: `Get a specific contact by their ID, email address, or name.
 
+Accepts numeric ID, Chatwoot URL, email address, or name to search.
 Use 'chatwoot contacts show <id>' as an alias for this command.`,
 		Example: `  # Get contact by ID
   chatwoot contacts get 123
+
+  # Get contact by email
+  chatwoot contacts get john@example.com
+
+  # Get contact by name
+  chatwoot contacts get "John Smith"
 
   # Get contact as JSON
   chatwoot contacts get 123 --output json
@@ -635,22 +642,33 @@ Available query operators: and, or`,
 
 func newContactsConversationsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "conversations <id>",
+		Use:   "conversations <id-or-email>",
 		Short: "Get contact conversations",
-		Long:  "Get all conversations for a specific contact",
-		Args:  cobra.ExactArgs(1),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
-			if err != nil {
-				return err
-			}
+		Long: `Get all conversations for a specific contact.
 
+Accepts contact ID, email address, or name to search for the contact.`,
+		Example: `  # Get conversations by contact ID
+  chatwoot contacts conversations 123
+
+  # Get conversations by email
+  chatwoot contacts conversations john@example.com
+
+  # Get conversations by name
+  chatwoot contacts conversations "John Smith"`,
+		Args: cobra.ExactArgs(1),
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
 				return err
 			}
 
-			conversations, err := client.Contacts().Conversations(cmdContext(cmd), id)
+			ctx := cmdContext(cmd)
+			id, err := resolveContactID(ctx, client, args[0])
+			if err != nil {
+				return err
+			}
+
+			conversations, err := client.Contacts().Conversations(ctx, id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversations for contact %d: %w", id, err)
 			}

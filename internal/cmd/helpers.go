@@ -681,6 +681,48 @@ func parseIDOrURL(input string, expectedResource string) (int, error) {
 	return 0, fmt.Errorf("invalid ID: %q is not a number or URL", input)
 }
 
+// resolveContactID resolves a contact identifier to a numeric ID.
+// Accepts: numeric ID, Chatwoot URL, email address, or name search term.
+// For ambiguous matches, returns error listing options.
+func resolveContactID(ctx context.Context, client *api.Client, identifier string) (int, error) {
+	// First try as plain integer
+	if id, err := strconv.Atoi(identifier); err == nil {
+		if id > 0 {
+			return id, nil
+		}
+	}
+
+	// Try as URL
+	if strings.HasPrefix(identifier, "http://") || strings.HasPrefix(identifier, "https://") {
+		return parseIDOrURL(identifier, "contact")
+	}
+
+	// Search for contact by name/email
+	results, err := client.Contacts().Search(ctx, identifier, 1)
+	if err != nil {
+		return 0, fmt.Errorf("failed to search contacts: %w", err)
+	}
+
+	if len(results.Payload) == 0 {
+		return 0, fmt.Errorf("no contact found matching %q", identifier)
+	}
+
+	if len(results.Payload) == 1 {
+		return results.Payload[0].ID, nil
+	}
+
+	// Multiple matches - build helpful error
+	var options []string
+	limit := 5
+	if len(results.Payload) < limit {
+		limit = len(results.Payload)
+	}
+	for _, c := range results.Payload[:limit] {
+		options = append(options, fmt.Sprintf("  %d: %s <%s>", c.ID, c.Name, c.Email))
+	}
+	return 0, fmt.Errorf("multiple contacts match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
+}
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
