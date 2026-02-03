@@ -202,6 +202,7 @@ func setupTestEnv(t *testing.T, handler http.HandlerFunc) *testEnv {
 	_ = os.Setenv("CHATWOOT_BASE_URL", server.URL)
 	_ = os.Setenv("CHATWOOT_API_TOKEN", "test-token")
 	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_OUTPUT", "text") // Ensure tests use text output by default
 
 	t.Cleanup(func() {
 		server.Close()
@@ -246,7 +247,8 @@ func setupTestEnvWithHandler(t *testing.T, handler http.Handler) *testEnv {
 	_ = os.Setenv("CHATWOOT_BASE_URL", server.URL)
 	_ = os.Setenv("CHATWOOT_API_TOKEN", "test-token")
 	_ = os.Setenv("CHATWOOT_ACCOUNT_ID", "1")
-	t.Setenv("CHATWOOT_TESTING", "1") // Skip URL validation for localhost
+	t.Setenv("CHATWOOT_TESTING", "1")   // Skip URL validation for localhost
+	t.Setenv("CHATWOOT_OUTPUT", "text") // Ensure tests use text output by default
 
 	t.Cleanup(func() {
 		server.Close()

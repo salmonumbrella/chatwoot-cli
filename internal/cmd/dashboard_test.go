@@ -100,6 +100,7 @@ func setupDashboardTestEnv(t *testing.T, chatwootHandler, dashboardHandler http.
 
 	// Set CHATWOOT_TESTING to skip URL validation
 	t.Setenv("CHATWOOT_TESTING", "1")
+	t.Setenv("CHATWOOT_OUTPUT", "text") // Ensure tests use text output by default
 
 	return chatwootServer.URL, dashboardServer.URL
 }
