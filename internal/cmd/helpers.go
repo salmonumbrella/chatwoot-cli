@@ -723,6 +723,46 @@ func resolveContactID(ctx context.Context, client *api.Client, identifier string
 	return 0, fmt.Errorf("multiple contacts match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
 }
 
+// resolveInboxID resolves an inbox identifier to a numeric ID.
+// Accepts: numeric ID or inbox name (case-insensitive partial match).
+func resolveInboxID(ctx context.Context, client *api.Client, identifier string) (int, error) {
+	// First try as plain integer
+	if id, err := strconv.Atoi(identifier); err == nil {
+		if id > 0 {
+			return id, nil
+		}
+	}
+
+	// Fetch all inboxes and search by name
+	inboxes, err := client.Inboxes().List(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list inboxes: %w", err)
+	}
+
+	identifier = strings.ToLower(identifier)
+	var matches []api.Inbox
+	for _, inbox := range inboxes {
+		if strings.Contains(strings.ToLower(inbox.Name), identifier) {
+			matches = append(matches, inbox)
+		}
+	}
+
+	if len(matches) == 0 {
+		return 0, fmt.Errorf("no inbox found matching %q", identifier)
+	}
+
+	if len(matches) == 1 {
+		return matches[0].ID, nil
+	}
+
+	// Multiple matches
+	var options []string
+	for _, inbox := range matches {
+		options = append(options, fmt.Sprintf("  %d: %s (%s)", inbox.ID, inbox.Name, inbox.ChannelType))
+	}
+	return 0, fmt.Errorf("multiple inboxes match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
+}
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {

@@ -476,3 +476,14 @@ func TestResolveContactID_URL(t *testing.T) {
 		t.Errorf("resolveContactID() = %v, want 456", id)
 	}
 }
+
+func TestResolveInboxID_NumericID(t *testing.T) {
+	// Plain numeric ID should return immediately without API call
+	id, err := resolveInboxID(context.Background(), nil, "5")
+	if err != nil {
+		t.Errorf("resolveInboxID() unexpected error: %v", err)
+	}
+	if id != 5 {
+		t.Errorf("resolveInboxID() = %v, want 5", id)
+	}
+}

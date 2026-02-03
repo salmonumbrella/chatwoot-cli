@@ -114,6 +114,12 @@ func newConversationsListCmd() *cobra.Command {
   # List open conversations
   chatwoot conversations list --status open
 
+  # Filter by inbox ID
+  chatwoot conversations list --inbox-id 1
+
+  # Filter by inbox name
+  chatwoot conversations list --inbox-id Support
+
   # JSON output - returns an object with an "items" array
   chatwoot conversations list --output json | jq '.items[0]'
 
@@ -125,9 +131,19 @@ func newConversationsListCmd() *cobra.Command {
 			return resolveConversationSummaries(ctx, client, summaries), nil
 		},
 		Fetch: func(ctx context.Context, client *api.Client, page, _ int) (ListResult[api.Conversation], error) {
+			// Resolve inbox name to ID if provided
+			resolvedInboxID := inboxID
+			if inboxID != "" {
+				id, err := resolveInboxID(ctx, client, inboxID)
+				if err != nil {
+					return ListResult[api.Conversation]{}, err
+				}
+				resolvedInboxID = strconv.Itoa(id)
+			}
+
 			params := api.ListConversationsParams{
 				Status:       status,
-				InboxID:      inboxID,
+				InboxID:      resolvedInboxID,
 				AssigneeType: assigneeType,
 				Query:        search,
 				Page:         page,
@@ -192,7 +208,7 @@ func newConversationsListCmd() *cobra.Command {
 	})
 	registerFieldSchema(cmd, "conversation")
 
-	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
+	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID or name")
 	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&assigneeType, "assignee-type", "", "Filter by assignee type (me|assigned|unassigned)")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
