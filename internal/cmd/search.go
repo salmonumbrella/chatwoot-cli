@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// extractBracketedName extracts a name from LINE-style message prefixes like "[Jack Su]"
+var bracketedNameRegex = regexp.MustCompile(`^\s*\[([^\]]+)\]`)
+
 // SnippetInfo contains a matching message snippet for a conversation
 type SnippetInfo struct {
 	MessageID int    `json:"message_id"`
@@ -17,11 +21,22 @@ type SnippetInfo struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+// SenderMatch represents a person who messages through a contact/conversation
+type SenderMatch struct {
+	Name           string `json:"name"`
+	ContactID      int    `json:"contact_id"`
+	ContactName    string `json:"contact_name"`
+	ConversationID int    `json:"conversation_id"`
+	LastMessageAt  int64  `json:"last_message_at,omitempty"`
+	MessageCount   int    `json:"message_count,omitempty"`
+}
+
 // SearchResults represents the combined search results from multiple resource types
 type SearchResults struct {
 	Query         string                 `json:"query"`
 	Contacts      []api.Contact          `json:"contacts,omitempty"`
 	Conversations []api.Conversation     `json:"conversations,omitempty"`
+	Senders       []SenderMatch          `json:"senders,omitempty"`
 	Snippets      map[string]SnippetInfo `json:"snippets,omitempty"`
 	Summary       map[string]int         `json:"summary"`
 }
@@ -38,10 +53,15 @@ func newSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Search across multiple resources",
-		Long: `Search across contacts and conversations in parallel.
+		Long: `Search across contacts, conversations, and message senders in parallel.
 
-By default searches both contacts and conversations. Use --type to limit
+By default searches contacts, conversations, and senders. Use --type to limit
 to specific resource types.
+
+The "senders" type finds people who message through shared channels (e.g., LINE
+groups) where their name appears in messages but not as a top-level contact.
+This is useful when searching for "Jack" finds the person who messages through
+a contact named "Welgrow Support".
 
 This command is optimized for agent workflows, enabling quick discovery
 of relevant resources with a single query.`,
@@ -53,6 +73,9 @@ of relevant resources with a single query.`,
 
   # Search only conversations
   chatwoot search "support issue" --type conversations
+
+  # Search message senders (finds people in shared channels)
+  chatwoot search "Jack" --type senders
 
   # Search multiple types explicitly
   chatwoot search john --type contacts --type conversations
@@ -83,17 +106,18 @@ of relevant resources with a single query.`,
 			// Default to all types if none specified
 			searchTypes := types
 			if len(searchTypes) == 0 {
-				searchTypes = []string{"contacts", "conversations"}
+				searchTypes = []string{"contacts", "conversations", "senders"}
 			}
 
 			// Validate types
 			validTypes := map[string]bool{
 				"contacts":      true,
+				"senders":       true,
 				"conversations": true,
 			}
 			for _, t := range searchTypes {
 				if !validTypes[t] {
-					return fmt.Errorf("invalid type %q: must be one of contacts, conversations", t)
+					return fmt.Errorf("invalid type %q: must be one of contacts, conversations, senders", t)
 				}
 			}
 
@@ -198,6 +222,166 @@ of relevant resources with a single query.`,
 							results.Conversations = allConversations
 						}
 						results.Summary["conversations"] = len(results.Conversations)
+						mu.Unlock()
+
+					case "senders":
+						// Search message senders within recent conversations
+						// This finds people who message through shared channels (e.g., LINE groups)
+						queryLower := strings.ToLower(query)
+
+						// Fetch recent conversations (all statuses, sorted by activity)
+						var conversations []api.Conversation
+						page := 1
+						maxConversations := 100 // Scan up to 100 recent conversations
+						for {
+							select {
+							case <-ctx.Done():
+								return
+							default:
+							}
+							params := api.ListConversationsParams{
+								Status: "all",
+								Page:   page,
+							}
+							result, err := client.Conversations().List(ctx, params)
+							if err != nil {
+								mu.Lock()
+								if searchErr == nil {
+									searchErr = fmt.Errorf("failed to list conversations for sender search: %w", err)
+								}
+								mu.Unlock()
+								return
+							}
+							conversations = append(conversations, result.Data.Payload...)
+							if len(conversations) >= maxConversations {
+								conversations = conversations[:maxConversations]
+								break
+							}
+							totalPages := int(result.Data.Meta.TotalPages)
+							if totalPages == 0 || page >= totalPages {
+								break
+							}
+							page++
+						}
+
+						// Track unique senders by name+conversation to avoid duplicates
+						type senderKey struct {
+							name   string
+							convID int
+						}
+						seenSenders := make(map[senderKey]bool)
+						var senderMatches []SenderMatch
+
+						// Scan messages in each conversation for matching sender names
+						for _, conv := range conversations {
+							select {
+							case <-ctx.Done():
+								return
+							default:
+							}
+
+							// Fetch first page of messages (most recent)
+							messages, err := client.Messages().List(ctx, conv.ID)
+							if err != nil {
+								continue // Skip conversations we can't read
+							}
+
+							// Track senders in this conversation
+							type senderInfo struct {
+								name          string
+								lastMessageAt int64
+								messageCount  int
+							}
+							convSenders := make(map[string]*senderInfo)
+
+							for _, msg := range messages {
+								// Check sender name from Sender field
+								if msg.Sender != nil && msg.Sender.Name != "" {
+									senderName := msg.Sender.Name
+									senderNameLower := strings.ToLower(senderName)
+
+									if strings.Contains(senderNameLower, queryLower) {
+										if info, exists := convSenders[senderName]; exists {
+											info.messageCount++
+											if msg.CreatedAt > info.lastMessageAt {
+												info.lastMessageAt = msg.CreatedAt
+											}
+										} else {
+											convSenders[senderName] = &senderInfo{
+												name:          senderName,
+												lastMessageAt: msg.CreatedAt,
+												messageCount:  1,
+											}
+										}
+									}
+								}
+
+								// Also check for LINE-style bracketed names in content: "[Jack Su] message..."
+								if matches := bracketedNameRegex.FindStringSubmatch(msg.Content); len(matches) > 1 {
+									bracketedName := matches[1]
+									bracketedNameLower := strings.ToLower(bracketedName)
+
+									if strings.Contains(bracketedNameLower, queryLower) {
+										if info, exists := convSenders[bracketedName]; exists {
+											info.messageCount++
+											if msg.CreatedAt > info.lastMessageAt {
+												info.lastMessageAt = msg.CreatedAt
+											}
+										} else {
+											convSenders[bracketedName] = &senderInfo{
+												name:          bracketedName,
+												lastMessageAt: msg.CreatedAt,
+												messageCount:  1,
+											}
+										}
+									}
+								}
+							}
+
+							// Get contact name from conversation metadata
+							contactName := ""
+							contactID := 0
+							if conv.Meta != nil {
+								if sender, ok := conv.Meta["sender"].(map[string]any); ok {
+									if name, ok := sender["name"].(string); ok {
+										contactName = name
+									}
+									if id, ok := sender["id"].(float64); ok {
+										contactID = int(id)
+									}
+								}
+							}
+
+							// Add unique senders to results
+							for _, info := range convSenders {
+								key := senderKey{name: info.name, convID: conv.ID}
+								if seenSenders[key] {
+									continue
+								}
+								seenSenders[key] = true
+
+								senderMatches = append(senderMatches, SenderMatch{
+									Name:           info.name,
+									ContactID:      contactID,
+									ContactName:    contactName,
+									ConversationID: conv.ID,
+									LastMessageAt:  info.lastMessageAt,
+									MessageCount:   info.messageCount,
+								})
+
+								if limit > 0 && len(senderMatches) >= limit {
+									break
+								}
+							}
+
+							if limit > 0 && len(senderMatches) >= limit {
+								break
+							}
+						}
+
+						mu.Lock()
+						results.Senders = senderMatches
+						results.Summary["senders"] = len(senderMatches)
 						mu.Unlock()
 					}
 				}(searchType)
@@ -325,12 +509,13 @@ of relevant resources with a single query.`,
 			if isAgent(cmd) {
 				type agentSearchResult struct {
 					Type         string                        `json:"type"`
-					ID           int                           `json:"id"`
+					ID           int                           `json:"id,omitempty"`
 					Contact      *agentfmt.ContactSummary      `json:"contact,omitempty"`
 					Conversation *agentfmt.ConversationSummary `json:"conversation,omitempty"`
+					Sender       *SenderMatch                  `json:"sender,omitempty"`
 				}
 
-				resultsList := make([]agentSearchResult, 0, len(results.Contacts)+len(results.Conversations))
+				resultsList := make([]agentSearchResult, 0, len(results.Contacts)+len(results.Conversations)+len(results.Senders))
 				for _, contact := range results.Contacts {
 					summary := agentfmt.ContactSummaryFromContact(contact)
 					resultsList = append(resultsList, agentSearchResult{
@@ -352,12 +537,20 @@ of relevant resources with a single query.`,
 						Conversation: &summary,
 					})
 				}
+				for _, sender := range results.Senders {
+					senderCopy := sender
+					resultsList = append(resultsList, agentSearchResult{
+						Type:   "sender",
+						ID:     sender.ConversationID,
+						Sender: &senderCopy,
+					})
+				}
 
 				payload := agentfmt.SearchEnvelope{
 					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
 					Query:   query,
 					Results: resultsList,
-					Summary: map[string]int{"contacts": len(results.Contacts), "conversations": len(results.Conversations)},
+					Summary: map[string]int{"contacts": len(results.Contacts), "conversations": len(results.Conversations), "senders": len(results.Senders)},
 				}
 				return printJSON(cmd, payload)
 			}
@@ -389,8 +582,16 @@ of relevant resources with a single query.`,
 				_, _ = fmt.Fprintln(cmd.OutOrStdout())
 			}
 
+			if len(results.Senders) > 0 {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Senders (%d):\n", len(results.Senders))
+				for _, s := range results.Senders {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s → %s (conv #%d)\n", s.Name, s.ContactName, s.ConversationID)
+				}
+				_, _ = fmt.Fprintln(cmd.OutOrStdout())
+			}
+
 			// Show empty message if no results
-			total := len(results.Contacts) + len(results.Conversations)
+			total := len(results.Contacts) + len(results.Conversations) + len(results.Senders)
 			if total == 0 {
 				searchedTypes := strings.Join(searchTypes, ", ")
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No results found in %s\n", searchedTypes)
@@ -400,7 +601,7 @@ of relevant resources with a single query.`,
 		}),
 	}
 
-	cmd.Flags().StringArrayVar(&types, "type", nil, "Resource types to search (contacts, conversations); repeatable")
+	cmd.Flags().StringArrayVar(&types, "type", nil, "Resource types to search (contacts, conversations, senders); repeatable")
 	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum results per type")
 	cmd.Flags().BoolVar(&selectOne, "select", false, "Interactively select a single result")
 	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")

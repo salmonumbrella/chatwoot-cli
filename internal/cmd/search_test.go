@@ -787,3 +787,117 @@ func TestSearchConversationContent(t *testing.T) {
 		t.Errorf("expected 2 conversations, got %d", result.Summary["conversations"])
 	}
 }
+
+func TestSearchCommand_Senders(t *testing.T) {
+	// Test that sender search finds people who message through shared channels
+	// using LINE-style bracketed names like "[Jack Su]"
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1, "meta": {"sender": {"id": 50, "name": "Welgrow Support"}}}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/100/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "[Jack Su]   \nHello, this is Jack", "message_type": 0, "created_at": 1700000000, "sender": {"id": 50, "name": "Welgrow Support"}},
+				{"id": 2, "content": "[Amy]   \nHi Jack!", "message_type": 0, "created_at": 1700000100, "sender": {"id": 50, "name": "Welgrow Support"}},
+				{"id": 3, "content": "[Jack Su]   \nThanks Amy", "message_type": 0, "created_at": 1700000200, "sender": {"id": 50, "name": "Welgrow Support"}}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "Jack", "--type", "senders", "--output", "json"})
+		if err != nil {
+			t.Fatalf("search --type senders failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Query   string `json:"query"`
+		Senders []struct {
+			Name           string `json:"name"`
+			ContactID      int    `json:"contact_id"`
+			ContactName    string `json:"contact_name"`
+			ConversationID int    `json:"conversation_id"`
+			MessageCount   int    `json:"message_count"`
+		} `json:"senders"`
+		Summary map[string]int `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	if result.Summary["senders"] != 1 {
+		t.Errorf("expected 1 sender, got %d", result.Summary["senders"])
+	}
+	if len(result.Senders) != 1 {
+		t.Fatalf("expected 1 sender in array, got %d", len(result.Senders))
+	}
+
+	sender := result.Senders[0]
+	if sender.Name != "Jack Su" {
+		t.Errorf("expected sender name 'Jack Su', got %q", sender.Name)
+	}
+	if sender.ContactName != "Welgrow Support" {
+		t.Errorf("expected contact name 'Welgrow Support', got %q", sender.ContactName)
+	}
+	if sender.ConversationID != 100 {
+		t.Errorf("expected conversation_id 100, got %d", sender.ConversationID)
+	}
+	if sender.MessageCount != 2 {
+		t.Errorf("expected message_count 2 (Jack Su sent 2 messages), got %d", sender.MessageCount)
+	}
+}
+
+func TestSearchCommand_SendersIncludedByDefault(t *testing.T) {
+	// Test that senders are included in default search (no --type flag)
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [],
+			"meta": {"count": 0}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 200, "status": "open", "inbox_id": 1, "meta": {"sender": {"id": 60, "name": "Support Group"}}}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/200/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 10, "content": "[Alice Wong]   \nQuestion about shipping", "message_type": 0, "created_at": 1700000000, "sender": {"id": 60, "name": "Support Group"}}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "Alice", "--output", "json"})
+		if err != nil {
+			t.Fatalf("search failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Senders []struct {
+			Name string `json:"name"`
+		} `json:"senders"`
+		Summary map[string]int `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	if result.Summary["senders"] != 1 {
+		t.Errorf("expected senders to be included by default, got %d", result.Summary["senders"])
+	}
+	if len(result.Senders) < 1 || result.Senders[0].Name != "Alice Wong" {
+		t.Errorf("expected to find 'Alice Wong' in senders, got %v", result.Senders)
+	}
+}
