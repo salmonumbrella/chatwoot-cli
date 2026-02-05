@@ -95,9 +95,9 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			for _, contact := range contacts.Payload {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 					contact.ID,
-					contact.Name,
-					contact.Email,
-					contact.PhoneNumber,
+					displayContactName(contact.Name),
+					strings.TrimSpace(contact.Email),
+					strings.TrimSpace(contact.PhoneNumber),
 					formatTimestampShort(contact.CreatedAtTime()),
 				)
 			}
@@ -131,6 +131,10 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 
 	id, err := resolveContactID(ctx, client, args[0])
 	if err != nil {
+		return err
+	}
+
+	if handled, err := handleURLFlag(cmd, "contacts", id); handled {
 		return err
 	}
 
@@ -184,17 +188,20 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 
 func newContactsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id-or-email>",
+		Use:   "get <identifier>",
 		Short: "Get contact by ID, email, or name",
-		Long: `Get a specific contact by their ID, email address, or name.
+		Long: `Get a specific contact by their ID, email address, phone number, or name.
 
-Accepts numeric ID, Chatwoot URL, email address, or name to search.
+Accepts numeric ID, Chatwoot URL, email address, phone number, or name to search.
 Use 'chatwoot contacts show <id>' as an alias for this command.`,
 		Example: `  # Get contact by ID
   chatwoot contacts get 123
 
   # Get contact by email
   chatwoot contacts get john@example.com
+
+  # Get contact by phone number
+  chatwoot contacts get +16042091231
 
   # Get contact by name
   chatwoot contacts get "John Smith"
@@ -219,6 +226,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
+	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 
 	return cmd
 }
@@ -251,6 +259,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
+	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 
 	return cmd
 }
@@ -361,9 +370,9 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
 				contact.ID,
-				contact.Name,
-				contact.Email,
-				contact.PhoneNumber,
+				displayContactName(contact.Name),
+				strings.TrimSpace(contact.Email),
+				strings.TrimSpace(contact.PhoneNumber),
 			)
 
 			return nil
@@ -386,15 +395,21 @@ func newContactsUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update <identifier>",
 		Short: "Update a contact",
-		Long:  "Update a contact's name, email, and/or phone number",
-		Args:  cobra.ExactArgs(1),
+		Long: `Update a contact's name, email, and/or phone number.
+
+Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolve the contact.`,
+		Example: `  # Update by ID
+  chatwoot contacts update 123 --name "Updated Name"
+
+  # Update by email
+  chatwoot contacts update john@example.com --name "John Smith"
+
+  # Update by phone number (if searchable)
+  chatwoot contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"`,
+		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
-			if err != nil {
-				return err
-			}
 
 			if name == "" && email == "" && phone == "" {
 				return fmt.Errorf("at least one of --name, --email, or --phone must be provided")
@@ -424,7 +439,13 @@ func newContactsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			contact, err := client.Contacts().Update(cmdContext(cmd), id, name, email, phone)
+			ctx := cmdContext(cmd)
+			id, err := resolveContactID(ctx, client, args[0])
+			if err != nil {
+				return err
+			}
+
+			contact, err := client.Contacts().Update(ctx, id, name, email, phone)
 			if err != nil {
 				return fmt.Errorf("failed to update contact %d: %w", id, err)
 			}
@@ -439,9 +460,9 @@ func newContactsUpdateCmd() *cobra.Command {
 			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE")
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
 				contact.ID,
-				contact.Name,
-				contact.Email,
-				contact.PhoneNumber,
+				displayContactName(contact.Name),
+				strings.TrimSpace(contact.Email),
+				strings.TrimSpace(contact.PhoneNumber),
 			)
 
 			return nil
@@ -534,9 +555,9 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			for _, contact := range contacts.Payload {
 				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 					contact.ID,
-					contact.Name,
-					contact.Email,
-					contact.PhoneNumber,
+					displayContactName(contact.Name),
+					strings.TrimSpace(contact.Email),
+					strings.TrimSpace(contact.PhoneNumber),
 					formatTimestampShort(contact.CreatedAtTime()),
 				)
 			}
@@ -642,11 +663,11 @@ Available query operators: and, or`,
 
 func newContactsConversationsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "conversations <id-or-email>",
+		Use:   "conversations <identifier>",
 		Short: "Get contact conversations",
 		Long: `Get all conversations for a specific contact.
 
-Accepts contact ID, email address, or name to search for the contact.`,
+Accepts contact ID, email address, phone number, or name to search for the contact.`,
 		Example: `  # Get conversations by contact ID
   chatwoot contacts conversations 123
 
@@ -1577,8 +1598,17 @@ func countByStatus(convs []api.Conversation, status string) int {
 
 // valueOrNone returns the value if non-empty, otherwise "(none)"
 func valueOrNone(s string) string {
-	if s == "" {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
 		return "(none)"
 	}
-	return s
+	return trimmed
+}
+
+func displayContactName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "(none)"
+	}
+	return trimmed
 }

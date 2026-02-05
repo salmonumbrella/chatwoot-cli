@@ -17,6 +17,7 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/config"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
@@ -651,6 +652,34 @@ func parseIDArgs(args []string) ([]int, error) {
 	return ids, nil
 }
 
+// resourceURL constructs the Chatwoot web UI URL for a given resource.
+// resourceType must be the plural form (e.g., "conversations", "contacts").
+func resourceURL(resourceType string, resourceID int) (string, error) {
+	account, err := config.LoadAccount()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/app/accounts/%d/%s/%d", account.BaseURL, account.AccountID, resourceType, resourceID), nil
+}
+
+// handleURLFlag checks if --url is set on the command. If so, it constructs the
+// Chatwoot web UI URL for the resource, prints it, and returns true to signal
+// that the command should exit early (skipping the API call).
+// resourceType must be the plural form (e.g., "conversations", "contacts").
+func handleURLFlag(cmd *cobra.Command, resourceType string, resourceID int) (bool, error) {
+	showURL, _ := cmd.Flags().GetBool("url")
+	if !showURL {
+		return false, nil
+	}
+	u, err := resourceURL(resourceType, resourceID)
+	if err != nil {
+		return true, err
+	}
+	ioStreams := iocontext.GetIO(cmd.Context())
+	_, _ = fmt.Fprintln(ioStreams.Out, u)
+	return true, nil
+}
+
 // parseIDOrURL accepts either a numeric ID or a Chatwoot URL.
 // If a URL is provided, it extracts the resource ID from it.
 // The expectedResource parameter validates the URL resource type matches.
@@ -697,7 +726,7 @@ func resolveContactID(ctx context.Context, client *api.Client, identifier string
 		return parseIDOrURL(identifier, "contact")
 	}
 
-	// Search for contact by name/email
+	// Search for contact by name/email/phone
 	results, err := client.Contacts().Search(ctx, identifier, 1)
 	if err != nil {
 		return 0, fmt.Errorf("failed to search contacts: %w", err)
@@ -718,7 +747,12 @@ func resolveContactID(ctx context.Context, client *api.Client, identifier string
 		limit = len(results.Payload)
 	}
 	for _, c := range results.Payload[:limit] {
-		options = append(options, fmt.Sprintf("  %d: %s <%s>", c.ID, c.Name, c.Email))
+		name := displayContactName(c.Name)
+		email := strings.TrimSpace(c.Email)
+		if email == "" {
+			email = "-"
+		}
+		options = append(options, fmt.Sprintf("  %d: %s <%s>", c.ID, name, email))
 	}
 	return 0, fmt.Errorf("multiple contacts match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
 }

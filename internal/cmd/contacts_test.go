@@ -188,6 +188,32 @@ func TestContactsUpdateCommand(t *testing.T) {
 	}
 }
 
+func TestContactsUpdateCommand_ByEmail(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 321, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1, "current_page": 1, "total_pages": 1}
+		}`)).
+		On("PATCH", "/api/v1/accounts/1/contacts/321", jsonResponse(200, `{
+			"payload": {"id": 321, "name": "Updated Name", "email": "john@example.com"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "update", "john@example.com", "--name", "Updated Name"})
+		if err != nil {
+			t.Errorf("contacts update by email failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Updated Name") {
+		t.Errorf("output missing 'Updated Name': %s", output)
+	}
+}
+
 func TestContactsUpdateCommand_NoFlags(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 

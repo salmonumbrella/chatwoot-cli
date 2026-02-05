@@ -234,8 +234,11 @@ chatwoot contacts filter --payload '[{"attribute_key":"email","filter_operator":
 # CRUD operations
 chatwoot contacts get 123
 chatwoot contacts show 123                        # Alias for 'get'
+chatwoot contacts get +16042091231                # Lookup by phone number
 chatwoot contacts create --name "John Doe" --email "john@example.com"
 chatwoot contacts update 123 --phone "+1234567890"
+chatwoot contacts update john@example.com --name "John Smith"
+chatwoot contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"
 chatwoot contacts delete 123
 
 # Merge contacts (combine duplicates)

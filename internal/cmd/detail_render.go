@@ -40,15 +40,15 @@ func printConversationDetails(out io.Writer, conv *api.Conversation) error {
 // printContactDetails outputs contact details in text format.
 func printContactDetails(out io.Writer, contact *api.Contact) error {
 	_, _ = fmt.Fprintf(out, "Contact #%d\n", contact.ID)
-	_, _ = fmt.Fprintf(out, "  Name:  %s\n", contact.Name)
-	if contact.Email != "" {
-		_, _ = fmt.Fprintf(out, "  Email: %s\n", contact.Email)
+	_, _ = fmt.Fprintf(out, "  Name:  %s\n", displayContactName(contact.Name))
+	if email := strings.TrimSpace(contact.Email); email != "" {
+		_, _ = fmt.Fprintf(out, "  Email: %s\n", email)
 	}
-	if contact.PhoneNumber != "" {
-		_, _ = fmt.Fprintf(out, "  Phone: %s\n", contact.PhoneNumber)
+	if phone := strings.TrimSpace(contact.PhoneNumber); phone != "" {
+		_, _ = fmt.Fprintf(out, "  Phone: %s\n", phone)
 	}
-	if contact.Identifier != "" {
-		_, _ = fmt.Fprintf(out, "  Identifier: %s\n", contact.Identifier)
+	if identifier := strings.TrimSpace(contact.Identifier); identifier != "" {
+		_, _ = fmt.Fprintf(out, "  Identifier: %s\n", identifier)
 	}
 	return nil
 }

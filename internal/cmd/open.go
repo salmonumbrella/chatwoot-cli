@@ -2,18 +2,49 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
+var openResourceAliases = map[string]string{
+	"conversation":  "conversation",
+	"conversations": "conversation",
+	"contact":       "contact",
+	"contacts":      "contact",
+	"inbox":         "inbox",
+	"inboxes":       "inbox",
+	"team":          "team",
+	"teams":         "team",
+	"agent":         "agent",
+	"agents":        "agent",
+	"campaign":      "campaign",
+	"campaigns":     "campaign",
+}
+
+func normalizeOpenResourceType(input string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(input))
+	if normalized == "" {
+		return "", fmt.Errorf("resource type cannot be empty")
+	}
+	if resourceType, ok := openResourceAliases[normalized]; ok {
+		return resourceType, nil
+	}
+	valid := []string{"conversation", "contact", "inbox", "team", "agent", "campaign"}
+	return "", fmt.Errorf("invalid resource type %q: must be one of %s", input, strings.Join(valid, ", "))
+}
+
 func newOpenCmd() *cobra.Command {
+	var resourceTypeFlag string
+
 	cmd := &cobra.Command{
-		Use:   "open <url>",
-		Short: "Open a Chatwoot URL and display resource details",
-		Long: `Parse a Chatwoot URL and display the corresponding resource details.
+		Use:   "open <url> | open <resource> <id> | open <id> --type <resource>",
+		Short: "Open a Chatwoot URL or resource ID and display details",
+		Long: `Parse a Chatwoot URL (or resource + ID) and display the corresponding resource details.
 
 This command accepts Chatwoot URLs and extracts the resource information,
 then fetches and displays the resource just as if you had run the appropriate
@@ -25,7 +56,11 @@ Supported URL formats:
   https://app.chatwoot.com/app/accounts/{account_id}/inboxes/{id}
   https://app.chatwoot.com/app/accounts/{account_id}/teams/{id}
   https://app.chatwoot.com/app/accounts/{account_id}/agents/{id}
-  https://app.chatwoot.com/app/accounts/{account_id}/campaigns/{id}`,
+  https://app.chatwoot.com/app/accounts/{account_id}/campaigns/{id}
+
+You can also provide a resource type and ID directly:
+  chatwoot open contact 456
+  chatwoot open 456 --type contact`,
 		Example: strings.TrimSpace(`
   # Open a conversation URL
   chatwoot open https://app.chatwoot.com/app/accounts/1/conversations/123
@@ -33,17 +68,68 @@ Supported URL formats:
   # Open a contact URL
   chatwoot open https://app.chatwoot.com/app/accounts/1/contacts/456
 
+  # Open by resource type + ID
+  chatwoot open contact 456
+
+  # Open by ID with --type
+  chatwoot open 456 --type contact
+
   # Open with JSON output
   chatwoot open https://app.chatwoot.com/app/accounts/1/conversations/123 --output json
 `),
-		Args: cobra.ExactArgs(1),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			rawURL := args[0]
+			var (
+				parsed         *urlparse.ParsedURL
+				resourceType   string
+				resourceID     int
+				parsedFromURL  bool
+				hasTypeArg     bool
+				resourceTypeIn string
+			)
 
-			// Parse the URL
-			parsed, err := urlparse.Parse(rawURL)
-			if err != nil {
-				return fmt.Errorf("failed to parse URL: %w", err)
+			if len(args) == 2 {
+				if resourceTypeFlag != "" {
+					return fmt.Errorf("--type cannot be used with <resource> <id> arguments")
+				}
+				resourceTypeIn = args[0]
+				hasTypeArg = true
+				id, err := validation.ParsePositiveInt(args[1], "resource ID")
+				if err != nil {
+					return err
+				}
+				resourceID = id
+			} else {
+				resourceTypeIn = resourceTypeFlag
+				hasTypeArg = resourceTypeIn != ""
+			}
+
+			if hasTypeArg {
+				rt, err := normalizeOpenResourceType(resourceTypeIn)
+				if err != nil {
+					return err
+				}
+				id, err := validation.ParsePositiveInt(args[len(args)-1], "resource ID")
+				if err != nil {
+					return err
+				}
+				resourceType = rt
+				resourceID = id
+			} else {
+				// No resource type provided; treat as URL unless it's a numeric ID
+				if id, err := strconv.Atoi(args[0]); err == nil {
+					if id <= 0 {
+						return fmt.Errorf("invalid resource ID: must be positive")
+					}
+					return fmt.Errorf("missing resource type for ID %d: use `chatwoot open contact %d` or `chatwoot open %d --type contact` (or `chatwoot contacts get %d --url` for the link)", id, id, id, id)
+				}
+				rawURL := args[0]
+				parsedURL, err := urlparse.Parse(rawURL)
+				if err != nil {
+					return fmt.Errorf("failed to parse URL: %w", err)
+				}
+				parsed = parsedURL
+				parsedFromURL = true
 			}
 
 			// Get the client
@@ -52,8 +138,16 @@ Supported URL formats:
 				return err
 			}
 
-			// Verify account ID matches
-			if client.AccountID != parsed.AccountID {
+			if !parsedFromURL {
+				parsed = &urlparse.ParsedURL{
+					AccountID:    client.AccountID,
+					ResourceType: resourceType,
+					ResourceID:   resourceID,
+				}
+			}
+
+			// Verify account ID matches (URLs only)
+			if parsedFromURL && client.AccountID != parsed.AccountID {
 				return fmt.Errorf("URL account ID (%d) does not match authenticated account ID (%d); use 'chatwoot auth login' to switch accounts", parsed.AccountID, client.AccountID)
 			}
 
@@ -139,6 +233,9 @@ Supported URL formats:
 			}
 		}),
 	}
+
+	cmd.Flags().StringVar(&resourceTypeFlag, "type", "", "Resource type when opening by ID (contact, conversation, inbox, team, agent, campaign)")
+	registerStaticCompletions(cmd, "type", []string{"contact", "conversation", "inbox", "team", "agent", "campaign"})
 
 	return cmd
 }

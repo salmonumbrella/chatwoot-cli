@@ -97,6 +97,68 @@ func TestOpenCommand_Contact(t *testing.T) {
 	}
 }
 
+func TestOpenCommand_ContactByTypeArg(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "John Doe",
+				"email": "john@example.com",
+				"phone_number": "+1234567890"
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"open", "contact", "456"})
+		if err != nil {
+			t.Errorf("open contact by type arg failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Contact #456") {
+		t.Errorf("output missing 'Contact #456': %s", output)
+	}
+}
+
+func TestOpenCommand_ContactByTypeFlag(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/789", jsonResponse(200, `{
+			"payload": {
+				"id": 789,
+				"name": "Jane Doe",
+				"email": "jane@example.com",
+				"phone_number": "+1234567890"
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"open", "789", "--type", "contact"})
+		if err != nil {
+			t.Errorf("open contact by type flag failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Contact #789") {
+		t.Errorf("output missing 'Contact #789': %s", output)
+	}
+}
+
+func TestOpenCommand_IDMissingType(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"open", "456"})
+	if err == nil {
+		t.Fatal("expected error for missing resource type with numeric ID")
+	}
+	if !strings.Contains(err.Error(), "missing resource type") {
+		t.Errorf("error = %q, want error about missing resource type", err.Error())
+	}
+}
+
 func TestOpenCommand_Inbox(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/inboxes/1", jsonResponse(200, `{
