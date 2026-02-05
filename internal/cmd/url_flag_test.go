@@ -192,3 +192,123 @@ func TestURLFlag_ContactsShow(t *testing.T) {
 		t.Errorf("output = %q, want %q", output, expected)
 	}
 }
+
+// TestResourceURL tests the resourceURL function directly
+func TestResourceURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType string
+		resourceID   int
+		wantSuffix   string // We check suffix since base URL varies per test server
+	}{
+		{
+			name:         "conversations",
+			resourceType: "conversations",
+			resourceID:   123,
+			wantSuffix:   "/app/accounts/1/conversations/123",
+		},
+		{
+			name:         "contacts",
+			resourceType: "contacts",
+			resourceID:   456,
+			wantSuffix:   "/app/accounts/1/contacts/456",
+		},
+		{
+			name:         "inboxes",
+			resourceType: "inboxes",
+			resourceID:   7,
+			wantSuffix:   "/app/accounts/1/inboxes/7",
+		},
+		{
+			name:         "teams",
+			resourceType: "teams",
+			resourceID:   99,
+			wantSuffix:   "/app/accounts/1/teams/99",
+		},
+		{
+			name:         "agents",
+			resourceType: "agents",
+			resourceID:   42,
+			wantSuffix:   "/app/accounts/1/agents/42",
+		},
+		{
+			name:         "campaigns",
+			resourceType: "campaigns",
+			resourceID:   1,
+			wantSuffix:   "/app/accounts/1/campaigns/1",
+		},
+		{
+			name:         "labels",
+			resourceType: "labels",
+			resourceID:   55,
+			wantSuffix:   "/app/accounts/1/labels/55",
+		},
+		{
+			name:         "large resource ID",
+			resourceType: "conversations",
+			resourceID:   999999999,
+			wantSuffix:   "/app/accounts/1/conversations/999999999",
+		},
+		{
+			name:         "zero resource ID",
+			resourceType: "contacts",
+			resourceID:   0,
+			wantSuffix:   "/app/accounts/1/contacts/0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := setupTestEnv(t, jsonResponse(200, `{}`))
+
+			url, err := resourceURL(tt.resourceType, tt.resourceID)
+			if err != nil {
+				t.Fatalf("resourceURL() error = %v", err)
+			}
+
+			// Verify the URL starts with the test server URL
+			if !strings.HasPrefix(url, env.server.URL) {
+				t.Errorf("resourceURL() = %q, should start with %q", url, env.server.URL)
+			}
+
+			// Verify the URL ends with the expected path
+			if !strings.HasSuffix(url, tt.wantSuffix) {
+				t.Errorf("resourceURL() = %q, want suffix %q", url, tt.wantSuffix)
+			}
+
+			// Verify the full URL matches expected format
+			expected := env.server.URL + tt.wantSuffix
+			if url != expected {
+				t.Errorf("resourceURL() = %q, want %q", url, expected)
+			}
+		})
+	}
+}
+
+// TestResourceURL_URLFormat verifies the URL format is correct
+func TestResourceURL_URLFormat(t *testing.T) {
+	env := setupTestEnv(t, jsonResponse(200, `{}`))
+
+	url, err := resourceURL("conversations", 123)
+	if err != nil {
+		t.Fatalf("resourceURL() error = %v", err)
+	}
+
+	// Verify no double slashes (except in http://)
+	urlWithoutScheme := strings.TrimPrefix(url, "http://")
+	urlWithoutScheme = strings.TrimPrefix(urlWithoutScheme, "https://")
+	if strings.Contains(urlWithoutScheme, "//") {
+		t.Errorf("resourceURL() = %q, contains double slashes in path", url)
+	}
+
+	// Verify no trailing slash
+	if strings.HasSuffix(url, "/") {
+		t.Errorf("resourceURL() = %q, has trailing slash", url)
+	}
+
+	// Verify expected format: {baseURL}/app/accounts/{accountID}/{resourceType}/{resourceID}
+	expectedFormat := env.server.URL + "/app/accounts/1/conversations/123"
+	if url != expectedFormat {
+		t.Errorf("resourceURL() = %q, want %q", url, expectedFormat)
+	}
+}
