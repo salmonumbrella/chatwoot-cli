@@ -86,6 +86,10 @@ func newInboxesGetCmd() *cobra.Command {
 				return err
 			}
 
+			if handled, err := handleURLFlag(cmd, "inboxes", id); handled {
+				return err
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -102,6 +106,8 @@ func newInboxesGetCmd() *cobra.Command {
 			return printInboxDetails(cmd.OutOrStdout(), inbox)
 		}),
 	}
+
+	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "channel_type"},

@@ -78,6 +78,10 @@ func newAgentsGetCmd() *cobra.Command {
 				return err
 			}
 
+			if handled, err := handleURLFlag(cmd, "agents", id); handled {
+				return err
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -94,6 +98,8 @@ func newAgentsGetCmd() *cobra.Command {
 			return printAgentDetails(cmd.OutOrStdout(), agent)
 		}),
 	}
+
+	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "email"},

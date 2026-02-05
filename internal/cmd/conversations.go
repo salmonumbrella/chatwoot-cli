@@ -289,11 +289,18 @@ func newConversationsGetCmd() *cobra.Command {
 
   # Get conversation using URL from browser
   chatwoot conversations get https://app.chatwoot.com/app/accounts/1/conversations/123
+
+  # Get the web UI URL for a conversation
+  chatwoot conversations get 461 --url
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
+				return err
+			}
+
+			if handled, err := handleURLFlag(cmd, "conversations", id); handled {
 				return err
 			}
 
@@ -459,6 +466,7 @@ func newConversationsGetCmd() *cobra.Command {
 	cmd.Flags().IntVar(&messageLimit, "message-limit", 20, "Maximum messages to include (default 20)")
 	cmd.Flags().BoolVar(&suggestedActions, "suggested-actions", false, "Include AI-suggested actions in agent output")
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints in agent output")
+	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},

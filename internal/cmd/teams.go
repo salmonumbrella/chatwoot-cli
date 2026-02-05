@@ -82,6 +82,10 @@ func newTeamsGetCmd() *cobra.Command {
 				return err
 			}
 
+			if handled, err := handleURLFlag(cmd, "teams", id); handled {
+				return err
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -98,6 +102,8 @@ func newTeamsGetCmd() *cobra.Command {
 			return printTeamDetails(cmd.OutOrStdout(), team)
 		}),
 	}
+
+	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name"},
