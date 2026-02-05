@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,6 +123,16 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
 // contactGetRunE is the shared implementation for get/show commands
 func contactGetRunE(cmd *cobra.Command, args []string) error {
+	identifier := args[0]
+
+	// Check if identifier is numeric - if so, handle --url flag before any API call
+	// This is consistent with other commands (agents, campaigns, etc.)
+	if numericID, err := strconv.Atoi(identifier); err == nil && numericID > 0 {
+		if handled, err := handleURLFlag(cmd, "contacts", numericID); handled {
+			return err
+		}
+	}
+
 	client, err := getClient()
 	if err != nil {
 		return err
@@ -129,11 +140,12 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 
 	ctx := cmdContext(cmd)
 
-	id, err := resolveContactID(ctx, client, args[0])
+	id, err := resolveContactID(ctx, client, identifier)
 	if err != nil {
 		return err
 	}
 
+	// For non-numeric identifiers, check --url flag after resolution
 	if handled, err := handleURLFlag(cmd, "contacts", id); handled {
 		return err
 	}
