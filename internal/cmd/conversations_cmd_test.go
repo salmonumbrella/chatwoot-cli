@@ -94,6 +94,27 @@ func TestConversationsGetCommand(t *testing.T) {
 	}
 }
 
+func TestConversationsGetCommand_EmitURL_SkipsAPICall(t *testing.T) {
+	called := false
+	setupTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	out := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"conversations", "get", "123", "--emit", "url"}); err != nil {
+			t.Fatalf("conversations get --emit url failed: %v", err)
+		}
+	})
+
+	if called {
+		t.Fatalf("expected no API call for --emit url")
+	}
+	if !strings.Contains(out, "/app/accounts/1/conversations/123") {
+		t.Fatalf("unexpected output: %q", out)
+	}
+}
+
 func TestConversationsToggleStatusCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
@@ -538,6 +559,46 @@ func TestConversationsBulkAddLabel(t *testing.T) {
 	}
 
 	if !strings.Contains(output, "Added labels to 2 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsBulkAddLabel_LabelsFromStdin(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/labels", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"payload": ["urgent", "new-label"]}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("urgent\nnew-label\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		cmd.SetArgs([]string{"bulk", "add-label", "--ids", "1", "--labels", "@-"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("bulk add-label failed: %v", err)
+		}
+	})
+
+	if callCount != 1 {
+		t.Errorf("expected 1 API call, got %d", callCount)
+	}
+	if !strings.Contains(output, "Added labels to 1 conversations") {
 		t.Errorf("unexpected output: %s", output)
 	}
 }

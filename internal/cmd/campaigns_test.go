@@ -416,6 +416,35 @@ func TestCampaignsCreateCommand_WithLabels(t *testing.T) {
 	}
 }
 
+func TestCampaignsCreateCommand_WithLabels_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/campaigns", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 1, "title": "New Campaign"}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"campaigns", "create",
+		"--title", "New Campaign",
+		"--message", "Hello!",
+		"--inbox-id", "5",
+		"--labels", "#1,label:2",
+	})
+	if err != nil {
+		t.Fatalf("campaigns create failed: %v", err)
+	}
+
+	audience, ok := receivedBody["audience"].([]any)
+	if !ok || len(audience) != 2 {
+		t.Fatalf("expected 2 audience items, got %v", receivedBody["audience"])
+	}
+}
+
 func TestCampaignsCreateCommand_WithAudience(t *testing.T) {
 	var receivedBody map[string]any
 	handler := newRouteHandler().

@@ -333,6 +333,22 @@ func TestTeamsCreateCommand_MinimalOptions(t *testing.T) {
 	}
 }
 
+func TestTeamsCreateCommand_EmitID(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/teams", jsonResponse(200, `{"id": 4, "name": "Minimal"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	out := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"teams", "create", "--name", "Minimal", "--emit", "id"}); err != nil {
+			t.Fatalf("teams create --emit id failed: %v", err)
+		}
+	})
+	if strings.TrimSpace(out) != "team:4" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+}
+
 func TestTeamsCreateCommand_MissingName(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
 	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
@@ -730,6 +746,52 @@ func TestTeamsMembersAddCommand(t *testing.T) {
 	}
 
 	// Verify request body contains user IDs
+	userIDs, ok := receivedBody["user_ids"].([]any)
+	if !ok {
+		t.Errorf("expected user_ids array in body, got %v", receivedBody)
+	}
+	if len(userIDs) != 3 {
+		t.Errorf("expected 3 user IDs, got %d", len(userIDs))
+	}
+}
+
+func TestTeamsMembersAddCommand_UserIDsFromStdin(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/teams/5/team_members", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.WriteHeader(http.StatusOK)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n2\n3\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"teams", "members-add", "5",
+			"--user-ids", "@-",
+		})
+		if err != nil {
+			t.Errorf("teams members-add failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Added 3 member(s)") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+
 	userIDs, ok := receivedBody["user_ids"].([]any)
 	if !ok {
 		t.Errorf("expected user_ids array in body, got %v", receivedBody)

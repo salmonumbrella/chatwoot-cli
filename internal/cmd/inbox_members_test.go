@@ -176,6 +176,51 @@ func TestInboxMembersAddCommand(t *testing.T) {
 	}
 }
 
+func TestInboxMembersAddCommand_UserIDsFromStdin(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/inbox_members", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("2\n3\n4\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"inbox-members", "add", "1",
+			"--user-ids", "@-",
+		})
+		if err != nil {
+			t.Errorf("inbox-members add failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Added 3 member(s) to inbox 1") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+
+	userIDs := receivedBody["user_ids"].([]any)
+	if len(userIDs) != 3 {
+		t.Errorf("expected 3 user_ids, got %d", len(userIDs))
+	}
+}
+
 func TestInboxMembersAddCommand_InvalidInboxID(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
 	t.Setenv("CHATWOOT_API_TOKEN", "test-token")

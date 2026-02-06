@@ -107,7 +107,7 @@ func newInboxMembersAddCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs (required)")
+	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd
@@ -149,7 +149,7 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs (required)")
+	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd
@@ -191,7 +191,7 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated list of user IDs to set as members (required)")
+	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs to set as members (CSV, whitespace, JSON array; or @- / @path) (required)")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd
@@ -199,25 +199,15 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 
 // parseUserIDs parses a comma-separated string of user IDs into a slice of integers
 func parseUserIDs(s string) ([]int, error) {
-	parts := strings.Split(s, ",")
-	userIDs := make([]int, 0, len(parts))
-
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
+	ids, err := ParseResourceIDListFlag(s, "agent")
+	if err != nil {
+		// Preserve prior test/UX expectations: errors mention "user ID(s)" even though
+		// we accept both agent:* and user:* prefixes.
+		lower := strings.ToLower(err.Error())
+		if strings.Contains(lower, "no ids provided") || strings.Contains(lower, "no valid ids") {
+			return nil, fmt.Errorf("no valid user IDs provided")
 		}
-
-		id, err := parsePositiveIntArg(part, "user ID")
-		if err != nil {
-			return nil, err
-		}
-		userIDs = append(userIDs, id)
+		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
-
-	if len(userIDs) == 0 {
-		return nil, fmt.Errorf("no valid user IDs provided")
-	}
-
-	return userIDs, nil
+	return ids, nil
 }

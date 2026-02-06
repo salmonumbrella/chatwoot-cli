@@ -259,6 +259,7 @@ func newConversationsGetCmd() *cobra.Command {
 	var messageLimit int
 	var suggestedActions bool
 	var explain bool
+	var emit string
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -299,6 +300,15 @@ func newConversationsGetCmd() *cobra.Command {
 				return err
 			}
 
+			mode, err := normalizeEmitFlag(emit)
+			if err != nil {
+				return err
+			}
+			if mode == "id" || mode == "url" {
+				_, err := maybeEmit(cmd, mode, "conversation", id, nil)
+				return err
+			}
+
 			if handled, err := handleURLFlag(cmd, "conversations", id); handled {
 				return err
 			}
@@ -312,6 +322,13 @@ func newConversationsGetCmd() *cobra.Command {
 			conv, err := client.Conversations().Get(ctx, id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d: %w", id, err)
+			}
+
+			// Keep agent-mode behavior intact (context enrichment, suggested actions, etc.).
+			if !isAgent(cmd) {
+				if emitted, err := maybeEmit(cmd, emit, "conversation", id, conv); emitted {
+					return err
+				}
 			}
 
 			// Handle --context flag in agent mode
@@ -466,6 +483,7 @@ func newConversationsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&suggestedActions, "suggested-actions", false, "Include AI-suggested actions in agent output")
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
@@ -484,6 +502,7 @@ func newConversationsCreateCmd() *cobra.Command {
 	var status string
 	var assigneeID int
 	var teamID int
+	var emit string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -550,6 +569,10 @@ func newConversationsCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create conversation: %w", err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "conversation", conv.ID, conv); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, conv)
 			}
@@ -578,6 +601,7 @@ func newConversationsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&status, "status", "", "Status (open|resolved|pending|snoozed)")
 	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -1050,6 +1074,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 func newConversationsUpdateCmd() *cobra.Command {
 	var priority string
 	var slaPolicyID int
+	var emit string
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -1094,6 +1119,10 @@ func newConversationsUpdateCmd() *cobra.Command {
 				return fmt.Errorf("failed to update conversation %d: %w", id, err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "conversation", conv.ID, conv); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, conv)
 			}
@@ -1117,6 +1146,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&priority, "priority", "", "Priority (urgent|high|medium|low|none)")
 	cmd.Flags().IntVar(&slaPolicyID, "sla-policy-id", 0, "SLA policy ID (Enterprise feature)")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
@@ -1376,9 +1406,9 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 				return fmt.Errorf("--labels is required")
 			}
 
-			labels := strings.Split(labelsStr, ",")
-			for i := range labels {
-				labels[i] = strings.TrimSpace(labels[i])
+			labels, err := ParseStringListFlag(labelsStr)
+			if err != nil {
+				return fmt.Errorf("invalid labels: %w", err)
 			}
 
 			client, err := getClient()
@@ -1407,7 +1437,7 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&labelsStr, "labels", "", "Comma-separated list of labels (required)")
+	cmd.Flags().StringVar(&labelsStr, "labels", "", "Labels (CSV, whitespace, JSON array; or @- / @path) (required)")
 
 	return cmd
 }
@@ -1434,9 +1464,9 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 				return fmt.Errorf("--labels is required")
 			}
 
-			labelsToRemove := strings.Split(labelsStr, ",")
-			for i := range labelsToRemove {
-				labelsToRemove[i] = strings.TrimSpace(labelsToRemove[i])
+			labelsToRemove, err := ParseStringListFlag(labelsStr)
+			if err != nil {
+				return fmt.Errorf("invalid labels: %w", err)
 			}
 
 			client, err := getClient()
@@ -1488,7 +1518,7 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&labelsStr, "labels", "", "Comma-separated list of labels to remove (required)")
+	cmd.Flags().StringVar(&labelsStr, "labels", "", "Labels to remove (CSV, whitespace, JSON array; or @- / @path) (required)")
 
 	return cmd
 }
@@ -3015,18 +3045,12 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
 
-			labelList := strings.Split(labels, ",")
-			var filtered []string
-			for _, l := range labelList {
-				l = strings.TrimSpace(l)
-				if l != "" {
-					filtered = append(filtered, l)
-				}
+			labelList, err := ParseStringListFlag(labels)
+			if err != nil {
+				return fmt.Errorf("invalid labels: %w", err)
 			}
-			labelList = filtered
-
 			if len(labelList) == 0 {
-				return fmt.Errorf("no valid labels provided after filtering empty values")
+				return fmt.Errorf("no valid labels provided")
 			}
 
 			client, err := getClient()
@@ -3081,7 +3105,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Conversation IDs (CSV, whitespace, JSON array; or @- / @path)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add")
+	cmd.Flags().StringVar(&labels, "labels", "", "Labels to add (CSV, whitespace, JSON array; or @- / @path)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")

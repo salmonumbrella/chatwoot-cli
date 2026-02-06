@@ -75,6 +75,8 @@ func newInboxesListCmd() *cobra.Command {
 }
 
 func newInboxesGetCmd() *cobra.Command {
+	var emit string
+
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get inbox details",
@@ -82,6 +84,15 @@ func newInboxesGetCmd() *cobra.Command {
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
+				return err
+			}
+
+			mode, err := normalizeEmitFlag(emit)
+			if err != nil {
+				return err
+			}
+			if mode == "id" || mode == "url" {
+				_, err := maybeEmit(cmd, mode, "inbox", id, nil)
 				return err
 			}
 
@@ -99,6 +110,10 @@ func newInboxesGetCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "inbox", inbox.ID, inbox); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, inbox)
 			}
@@ -107,6 +122,7 @@ func newInboxesGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "channel_type"},
@@ -136,6 +152,7 @@ func newInboxesCreateCmd() *cobra.Command {
 		senderNameType             string
 		outOfOfficeMessage         string
 		outOfOfficeEnabled         bool
+		emit                       string
 	)
 
 	cmd := &cobra.Command{
@@ -197,6 +214,10 @@ func newInboxesCreateCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "inbox", inbox.ID, inbox); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, inbox)
 			}
@@ -222,6 +243,7 @@ func newInboxesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&senderNameType, "sender-name-type", "", "Sender name type")
 	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
 	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("channel-type")
 
@@ -245,6 +267,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 		senderNameType             string
 		outOfOfficeMessage         string
 		outOfOfficeEnabled         bool
+		emit                       string
 	)
 
 	cmd := &cobra.Command{
@@ -323,6 +346,10 @@ func newInboxesUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "inbox", inbox.ID, inbox); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, inbox)
 			}
@@ -347,6 +374,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&senderNameType, "sender-name-type", "", "Sender name type")
 	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
 	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }

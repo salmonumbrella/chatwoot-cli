@@ -3,13 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -103,6 +101,8 @@ func newCampaignsListCmd() *cobra.Command {
 }
 
 func newCampaignsGetCmd() *cobra.Command {
+	var emit string
+
 	cmd := &cobra.Command{
 		Use:     "get <id>",
 		Short:   "Get a campaign by ID",
@@ -111,6 +111,15 @@ func newCampaignsGetCmd() *cobra.Command {
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "campaign")
 			if err != nil {
+				return err
+			}
+
+			mode, err := normalizeEmitFlag(emit)
+			if err != nil {
+				return err
+			}
+			if mode == "id" || mode == "url" {
+				_, err := maybeEmit(cmd, mode, "campaign", id, nil)
 				return err
 			}
 
@@ -128,6 +137,10 @@ func newCampaignsGetCmd() *cobra.Command {
 				return fmt.Errorf("failed to get campaign: %w", err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "campaign", campaign.ID, campaign); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, campaign)
 			}
@@ -136,6 +149,7 @@ func newCampaignsGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "title", "campaign_status"},
@@ -175,6 +189,7 @@ func newCampaignsCreateCmd() *cobra.Command {
 		labels        string
 		enabled       bool
 		businessHours bool
+		emit          string
 	)
 
 	cmd := &cobra.Command{
@@ -236,11 +251,11 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 			}
 
 			if labels != "" {
-				for _, idStr := range strings.Split(labels, ",") {
-					id, err := validation.ParsePositiveInt(strings.TrimSpace(idStr), "label ID")
-					if err != nil {
-						return err
-					}
+				ids, err := ParseResourceIDListFlag(labels, "label")
+				if err != nil {
+					return err
+				}
+				for _, id := range ids {
 					req.Audience = append(req.Audience, api.CampaignAudience{Type: "Label", ID: id})
 				}
 			}
@@ -266,6 +281,10 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 				return fmt.Errorf("failed to create campaign: %w", err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "campaign", campaign.ID, campaign); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, campaign)
 			}
@@ -281,10 +300,11 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID for the campaign (required)")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated label IDs for targeting (e.g., 1,2,3)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Label IDs for targeting (CSV, whitespace, JSON array; or @- / @path) (e.g., 1,2,3)")
 	cmd.Flags().StringVar(&audience, "audience", "", "Audience targeting as JSON array (mutually exclusive with --labels)")
 	cmd.Flags().BoolVar(&enabled, "enabled", true, "Enable the campaign")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Trigger only during business hours")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	_ = cmd.MarkFlagRequired("title")
 	_ = cmd.MarkFlagRequired("message")
@@ -303,6 +323,7 @@ func newCampaignsUpdateCmd() *cobra.Command {
 		labels        string
 		enabled       bool
 		businessHours bool
+		emit          string
 	)
 
 	cmd := &cobra.Command{
@@ -352,11 +373,11 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 			}
 
 			if labels != "" {
-				for _, idStr := range strings.Split(labels, ",") {
-					id, err := validation.ParsePositiveInt(strings.TrimSpace(idStr), "label ID")
-					if err != nil {
-						return err
-					}
+				ids, err := ParseResourceIDListFlag(labels, "label")
+				if err != nil {
+					return err
+				}
+				for _, id := range ids {
 					req.Audience = append(req.Audience, api.CampaignAudience{Type: "Label", ID: id})
 				}
 			}
@@ -385,6 +406,10 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 				return fmt.Errorf("failed to update campaign: %w", err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "campaign", campaign.ID, campaign); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, campaign)
 			}
@@ -399,10 +424,11 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 	cmd.Flags().StringVar(&message, "message", "", "Campaign message")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated label IDs for targeting (e.g., 1,2,3)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Label IDs for targeting (CSV, whitespace, JSON array; or @- / @path) (e.g., 1,2,3)")
 	cmd.Flags().StringVar(&audience, "audience", "", "Audience targeting as JSON array (mutually exclusive with --labels)")
 	cmd.Flags().BoolVar(&enabled, "enabled", false, "Enable/disable campaign")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Trigger only during business hours")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }

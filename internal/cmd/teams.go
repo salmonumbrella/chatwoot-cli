@@ -71,6 +71,8 @@ func newTeamsListCmd() *cobra.Command {
 }
 
 func newTeamsGetCmd() *cobra.Command {
+	var emit string
+
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a team by ID",
@@ -78,6 +80,15 @@ func newTeamsGetCmd() *cobra.Command {
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
+				return err
+			}
+
+			mode, err := normalizeEmitFlag(emit)
+			if err != nil {
+				return err
+			}
+			if mode == "id" || mode == "url" {
+				_, err := maybeEmit(cmd, mode, "team", id, nil)
 				return err
 			}
 
@@ -95,6 +106,10 @@ func newTeamsGetCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "team", team.ID, team); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, team)
 			}
@@ -103,6 +118,7 @@ func newTeamsGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name"},
@@ -115,7 +131,7 @@ func newTeamsGetCmd() *cobra.Command {
 }
 
 func newTeamsCreateCmd() *cobra.Command {
-	var name, description string
+	var name, description, emit string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -135,6 +151,10 @@ func newTeamsCreateCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "team", team.ID, team); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, team)
 			}
@@ -146,12 +166,13 @@ func newTeamsCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Team name (required)")
 	cmd.Flags().StringVar(&description, "description", "", "Team description")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
 
 func newTeamsUpdateCmd() *cobra.Command {
-	var name, description string
+	var name, description, emit string
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -177,6 +198,10 @@ func newTeamsUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "team", team.ID, team); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, team)
 			}
@@ -188,6 +213,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Team name")
 	cmd.Flags().StringVar(&description, "description", "", "Team description")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -280,7 +306,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 				return fmt.Errorf("--user-ids is required")
 			}
 
-			userIDs, err := ParseIntList(userIDsStr)
+			userIDs, err := ParseResourceIDListFlag(userIDsStr, "agent")
 			if err != nil {
 				return fmt.Errorf("invalid user IDs: %w", err)
 			}
@@ -307,7 +333,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated user IDs (required)")
+	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
 
 	return cmd
 }
@@ -329,7 +355,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 				return fmt.Errorf("--user-ids is required")
 			}
 
-			userIDs, err := ParseIntList(userIDsStr)
+			userIDs, err := ParseResourceIDListFlag(userIDsStr, "agent")
 			if err != nil {
 				return fmt.Errorf("invalid user IDs: %w", err)
 			}
@@ -356,7 +382,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "Comma-separated user IDs (required)")
+	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
 
 	return cmd
 }

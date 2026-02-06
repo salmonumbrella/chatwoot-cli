@@ -124,10 +124,20 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 // contactGetRunE is the shared implementation for get/show commands
 func contactGetRunE(cmd *cobra.Command, args []string) error {
 	identifier := args[0]
+	emit, _ := cmd.Flags().GetString("emit")
 
 	// Check if identifier is numeric - if so, handle --url flag before any API call
 	// This is consistent with other commands (agents, campaigns, etc.)
 	if numericID, err := strconv.Atoi(identifier); err == nil && numericID > 0 {
+		mode, err := normalizeEmitFlag(emit)
+		if err != nil {
+			return err
+		}
+		if mode == "id" || mode == "url" {
+			_, err := maybeEmit(cmd, mode, "contact", numericID, nil)
+			return err
+		}
+
 		if handled, err := handleURLFlag(cmd, "contacts", numericID); handled {
 			return err
 		}
@@ -145,6 +155,15 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	mode, err := normalizeEmitFlag(emit)
+	if err != nil {
+		return err
+	}
+	if mode == "id" || mode == "url" {
+		_, err := maybeEmit(cmd, mode, "contact", id, nil)
+		return err
+	}
+
 	// For non-numeric identifiers, check --url flag after resolution
 	if handled, err := handleURLFlag(cmd, "contacts", id); handled {
 		return err
@@ -153,6 +172,10 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 	contact, err := client.Contacts().Get(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get contact %d: %w", id, err)
+	}
+
+	if mode == "json" && !isAgent(cmd) {
+		return printJSON(cmd, contact)
 	}
 
 	if isAgent(cmd) {
@@ -239,6 +262,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().String("emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -272,6 +296,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().String("emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -282,6 +307,7 @@ func newContactsCreateCmd() *cobra.Command {
 		email     string
 		phone     string
 		fromStdin bool
+		emit      string
 	)
 
 	cmd := &cobra.Command{
@@ -372,6 +398,10 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 				return fmt.Errorf("failed to create contact: %w", err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "contact", contact.ID, contact); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, contact)
 			}
@@ -395,6 +425,7 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 	cmd.Flags().StringVar(&email, "email", "", "Contact email address")
 	cmd.Flags().StringVar(&phone, "phone", "", "Contact phone number")
 	cmd.Flags().BoolVar(&fromStdin, "json", false, "Read contact data from stdin as JSON")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -404,6 +435,7 @@ func newContactsUpdateCmd() *cobra.Command {
 		name  string
 		email string
 		phone string
+		emit  string
 	)
 
 	cmd := &cobra.Command{
@@ -462,6 +494,10 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 				return fmt.Errorf("failed to update contact %d: %w", id, err)
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "contact", contact.ID, contact); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, contact)
 			}
@@ -484,6 +520,7 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 	cmd.Flags().StringVar(&name, "name", "", "New contact name")
 	cmd.Flags().StringVar(&email, "email", "", "New contact email address")
 	cmd.Flags().StringVar(&phone, "phone", "", "New contact phone number")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -799,9 +836,9 @@ func newContactsLabelsAddCmd() *cobra.Command {
 				return fmt.Errorf("--labels is required")
 			}
 
-			labelList := strings.Split(labels, ",")
-			for i := range labelList {
-				labelList[i] = strings.TrimSpace(labelList[i])
+			labelList, err := ParseStringListFlag(labels)
+			if err != nil {
+				return fmt.Errorf("invalid labels: %w", err)
 			}
 
 			client, err := getClient()
@@ -827,7 +864,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated list of labels")
+	cmd.Flags().StringVar(&labels, "labels", "", "Labels (CSV, whitespace, JSON array; or @- / @path)")
 
 	return cmd
 }
@@ -1132,12 +1169,9 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 				return fmt.Errorf("invalid contact IDs: %w", err)
 			}
 
-			var labelList []string
-			for _, l := range strings.Split(labels, ",") {
-				l = strings.TrimSpace(l)
-				if l != "" {
-					labelList = append(labelList, l)
-				}
+			labelList, err := ParseStringListFlag(labels)
+			if err != nil {
+				return fmt.Errorf("invalid labels: %w", err)
 			}
 			if len(labelList) == 0 {
 				return fmt.Errorf("no valid labels provided")
@@ -1181,7 +1215,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Contact IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Labels to add (CSV, whitespace, JSON array; or @- / @path) (required)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
@@ -1224,11 +1258,12 @@ labels, and updates the contact with the remaining labels.`,
 			}
 
 			labelsToRemove := make(map[string]bool)
-			for _, l := range strings.Split(labels, ",") {
-				l = strings.TrimSpace(l)
-				if l != "" {
-					labelsToRemove[l] = true
-				}
+			labelList, err := ParseStringListFlag(labels)
+			if err != nil {
+				return fmt.Errorf("invalid labels: %w", err)
+			}
+			for _, l := range labelList {
+				labelsToRemove[l] = true
 			}
 			if len(labelsToRemove) == 0 {
 				return fmt.Errorf("no valid labels provided")
@@ -1288,7 +1323,7 @@ labels, and updates the contact with the remaining labels.`,
 	}
 
 	cmd.Flags().StringVar(&contactIDs, "ids", "", "Contact IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to remove (required)")
+	cmd.Flags().StringVar(&labels, "labels", "", "Labels to remove (CSV, whitespace, JSON array; or @- / @path) (required)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
