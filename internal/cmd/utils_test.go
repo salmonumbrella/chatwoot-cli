@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -89,6 +91,65 @@ func TestParseConversationIDList(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseResourceIDListFlag(t *testing.T) {
+	t.Run("csv and whitespace", func(t *testing.T) {
+		got, err := ParseResourceIDListFlag(
+			"1, #2 contact:3 https://app.chatwoot.com/app/accounts/1/contacts/4",
+			"contact",
+		)
+		if err != nil {
+			t.Fatalf("ParseResourceIDListFlag() error = %v", err)
+		}
+		want := []int{1, 2, 3, 4}
+		if len(got) != len(want) {
+			t.Fatalf("ParseResourceIDListFlag() = %v, want %v", got, want)
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("ParseResourceIDListFlag() = %v, want %v", got, want)
+			}
+		}
+	})
+
+	t.Run("json array", func(t *testing.T) {
+		got, err := ParseResourceIDListFlag(`[1,"#2","contact:3"]`, "contact")
+		if err != nil {
+			t.Fatalf("ParseResourceIDListFlag() error = %v", err)
+		}
+		want := []int{1, 2, 3}
+		if len(got) != len(want) {
+			t.Fatalf("ParseResourceIDListFlag() = %v, want %v", got, want)
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("ParseResourceIDListFlag() = %v, want %v", got, want)
+			}
+		}
+	})
+
+	t.Run("from file", func(t *testing.T) {
+		dir := t.TempDir()
+		p := filepath.Join(dir, "ids.txt")
+		if err := os.WriteFile(p, []byte("1\n#2\ncontact:3\n"), 0o600); err != nil {
+			t.Fatalf("failed to write temp ids file: %v", err)
+		}
+
+		got, err := ParseResourceIDListFlag("@"+p, "contact")
+		if err != nil {
+			t.Fatalf("ParseResourceIDListFlag() error = %v", err)
+		}
+		want := []int{1, 2, 3}
+		if len(got) != len(want) {
+			t.Fatalf("ParseResourceIDListFlag() = %v, want %v", got, want)
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("ParseResourceIDListFlag() = %v, want %v", got, want)
+			}
+		}
+	})
 }
 
 func TestParseDate(t *testing.T) {

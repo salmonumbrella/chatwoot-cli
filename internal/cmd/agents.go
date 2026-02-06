@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +72,7 @@ func newAgentsGetCmd() *cobra.Command {
 		Short: "Get agent by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {
 				return err
 			}
@@ -185,7 +184,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 		Long:  "Update an agent's name and/or role",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {
 				return err
 			}
@@ -240,7 +239,7 @@ func newAgentsDeleteCmd() *cobra.Command {
 		Short: "Delete an agent",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {
 				return err
 			}

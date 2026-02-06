@@ -121,6 +121,81 @@ func TestSearchCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestSearchCommand_Best_EmitID(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1, "last_activity_at": 2000}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--best", "--emit", "id"})
+		if err != nil {
+			t.Errorf("search --best --emit id failed: %v", err)
+		}
+	})
+	if strings.TrimSpace(output) != "100" {
+		t.Fatalf("expected best ID 100, got %q", output)
+	}
+}
+
+func TestSearchCommand_Best_AgentEnvelope(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1, "last_activity_at": 2000}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--best", "-o", "agent"})
+		if err != nil {
+			t.Errorf("search --best -o agent failed: %v", err)
+		}
+	})
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if payload["kind"] != "search.best" {
+		t.Fatalf("expected kind search.best, got %#v", payload["kind"])
+	}
+	item, ok := payload["item"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected item object, got %#v", payload["item"])
+	}
+	if item["type"] != "conversation" {
+		t.Fatalf("expected type conversation, got %#v", item["type"])
+	}
+	if int(item["id"].(float64)) != 100 {
+		t.Fatalf("expected id 100, got %#v", item["id"])
+	}
+}
+
 func TestSearchCommand_TypeFilter_ContactsOnly(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{

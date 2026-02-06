@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -385,6 +386,50 @@ func TestConversationsBulkResolve_AcceptsURLs(t *testing.T) {
 			"--ids",
 			"https://app.chatwoot.com/app/accounts/1/conversations/1,https://app.chatwoot.com/app/accounts/1/conversations/2",
 		})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("bulk resolve failed: %v", err)
+		}
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
+	if !strings.Contains(output, "Resolved 2 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsBulkResolve_IdsFromStdin(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n2\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		cmd.SetArgs([]string{"bulk", "resolve", "--ids", "@-"})
 		err := cmd.Execute()
 		if err != nil {
 			t.Errorf("bulk resolve failed: %v", err)

@@ -1127,7 +1127,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
   chatwoot contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseIntList(contactIDs)
+			ids, err := ParseResourceIDListFlag(contactIDs, "contact")
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
 			}
@@ -1180,7 +1180,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
+	cmd.Flags().StringVar(&contactIDs, "ids", "", "Contact IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add (required)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
@@ -1218,7 +1218,7 @@ labels, and updates the contact with the remaining labels.`,
   chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseIntList(contactIDs)
+			ids, err := ParseResourceIDListFlag(contactIDs, "contact")
 			if err != nil {
 				return fmt.Errorf("invalid contact IDs: %w", err)
 			}
@@ -1287,7 +1287,7 @@ labels, and updates the contact with the remaining labels.`,
 		}),
 	}
 
-	cmd.Flags().StringVar(&contactIDs, "ids", "", "Comma-separated contact IDs (required)")
+	cmd.Flags().StringVar(&contactIDs, "ids", "", "Contact IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to remove (required)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")

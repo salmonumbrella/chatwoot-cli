@@ -14,6 +14,7 @@ import (
 	"sync"
 	"text/tabwriter"
 	"time"
+	"unicode"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -180,7 +181,7 @@ func printIfNotQuiet(cmd *cobra.Command, format string, args ...any) {
 }
 
 func printAction(cmd *cobra.Command, action, resource string, id any, name string) {
-	if flags.Quiet || isJSON(cmd) {
+	if flags.Quiet || isJSON(cmd) || isAgent(cmd) {
 		return
 	}
 
@@ -205,6 +206,9 @@ func bulkProgressEnabled(cmd *cobra.Command, progress, noProgress bool) bool {
 		return false
 	}
 	if isJSON(cmd) {
+		return false
+	}
+	if isAgent(cmd) {
 		return false
 	}
 	if flags.Quiet || flags.Silent {
@@ -713,6 +717,107 @@ func ParseConversationIDList(s string) ([]int, error) {
 		return nil, fmt.Errorf("no valid IDs provided")
 	}
 	return result, nil
+}
+
+func loadAtValue(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if !strings.HasPrefix(value, "@") {
+		return value, nil
+	}
+	target := strings.TrimPrefix(value, "@")
+	if target == "" {
+		return "", fmt.Errorf("invalid @ value: missing path (use @- for stdin)")
+	}
+	if target == "-" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", fmt.Errorf("failed to read stdin: %w", err)
+		}
+		return string(data), nil
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		return "", fmt.Errorf("failed to read %s: %w", target, err)
+	}
+	return string(data), nil
+}
+
+// ParseResourceIDListFlag parses a --ids style flag value. It supports @- (stdin) and @path (file),
+// and accepts comma-separated, whitespace/newline-separated, or JSON array inputs.
+// If expectedResource is set, it accepts resource prefixes and pasted Chatwoot UI URLs.
+func ParseResourceIDListFlag(value string, expectedResource string) ([]int, error) {
+	value = strings.TrimSpace(value)
+	raw, err := loadAtValue(value)
+	if err != nil {
+		return nil, err
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, fmt.Errorf("no IDs provided")
+	}
+
+	parseOne := func(token string) (int, error) {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			return 0, fmt.Errorf("empty ID")
+		}
+		if expectedResource != "" {
+			return parseIDOrURL(token, expectedResource)
+		}
+		return parsePositiveIntArg(token, "ID")
+	}
+
+	// JSON array input (common for agents): [1,2,"#3","conv:4","https://..."]
+	if strings.HasPrefix(raw, "[") {
+		var arr []any
+		if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+			out := make([]int, 0, len(arr))
+			for _, v := range arr {
+				switch vv := v.(type) {
+				case float64:
+					// JSON numbers decode as float64
+					id := int(vv)
+					if float64(id) != vv || id <= 0 {
+						return nil, fmt.Errorf("invalid ID %v: must be a positive integer", vv)
+					}
+					out = append(out, id)
+				case string:
+					id, err := parseOne(vv)
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, id)
+				default:
+					return nil, fmt.Errorf("invalid ID %v: expected number or string", v)
+				}
+			}
+			if len(out) == 0 {
+				return nil, fmt.Errorf("no valid IDs provided")
+			}
+			return out, nil
+		}
+		// Fall through to token parsing if JSON parsing fails.
+	}
+
+	// CSV or whitespace/newline separated tokens.
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return unicode.IsSpace(r) || r == ','
+	})
+	out := make([]int, 0, len(parts))
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			continue
+		}
+		id, err := parseOne(part)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no valid IDs provided")
+	}
+	return out, nil
 }
 
 // parseIDArgs parses IDs from command args (supports both space-separated and comma-separated).

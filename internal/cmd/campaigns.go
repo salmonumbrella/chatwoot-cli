@@ -109,7 +109,7 @@ func newCampaignsGetCmd() *cobra.Command {
 		Example: "chatwoot campaigns get 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "campaign")
 			if err != nil {
 				return err
 			}
@@ -322,7 +322,7 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
   chatwoot campaigns update 123 --audience '[{"type":"Label","id":1}]' --enabled true`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "campaign")
 			if err != nil {
 				return err
 			}
@@ -416,7 +416,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 		Example: "chatwoot campaigns delete 123 --force",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "campaign")
 			if err != nil {
 				return err
 			}

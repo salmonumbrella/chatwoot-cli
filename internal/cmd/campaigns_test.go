@@ -151,6 +151,53 @@ func TestCampaignsGetCommand(t *testing.T) {
 	}
 }
 
+func TestCampaignsGetCommand_AcceptsURLAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/campaigns/1", jsonResponse(200, `{
+			"id": 1,
+			"title": "Test Campaign",
+			"description": "A test campaign",
+			"message": "Hello!",
+			"campaign_type": "sms",
+			"campaign_status": "active",
+			"inbox_id": 5,
+			"sender_id": 1,
+			"enabled": true,
+			"trigger_only_during_business_hours": false,
+			"scheduled_at": 1704067200,
+			"created_at": 1704000000
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"campaigns", "get", "https://app.chatwoot.com/app/accounts/1/campaigns/1"}); err != nil {
+			t.Fatalf("campaigns get URL failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Test Campaign") {
+		t.Errorf("output missing campaign title: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"campaigns", "get", "campaign:1"}); err != nil {
+			t.Fatalf("campaigns get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Test Campaign") {
+		t.Errorf("output missing campaign title: %s", output2)
+	}
+
+	output3 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"campaigns", "get", "#1"}); err != nil {
+			t.Fatalf("campaigns get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output3, "Test Campaign") {
+		t.Errorf("output missing campaign title: %s", output3)
+	}
+}
+
 func TestCampaignsGetCommand_NoScheduledAt(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/campaigns/1", jsonResponse(200, `{

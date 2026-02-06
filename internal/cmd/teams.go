@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -77,7 +76,7 @@ func newTeamsGetCmd() *cobra.Command {
 		Short: "Get a team by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
 				return err
 			}
@@ -159,7 +158,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 		Short: "Update a team",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
 				return err
 			}
@@ -199,7 +198,7 @@ func newTeamsDeleteCmd() *cobra.Command {
 		Short: "Delete a team",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
 				return err
 			}
@@ -232,7 +231,7 @@ func newTeamsMembersCmd() *cobra.Command {
 		Short: "List team members",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
 				return err
 			}
@@ -272,7 +271,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 		Short: "Add members to a team",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
 				return err
 			}
@@ -321,7 +320,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 		Short: "Remove members from a team",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
 				return err
 			}

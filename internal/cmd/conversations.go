@@ -2794,7 +2794,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
   chatwoot conversations bulk resolve --ids 1,2,3 --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseConversationIDList(conversationIDs)
+			ids, err := ParseResourceIDListFlag(conversationIDs, "conversation")
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -2850,7 +2850,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Conversation IDs (CSV, whitespace, JSON array; or @- / @path)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
@@ -2897,7 +2897,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 				team = fmt.Sprintf("%d", teamID)
 			}
 
-			ids, err := ParseConversationIDList(conversationIDs)
+			ids, err := ParseResourceIDListFlag(conversationIDs, "conversation")
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -2971,7 +2971,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Conversation IDs (CSV, whitespace, JSON array; or @- / @path)")
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID, name, or email to assign conversations to")
 	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign conversations to")
 	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to (deprecated, use --agent)")
@@ -3010,7 +3010,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
   chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseConversationIDList(conversationIDs)
+			ids, err := ParseResourceIDListFlag(conversationIDs, "conversation")
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -3080,7 +3080,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
+	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Conversation IDs (CSV, whitespace, JSON array; or @- / @path)")
 	cmd.Flags().StringVar(&labels, "labels", "", "Comma-separated labels to add")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")

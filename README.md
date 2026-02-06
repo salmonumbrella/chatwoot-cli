@@ -62,6 +62,19 @@ chatwoot profile get
 chatwoot conversations list --status open
 ```
 
+### 4. Search (Agent-Friendly)
+
+```bash
+# Search across contacts + conversations
+chatwoot search "john"
+
+# Auto-pick the best result (no interactive prompt)
+chatwoot search "refund" --best
+
+# Emit just an ID for chaining (no jq)
+chatwoot search "refund" --best --emit id
+```
+
 ## Configuration
 
 ### Authentication
@@ -276,6 +289,9 @@ chatwoot contacts labels-add 123 --labels "customer,premium"
 # Bulk label operations
 chatwoot contacts bulk add-label --ids 1,2,3 --labels "vip,priority"
 chatwoot contacts bulk remove-label --ids 1,2,3 --labels "old-tag"
+
+# Bulk IDs can also come from stdin/files: @- or @path
+printf "1\n2\n3\n" | chatwoot contacts bulk add-label --ids @- --labels vip
 
 # Notes
 chatwoot contacts notes 123

@@ -61,6 +61,8 @@ func newSearchCmd() *cobra.Command {
 		selectOne      bool
 		selectRaw      bool
 		includeSnippet bool
+		best           bool
+		emit           string
 	)
 
 	cmd := &cobra.Command{
@@ -138,6 +140,22 @@ of relevant resources with a single query.`,
 			results := SearchResults{
 				Query:   query,
 				Summary: make(map[string]int),
+			}
+
+			if best && selectOne {
+				return fmt.Errorf("--best and --select cannot be used together")
+			}
+			if best && selectRaw {
+				return fmt.Errorf("--best and --select-raw cannot be used together")
+			}
+			if emit == "" {
+				emit = "json"
+			}
+			emit = strings.ToLower(strings.TrimSpace(emit))
+			switch emit {
+			case "json", "id", "url":
+			default:
+				return fmt.Errorf("invalid --emit %q: must be one of json, id, url", emit)
 			}
 
 			// Search in parallel
@@ -471,6 +489,113 @@ of relevant resources with a single query.`,
 			})
 			results.Results = unified
 
+			if best {
+				if len(results.Results) == 0 {
+					return fmt.Errorf("no results found")
+				}
+				bestResult := results.Results[0]
+
+				bestID := bestResult.ID
+				bestURL := ""
+				switch bestResult.Type {
+				case "contact":
+					u, _ := resourceURL("contacts", bestID)
+					bestURL = u
+				case "conversation", "sender":
+					u, _ := resourceURL("conversations", bestID)
+					bestURL = u
+				}
+
+				if emit == "url" && bestURL == "" {
+					return fmt.Errorf("cannot emit URL: base URL/account not configured")
+				}
+
+				// Emit plain scalar values for easy command chaining.
+				if !isJSON(cmd) && !isAgent(cmd) {
+					switch emit {
+					case "id":
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), bestID)
+						return nil
+					case "url":
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), bestURL)
+						return nil
+					}
+				}
+
+				if isAgent(cmd) {
+					type agentBest struct {
+						Type string `json:"type"`
+						ID   int    `json:"id"`
+						URL  string `json:"url,omitempty"`
+						Item any    `json:"item,omitempty"`
+					}
+					payload := agentfmt.ItemEnvelope{
+						Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()) + ".best",
+						Item: agentBest{Type: bestResult.Type, ID: bestID, URL: bestURL},
+					}
+					// Attach a compact item payload for known types.
+					switch bestResult.Type {
+					case "contact":
+						if bestResult.Contact != nil {
+							item := agentfmt.ContactDetailFromContact(*bestResult.Contact)
+							payload.Item = agentBest{Type: bestResult.Type, ID: bestID, URL: bestURL, Item: item}
+						}
+					case "conversation":
+						if bestResult.Conversation != nil {
+							item := agentfmt.ConversationDetailFromConversation(*bestResult.Conversation)
+							item = resolveConversationDetail(ctx, client, item)
+							payload.Item = agentBest{Type: bestResult.Type, ID: bestID, URL: bestURL, Item: item}
+						}
+					case "sender":
+						if bestResult.Sender != nil {
+							payload.Item = agentBest{Type: bestResult.Type, ID: bestID, URL: bestURL, Item: bestResult.Sender}
+						}
+					}
+					return printJSON(cmd, payload)
+				}
+
+				// JSON output (non-agent): a stable wrapper for tool chaining.
+				if isJSON(cmd) {
+					out := map[string]any{
+						"type": bestResult.Type,
+						"id":   bestID,
+					}
+					if bestURL != "" {
+						out["url"] = bestURL
+					}
+					switch bestResult.Type {
+					case "contact":
+						out["item"] = bestResult.Contact
+					case "conversation":
+						out["item"] = bestResult.Conversation
+					case "sender":
+						out["item"] = bestResult.Sender
+					}
+					// For --emit id/url in JSON mode, return a wrapper plus scalar field.
+					switch emit {
+					case "id":
+						out = map[string]any{"id": bestID}
+					case "url":
+						out = map[string]any{"url": bestURL}
+					}
+					return printJSON(cmd, out)
+				}
+
+				// Text output default.
+				switch bestResult.Type {
+				case "contact":
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[contact] #%d %s\n", bestID, bestResult.Name)
+				case "conversation":
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[conv] #%d %s\n", bestID, bestResult.Name)
+				case "sender":
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[sender] %s (conv #%d)\n", bestResult.Name, bestID)
+				}
+				if bestURL != "" {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", bestURL)
+				}
+				return nil
+			}
+
 			if selectOne {
 				if flags.NoInput || !isInteractive() {
 					return fmt.Errorf("--select requires interactive input (omit --select or run in a terminal)")
@@ -669,6 +794,8 @@ of relevant resources with a single query.`,
 	cmd.Flags().BoolVar(&selectOne, "select", false, "Interactively select a single result")
 	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")
 	cmd.Flags().BoolVar(&includeSnippet, "include-snippet", false, "Include matching message snippet for conversations")
+	cmd.Flags().BoolVar(&best, "best", false, "Auto-select the best result (no interactive prompt)")
+	cmd.Flags().StringVar(&emit, "emit", "json", "When using --best, emit: json|id|url")
 
 	return cmd
 }

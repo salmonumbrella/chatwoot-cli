@@ -51,6 +51,42 @@ This file tracks the incremental “surface level” refactor to make `chatwoot`
 - Add `url` metadata more broadly to agent outputs (items + meta) for easy follow-up operations.
 - Prefer returning a fully-qualified Chatwoot UI URL when possible.
 
+### Phase 5: Agent Workflow Power-Ups (Completed)
+#### Phase 5.1: Piping-Friendly Bulk IDs (Completed)
+- Make every `--ids` flag accept:
+  - `@-` to read IDs from stdin
+  - `@path` to read IDs from a file
+- Accepted formats from stdin/file:
+  - CSV: `1,2,3`
+  - whitespace/newlines: `1 2 3` / `1\n2\n3`
+  - JSON array: `[1,2,"#3","conv:4","https://.../conversations/5"]`
+- Keep existing comma-separated behavior unchanged.
+
+#### Phase 5.2: Non-Interactive “Best Match” Search (Completed)
+- Add `chatwoot search --best` to auto-select the best result (no TTY required).
+- Add `--emit id|url|json` to avoid `jq` for common chaining cases.
+
+#### Phase 5.3: Tighten Agent-Mode Noise (Completed)
+- Disable bulk progress indicators automatically in `--output agent`.
+- Ensure helper printers (like `printAction`) never write to stdout in agent mode.
+
+### Phase 6: Expand Flat ID/URL Access Beyond Core Resources (Planned)
+Goal: apply the same “desire paths” (plain ID, `#id`, `type:id`, pasted UI URL) consistently across the rest of the CLI, so agents spend tokens on the task, not on navigation.
+
+#### Phase 6.1: Teams + Campaigns + Agents (Completed)
+- Make all team ID args accept: `123`, `#123`, `team:123`, `https://.../teams/123`.
+- Make all campaign ID args accept: `123`, `#123`, `campaign:123`, `https://.../campaigns/123`.
+- Make all agent ID args accept: `123`, `#123`, `agent:123`, `https://.../agents/123`.
+- Add tests for `teams get` and `campaigns get` desire paths.
+
+#### Phase 6.2: Webhooks + Custom Attributes/Filters (Planned)
+- Apply the same ID/URL acceptance to `webhooks` and `custom-*` commands that currently parse raw ints.
+- Add targeted tests to prevent regression.
+
+#### Phase 6.3: `open` Convenience Defaults (Planned)
+- Consider making `chatwoot open <id>` default to “conversation” (or provide a safe resolver flow) to remove the `--type` tax for the common case.
+- Add tests covering ambiguous/invalid inputs and error messaging.
+
 ## Work Log
 
 ### 2026-02-06
@@ -62,3 +98,8 @@ This file tracks the incremental “surface level” refactor to make `chatwoot`
   - `conversations bulk assign` supports `--agent/--team` name/email/ID resolution (and keeps `--agent-id/--team-id` as hidden, deprecated flags).
   - Agent output now includes fully-qualified Chatwoot UI URLs on common items (conversation/contact) when configured.
   - Agent-mode failures are standardized into an error envelope `{kind, error}` for reliable agent handling.
+
+- Phase 5 implemented:
+  - `--ids` flags (bulk contacts/conversations operations) accept `@-` (stdin) and `@path` (file) and can parse CSV/whitespace/JSON arrays.
+  - `chatwoot search --best` added for non-interactive best-match selection, plus `--emit id|url|json`.
+  - Agent-mode noise tightened (progress/action printers won’t interfere with `--output agent`).

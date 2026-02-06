@@ -154,6 +154,46 @@ func TestTeamsGetCommand(t *testing.T) {
 	}
 }
 
+func TestTeamsGetCommand_AcceptsURLAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/teams/123", jsonResponse(200, `{
+			"id": 123,
+			"name": "Engineering",
+			"description": "Engineering team",
+			"allow_auto_assign": true,
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"teams", "get", "https://app.chatwoot.com/app/accounts/1/teams/123"}); err != nil {
+			t.Fatalf("teams get URL failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Engineering") {
+		t.Errorf("output missing 'Engineering': %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"teams", "get", "team:123"}); err != nil {
+			t.Fatalf("teams get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Engineering") {
+		t.Errorf("output missing 'Engineering': %s", output2)
+	}
+
+	output3 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"teams", "get", "#123"}); err != nil {
+			t.Fatalf("teams get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output3, "Engineering") {
+		t.Errorf("output missing 'Engineering': %s", output3)
+	}
+}
+
 func TestTeamsGetCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/teams/123", jsonResponse(200, `{

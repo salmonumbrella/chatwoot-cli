@@ -395,6 +395,48 @@ func TestContactsBulkAddLabel(t *testing.T) {
 	}
 }
 
+func TestContactsBulkAddLabel_IdsFromStdin(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/contacts/1/labels", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/contacts/2/labels", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n2\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "bulk", "add-label", "--ids", "@-", "--labels", "vip"})
+		if err != nil {
+			t.Errorf("bulk add-label failed: %v", err)
+		}
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
+	if !strings.Contains(output, "Added labels to 2 contacts") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
 func TestContactsBulkRemoveLabel(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/1/labels", jsonResponse(200, `{"labels": ["vip", "spam", "active"]}`)).
