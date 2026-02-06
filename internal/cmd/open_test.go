@@ -148,14 +148,81 @@ func TestOpenCommand_ContactByTypeFlag(t *testing.T) {
 }
 
 func TestOpenCommand_IDMissingType(t *testing.T) {
-	setupTestEnv(t, jsonResponse(200, `{}`))
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/456", jsonResponse(200, `{
+			"id": 456,
+			"display_id": 456,
+			"inbox_id": 1,
+			"status": "open",
+			"muted": false,
+			"unread_count": 0,
+			"created_at": 1609459200
+		}`))
 
-	err := Execute(context.Background(), []string{"open", "456"})
-	if err == nil {
-		t.Fatal("expected error for missing resource type with numeric ID")
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"open", "456"}); err != nil {
+			t.Fatalf("open bare ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Conversation #456") {
+		t.Errorf("output missing 'Conversation #456': %s", output)
 	}
-	if !strings.Contains(err.Error(), "missing resource type") {
-		t.Errorf("error = %q, want error about missing resource type", err.Error())
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"open", "#456"}); err != nil {
+			t.Fatalf("open hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Conversation #456") {
+		t.Errorf("output missing 'Conversation #456': %s", output2)
+	}
+
+	output3 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"open", "conv:456"}); err != nil {
+			t.Fatalf("open prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output3, "Conversation #456") {
+		t.Errorf("output missing 'Conversation #456': %s", output3)
+	}
+}
+
+func TestOpenCommand_TypedIDPrefixes(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/789", jsonResponse(200, `{
+			"payload": {
+				"id": 789,
+				"name": "Jane Doe",
+				"email": "jane@example.com",
+				"phone_number": "+1234567890"
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/teams/5", jsonResponse(200, `{
+			"id": 5,
+			"name": "Support Team",
+			"description": "Primary support team"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	out := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"open", "contact:789"}); err != nil {
+			t.Fatalf("open contact:789 failed: %v", err)
+		}
+	})
+	if !strings.Contains(out, "Contact #789") {
+		t.Errorf("output missing 'Contact #789': %s", out)
+	}
+
+	out2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"open", "team:5"}); err != nil {
+			t.Fatalf("open team:5 failed: %v", err)
+		}
+	})
+	if !strings.Contains(out2, "Team #5") {
+		t.Errorf("output missing 'Team #5': %s", out2)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -102,9 +101,9 @@ func newCustomFiltersGetCmd() *cobra.Command {
 		Short: "Get a custom filter by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "custom filter")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()
@@ -203,9 +202,9 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 		Short: "Update a custom filter",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "custom filter")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %w", err)
+				return err
 			}
 
 			if name == "" && queryJSON == "" {
@@ -250,9 +249,9 @@ func newCustomFiltersDeleteCmd() *cobra.Command {
 		Short: "Delete a custom filter",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "custom filter")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()

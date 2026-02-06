@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -103,9 +102,9 @@ func newCustomAttributesGetCmd() *cobra.Command {
 		Short: "Get a custom attribute definition by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "custom attribute")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()
@@ -209,9 +208,9 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 		Short: "Update a custom attribute definition",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "custom attribute")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %w", err)
+				return err
 			}
 
 			if name == "" {
@@ -248,9 +247,9 @@ func newCustomAttributesDeleteCmd() *cobra.Command {
 		Short: "Delete a custom attribute definition",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "custom attribute")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()

@@ -924,10 +924,25 @@ func parseIDOrURL(input string, expectedResource string) (int, error) {
 				normalized = "campaign"
 			}
 
+			matchExpected := func(prefix string) bool {
+				if expectedResource == "" {
+					return false
+				}
+				p := canonicalResourceName(prefix)
+				exp := canonicalResourceName(expectedResource)
+				if p == exp {
+					return true
+				}
+				return strings.TrimSuffix(p, "s") == exp
+			}
+
 			if normalized != "" {
 				if expectedResource != "" && normalized != expectedResource {
 					return 0, fmt.Errorf("invalid %s: ID is for %s, expected %s", label, normalized, expectedResource)
 				}
+				input = rest
+			} else if matchExpected(prefix) {
+				// Generic support for other resources ("webhook:123", "custom-filter:456", etc).
 				input = rest
 			}
 		}
@@ -957,6 +972,18 @@ func parseIDOrURL(input string, expectedResource string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("invalid %s: %q is not a number or URL", label, input)
+}
+
+func canonicalResourceName(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // parsePositiveIntArg parses a positive integer arg while accepting common agent shorthands

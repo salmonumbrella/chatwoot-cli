@@ -122,6 +122,38 @@ func TestWebhooksGetCommand(t *testing.T) {
 	}
 }
 
+func TestWebhooksGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	// GetWebhook actually calls ListWebhooks and filters
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/webhooks", jsonResponse(200, `{
+			"payload": {
+				"webhooks": [
+					{"id": 123, "url": "https://example.com/webhook", "subscriptions": ["message_created"]}
+				]
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"webhooks", "get", "#123"}); err != nil {
+			t.Fatalf("webhooks get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "https://example.com/webhook") {
+		t.Errorf("output missing webhook URL: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"webhooks", "get", "webhook:123"}); err != nil {
+			t.Fatalf("webhooks get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "https://example.com/webhook") {
+		t.Errorf("output missing webhook URL: %s", output2)
+	}
+}
+
 func TestWebhooksGetCommand_JSON(t *testing.T) {
 	// GetWebhook actually calls ListWebhooks and filters
 	handler := newRouteHandler().

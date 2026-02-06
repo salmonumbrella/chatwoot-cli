@@ -137,6 +137,33 @@ func TestCustomAttributesGetCommand(t *testing.T) {
 	}
 }
 
+func TestCustomAttributesGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/custom_attribute_definitions/123", jsonResponse(200, `{
+			"id": 123, "attribute_display_name": "Test Attr", "attribute_key": "test_attr", "attribute_model": "contact_attribute", "attribute_display_type": "text"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "get", "#123"}); err != nil {
+			t.Fatalf("custom-attributes get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Test Attr") {
+		t.Errorf("output missing 'Test Attr': %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-attributes", "get", "custom-attribute:123"}); err != nil {
+			t.Fatalf("custom-attributes get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Test Attr") {
+		t.Errorf("output missing 'Test Attr': %s", output2)
+	}
+}
+
 func TestCustomAttributesGetCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/custom_attribute_definitions/123", jsonResponse(200, `{

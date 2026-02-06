@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
@@ -42,7 +41,7 @@ func newOpenCmd() *cobra.Command {
 	var resourceTypeFlag string
 
 	cmd := &cobra.Command{
-		Use:     "open <url> | open <resource> <id> | open <id> --type <resource>",
+		Use:     "open <url> | open <resource> <id> | open <id> [--type <resource>]",
 		Aliases: []string{"get", "show"},
 		Short:   "Open a Chatwoot URL or resource ID and display details",
 		Long: `Parse a Chatwoot URL (or resource + ID) and display the corresponding resource details.
@@ -50,6 +49,9 @@ func newOpenCmd() *cobra.Command {
 This command accepts Chatwoot URLs and extracts the resource information,
 then fetches and displays the resource just as if you had run the appropriate
 get command directly.
+
+If you provide a bare ID (or ID shorthand like "#123" / "conv:123") without a
+resource type, it defaults to opening a conversation.
 
 Supported URL formats:
   https://app.chatwoot.com/app/accounts/{account_id}/conversations/{id}
@@ -61,7 +63,10 @@ Supported URL formats:
 
 You can also provide a resource type and ID directly:
   chatwoot open contact 456
-  chatwoot open 456 --type contact`,
+  chatwoot open 456 --type contact
+
+Or provide a bare ID (defaults to conversation):
+  chatwoot open 456`,
 		Example: strings.TrimSpace(`
   # Open a conversation URL
   chatwoot open https://app.chatwoot.com/app/accounts/1/conversations/123
@@ -72,7 +77,10 @@ You can also provide a resource type and ID directly:
   # Open by resource type + ID
   chatwoot open contact 456
 
-  # Open by ID with --type
+  # Open by bare ID (defaults to conversation)
+  chatwoot open 123
+
+  # Open by bare ID with explicit type
   chatwoot open 456 --type contact
 
   # Open with JSON output
@@ -81,58 +89,83 @@ You can also provide a resource type and ID directly:
 		Args: cobra.RangeArgs(1, 2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			var (
-				parsed         *urlparse.ParsedURL
-				resourceType   string
-				resourceID     int
-				parsedFromURL  bool
-				hasTypeArg     bool
-				resourceTypeIn string
+				parsed        *urlparse.ParsedURL
+				resourceType  string
+				resourceID    int
+				parsedFromURL bool
 			)
 
 			if len(args) == 2 {
+				// open <resource> <id>
 				if resourceTypeFlag != "" {
 					return fmt.Errorf("--type cannot be used with <resource> <id> arguments")
 				}
-				resourceTypeIn = args[0]
-				hasTypeArg = true
-				id, err := parsePositiveIntArg(args[1], "resource ID")
+				rt, err := normalizeOpenResourceType(args[0])
 				if err != nil {
 					return err
 				}
-				resourceID = id
-			} else {
-				resourceTypeIn = resourceTypeFlag
-				hasTypeArg = resourceTypeIn != ""
-			}
-
-			if hasTypeArg {
-				rt, err := normalizeOpenResourceType(resourceTypeIn)
-				if err != nil {
-					return err
-				}
-				id, err := parsePositiveIntArg(args[len(args)-1], "resource ID")
+				id, err := parseIDOrURL(args[1], rt)
 				if err != nil {
 					return err
 				}
 				resourceType = rt
 				resourceID = id
-			} else {
-				// No resource type provided; treat as URL unless it's a numeric ID
-				if id, err := strconv.Atoi(args[0]); err == nil {
-					if id <= 0 {
-						return fmt.Errorf("invalid resource ID: must be positive")
-					}
-					return fmt.Errorf("missing resource type for ID %d: use `chatwoot open contact %d` or `chatwoot open %d --type contact` (or `chatwoot contacts get %d --url` for the link)", id, id, id, id)
+			} else if strings.TrimSpace(resourceTypeFlag) != "" {
+				// open <id> --type <resource>
+				rt, err := normalizeOpenResourceType(resourceTypeFlag)
+				if err != nil {
+					return err
 				}
-				rawURL := args[0]
+				id, err := parseIDOrURL(args[0], rt)
+				if err != nil {
+					return err
+				}
+				resourceType = rt
+				resourceID = id
+			} else if strings.HasPrefix(strings.TrimSpace(args[0]), "http://") || strings.HasPrefix(strings.TrimSpace(args[0]), "https://") {
+				// open <url>
+				rawURL := strings.TrimSpace(args[0])
 				parsedURL, err := urlparse.Parse(rawURL)
 				if err != nil {
 					return fmt.Errorf("failed to parse URL: %w", err)
 				}
 				parsed = parsedURL
 				parsedFromURL = true
+			} else {
+				// open <id> (default to conversation) OR open <typed-id> like "contact:456"
+				raw := strings.TrimSpace(args[0])
+
+				// If the input looks like a typed ID (e.g. "contact:456"), infer the resource type
+				// and open that resource without requiring --type.
+				if !strings.Contains(raw, "://") {
+					if prefix, _, ok := strings.Cut(raw, ":"); ok {
+						if rt, err := normalizeOpenResourceType(prefix); err == nil {
+							id, err := parseIDOrURL(raw, rt)
+							if err != nil {
+								return err
+							}
+							resourceType = rt
+							resourceID = id
+							goto Parsed
+						}
+					}
+				}
+
+				id, err := parseIDOrURL(raw, "conversation")
+				if err != nil {
+					// If the input looks like a URL missing a scheme, surface the URL parser error.
+					if strings.Contains(raw, "/") {
+						if _, urlErr := urlparse.Parse(raw); urlErr != nil {
+							return fmt.Errorf("failed to parse URL: %w", urlErr)
+						}
+					}
+					return err
+				}
+				resourceType = "conversation"
+				resourceID = id
 			}
 
+		Parsed:
 			// Get the client
 			client, err := getClient()
 			if err != nil {

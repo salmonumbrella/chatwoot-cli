@@ -70,7 +70,7 @@ This file tracks the incremental “surface level” refactor to make `chatwoot`
 - Disable bulk progress indicators automatically in `--output agent`.
 - Ensure helper printers (like `printAction`) never write to stdout in agent mode.
 
-### Phase 6: Expand Flat ID/URL Access Beyond Core Resources (Planned)
+### Phase 6: Expand Flat ID/URL Access Beyond Core Resources (In Progress)
 Goal: apply the same “desire paths” (plain ID, `#id`, `type:id`, pasted UI URL) consistently across the rest of the CLI, so agents spend tokens on the task, not on navigation.
 
 #### Phase 6.1: Teams + Campaigns + Agents (Completed)
@@ -79,13 +79,16 @@ Goal: apply the same “desire paths” (plain ID, `#id`, `type:id`, pasted UI U
 - Make all agent ID args accept: `123`, `#123`, `agent:123`, `https://.../agents/123`.
 - Add tests for `teams get` and `campaigns get` desire paths.
 
-#### Phase 6.2: Webhooks + Custom Attributes/Filters (Planned)
-- Apply the same ID/URL acceptance to `webhooks` and `custom-*` commands that currently parse raw ints.
+#### Phase 6.2: Webhooks + Custom Attributes/Filters (Completed)
+- Apply the same ID acceptance to `webhooks`, `custom-attributes`, and `custom-filters`:
+  - `123`, `#123`, and typed prefixes (`webhook:123`, `custom-attribute:123`, `custom-filter:123`).
+- Note: Chatwoot UI URL parsing is only supported for resources recognized by `internal/urlparse` (conversations, contacts, inboxes, teams, agents, campaigns).
 - Add targeted tests to prevent regression.
 
-#### Phase 6.3: `open` Convenience Defaults (Planned)
-- Consider making `chatwoot open <id>` default to “conversation” (or provide a safe resolver flow) to remove the `--type` tax for the common case.
-- Add tests covering ambiguous/invalid inputs and error messaging.
+#### Phase 6.3: `open` Convenience Defaults (Completed)
+- `chatwoot open <id>` defaults to opening a conversation (accepts `123`, `#123`, `conv:123`).
+- `chatwoot open <id> --type <resource>` (and `open <resource> <id>`) accept the same ID shorthands and pasted URLs.
+- Tests.
 
 ## Work Log
 
@@ -103,3 +106,7 @@ Goal: apply the same “desire paths” (plain ID, `#id`, `type:id`, pasted UI U
   - `--ids` flags (bulk contacts/conversations operations) accept `@-` (stdin) and `@path` (file) and can parse CSV/whitespace/JSON arrays.
   - `chatwoot search --best` added for non-interactive best-match selection, plus `--emit id|url|json`.
   - Agent-mode noise tightened (progress/action printers won’t interfere with `--output agent`).
+
+- Phase 6.2 implemented:
+  - `webhooks`, `custom-attributes`, and `custom-filters` accept `#id` and typed prefixes (`webhook:id`, `custom-attribute:id`, `custom-filter:id`).
+  - Added tests for prefixed/hash IDs on these commands.

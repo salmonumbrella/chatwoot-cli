@@ -180,6 +180,36 @@ func TestCustomFiltersGetCommand(t *testing.T) {
 	}
 }
 
+func TestCustomFiltersGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/custom_filters/1", jsonResponse(200, `{
+			"id": 1,
+			"name": "Open Conversations",
+			"filter_type": "conversation",
+			"query": {"status": "open"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "get", "#1"}); err != nil {
+			t.Fatalf("custom-filters get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Open Conversations") {
+		t.Errorf("output missing filter name: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"custom-filters", "get", "custom-filter:1"}); err != nil {
+			t.Fatalf("custom-filters get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Open Conversations") {
+		t.Errorf("output missing filter name: %s", output2)
+	}
+}
+
 func TestCustomFiltersGetCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/custom_filters/1", jsonResponse(200, `{
@@ -227,8 +257,8 @@ func TestCustomFiltersGetCommand_InvalidID(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for invalid ID")
 	}
-	if !strings.Contains(err.Error(), "invalid ID") {
-		t.Errorf("expected 'invalid ID' error, got: %v", err)
+	if !strings.Contains(err.Error(), "custom filter ID") {
+		t.Errorf("expected 'custom filter ID' error, got: %v", err)
 	}
 }
 
@@ -480,8 +510,8 @@ func TestCustomFiltersUpdateCommand_InvalidID(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for invalid ID")
 	}
-	if !strings.Contains(err.Error(), "invalid ID") {
-		t.Errorf("expected 'invalid ID' error, got: %v", err)
+	if !strings.Contains(err.Error(), "custom filter ID") {
+		t.Errorf("expected 'custom filter ID' error, got: %v", err)
 	}
 }
 
@@ -577,8 +607,8 @@ func TestCustomFiltersDeleteCommand_InvalidID(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for invalid ID")
 	}
-	if !strings.Contains(err.Error(), "invalid ID") {
-		t.Errorf("expected 'invalid ID' error, got: %v", err)
+	if !strings.Contains(err.Error(), "custom filter ID") {
+		t.Errorf("expected 'custom filter ID' error, got: %v", err)
 	}
 }
 

@@ -80,9 +80,9 @@ func newWebhooksGetCmd() *cobra.Command {
 		Example: "  chatwoot webhooks get 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "webhook")
 			if err != nil {
-				return fmt.Errorf("invalid webhook ID: %s", args[0])
+				return err
 			}
 
 			client, err := getClient()
@@ -213,9 +213,9 @@ Available subscription events:
   chatwoot webhooks update 123 --url https://example.com/new --subscriptions message_created`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "webhook")
 			if err != nil {
-				return fmt.Errorf("invalid webhook ID: %s", args[0])
+				return err
 			}
 
 			if url == "" && len(subscriptions) == 0 {
@@ -272,9 +272,9 @@ func newWebhooksDeleteCmd() *cobra.Command {
 		Example: "  chatwoot webhooks delete 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "webhook")
 			if err != nil {
-				return fmt.Errorf("invalid webhook ID: %s", args[0])
+				return err
 			}
 
 			client, err := getClient()
