@@ -18,7 +18,7 @@ func TestJSONErrorIncludesRequestID(t *testing.T) {
 
 	setupTestEnvWithHandler(t, handler)
 
-	output := captureStdout(t, func() {
+	output := captureStderr(t, func() {
 		err := Execute(context.Background(), []string{"labels", "get", "404", "-o", "json"})
 		if err == nil {
 			t.Fatalf("expected error, got nil")

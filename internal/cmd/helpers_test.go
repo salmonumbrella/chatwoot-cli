@@ -3,11 +3,14 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
@@ -383,6 +386,53 @@ func TestRunE_WritesErrorToStderr(t *testing.T) {
 	}
 	if !bytes.Contains([]byte(stderrOutput), []byte("test error message")) {
 		t.Errorf("stderr output should contain error message, got: %s", stderrOutput)
+	}
+}
+
+func TestRunE_WritesJSONErrorToStderr(t *testing.T) {
+	apiErr := &api.APIError{StatusCode: 404, Body: "not found"}
+	inner := func(cmd *cobra.Command, args []string) error {
+		return apiErr
+	}
+
+	cmd := &cobra.Command{}
+
+	var stdout, stderr bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{
+		Out:    &stdout,
+		ErrOut: &stderr,
+		In:     nil,
+	})
+	cmd.SetContext(ctx)
+	cmd.SetErr(&stderr)
+	cmd.SetOut(&stdout)
+
+	wrapped := RunE(inner)
+	err := wrapped(cmd, nil)
+
+	if err == nil {
+		t.Fatal("RunE wrapper should return error when inner function errors")
+	}
+
+	if stdout.Len() != 0 {
+		t.Errorf("JSON error should NOT appear on stdout, got: %s", stdout.String())
+	}
+
+	stderrOutput := stderr.String()
+	if stderrOutput == "" {
+		t.Fatal("JSON error should appear on stderr, but stderr is empty")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(stderr.Bytes(), &parsed); err != nil {
+		t.Fatalf("stderr should contain valid JSON, got: %s", stderrOutput)
+	}
+	if _, ok := parsed["code"]; !ok {
+		t.Errorf("stderr JSON should contain 'code' field, got: %s", stderrOutput)
+	}
+	if _, ok := parsed["message"]; !ok {
+		t.Errorf("stderr JSON should contain 'message' field, got: %s", stderrOutput)
 	}
 }
 

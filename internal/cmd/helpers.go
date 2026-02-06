@@ -1306,6 +1306,17 @@ func resolveTeamID(ctx context.Context, client *api.Client, identifier string) (
 	return 0, fmt.Errorf("multiple teams match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
 }
 
+// printJSONErr writes a JSON value to stderr, applying agent formatting when appropriate.
+func printJSONErr(cmd *cobra.Command, v any) error {
+	ioStreams := iocontext.GetIO(cmd.Context())
+	if outfmt.IsAgent(cmd.Context()) {
+		kind := agentfmt.KindFromCommandPath(cmd.CommandPath())
+		v = agentfmt.Transform(kind, v)
+		v = decorateAgentURLs(v)
+	}
+	return outfmt.WriteJSON(ioStreams.ErrOut, v)
+}
+
 // RunE wraps a command function with enhanced error handling
 func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -1313,7 +1324,7 @@ func RunE(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Comm
 		if err != nil {
 			if isJSON(cmd) {
 				if structured := api.StructuredErrorFromError(err); structured != nil {
-					_ = printJSON(cmd, structured)
+					_ = printJSONErr(cmd, structured)
 				}
 			} else {
 				// Print enhanced error to stderr

@@ -16,7 +16,7 @@ import (
 func runJSONError(t *testing.T, err error) string {
 	t.Helper()
 
-	var out bytes.Buffer
+	var errOut bytes.Buffer
 	cmd := &cobra.Command{
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			return err
@@ -24,11 +24,11 @@ func runJSONError(t *testing.T, err error) string {
 	}
 
 	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
-	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: ioDiscard{}, ErrOut: &errOut, In: nil})
 	cmd.SetContext(ctx)
 
 	_ = cmd.RunE(cmd, []string{})
-	return out.String()
+	return errOut.String()
 }
 
 func TestGoldenErrorValidationText(t *testing.T) {
@@ -64,7 +64,7 @@ func TestGoldenErrorAPIText(t *testing.T) {
 }
 
 func TestGoldenErrorValidationJSON(t *testing.T) {
-	output := captureStdout(t, func() {
+	output := captureStderr(t, func() {
 		err := Execute(context.Background(), []string{"--color", "never", "labels", "create", "-o", "json"})
 		if err == nil {
 			t.Fatalf("expected error, got nil")
