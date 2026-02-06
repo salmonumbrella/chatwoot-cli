@@ -148,14 +148,18 @@ of relevant resources with a single query.`,
 			if best && selectRaw {
 				return fmt.Errorf("--best and --select-raw cannot be used together")
 			}
-			if emit == "" {
-				emit = "json"
-			}
-			emit = strings.ToLower(strings.TrimSpace(emit))
-			switch emit {
-			case "json", "id", "url":
-			default:
-				return fmt.Errorf("invalid --emit %q: must be one of json, id, url", emit)
+			if best {
+				if emit == "" {
+					emit = "json"
+				}
+				emit = strings.ToLower(strings.TrimSpace(emit))
+				switch emit {
+				case "json", "id", "url":
+				default:
+					return fmt.Errorf("invalid --emit %q: must be one of json, id, url", emit)
+				}
+			} else if emit != "" {
+				return fmt.Errorf("--emit requires --best")
 			}
 
 			// Search in parallel
@@ -795,7 +799,7 @@ of relevant resources with a single query.`,
 	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")
 	cmd.Flags().BoolVar(&includeSnippet, "include-snippet", false, "Include matching message snippet for conversations")
 	cmd.Flags().BoolVar(&best, "best", false, "Auto-select the best result (no interactive prompt)")
-	cmd.Flags().StringVar(&emit, "emit", "json", "When using --best, emit: json|id|url")
+	cmd.Flags().StringVar(&emit, "emit", "", "Output format with --best: json (default), id, or url")
 
 	return cmd
 }

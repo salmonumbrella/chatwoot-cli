@@ -196,6 +196,27 @@ func TestSearchCommand_Best_AgentEnvelope(t *testing.T) {
 	}
 }
 
+func TestSearchCommand_EmitRequiresBest(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [{"id": 1, "name": "John Doe", "email": "john@example.com"}],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {"payload": [], "meta": {"count": 0}}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"search", "john", "--emit", "id"})
+	if err == nil {
+		t.Fatal("expected error when --emit is used without --best")
+	}
+	if !strings.Contains(err.Error(), "--emit requires --best") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
 func TestSearchCommand_TypeFilter_ContactsOnly(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
