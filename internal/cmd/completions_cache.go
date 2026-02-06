@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,18 +21,18 @@ type completionsCache struct {
 }
 
 func completionsCacheDisabled() bool {
-	return completionsNoCache || os.Getenv("CHATWOOT_COMPLETIONS_NO_CACHE") != ""
+	return completionsNoCache || os.Getenv("CHATWOOT_COMPLETIONS_NO_CACHE") != "" || os.Getenv("CHATWOOT_NO_CACHE") != ""
 }
 
 func completionsCacheDir() (string, error) {
 	if dir := os.Getenv("CHATWOOT_COMPLETIONS_CACHE_DIR"); dir != "" {
 		return dir, nil
 	}
-	base, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
+	dir := resolveCacheDir()
+	if dir == "" {
+		return "", fmt.Errorf("could not determine cache directory")
 	}
-	return filepath.Join(base, "chatwoot-cli"), nil
+	return dir, nil
 }
 
 func completionsCachePath(client *api.Client, key string) (string, error) {

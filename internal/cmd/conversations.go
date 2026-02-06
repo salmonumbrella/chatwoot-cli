@@ -54,6 +54,7 @@ func newConversationsCmd() *cobra.Command {
 	cmd.AddCommand(newConversationsSearchCmd())
 	cmd.AddCommand(newConversationsAttachmentsCmd())
 	cmd.AddCommand(newConversationsWatchCmd())
+	cmd.AddCommand(newConversationsFollowCmd())
 	cmd.AddCommand(newConversationsBulkCmd())
 	cmd.AddCommand(newConversationsTriageCmd())
 

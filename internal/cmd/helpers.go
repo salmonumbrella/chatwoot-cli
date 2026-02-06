@@ -18,10 +18,12 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/cache"
 	"github.com/chatwoot/chatwoot-cli/internal/config"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/resolve"
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -1164,6 +1166,17 @@ func parsePositiveIntArg(input string, label string) (int, error) {
 	return validation.ParsePositiveInt(input, label)
 }
 
+func resolveCacheDir() string {
+	if dir := os.Getenv("CHATWOOT_CACHE_DIR"); dir != "" {
+		return dir
+	}
+	dir, err := cache.DefaultDir()
+	if err != nil {
+		return ""
+	}
+	return dir
+}
+
 // resolveContactID resolves a contact identifier to a numeric ID.
 // Accepts: numeric ID, Chatwoot URL, email address, or name search term.
 // For ambiguous matches, returns error listing options.
@@ -1205,45 +1218,42 @@ func resolveContactID(ctx context.Context, client *api.Client, identifier string
 }
 
 // resolveInboxID resolves an inbox identifier to a numeric ID.
-// Accepts: numeric ID or inbox name (case-insensitive partial match).
+// Accepts: numeric ID or inbox name (fuzzy match, cached).
 func resolveInboxID(ctx context.Context, client *api.Client, identifier string) (int, error) {
 	// First try as numeric ID, shorthand, or URL.
 	if id, err := parseIDOrURL(identifier, "inbox"); err == nil {
 		return id, nil
 	}
 
-	// Fetch all inboxes and search by name
-	inboxes, err := client.Inboxes().List(ctx)
+	dir := resolveCacheDir()
+	var inboxes []api.Inbox
+
+	if dir != "" {
+		store := cache.NewStore(dir, "inboxes", client.BaseURL, client.AccountID)
+		if store.Get(&inboxes) {
+			if id, err := fuzzyMatchInboxes(identifier, inboxes); err == nil {
+				return id, nil
+			}
+			// Cache might be stale, fall through to API.
+		}
+	}
+
+	var err error
+	inboxes, err = client.Inboxes().List(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to list inboxes: %w", err)
 	}
 
-	identifier = strings.ToLower(identifier)
-	var matches []api.Inbox
-	for _, inbox := range inboxes {
-		if strings.Contains(strings.ToLower(inbox.Name), identifier) {
-			matches = append(matches, inbox)
-		}
+	if dir != "" {
+		store := cache.NewStore(dir, "inboxes", client.BaseURL, client.AccountID)
+		store.Put(inboxes)
 	}
 
-	if len(matches) == 0 {
-		return 0, fmt.Errorf("no inbox found matching %q", identifier)
-	}
-
-	if len(matches) == 1 {
-		return matches[0].ID, nil
-	}
-
-	// Multiple matches
-	var options []string
-	for _, inbox := range matches {
-		options = append(options, fmt.Sprintf("  %d: %s (%s)", inbox.ID, inbox.Name, inbox.ChannelType))
-	}
-	return 0, fmt.Errorf("multiple inboxes match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
+	return fuzzyMatchInboxes(identifier, inboxes)
 }
 
 // resolveAgentID resolves an agent identifier to a numeric ID.
-// Accepts: numeric ID, email, or name search term (via Agents.Find).
+// Accepts: numeric ID, email, or name search term (fuzzy match, cached).
 func resolveAgentID(ctx context.Context, client *api.Client, identifier string) (int, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
@@ -1255,15 +1265,34 @@ func resolveAgentID(ctx context.Context, client *api.Client, identifier string) 
 		return id, nil
 	}
 
-	agent, err := client.Agents().Find(ctx, identifier)
-	if err != nil {
-		return 0, fmt.Errorf("failed to resolve agent %q: %w", identifier, err)
+	dir := resolveCacheDir()
+	var agents []api.Agent
+
+	if dir != "" {
+		store := cache.NewStore(dir, "agents", client.BaseURL, client.AccountID)
+		if store.Get(&agents) {
+			if id, err := fuzzyMatchAgents(identifier, agents); err == nil {
+				return id, nil
+			}
+		}
 	}
-	return agent.ID, nil
+
+	var err error
+	agents, err = client.Agents().List(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	if dir != "" {
+		store := cache.NewStore(dir, "agents", client.BaseURL, client.AccountID)
+		store.Put(agents)
+	}
+
+	return fuzzyMatchAgents(identifier, agents)
 }
 
 // resolveTeamID resolves a team identifier to a numeric ID.
-// Accepts: numeric ID or team name (case-insensitive partial match).
+// Accepts: numeric ID or team name (fuzzy match, cached).
 func resolveTeamID(ctx context.Context, client *api.Client, identifier string) (int, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
@@ -1275,35 +1304,148 @@ func resolveTeamID(ctx context.Context, client *api.Client, identifier string) (
 		return id, nil
 	}
 
-	teams, err := client.Teams().List(ctx)
+	dir := resolveCacheDir()
+	var teams []api.Team
+
+	if dir != "" {
+		store := cache.NewStore(dir, "teams", client.BaseURL, client.AccountID)
+		if store.Get(&teams) {
+			if id, err := fuzzyMatchTeams(identifier, teams); err == nil {
+				return id, nil
+			}
+		}
+	}
+
+	var err error
+	teams, err = client.Teams().List(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to list teams: %w", err)
 	}
 
-	query := strings.ToLower(identifier)
-	var matches []api.Team
-	for _, team := range teams {
-		nameLower := strings.ToLower(team.Name)
-		if nameLower == query {
-			return team.ID, nil
-		}
-		if strings.Contains(nameLower, query) {
-			matches = append(matches, team)
-		}
+	if dir != "" {
+		store := cache.NewStore(dir, "teams", client.BaseURL, client.AccountID)
+		store.Put(teams)
 	}
 
+	return fuzzyMatchTeams(identifier, teams)
+}
+
+func fuzzyMatchInboxes(query string, inboxes []api.Inbox) (int, error) {
+	items := make([]resolve.Named, len(inboxes))
+	inboxByID := make(map[int]api.Inbox, len(inboxes))
+	for i, inbox := range inboxes {
+		items[i] = resolve.Named{ID: inbox.ID, Name: inbox.Name}
+		inboxByID[inbox.ID] = inbox
+	}
+
+	id, err := resolve.FuzzyMatch(query, items)
+	if err == nil {
+		return id, nil
+	}
+
+	var ae *resolve.AmbiguousError
+	if errors.As(err, &ae) {
+		var options []string
+		for _, m := range ae.Matches {
+			inbox := inboxByID[m.ID]
+			options = append(options, fmt.Sprintf("  %d: %s (%s)", m.ID, inbox.Name, inbox.ChannelType))
+		}
+		return 0, fmt.Errorf("multiple inboxes match %q, specify ID:\n%s", query, strings.Join(options, "\n"))
+	}
+
+	matches := resolve.FuzzyMatchAll(query, items, 5)
 	if len(matches) == 0 {
-		return 0, fmt.Errorf("no team found matching %q", identifier)
+		return 0, fmt.Errorf("no inbox found matching %q", query)
 	}
-	if len(matches) == 1 {
-		return matches[0].ID, nil
+	var options []string
+	for _, m := range matches {
+		inbox := inboxByID[m.ID]
+		options = append(options, fmt.Sprintf("  %d: %s (%s)", m.ID, inbox.Name, inbox.ChannelType))
+	}
+	return 0, fmt.Errorf("no inbox found matching %q, best matches:\n%s", query, strings.Join(options, "\n"))
+}
+
+func fuzzyMatchAgents(query string, agents []api.Agent) (int, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return 0, fmt.Errorf("empty agent query")
 	}
 
+	// Preserve existing behavior: exact name/email match first.
+	queryLower := strings.ToLower(query)
+	for _, agent := range agents {
+		if strings.ToLower(agent.Name) == queryLower || strings.ToLower(agent.Email) == queryLower {
+			return agent.ID, nil
+		}
+	}
+
+	items := make([]resolve.Named, 0, len(agents))
+	for _, agent := range agents {
+		items = append(items, resolve.Named{ID: agent.ID, Name: agent.Name})
+	}
+
+	id, err := resolve.FuzzyMatch(query, items)
+	if err == nil {
+		return id, nil
+	}
+
+	// Fallback: allow matching on email local-part prefix.
+	for _, agent := range agents {
+		email := strings.ToLower(strings.TrimSpace(agent.Email))
+		local := email
+		if idx := strings.IndexByte(local, '@'); idx > 0 {
+			local = local[:idx]
+		}
+		if strings.HasPrefix(local, queryLower) {
+			return agent.ID, nil
+		}
+	}
+
+	var ae *resolve.AmbiguousError
+	if errors.As(err, &ae) {
+		var options []string
+		for _, m := range ae.Matches {
+			options = append(options, fmt.Sprintf("  %d: %s", m.ID, m.Name))
+		}
+		return 0, fmt.Errorf("multiple agents match %q, specify ID:\n%s", query, strings.Join(options, "\n"))
+	}
+
+	return 0, fmt.Errorf("no agent found matching %q", query)
+}
+
+func fuzzyMatchTeams(query string, teams []api.Team) (int, error) {
+	items := make([]resolve.Named, len(teams))
+	teamByID := make(map[int]api.Team, len(teams))
+	for i, team := range teams {
+		items[i] = resolve.Named{ID: team.ID, Name: team.Name}
+		teamByID[team.ID] = team
+	}
+
+	id, err := resolve.FuzzyMatch(query, items)
+	if err == nil {
+		return id, nil
+	}
+
+	var ae *resolve.AmbiguousError
+	if errors.As(err, &ae) {
+		var options []string
+		for _, m := range ae.Matches {
+			team := teamByID[m.ID]
+			options = append(options, fmt.Sprintf("  %d: %s", team.ID, team.Name))
+		}
+		return 0, fmt.Errorf("multiple teams match %q, specify ID:\n%s", query, strings.Join(options, "\n"))
+	}
+
+	matches := resolve.FuzzyMatchAll(query, items, 5)
+	if len(matches) == 0 {
+		return 0, fmt.Errorf("no team found matching %q", query)
+	}
 	var options []string
-	for _, team := range matches {
+	for _, m := range matches {
+		team := teamByID[m.ID]
 		options = append(options, fmt.Sprintf("  %d: %s", team.ID, team.Name))
 	}
-	return 0, fmt.Errorf("multiple teams match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
+	return 0, fmt.Errorf("no team found matching %q, best matches:\n%s", query, strings.Join(options, "\n"))
 }
 
 // printJSONErr writes a JSON value to stderr, applying agent formatting when appropriate.

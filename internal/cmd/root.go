@@ -340,6 +340,8 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newCompletionsCmd())
+	root.AddCommand(newCacheCmd())
+	root.AddCommand(newWatchCmd())
 	root.AddCommand(newMentionsCmd())
 	root.AddCommand(newAssignCmd())
 	root.AddCommand(newCloseCmd())
