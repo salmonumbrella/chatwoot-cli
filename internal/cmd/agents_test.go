@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"os"
 	"strings"
 	"testing"
 )
@@ -254,6 +257,44 @@ func TestAgentsUpdateCommand(t *testing.T) {
 
 	if !strings.Contains(output, "Updated Name") {
 		t.Errorf("output missing 'Updated Name': %s", output)
+	}
+}
+
+func TestAgentsBulkCreateCommand_EmailsFromStdin(t *testing.T) {
+	var received struct {
+		Emails []string `json:"emails"`
+	}
+
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/agents/bulk_create", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&received)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[
+				{"id": 1, "name": "A", "email": "a@example.com", "role": "agent"},
+				{"id": 2, "name": "B", "email": "b@example.com", "role": "agent"}
+			]`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	_, _ = w.WriteString("a@example.com\nb@example.com\n")
+	_ = w.Close()
+
+	err := Execute(context.Background(), []string{"agents", "bulk-create", "--emails", "@-"})
+	if err != nil {
+		t.Fatalf("agents bulk-create failed: %v", err)
+	}
+	if len(received.Emails) != 2 {
+		t.Fatalf("expected 2 emails, got %d (%v)", len(received.Emails), received.Emails)
+	}
+	if received.Emails[0] != "a@example.com" || received.Emails[1] != "b@example.com" {
+		t.Fatalf("unexpected emails: %v", received.Emails)
 	}
 }
 

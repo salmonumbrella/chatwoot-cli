@@ -444,3 +444,31 @@ func TestExecute_FieldsAndQueryConflict(t *testing.T) {
 		t.Errorf("Expected conflict error message, got: %v", err)
 	}
 }
+
+func TestParseFields_FromStdin(t *testing.T) {
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	_, _ = w.WriteString("id\ncontact.id\n")
+	_ = w.Close()
+
+	fields, err := parseFields("@-")
+	if err != nil {
+		t.Fatalf("parseFields(@-) error: %v", err)
+	}
+	if len(fields) != 2 || fields[0] != "id" || fields[1] != "contact.id" {
+		t.Fatalf("unexpected fields: %v", fields)
+	}
+}
+
+func TestParseFields_JSONArray(t *testing.T) {
+	fields, err := parseFields(`["id","contact.id"]`)
+	if err != nil {
+		t.Fatalf("parseFields(JSON) error: %v", err)
+	}
+	if len(fields) != 2 || fields[0] != "id" || fields[1] != "contact.id" {
+		t.Fatalf("unexpected fields: %v", fields)
+	}
+}

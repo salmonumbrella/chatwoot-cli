@@ -284,7 +284,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")
 	root.PersistentFlags().StringVar(&flags.Query, "query", "", "JQ expression to filter JSON output")
 	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "JQ expression to filter JSON output (alias for --query)")
-	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Comma-separated fields to select in JSON output (shorthand for --query)")
+	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Fields to select in JSON output (CSV/whitespace/JSON array, or @- / @path) (shorthand for --query)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
@@ -435,14 +435,14 @@ func findHelpJSONTarget(root *cobra.Command, args []string) (*cobra.Command, boo
 }
 
 func parseFields(input string) ([]string, error) {
-	raw := strings.Split(input, ",")
-	var fields []string
-	for _, field := range raw {
-		field = strings.TrimSpace(field)
-		if field == "" {
-			continue
+	fields, err := ParseStringListFlag(input)
+	if err != nil {
+		// Preserve existing error message for "empty-ish" inputs.
+		msg := err.Error()
+		if strings.Contains(msg, "no values provided") || strings.Contains(msg, "no valid values provided") {
+			return nil, fmt.Errorf("--fields must include at least one field")
 		}
-		fields = append(fields, field)
+		return nil, fmt.Errorf("invalid --fields value: %w", err)
 	}
 	if len(fields) == 0 {
 		return nil, fmt.Errorf("--fields must include at least one field")

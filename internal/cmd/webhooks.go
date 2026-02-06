@@ -126,6 +126,7 @@ func newWebhooksCreateCmd() *cobra.Command {
 	var (
 		url           string
 		subscriptions []string
+		emit          string
 	)
 
 	cmd := &cobra.Command{
@@ -146,6 +147,26 @@ Available subscription events:
 			if url == "" {
 				return fmt.Errorf("--url is required")
 			}
+
+			var err error
+			subscriptions, err = func(values []string) ([]string, error) {
+				if len(values) == 0 {
+					return nil, nil
+				}
+				if len(values) == 1 {
+					return ParseStringListFlag(values[0])
+				}
+				for _, v := range values {
+					v = strings.TrimSpace(v)
+					if strings.HasPrefix(v, "@") || strings.HasPrefix(v, "[") {
+						return nil, fmt.Errorf("cannot combine @- / @path or JSON array with multiple --subscriptions values")
+					}
+				}
+				return ParseStringListFlag(strings.Join(values, "\n"))
+			}(subscriptions)
+			if err != nil {
+				return fmt.Errorf("invalid --subscriptions value: %w", err)
+			}
 			if len(subscriptions) == 0 {
 				return fmt.Errorf("--subscriptions is required")
 			}
@@ -162,6 +183,10 @@ Available subscription events:
 
 			webhook, err := client.Webhooks().Create(cmdContext(cmd), url, subscriptions)
 			if err != nil {
+				return err
+			}
+
+			if emitted, err := maybeEmit(cmd, emit, "webhook", webhook.ID, webhook); emitted {
 				return err
 			}
 
@@ -185,7 +210,8 @@ Available subscription events:
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "Webhook URL (required)")
-	cmd.Flags().StringSliceVar(&subscriptions, "subscriptions", nil, "Comma-separated list of events to subscribe to (required)")
+	cmd.Flags().StringArrayVar(&subscriptions, "subscriptions", nil, "Subscription events (repeatable, or CSV/whitespace/JSON array, or @- / @path) (required)")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -194,6 +220,7 @@ func newWebhooksUpdateCmd() *cobra.Command {
 	var (
 		url           string
 		subscriptions []string
+		emit          string
 	)
 
 	cmd := &cobra.Command{
@@ -218,6 +245,24 @@ Available subscription events:
 				return err
 			}
 
+			subscriptions, err = func(values []string) ([]string, error) {
+				if len(values) == 0 {
+					return nil, nil
+				}
+				if len(values) == 1 {
+					return ParseStringListFlag(values[0])
+				}
+				for _, v := range values {
+					v = strings.TrimSpace(v)
+					if strings.HasPrefix(v, "@") || strings.HasPrefix(v, "[") {
+						return nil, fmt.Errorf("cannot combine @- / @path or JSON array with multiple --subscriptions values")
+					}
+				}
+				return ParseStringListFlag(strings.Join(values, "\n"))
+			}(subscriptions)
+			if err != nil {
+				return fmt.Errorf("invalid --subscriptions value: %w", err)
+			}
 			if url == "" && len(subscriptions) == 0 {
 				return fmt.Errorf("at least one of --url or --subscriptions must be provided")
 			}
@@ -236,6 +281,10 @@ Available subscription events:
 
 			webhook, err := client.Webhooks().Update(cmdContext(cmd), id, url, subscriptions)
 			if err != nil {
+				return err
+			}
+
+			if emitted, err := maybeEmit(cmd, emit, "webhook", webhook.ID, webhook); emitted {
 				return err
 			}
 
@@ -259,7 +308,8 @@ Available subscription events:
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "New webhook URL")
-	cmd.Flags().StringSliceVar(&subscriptions, "subscriptions", nil, "Comma-separated list of events to subscribe to")
+	cmd.Flags().StringArrayVar(&subscriptions, "subscriptions", nil, "Subscription events (repeatable, or CSV/whitespace/JSON array, or @- / @path)")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }

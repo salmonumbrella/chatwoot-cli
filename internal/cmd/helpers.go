@@ -820,6 +820,142 @@ func ParseResourceIDListFlag(value string, expectedResource string) ([]int, erro
 	return out, nil
 }
 
+// ParseStringListFlag parses a comma/whitespace/newline separated flag value into a list of strings.
+// It supports @- (stdin) and @path (file), and also accepts JSON array inputs.
+//
+// This is useful for list flags like --labels that are strings rather than numeric IDs.
+func ParseStringListFlag(value string) ([]string, error) {
+	value = strings.TrimSpace(value)
+	raw, err := loadAtValue(value)
+	if err != nil {
+		return nil, err
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, fmt.Errorf("no values provided")
+	}
+
+	// JSON array input: ["a","b"] or [1,2]
+	if strings.HasPrefix(raw, "[") {
+		var arr []any
+		if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+			out := make([]string, 0, len(arr))
+			for _, v := range arr {
+				switch vv := v.(type) {
+				case string:
+					s := strings.TrimSpace(vv)
+					if s != "" {
+						out = append(out, s)
+					}
+				case float64:
+					// Allow numeric values by stringifying whole numbers.
+					i := int(vv)
+					if float64(i) != vv {
+						return nil, fmt.Errorf("invalid value %v: expected string or integer", vv)
+					}
+					out = append(out, fmt.Sprintf("%d", i))
+				default:
+					return nil, fmt.Errorf("invalid value %v: expected string or integer", v)
+				}
+			}
+			if len(out) == 0 {
+				return nil, fmt.Errorf("no valid values provided")
+			}
+			return out, nil
+		}
+	}
+
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return unicode.IsSpace(r) || r == ','
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		out = append(out, part)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no valid values provided")
+	}
+	return out, nil
+}
+
+func normalizeEmitFlag(emit string) (string, error) {
+	emit = strings.ToLower(strings.TrimSpace(emit))
+	switch emit {
+	case "":
+		return "", nil
+	case "json", "id", "url":
+		return emit, nil
+	default:
+		return "", fmt.Errorf("invalid --emit %q: must be one of json, id, url", emit)
+	}
+}
+
+// maybeEmit emits a single-resource response in a chain-friendly way.
+// Returns (true, nil) when it emitted output and the caller should stop.
+func maybeEmit(cmd *cobra.Command, emit string, resourceType string, id int, payload any) (bool, error) {
+	emit, err := normalizeEmitFlag(emit)
+	if err != nil {
+		return true, err
+	}
+	switch emit {
+	case "":
+		return false, nil
+	case "json":
+		if payload == nil {
+			return true, fmt.Errorf("--emit json requires a JSON payload")
+		}
+		return true, printJSON(cmd, payload)
+	case "id":
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s:%d\n", prefixForType(resourceType), id)
+		return true, nil
+	case "url":
+		plural, ok := uiPluralForType(resourceType)
+		if !ok {
+			return true, api.NewStructuredErrorWithContext(api.ErrValidation, fmt.Sprintf("no URL available for %s:%d", prefixForType(resourceType), id), map[string]any{
+				"type": resourceType,
+				"id":   id,
+			})
+		}
+		u, err := resourceURL(plural, id)
+		if err != nil {
+			return true, err
+		}
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), u)
+		return true, nil
+	default:
+		return true, fmt.Errorf("unknown emit %q", emit)
+	}
+}
+
+func uiPluralForType(resourceType string) (string, bool) {
+	switch resourceType {
+	case "conversation":
+		return "conversations", true
+	case "contact":
+		return "contacts", true
+	case "inbox":
+		return "inboxes", true
+	case "team":
+		return "teams", true
+	case "agent":
+		return "agents", true
+	case "campaign":
+		return "campaigns", true
+	default:
+		return "", false
+	}
+}
+
+func prefixForType(resourceType string) string {
+	s := strings.ToLower(strings.TrimSpace(resourceType))
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
+}
+
 // parseIDArgs parses IDs from command args (supports both space-separated and comma-separated).
 // If expectedResource is set, it also accepts resource prefixes and pasted Chatwoot UI URLs.
 func parseIDArgs(args []string, expectedResource string) ([]int, error) {
@@ -918,8 +1054,17 @@ func parseIDOrURL(input string, expectedResource string) (int, error) {
 				normalized = "inbox"
 			case "team", "teams":
 				normalized = "team"
-			case "agent", "agents", "user", "users":
+			case "agent", "agents":
 				normalized = "agent"
+			case "user", "users":
+				// In most of the CLI, "user" is synonymous with an account agent.
+				// However, platform commands operate on platform "users", so allow
+				// user:* prefixes when expectedResource=="user".
+				if expectedResource == "user" {
+					normalized = "user"
+				} else {
+					normalized = "agent"
+				}
 			case "campaign", "campaigns":
 				normalized = "campaign"
 			}

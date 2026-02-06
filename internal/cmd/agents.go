@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -67,6 +66,8 @@ func newAgentsListCmd() *cobra.Command {
 }
 
 func newAgentsGetCmd() *cobra.Command {
+	var emit string
+
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get agent by ID",
@@ -74,6 +75,15 @@ func newAgentsGetCmd() *cobra.Command {
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {
+				return err
+			}
+
+			mode, err := normalizeEmitFlag(emit)
+			if err != nil {
+				return err
+			}
+			if mode == "id" || mode == "url" {
+				_, err := maybeEmit(cmd, mode, "agent", id, nil)
 				return err
 			}
 
@@ -91,6 +101,10 @@ func newAgentsGetCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "agent", agent.ID, agent); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, agent)
 			}
@@ -99,6 +113,7 @@ func newAgentsGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "email"},
@@ -115,6 +130,7 @@ func newAgentsCreateCmd() *cobra.Command {
 		name  string
 		email string
 		role  string
+		emit  string
 	)
 
 	cmd := &cobra.Command{
@@ -145,6 +161,10 @@ func newAgentsCreateCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "agent", agent.ID, agent); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, agent)
 			}
@@ -168,6 +188,7 @@ func newAgentsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Agent name")
 	cmd.Flags().StringVar(&email, "email", "", "Agent email address")
 	cmd.Flags().StringVar(&role, "role", "", "Agent role: agent|admin")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -176,6 +197,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 	var (
 		name string
 		role string
+		emit string
 	)
 
 	cmd := &cobra.Command{
@@ -207,6 +229,10 @@ func newAgentsUpdateCmd() *cobra.Command {
 				return err
 			}
 
+			if emitted, err := maybeEmit(cmd, emit, "agent", agent.ID, agent); emitted {
+				return err
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, agent)
 			}
@@ -229,6 +255,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "New agent name")
 	cmd.Flags().StringVar(&role, "role", "", "New agent role: agent|admin")
+	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -268,28 +295,15 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bulk-create",
 		Short: "Create multiple agents at once",
-		Long:  "Create multiple agents at once by providing a comma-separated list of email addresses",
+		Long:  "Create multiple agents at once by providing a list of email addresses",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if emails == "" {
 				return fmt.Errorf("--emails is required")
 			}
 
-			// Split emails by comma and trim whitespace
-			emailList := strings.Split(emails, ",")
-			for i := range emailList {
-				emailList[i] = strings.TrimSpace(emailList[i])
-			}
-
-			// Filter out empty strings
-			var validEmails []string
-			for _, email := range emailList {
-				if email != "" {
-					validEmails = append(validEmails, email)
-				}
-			}
-
-			if len(validEmails) == 0 {
-				return fmt.Errorf("at least one email address is required")
+			validEmails, err := ParseStringListFlag(emails)
+			if err != nil {
+				return fmt.Errorf("invalid --emails value: %w", err)
 			}
 
 			client, err := getClient()
@@ -323,7 +337,7 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&emails, "emails", "", "Comma-separated list of email addresses (required)")
+	cmd.Flags().StringVar(&emails, "emails", "", "Email addresses (CSV/whitespace/JSON array, or @- / @path) (required)")
 	_ = cmd.MarkFlagRequired("emails")
 
 	return cmd

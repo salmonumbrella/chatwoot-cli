@@ -294,6 +294,74 @@ func TestWebhooksCreateCommand_MultipleSubscriptions(t *testing.T) {
 	}
 }
 
+func TestWebhooksCreateCommand_SubscriptionsFromStdin(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/webhooks", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"payload": {"webhook": {"id": 789, "url": "https://example.com/webhook", "subscriptions": ["message_created", "conversation_created"]}}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	_, _ = w.WriteString("message_created\nconversation_created\n")
+	_ = w.Close()
+
+	err := Execute(context.Background(), []string{
+		"webhooks", "create",
+		"--url", "https://example.com/webhook",
+		"--subscriptions", "@-",
+	})
+	if err != nil {
+		t.Errorf("webhooks create failed: %v", err)
+	}
+
+	subs, ok := receivedBody["subscriptions"].([]any)
+	if !ok {
+		t.Fatalf("expected subscriptions to be array, got %T", receivedBody["subscriptions"])
+	}
+	if len(subs) != 2 {
+		t.Errorf("expected 2 subscriptions, got %d", len(subs))
+	}
+}
+
+func TestWebhooksCreateCommand_SubscriptionsJSON(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/webhooks", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"payload": {"webhook": {"id": 789, "url": "https://example.com/webhook", "subscriptions": ["message_created", "conversation_created"]}}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"webhooks", "create",
+		"--url", "https://example.com/webhook",
+		"--subscriptions", `["message_created","conversation_created"]`,
+	})
+	if err != nil {
+		t.Errorf("webhooks create failed: %v", err)
+	}
+
+	subs, ok := receivedBody["subscriptions"].([]any)
+	if !ok {
+		t.Fatalf("expected subscriptions to be array, got %T", receivedBody["subscriptions"])
+	}
+	if len(subs) != 2 {
+		t.Errorf("expected 2 subscriptions, got %d", len(subs))
+	}
+}
+
 func TestWebhooksCreateCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/webhooks", jsonResponse(200, `{
