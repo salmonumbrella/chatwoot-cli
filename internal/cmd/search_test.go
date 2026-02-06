@@ -966,8 +966,9 @@ func TestSearchCommand_Senders(t *testing.T) {
 	}
 }
 
-func TestSearchCommand_SendersIncludedByDefault(t *testing.T) {
-	// Test that senders are included in default search (no --type flag)
+func TestSearchCommand_SendersExcludedByDefault(t *testing.T) {
+	// Test that senders are NOT included in default search (no --type flag)
+	// because sender search is expensive (O(n*m) API calls).
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
 			"payload": [],
@@ -980,12 +981,8 @@ func TestSearchCommand_SendersIncludedByDefault(t *testing.T) {
 				],
 				"meta": {"count": 1, "total_pages": 1}
 			}
-		}`)).
-		On("GET", "/api/v1/accounts/1/conversations/200/messages", jsonResponse(200, `{
-			"payload": [
-				{"id": 10, "content": "[Alice Wong]   \nQuestion about shipping", "message_type": 0, "created_at": 1700000000, "sender": {"id": 60, "name": "Support Group"}}
-			]
 		}`))
+	// Note: No messages endpoint registered - sender search should not run
 
 	setupTestEnvWithHandler(t, handler)
 
@@ -1006,10 +1003,10 @@ func TestSearchCommand_SendersIncludedByDefault(t *testing.T) {
 		t.Fatalf("failed to parse JSON output: %v", err)
 	}
 
-	if result.Summary["senders"] != 1 {
-		t.Errorf("expected senders to be included by default, got %d", result.Summary["senders"])
+	if _, hasSenders := result.Summary["senders"]; hasSenders {
+		t.Errorf("expected senders NOT to be included by default, but summary has senders=%d", result.Summary["senders"])
 	}
-	if len(result.Senders) < 1 || result.Senders[0].Name != "Alice Wong" {
-		t.Errorf("expected to find 'Alice Wong' in senders, got %v", result.Senders)
+	if len(result.Senders) != 0 {
+		t.Errorf("expected no senders in default search, got %v", result.Senders)
 	}
 }
