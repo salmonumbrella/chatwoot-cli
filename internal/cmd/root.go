@@ -342,7 +342,6 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newCompletionsCmd())
 	root.AddCommand(newMentionsCmd())
 	root.AddCommand(newAssignCmd())
-	root.AddCommand(newResolveCmd())
 	root.AddCommand(newCloseCmd())
 	root.AddCommand(newReopenCmd())
 	root.AddCommand(newCommentCmd())

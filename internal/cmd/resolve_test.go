@@ -262,6 +262,8 @@ func TestResolveCommand_JSONOutputWithPartialFailure(t *testing.T) {
 	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
 
 	err := Execute(context.Background(), []string{"resolve", "123", "456", "--output", "json", "--allow-private"})
-	// Should return error due to partial failure
-	require.Error(t, err)
+	// In JSON mode the close command (which resolve aliases) returns the
+	// summary without propagating the error — the caller inspects the
+	// closed vs total counts instead.
+	assert.NoError(t, err)
 }

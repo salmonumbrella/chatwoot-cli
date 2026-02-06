@@ -11,14 +11,14 @@ import (
 func newCloseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "close <conversation-id> [conversation-id...]",
-		Aliases: []string{"close-conversation", "resolve-conversation"},
+		Aliases: []string{"close-conversation", "resolve-conversation", "resolve"},
 		Short:   "Resolve one or more conversations",
 		Long: `Resolve one or more conversations by setting their status to "resolved".
 
+Aliases: close, resolve, close-conversation, resolve-conversation.
+
 This is a convenience shortcut for:
-  chatwoot conversations toggle-status <id> --status resolved
-and overlaps with:
-  chatwoot resolve <id> [id...]`,
+  chatwoot conversations toggle-status <id> --status resolved`,
 		Example: strings.TrimSpace(`
   # Close a single conversation
   chatwoot close 123
