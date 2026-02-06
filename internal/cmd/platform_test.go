@@ -203,6 +203,31 @@ func TestPlatformAccountsGetCommand(t *testing.T) {
 	}
 }
 
+func TestPlatformAccountsGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/platform/api/v1/accounts/1", jsonResponse(200, `{"id": 1, "name": "Test Account"}`))
+
+	setupPlatformTestEnv(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"platform", "accounts", "get", "#1"}); err != nil {
+			t.Fatalf("platform accounts get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Account 1: Test Account") {
+		t.Errorf("expected account info, got: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"platform", "accounts", "get", "account:1"}); err != nil {
+			t.Fatalf("platform accounts get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Account 1: Test Account") {
+		t.Errorf("expected account info, got: %s", output2)
+	}
+}
+
 func TestPlatformAccountsGetCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/platform/api/v1/accounts/1", jsonResponse(200, `{"id": 1, "name": "Test Account"}`))
@@ -399,6 +424,31 @@ func TestPlatformUsersGetCommand(t *testing.T) {
 
 	if !strings.Contains(output, "User 1: test@example.com") {
 		t.Errorf("expected user info, got: %s", output)
+	}
+}
+
+func TestPlatformUsersGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/platform/api/v1/users/1", jsonResponse(200, `{"id": 1, "name": "Test User", "email": "test@example.com"}`))
+
+	setupPlatformTestEnv(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"platform", "users", "get", "#1"}); err != nil {
+			t.Fatalf("platform users get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "User 1: test@example.com") {
+		t.Errorf("expected user info, got: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"platform", "users", "get", "user:1"}); err != nil {
+			t.Fatalf("platform users get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "User 1: test@example.com") {
+		t.Errorf("expected user info, got: %s", output2)
 	}
 }
 

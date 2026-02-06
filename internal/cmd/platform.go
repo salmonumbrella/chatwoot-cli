@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -121,7 +120,7 @@ func newPlatformAccountsGetCmd(baseURL, token *string) *cobra.Command {
 		Short: "Get an account",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
 				return err
 			}
@@ -152,7 +151,7 @@ func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 		Short: "Delete an account",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
 				return err
 			}
@@ -188,7 +187,7 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 		Short: "Update an account",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
 				return err
 			}
@@ -308,7 +307,7 @@ func newPlatformUsersGetCmd(baseURL, token *string) *cobra.Command {
 		Short: "Get a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			userID, err := validation.ParsePositiveInt(args[0], "user ID")
+			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
 				return err
 			}
@@ -347,7 +346,7 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 		Short: "Update a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			userID, err := validation.ParsePositiveInt(args[0], "user ID")
+			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
 				return err
 			}
@@ -403,7 +402,7 @@ func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 		Short: "Delete a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			userID, err := validation.ParsePositiveInt(args[0], "user ID")
+			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
 				return err
 			}
@@ -432,7 +431,7 @@ func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
 		Short: "Get SSO login URL for a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			userID, err := validation.ParsePositiveInt(args[0], "user ID")
+			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
 				return err
 			}
@@ -476,7 +475,7 @@ func newPlatformAccountUsersListCmd(baseURL, token *string) *cobra.Command {
 		Short: "List account users",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
 				return err
 			}
@@ -515,7 +514,7 @@ func newPlatformAccountUsersCreateCmd(baseURL, token *string) *cobra.Command {
 		Short: "Add a user to an account",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
 				return err
 			}
@@ -562,7 +561,7 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 		Short: "Remove a user from an account",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			accountID, err := validation.ParsePositiveInt(args[0], "account ID")
+			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
 				return err
 			}
@@ -643,7 +642,7 @@ func newPlatformAgentBotsGetCmd(baseURL, token *string) *cobra.Command {
 		Short: "Get a platform agent bot",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
+			botID, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
 				return err
 			}
@@ -734,7 +733,7 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 		Short: "Update a platform agent bot",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
+			botID, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
 				return err
 			}
@@ -779,7 +778,7 @@ func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 		Short: "Delete a platform agent bot",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			botID, err := validation.ParsePositiveInt(args[0], "bot ID")
+			botID, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
 				return err
 			}

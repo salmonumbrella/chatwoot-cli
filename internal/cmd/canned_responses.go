@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -77,9 +76,9 @@ func newCannedResponsesGetCmd() *cobra.Command {
 		Short: "Get a canned response by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "canned response")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %s", args[0])
+				return err
 			}
 
 			client, err := getClient()
@@ -239,9 +238,9 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 		Short: "Update a canned response",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "canned response")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %s", args[0])
+				return err
 			}
 
 			if shortCode == "" && content == "" {
@@ -293,9 +292,9 @@ func newCannedResponsesDeleteCmd() *cobra.Command {
 		Short:   "Delete a canned response",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "canned response")
 			if err != nil {
-				return fmt.Errorf("invalid ID: %s", args[0])
+				return err
 			}
 
 			client, err := getClient()

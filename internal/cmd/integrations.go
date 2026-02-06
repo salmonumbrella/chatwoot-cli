@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -153,7 +152,7 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 		Example: "chatwoot integrations hook-update 123 --settings '{\"webhook_url\":\"https://...\"}'",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			hookID, err := validation.ParsePositiveInt(args[0], "hook ID")
+			hookID, err := parseIDOrURL(args[0], "hook")
 			if err != nil {
 				return err
 			}
@@ -196,7 +195,7 @@ func newIntegrationsHookDeleteCmd() *cobra.Command {
 		Example: "chatwoot integrations hook-delete 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			hookID, err := validation.ParsePositiveInt(args[0], "hook ID")
+			hookID, err := parseIDOrURL(args[0], "hook")
 			if err != nil {
 				return err
 			}

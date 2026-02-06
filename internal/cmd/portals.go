@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -485,7 +484,7 @@ func newPortalsArticlesGetCmd() *cobra.Command {
 				return err
 			}
 
-			articleID, err := validation.ParsePositiveInt(args[1], "article ID")
+			articleID, err := parseIDOrURL(args[1], "article")
 			if err != nil {
 				return err
 			}
@@ -619,7 +618,7 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			articleID, err := validation.ParsePositiveInt(args[1], "article ID")
+			articleID, err := parseIDOrURL(args[1], "article")
 			if err != nil {
 				return err
 			}
@@ -695,7 +694,7 @@ func newPortalsArticlesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			articleID, err := validation.ParsePositiveInt(args[1], "article ID")
+			articleID, err := parseIDOrURL(args[1], "article")
 			if err != nil {
 				return err
 			}
@@ -747,8 +746,7 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 				return fmt.Errorf("--article-ids is required")
 			}
 
-			// Parse comma-separated IDs
-			ids, err := ParseIntList(articleIDs)
+			ids, err := ParseResourceIDListFlag(articleIDs, "article")
 			if err != nil {
 				return fmt.Errorf("invalid article IDs: %w", err)
 			}
@@ -771,7 +769,8 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&articleIDs, "article-ids", "", "Comma-separated article IDs in desired order (required)")
+	cmd.Flags().StringVar(&articleIDs, "article-ids", "", "Article IDs in desired order (CSV, whitespace, JSON array; or @- / @path) (required)")
+	_ = cmd.MarkFlagRequired("article-ids")
 
 	return cmd
 }

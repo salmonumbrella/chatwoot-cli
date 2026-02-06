@@ -338,6 +338,38 @@ func TestPortalsArticlesGetCommand(t *testing.T) {
 	}
 }
 
+func TestPortalsArticlesGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/portals/help/articles/1", jsonResponse(200, `{
+			"id": 1,
+			"title": "Getting Started",
+			"slug": "getting-started",
+			"status": "published",
+			"views": 100,
+			"content": "# Welcome\nThis is the getting started guide."
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "articles", "get", "help", "#1"}); err != nil {
+			t.Fatalf("portals articles get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Getting Started") {
+		t.Errorf("output missing article title: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"portals", "articles", "get", "help", "article:1"}); err != nil {
+			t.Fatalf("portals articles get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Getting Started") {
+		t.Errorf("output missing article title: %s", output2)
+	}
+}
+
 func TestPortalsArticlesCreateCommand(t *testing.T) {
 	var receivedBody map[string]any
 	handler := newRouteHandler().
@@ -475,6 +507,48 @@ func TestPortalsArticlesDeleteCommand(t *testing.T) {
 
 	if !strings.Contains(output, "Deleted article 1") {
 		t.Errorf("expected success message, got: %s", output)
+	}
+}
+
+func TestPortalsArticlesReorderCommand_ArticleIDsFromStdin(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/portals/help/articles/reorder", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n2\n3\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"portals", "articles", "reorder", "help", "--article-ids", "@-"})
+		if err != nil {
+			t.Errorf("portals articles reorder failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Reordered 3 articles in portal help") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+
+	idsAny, ok := receivedBody["article_ids"].([]any)
+	if !ok || len(idsAny) != 3 {
+		t.Fatalf("expected article_ids length 3, got %v", receivedBody["article_ids"])
 	}
 }
 

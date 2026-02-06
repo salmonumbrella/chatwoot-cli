@@ -194,6 +194,36 @@ func TestAgentBotsGetCommand_InvalidID(t *testing.T) {
 	}
 }
 
+func TestAgentBotsGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agent_bots/1", jsonResponse(200, `{
+			"id": 1,
+			"name": "Bot One",
+			"description": "Test bot description",
+			"outgoing_url": "https://bot1.example.com"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "get", "#1"}); err != nil {
+			t.Fatalf("agent-bots get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Bot One") {
+		t.Errorf("output missing bot name: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"agent-bots", "get", "bot:1"}); err != nil {
+			t.Fatalf("agent-bots get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Bot One") {
+		t.Errorf("output missing bot name: %s", output2)
+	}
+}
+
 func TestAgentBotsCreateCommand(t *testing.T) {
 	var receivedBody map[string]any
 	handler := newRouteHandler().

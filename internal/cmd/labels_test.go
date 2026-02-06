@@ -151,6 +151,37 @@ func TestLabelsGetCommand(t *testing.T) {
 	}
 }
 
+func TestLabelsGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/labels/123", jsonResponse(200, `{
+			"id": 123,
+			"title": "important",
+			"color": "#0000FF",
+			"description": "Important issues",
+			"show_on_sidebar": true
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"labels", "get", "#123"}); err != nil {
+			t.Fatalf("labels get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "important") {
+		t.Errorf("output missing title: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"labels", "get", "label:123"}); err != nil {
+			t.Fatalf("labels get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "important") {
+		t.Errorf("output missing title: %s", output2)
+	}
+}
+
 func TestLabelsGetCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/labels/123", jsonResponse(200, `{

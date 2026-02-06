@@ -7,7 +7,6 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -92,7 +91,7 @@ func newLabelsGetCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "label ID")
+			id, err := parseIDOrURL(args[0], "label")
 			if err != nil {
 				return err
 			}
@@ -208,7 +207,7 @@ func newLabelsUpdateCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "label ID")
+			id, err := parseIDOrURL(args[0], "label")
 			if err != nil {
 				return err
 			}
@@ -277,7 +276,7 @@ func newLabelsDeleteCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "label ID")
+			id, err := parseIDOrURL(args[0], "label")
 			if err != nil {
 				return err
 			}

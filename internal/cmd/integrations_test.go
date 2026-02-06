@@ -364,6 +364,42 @@ func TestIntegrationsHookUpdateCommand_InvalidID(t *testing.T) {
 	}
 }
 
+func TestIntegrationsHookUpdateCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/integrations/hooks/1", jsonResponse(200, `{
+			"id": 1,
+			"app_id": "slack",
+			"inbox_id": 1,
+			"account_id": 1
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{
+			"integrations", "hook-update", "#1",
+			"--settings", `{"key":"value"}`,
+		}); err != nil {
+			t.Fatalf("integrations hook-update hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Updated integration hook 1") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{
+			"integrations", "hook-update", "hook:1",
+			"--settings", `{"key":"value"}`,
+		}); err != nil {
+			t.Fatalf("integrations hook-update prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Updated integration hook 1") {
+		t.Errorf("expected success message, got: %s", output2)
+	}
+}
+
 func TestIntegrationsHookUpdateCommand_InvalidSettings(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
 	t.Setenv("CHATWOOT_API_TOKEN", "test-token")

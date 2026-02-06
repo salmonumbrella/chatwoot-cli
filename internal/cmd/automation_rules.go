@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -84,9 +83,9 @@ func newAutomationRulesGetCmd() *cobra.Command {
 				return err
 			}
 
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "rule")
 			if err != nil {
-				return fmt.Errorf("invalid rule ID: %w", err)
+				return err
 			}
 
 			rule, err := client.AutomationRules().Get(cmdContext(cmd), id)
@@ -188,9 +187,9 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "rule")
 			if err != nil {
-				return fmt.Errorf("invalid rule ID: %w", err)
+				return err
 			}
 
 			var conditionsData []map[string]any
@@ -239,9 +238,9 @@ func newAutomationRulesDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "rule")
 			if err != nil {
-				return fmt.Errorf("invalid rule ID: %w", err)
+				return err
 			}
 
 			if err := client.AutomationRules().Delete(cmdContext(cmd), id); err != nil {
@@ -265,9 +264,9 @@ func newAutomationRulesCloneCmd() *cobra.Command {
 		Long:  "Create a copy of an existing automation rule. The cloned rule will be inactive by default.",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "rule")
 			if err != nil {
-				return fmt.Errorf("invalid rule ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()

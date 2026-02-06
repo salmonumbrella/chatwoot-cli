@@ -81,9 +81,9 @@ func newAgentBotsGetCmd() *cobra.Command {
 				return err
 			}
 
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
-				return fmt.Errorf("invalid bot ID: %w", err)
+				return err
 			}
 
 			bot, err := client.AgentBots().Get(cmdContext(cmd), id)
@@ -179,9 +179,9 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
-				return fmt.Errorf("invalid bot ID: %w", err)
+				return err
 			}
 
 			bot, err := client.AgentBots().Update(cmdContext(cmd), id, name, outgoingURL)
@@ -215,9 +215,9 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
-				return fmt.Errorf("invalid bot ID: %w", err)
+				return err
 			}
 
 			if err := client.AgentBots().Delete(cmdContext(cmd), id); err != nil {
@@ -240,9 +240,9 @@ func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 		Short: "Remove the avatar from an agent bot",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
-				return fmt.Errorf("invalid bot ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()
@@ -270,9 +270,9 @@ func newAgentBotsResetTokenCmd() *cobra.Command {
 		Short: "Reset the access token for an agent bot",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
-				return fmt.Errorf("invalid bot ID: %w", err)
+				return err
 			}
 
 			client, err := getClient()

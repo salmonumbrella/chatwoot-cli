@@ -209,6 +209,38 @@ func TestAutomationRulesGetCommand_InvalidID(t *testing.T) {
 	}
 }
 
+func TestAutomationRulesGetCommand_AcceptsHashAndPrefixedIDs(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/automation_rules/1", jsonResponse(200, `{
+			"payload": {
+				"id": 1,
+				"name": "Welcome Message",
+				"event_name": "message_created",
+				"active": true
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "get", "#1"}); err != nil {
+			t.Fatalf("automation-rules get hash ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output, "Welcome Message") {
+		t.Errorf("output missing name: %s", output)
+	}
+
+	output2 := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"automation-rules", "get", "rule:1"}); err != nil {
+			t.Fatalf("automation-rules get prefixed ID failed: %v", err)
+		}
+	})
+	if !strings.Contains(output2, "Welcome Message") {
+		t.Errorf("output missing name: %s", output2)
+	}
+}
+
 func TestAutomationRulesCreateCommand(t *testing.T) {
 	var receivedBody map[string]any
 	handler := newRouteHandler().
