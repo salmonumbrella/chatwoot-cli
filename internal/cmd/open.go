@@ -37,6 +37,84 @@ func normalizeOpenResourceType(input string) (string, error) {
 	return "", fmt.Errorf("invalid resource type %q: must be one of %s", input, strings.Join(valid, ", "))
 }
 
+// resolveOpenTarget parses the arguments to the open command and returns the
+// resolved resource type, resource ID, and (for URL inputs) the parsed URL.
+// It handles five cases:
+//  1. open <resource> <id>         — two args, normalize resource type, parse ID
+//  2. open <id> --type <resource>  — one arg with --type flag
+//  3. open <url>                   — one arg starting with http(s)://
+//  4. open <typed-id>              — one arg like "contact:456", infer type from prefix
+//  5. open <id>                    — bare ID, default to conversation
+func resolveOpenTarget(args []string, resourceTypeFlag string) (resourceType string, resourceID int, parsedFromURL bool, parsed *urlparse.ParsedURL, err error) {
+	if len(args) == 2 {
+		// open <resource> <id>
+		if resourceTypeFlag != "" {
+			return "", 0, false, nil, fmt.Errorf("--type cannot be used with <resource> <id> arguments")
+		}
+		rt, err := normalizeOpenResourceType(args[0])
+		if err != nil {
+			return "", 0, false, nil, err
+		}
+		id, err := parseIDOrURL(args[1], rt)
+		if err != nil {
+			return "", 0, false, nil, err
+		}
+		return rt, id, false, nil, nil
+	}
+
+	if strings.TrimSpace(resourceTypeFlag) != "" {
+		// open <id> --type <resource>
+		rt, err := normalizeOpenResourceType(resourceTypeFlag)
+		if err != nil {
+			return "", 0, false, nil, err
+		}
+		id, err := parseIDOrURL(args[0], rt)
+		if err != nil {
+			return "", 0, false, nil, err
+		}
+		return rt, id, false, nil, nil
+	}
+
+	if strings.HasPrefix(strings.TrimSpace(args[0]), "http://") || strings.HasPrefix(strings.TrimSpace(args[0]), "https://") {
+		// open <url>
+		rawURL := strings.TrimSpace(args[0])
+		parsedURL, err := urlparse.Parse(rawURL)
+		if err != nil {
+			return "", 0, false, nil, fmt.Errorf("failed to parse URL: %w", err)
+		}
+		return "", 0, true, parsedURL, nil
+	}
+
+	// open <id> (default to conversation) OR open <typed-id> like "contact:456"
+	raw := strings.TrimSpace(args[0])
+
+	// If the input looks like a typed ID (e.g. "contact:456"), infer the resource type
+	// and open that resource without requiring --type.
+	if !strings.Contains(raw, "://") {
+		if prefix, _, ok := strings.Cut(raw, ":"); ok {
+			if rt, normErr := normalizeOpenResourceType(prefix); normErr == nil {
+				id, err := parseIDOrURL(raw, rt)
+				if err != nil {
+					return "", 0, false, nil, err
+				}
+				return rt, id, false, nil, nil
+			}
+		}
+	}
+
+	id, err := parseIDOrURL(raw, "conversation")
+	if err != nil {
+		// If the input looks like a URL missing a scheme, surface the URL parser error.
+		if strings.Contains(raw, "/") {
+			if _, urlErr := urlparse.Parse(raw); urlErr != nil {
+				return "", 0, false, nil, fmt.Errorf("failed to parse URL: %w", urlErr)
+			}
+		}
+		return "", 0, false, nil, err
+	}
+	return "conversation", id, false, nil, nil
+}
+
 func newOpenCmd() *cobra.Command {
 	var resourceTypeFlag string
 
@@ -88,84 +166,11 @@ Or provide a bare ID (defaults to conversation):
 `),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			var (
-				parsed        *urlparse.ParsedURL
-				resourceType  string
-				resourceID    int
-				parsedFromURL bool
-			)
-
-			if len(args) == 2 {
-				// open <resource> <id>
-				if resourceTypeFlag != "" {
-					return fmt.Errorf("--type cannot be used with <resource> <id> arguments")
-				}
-				rt, err := normalizeOpenResourceType(args[0])
-				if err != nil {
-					return err
-				}
-				id, err := parseIDOrURL(args[1], rt)
-				if err != nil {
-					return err
-				}
-				resourceType = rt
-				resourceID = id
-			} else if strings.TrimSpace(resourceTypeFlag) != "" {
-				// open <id> --type <resource>
-				rt, err := normalizeOpenResourceType(resourceTypeFlag)
-				if err != nil {
-					return err
-				}
-				id, err := parseIDOrURL(args[0], rt)
-				if err != nil {
-					return err
-				}
-				resourceType = rt
-				resourceID = id
-			} else if strings.HasPrefix(strings.TrimSpace(args[0]), "http://") || strings.HasPrefix(strings.TrimSpace(args[0]), "https://") {
-				// open <url>
-				rawURL := strings.TrimSpace(args[0])
-				parsedURL, err := urlparse.Parse(rawURL)
-				if err != nil {
-					return fmt.Errorf("failed to parse URL: %w", err)
-				}
-				parsed = parsedURL
-				parsedFromURL = true
-			} else {
-				// open <id> (default to conversation) OR open <typed-id> like "contact:456"
-				raw := strings.TrimSpace(args[0])
-
-				// If the input looks like a typed ID (e.g. "contact:456"), infer the resource type
-				// and open that resource without requiring --type.
-				if !strings.Contains(raw, "://") {
-					if prefix, _, ok := strings.Cut(raw, ":"); ok {
-						if rt, err := normalizeOpenResourceType(prefix); err == nil {
-							id, err := parseIDOrURL(raw, rt)
-							if err != nil {
-								return err
-							}
-							resourceType = rt
-							resourceID = id
-							goto Parsed
-						}
-					}
-				}
-
-				id, err := parseIDOrURL(raw, "conversation")
-				if err != nil {
-					// If the input looks like a URL missing a scheme, surface the URL parser error.
-					if strings.Contains(raw, "/") {
-						if _, urlErr := urlparse.Parse(raw); urlErr != nil {
-							return fmt.Errorf("failed to parse URL: %w", urlErr)
-						}
-					}
-					return err
-				}
-				resourceType = "conversation"
-				resourceID = id
+			resourceType, resourceID, parsedFromURL, parsed, err := resolveOpenTarget(args, resourceTypeFlag)
+			if err != nil {
+				return err
 			}
 
-		Parsed:
 			// Get the client
 			client, err := getClient()
 			if err != nil {
