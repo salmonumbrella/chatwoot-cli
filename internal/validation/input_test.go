@@ -404,9 +404,15 @@ func TestParsePositiveInt(t *testing.T) {
 			name:      "number with spaces",
 			input:     " 123 ",
 			fieldName: "ID",
-			want:      0,
-			wantError: true,
-			errMsg:    "invalid ID",
+			want:      123,
+			wantError: false,
+		},
+		{
+			name:      "number with leading hash",
+			input:     "#123",
+			fieldName: "ID",
+			want:      123,
+			wantError: false,
 		},
 		{
 			name:      "hex number",

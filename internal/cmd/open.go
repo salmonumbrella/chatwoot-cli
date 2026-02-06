@@ -7,13 +7,13 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
 var openResourceAliases = map[string]string{
 	"conversation":  "conversation",
 	"conversations": "conversation",
+	"conv":          "conversation",
 	"contact":       "contact",
 	"contacts":      "contact",
 	"inbox":         "inbox",
@@ -42,8 +42,9 @@ func newOpenCmd() *cobra.Command {
 	var resourceTypeFlag string
 
 	cmd := &cobra.Command{
-		Use:   "open <url> | open <resource> <id> | open <id> --type <resource>",
-		Short: "Open a Chatwoot URL or resource ID and display details",
+		Use:     "open <url> | open <resource> <id> | open <id> --type <resource>",
+		Aliases: []string{"get", "show"},
+		Short:   "Open a Chatwoot URL or resource ID and display details",
 		Long: `Parse a Chatwoot URL (or resource + ID) and display the corresponding resource details.
 
 This command accepts Chatwoot URLs and extracts the resource information,
@@ -94,7 +95,7 @@ You can also provide a resource type and ID directly:
 				}
 				resourceTypeIn = args[0]
 				hasTypeArg = true
-				id, err := validation.ParsePositiveInt(args[1], "resource ID")
+				id, err := parsePositiveIntArg(args[1], "resource ID")
 				if err != nil {
 					return err
 				}
@@ -109,7 +110,7 @@ You can also provide a resource type and ID directly:
 				if err != nil {
 					return err
 				}
-				id, err := validation.ParsePositiveInt(args[len(args)-1], "resource ID")
+				id, err := parsePositiveIntArg(args[len(args)-1], "resource ID")
 				if err != nil {
 					return err
 				}

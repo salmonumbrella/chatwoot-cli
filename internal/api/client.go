@@ -149,16 +149,25 @@ func (c *Client) ensureBaseURLValidated() error {
 
 // accountPath returns the base path for account-scoped API calls
 func (c *Client) accountPath(path string) string {
+	if path != "" && path[0] != '/' {
+		path = "/" + path
+	}
 	return fmt.Sprintf("%s/api/v1/accounts/%d%s", c.BaseURL, c.AccountID, path)
 }
 
 // platformPath returns the base path for platform API calls
 func (c *Client) platformPath(path string) string {
+	if path != "" && path[0] != '/' {
+		path = "/" + path
+	}
 	return fmt.Sprintf("%s/platform/api/v1%s", c.BaseURL, path)
 }
 
 // publicPath returns the base path for public client API calls
 func (c *Client) publicPath(path string) string {
+	if path != "" && path[0] != '/' {
+		path = "/" + path
+	}
 	return fmt.Sprintf("%s/public/api/v1%s", c.BaseURL, path)
 }
 

@@ -364,6 +364,41 @@ func TestConversationsBulkResolve(t *testing.T) {
 	}
 }
 
+func TestConversationsBulkResolve_AcceptsURLs(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		cmd.SetArgs([]string{
+			"bulk", "resolve",
+			"--ids",
+			"https://app.chatwoot.com/app/accounts/1/conversations/1,https://app.chatwoot.com/app/accounts/1/conversations/2",
+		})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("bulk resolve failed: %v", err)
+		}
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
+	if !strings.Contains(output, "Resolved 2 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
 func TestConversationsBulkAssign(t *testing.T) {
 	callCount := 0
 	handler := newRouteHandler().
@@ -391,6 +426,40 @@ func TestConversationsBulkAssign(t *testing.T) {
 		t.Errorf("expected 2 API calls, got %d", callCount)
 	}
 
+	if !strings.Contains(output, "Assigned 2 conversations") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
+func TestConversationsBulkAssign_AgentByName(t *testing.T) {
+	callCount := 0
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agents", jsonResponse(200, `[
+			{"id": 5, "name": "Agent", "email": "agent@example.com", "role": "agent"}
+		]`)).
+		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		cmd := newConversationsCmd()
+		cmd.SetArgs([]string{"bulk", "assign", "--ids", "1,2", "--agent", "Agent"})
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("bulk assign --agent name failed: %v", err)
+		}
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
 	if !strings.Contains(output, "Assigned 2 conversations") {
 		t.Errorf("unexpected output: %s", output)
 	}

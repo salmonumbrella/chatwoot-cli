@@ -133,6 +133,23 @@ Executables on your PATH named `chatwoot-<name>` can be invoked as:
 chatwoot <name> [args...]
 ```
 
+### Shortcuts (Agent-Friendly)
+
+Convenience commands designed for agent workflows:
+
+```bash
+# "get/show" are aliases for `open`
+chatwoot get conversation 123
+chatwoot show https://app.chatwoot.com/app/accounts/1/conversations/123
+
+# One-ID actions (no extra lookups)
+chatwoot comment 123 "Hello! How can I help?"
+chatwoot note 123 "Internal note" --mention lily
+chatwoot close 123 456
+chatwoot reopen 123
+chatwoot ctx 123 --output agent
+```
+
 ### Conversations
 
 ```bash
@@ -155,7 +172,7 @@ chatwoot conversations attachments 123            # List attachments
 # Manage status and assignment
 chatwoot conversations toggle-status 123 --status resolved
 chatwoot conversations toggle-priority 123 --priority high
-chatwoot conversations assign 123 --agent-id 5 --team-id 2
+chatwoot conversations assign 123 --agent 5 --team 2
 chatwoot conversations mark-unread 123
 
 # Labels
@@ -567,7 +584,7 @@ chatwoot conversations list --status open --output json | \
   jq '.items[] | {id, contact: .contact.name, messages: .messages_count}'
 
 # Assign high-priority to agent
-chatwoot conversations assign 123 --agent-id 5
+chatwoot conversations assign 123 --agent 5
 chatwoot conversations toggle-priority 123 --priority high
 ```
 
@@ -725,6 +742,7 @@ All commands support these flags:
 - `--quiet` - Suppress non-essential output
 - `--silent` - Suppress non-error output to stderr
 - `--no-input` - Disable interactive prompts
+- `--yes`, `-y` - Assume yes for confirmations (desire path alias for `--force`)
 - `--template <tmpl>` - Go template (or `@path`) to render JSON output
 - `--utc` - Display timestamps in UTC
 - `--time-zone <tz>` - Display timestamps in a specific time zone (e.g., `America/Los_Angeles`)

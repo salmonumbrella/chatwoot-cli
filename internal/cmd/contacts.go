@@ -494,7 +494,7 @@ func newContactsDeleteCmd() *cobra.Command {
 		Short: "Delete a contact",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
+			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -748,7 +748,7 @@ func newContactsLabelsCmd() *cobra.Command {
 		Long:  "Get all labels for a specific contact",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
+			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -790,7 +790,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 		Long:  "Add one or more labels to a contact (comma-separated)",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
+			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -839,7 +839,7 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 		Long:  "Get all contactable inboxes for a contact",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
+			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -897,7 +897,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
   chatwoot contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			contactID, err := validation.ParsePositiveInt(args[0], "contact ID")
+			contactID, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -961,7 +961,7 @@ func newContactsNotesCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
+			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -1018,7 +1018,7 @@ func newContactsNotesAddCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "contact ID")
+			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
@@ -1062,12 +1062,12 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			contactID, err := validation.ParsePositiveInt(args[0], "contact ID")
+			contactID, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
 				return err
 			}
 
-			noteID, err := validation.ParsePositiveInt(args[1], "note ID")
+			noteID, err := parsePositiveIntArg(args[1], "note ID")
 			if err != nil {
 				return err
 			}
@@ -1326,12 +1326,12 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
   chatwoot contacts merge 123 456 --force --output json`,
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			keepID, err := validation.ParsePositiveInt(args[0], "keep-id")
+			keepID, err := parsePositiveIntArg(args[0], "keep-id")
 			if err != nil {
 				return err
 			}
 
-			deleteID, err := validation.ParsePositiveInt(args[1], "delete-id")
+			deleteID, err := parsePositiveIntArg(args[1], "delete-id")
 			if err != nil {
 				return err
 			}

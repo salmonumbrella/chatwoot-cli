@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
 // newAssignCmd creates the top-level assign command for quick conversation assignment
 func newAssignCmd() *cobra.Command {
 	var (
-		agentID int
-		teamID  int
+		agent string
+		team  string
 	)
 
 	cmd := &cobra.Command{
@@ -37,7 +36,7 @@ At least one of --agent or --team must be specified.`,
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -50,19 +49,32 @@ At least one of --agent or --team must be specified.`,
 			ctx := cmdContext(cmd)
 
 			// Interactive prompts when no flags provided
-			if agentID == 0 && teamID == 0 {
+			if agent == "" && team == "" {
 				if isInteractive() {
 					selectedAgent, err := promptAgentID(ctx, client)
 					if err != nil {
 						return err
 					}
-					agentID = selectedAgent
+					if selectedAgent > 0 {
+						agent = fmt.Sprintf("%d", selectedAgent)
+					}
 					selectedTeam, err := promptTeamID(ctx, client)
 					if err != nil {
 						return err
 					}
-					teamID = selectedTeam
+					if selectedTeam > 0 {
+						team = fmt.Sprintf("%d", selectedTeam)
+					}
 				}
+			}
+
+			agentID, err := resolveAgentID(ctx, client, agent)
+			if err != nil {
+				return err
+			}
+			teamID, err := resolveTeamID(ctx, client, team)
+			if err != nil {
+				return err
 			}
 
 			if agentID == 0 && teamID == 0 {
@@ -101,8 +113,8 @@ At least one of --agent or --team must be specified.`,
 		}),
 	}
 
-	cmd.Flags().IntVar(&agentID, "agent", 0, "Agent ID to assign")
-	cmd.Flags().IntVar(&teamID, "team", 0, "Team ID to assign")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID, name, or email to assign")
+	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign")
 
 	return cmd
 }

@@ -377,6 +377,20 @@ func TestConversationsContextCommand(t *testing.T) {
 	}
 }
 
+func TestConversationsContextCommand_URL(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{"id": 123, "contact_id": 0}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"payload": []}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	// Should accept the pasted web UI URL and extract the conversation ID.
+	err := Execute(context.Background(), []string{"conversations", "context", "https://app.chatwoot.com/app/accounts/1/conversations/123", "-o", "json"})
+	if err != nil {
+		t.Fatalf("conversations context with URL failed: %v", err)
+	}
+}
+
 func TestConversationsContextCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{"id": 123, "contact_id": 0}`)).
@@ -503,6 +517,29 @@ func TestConversationsAssignCommand_WithAssignee(t *testing.T) {
 
 	if !strings.Contains(output, "assigned") {
 		t.Errorf("output missing assignment info: %s", output)
+	}
+}
+
+func TestConversationsAssignCommand_WithAgentByName(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agents", jsonResponse(200, `[
+			{"id": 5, "name": "Agent Smith", "email": "smith@example.com", "role": "agent"}
+		]`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 123,
+			"meta": {"assignee": {"id": 5, "name": "Agent Smith"}}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"assignee_id": 5,
+			"meta": {"assignee": {"id": 5, "name": "Agent Smith"}}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"conversations", "assign", "123", "--agent", "Agent Smith", "--no-input"})
+	if err != nil {
+		t.Fatalf("conversations assign --agent name failed: %v", err)
 	}
 }
 

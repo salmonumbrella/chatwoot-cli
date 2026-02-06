@@ -22,6 +22,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -68,9 +69,11 @@ func printJSON(cmd *cobra.Command, v any) error {
 	if outfmt.IsAgent(cmd.Context()) {
 		if payload, ok := v.(agentfmt.Payload); ok {
 			v = payload.AgentPayload()
+			v = decorateAgentURLs(v)
 		} else {
 			kind := agentfmt.KindFromCommandPath(cmd.CommandPath())
 			v = agentfmt.Transform(kind, v)
+			v = decorateAgentURLs(v)
 		}
 	}
 	if tmpl := outfmt.GetTemplate(cmd.Context()); tmpl != "" {
@@ -81,6 +84,63 @@ func printJSON(cmd *cobra.Command, v any) error {
 		return outfmt.WriteTemplate(ioStreams.Out, filtered, tmpl)
 	}
 	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query)
+}
+
+func decorateAgentURLs(v any) any {
+	account, err := config.LoadAccount()
+	if err != nil {
+		return v
+	}
+
+	conversationURL := func(id int) string {
+		return fmt.Sprintf("%s/app/accounts/%d/conversations/%d", account.BaseURL, account.AccountID, id)
+	}
+	contactURL := func(id int) string {
+		return fmt.Sprintf("%s/app/accounts/%d/contacts/%d", account.BaseURL, account.AccountID, id)
+	}
+
+	switch env := v.(type) {
+	case agentfmt.ItemEnvelope:
+		switch item := env.Item.(type) {
+		case agentfmt.ConversationDetail:
+			item.URL = conversationURL(item.ID)
+			env.Item = item
+			return env
+		case agentfmt.ConversationSummary:
+			item.URL = conversationURL(item.ID)
+			env.Item = item
+			return env
+		case agentfmt.ContactDetail:
+			item.URL = contactURL(item.ID)
+			env.Item = item
+			return env
+		case agentfmt.ContactSummary:
+			item.URL = contactURL(item.ID)
+			env.Item = item
+			return env
+		default:
+			return v
+		}
+	case agentfmt.ListEnvelope:
+		switch items := env.Items.(type) {
+		case []agentfmt.ConversationSummary:
+			for i := range items {
+				items[i].URL = conversationURL(items[i].ID)
+			}
+			env.Items = items
+			return env
+		case []agentfmt.ContactSummary:
+			for i := range items {
+				items[i].URL = contactURL(items[i].ID)
+			}
+			env.Items = items
+			return env
+		default:
+			return v
+		}
+	default:
+		return v
+	}
 }
 
 // printRawJSON outputs data as JSON without agent formatting.
@@ -318,7 +378,7 @@ func getPromptReader(in io.Reader) *bufio.Reader {
 }
 
 func isInteractive() bool {
-	if flags.NoInput {
+	if flags.NoInput || flags.Yes {
 		return false
 	}
 	if forceInteractive() {
@@ -395,6 +455,9 @@ type confirmOptions struct {
 }
 
 func confirmAction(cmd *cobra.Command, opts confirmOptions) (bool, error) {
+	if flags.Yes {
+		opts.Force = true
+	}
 	if opts.RequireForceForJSON && isJSON(cmd) && !opts.Force {
 		return false, fmt.Errorf("--force flag is required when using --output json")
 	}
@@ -433,6 +496,9 @@ func confirmAction(cmd *cobra.Command, opts confirmOptions) (bool, error) {
 }
 
 func requireForceForJSON(cmd *cobra.Command, force bool) error {
+	if flags.Yes {
+		force = true
+	}
 	if isJSON(cmd) && !force {
 		return fmt.Errorf("--force flag is required when using --output json")
 	}
@@ -611,6 +677,7 @@ func ParseIntList(s string) ([]int, error) {
 		if p == "" {
 			continue
 		}
+		p = strings.TrimPrefix(p, "#")
 		id, err := strconv.Atoi(p)
 		if err != nil {
 			return nil, fmt.Errorf("invalid ID %q: %w", p, err)
@@ -626,8 +693,31 @@ func ParseIntList(s string) ([]int, error) {
 	return result, nil
 }
 
-// parseIDArgs parses IDs from command args (supports both space-separated and comma-separated)
-func parseIDArgs(args []string) ([]int, error) {
+// ParseConversationIDList parses a comma-separated list of conversation IDs while accepting
+// common agent shorthands (#123, conv:123) and pasted Chatwoot UI URLs.
+func ParseConversationIDList(s string) ([]int, error) {
+	parts := strings.Split(s, ",")
+	result := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := parseIDOrURL(p, "conversation")
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, id)
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no valid IDs provided")
+	}
+	return result, nil
+}
+
+// parseIDArgs parses IDs from command args (supports both space-separated and comma-separated).
+// If expectedResource is set, it also accepts resource prefixes and pasted Chatwoot UI URLs.
+func parseIDArgs(args []string, expectedResource string) ([]int, error) {
 	var ids []int
 	for _, arg := range args {
 		parts := strings.Split(arg, ",")
@@ -636,12 +726,17 @@ func parseIDArgs(args []string) ([]int, error) {
 			if part == "" {
 				continue
 			}
-			id, err := strconv.Atoi(part)
-			if err != nil {
-				return nil, fmt.Errorf("invalid ID %q: %w", part, err)
+			var (
+				id  int
+				err error
+			)
+			if expectedResource != "" {
+				id, err = parseIDOrURL(part, expectedResource)
+			} else {
+				id, err = parsePositiveIntArg(part, "ID")
 			}
-			if id <= 0 {
-				return nil, fmt.Errorf("ID must be positive: %d", id)
+			if err != nil {
+				return nil, err
 			}
 			ids = append(ids, id)
 		}
@@ -684,10 +779,59 @@ func handleURLFlag(cmd *cobra.Command, resourceType string, resourceID int) (boo
 // If a URL is provided, it extracts the resource ID from it.
 // The expectedResource parameter validates the URL resource type matches.
 func parseIDOrURL(input string, expectedResource string) (int, error) {
+	input = strings.TrimSpace(input)
+	label := "ID"
+	if expectedResource != "" {
+		label = expectedResource + " ID"
+	}
+	if input == "" {
+		return 0, fmt.Errorf("invalid %s: empty input", label)
+	}
+
+	// Common agent shorthand: "#123" means "123".
+	input = strings.TrimPrefix(input, "#")
+
+	// Common agent shorthand: "conv:123" / "conversation:123" / "contact:456", etc.
+	// If a resource prefix is present, validate it (when expectedResource is set)
+	// and then parse the remainder as an ID or URL.
+	if !strings.Contains(input, "://") {
+		if prefix, rest, ok := strings.Cut(input, ":"); ok {
+			prefix = strings.ToLower(strings.TrimSpace(prefix))
+			rest = strings.TrimSpace(rest)
+			if rest == "" {
+				return 0, fmt.Errorf("invalid %s %q: missing value after ':'", label, input)
+			}
+
+			// Normalize a few common prefixes.
+			normalized := ""
+			switch prefix {
+			case "conversation", "conversations", "conv", "c":
+				normalized = "conversation"
+			case "contact", "contacts":
+				normalized = "contact"
+			case "inbox", "inboxes":
+				normalized = "inbox"
+			case "team", "teams":
+				normalized = "team"
+			case "agent", "agents", "user", "users":
+				normalized = "agent"
+			case "campaign", "campaigns":
+				normalized = "campaign"
+			}
+
+			if normalized != "" {
+				if expectedResource != "" && normalized != expectedResource {
+					return 0, fmt.Errorf("invalid %s: ID is for %s, expected %s", label, normalized, expectedResource)
+				}
+				input = rest
+			}
+		}
+	}
+
 	// First try as plain integer
 	if id, err := strconv.Atoi(input); err == nil {
 		if id <= 0 {
-			return 0, fmt.Errorf("invalid ID: must be positive")
+			return 0, fmt.Errorf("invalid %s: must be a positive integer", label)
 		}
 		return id, nil
 	}
@@ -696,34 +840,53 @@ func parseIDOrURL(input string, expectedResource string) (int, error) {
 	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
 		parsed, err := urlparse.Parse(input)
 		if err != nil {
-			return 0, fmt.Errorf("invalid URL: %w", err)
+			return 0, fmt.Errorf("invalid %s: %w", label, err)
 		}
 		if expectedResource != "" && parsed.ResourceType != expectedResource {
-			return 0, fmt.Errorf("URL is for %s, expected %s", parsed.ResourceType, expectedResource)
+			return 0, fmt.Errorf("invalid %s: URL is for %s, expected %s", label, parsed.ResourceType, expectedResource)
 		}
 		if parsed.ResourceID == 0 {
-			return 0, fmt.Errorf("URL does not contain a resource ID")
+			return 0, fmt.Errorf("invalid %s: URL does not contain a resource ID", label)
 		}
 		return parsed.ResourceID, nil
 	}
 
-	return 0, fmt.Errorf("invalid ID: %q is not a number or URL", input)
+	return 0, fmt.Errorf("invalid %s: %q is not a number or URL", label, input)
+}
+
+// parsePositiveIntArg parses a positive integer arg while accepting common agent shorthands
+// like "#123" and "message:123".
+func parsePositiveIntArg(input string, label string) (int, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return 0, fmt.Errorf("invalid %s: empty input", label)
+	}
+	input = strings.TrimPrefix(input, "#")
+
+	// Allow a small set of prefixes for secondary IDs.
+	if !strings.Contains(input, "://") {
+		if prefix, rest, ok := strings.Cut(input, ":"); ok {
+			prefix = strings.ToLower(strings.TrimSpace(prefix))
+			rest = strings.TrimSpace(rest)
+			switch prefix {
+			case "message", "messages", "msg", "m":
+				input = rest
+			case "note", "notes":
+				input = rest
+			}
+		}
+	}
+
+	return validation.ParsePositiveInt(input, label)
 }
 
 // resolveContactID resolves a contact identifier to a numeric ID.
 // Accepts: numeric ID, Chatwoot URL, email address, or name search term.
 // For ambiguous matches, returns error listing options.
 func resolveContactID(ctx context.Context, client *api.Client, identifier string) (int, error) {
-	// First try as plain integer
-	if id, err := strconv.Atoi(identifier); err == nil {
-		if id > 0 {
-			return id, nil
-		}
-	}
-
-	// Try as URL
-	if strings.HasPrefix(identifier, "http://") || strings.HasPrefix(identifier, "https://") {
-		return parseIDOrURL(identifier, "contact")
+	// First try as numeric ID, shorthand, or URL.
+	if id, err := parseIDOrURL(identifier, "contact"); err == nil {
+		return id, nil
 	}
 
 	// Search for contact by name/email/phone
@@ -760,11 +923,9 @@ func resolveContactID(ctx context.Context, client *api.Client, identifier string
 // resolveInboxID resolves an inbox identifier to a numeric ID.
 // Accepts: numeric ID or inbox name (case-insensitive partial match).
 func resolveInboxID(ctx context.Context, client *api.Client, identifier string) (int, error) {
-	// First try as plain integer
-	if id, err := strconv.Atoi(identifier); err == nil {
-		if id > 0 {
-			return id, nil
-		}
+	// First try as numeric ID, shorthand, or URL.
+	if id, err := parseIDOrURL(identifier, "inbox"); err == nil {
+		return id, nil
 	}
 
 	// Fetch all inboxes and search by name
@@ -795,6 +956,70 @@ func resolveInboxID(ctx context.Context, client *api.Client, identifier string) 
 		options = append(options, fmt.Sprintf("  %d: %s (%s)", inbox.ID, inbox.Name, inbox.ChannelType))
 	}
 	return 0, fmt.Errorf("multiple inboxes match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
+}
+
+// resolveAgentID resolves an agent identifier to a numeric ID.
+// Accepts: numeric ID, email, or name search term (via Agents.Find).
+func resolveAgentID(ctx context.Context, client *api.Client, identifier string) (int, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return 0, nil
+	}
+
+	// First try as numeric ID, shorthand, or URL.
+	if id, err := parseIDOrURL(identifier, "agent"); err == nil {
+		return id, nil
+	}
+
+	agent, err := client.Agents().Find(ctx, identifier)
+	if err != nil {
+		return 0, fmt.Errorf("failed to resolve agent %q: %w", identifier, err)
+	}
+	return agent.ID, nil
+}
+
+// resolveTeamID resolves a team identifier to a numeric ID.
+// Accepts: numeric ID or team name (case-insensitive partial match).
+func resolveTeamID(ctx context.Context, client *api.Client, identifier string) (int, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return 0, nil
+	}
+
+	// First try as numeric ID, shorthand, or URL.
+	if id, err := parseIDOrURL(identifier, "team"); err == nil {
+		return id, nil
+	}
+
+	teams, err := client.Teams().List(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list teams: %w", err)
+	}
+
+	query := strings.ToLower(identifier)
+	var matches []api.Team
+	for _, team := range teams {
+		nameLower := strings.ToLower(team.Name)
+		if nameLower == query {
+			return team.ID, nil
+		}
+		if strings.Contains(nameLower, query) {
+			matches = append(matches, team)
+		}
+	}
+
+	if len(matches) == 0 {
+		return 0, fmt.Errorf("no team found matching %q", identifier)
+	}
+	if len(matches) == 1 {
+		return matches[0].ID, nil
+	}
+
+	var options []string
+	for _, team := range matches {
+		options = append(options, fmt.Sprintf("  %d: %s", team.ID, team.Name))
+	}
+	return 0, fmt.Errorf("multiple teams match %q, specify ID:\n%s", identifier, strings.Join(options, "\n"))
 }
 
 // RunE wraps a command function with enhanced error handling

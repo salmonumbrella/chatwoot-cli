@@ -1,0 +1,63 @@
+package cmd
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"testing"
+)
+
+func TestCommentCommand_SendsMessage(t *testing.T) {
+	var received map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&received)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 55, "conversation_id": 123, "content": "Hello", "message_type": 1, "private": false}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"comment", "123", "Hello", "-o", "json"})
+		if err != nil {
+			t.Fatalf("comment failed: %v", err)
+		}
+	})
+
+	if received["content"] != "Hello" {
+		t.Fatalf("expected content Hello, got %#v", received["content"])
+	}
+	if received["private"] != false {
+		t.Fatalf("expected private false, got %#v", received["private"])
+	}
+	if received["message_type"] != "outgoing" {
+		t.Fatalf("expected message_type outgoing, got %#v", received["message_type"])
+	}
+}
+
+func TestCommentCommand_Resolve(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 55, "conversation_id": 123, "content": "Done", "message_type": 1, "private": false}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "resolved", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"comment", "123", "Done", "--resolve", "-o", "json"})
+		if err != nil {
+			t.Fatalf("comment --resolve failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if result["resolved"] != true {
+		t.Fatalf("expected resolved true, got %#v", result["resolved"])
+	}
+}

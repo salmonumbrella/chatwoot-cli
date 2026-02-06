@@ -40,6 +40,7 @@ func TestAccountPath(t *testing.T) {
 	}{
 		{"/contacts", "https://example.com/api/v1/accounts/123/contacts"},
 		{"/conversations/1", "https://example.com/api/v1/accounts/123/conversations/1"},
+		{"conversations/1", "https://example.com/api/v1/accounts/123/conversations/1"},
 		{"", "https://example.com/api/v1/accounts/123"},
 	}
 

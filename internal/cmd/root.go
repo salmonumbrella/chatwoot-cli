@@ -29,6 +29,7 @@ type rootFlags struct {
 	Quiet                   bool
 	Silent                  bool
 	NoInput                 bool
+	Yes                     bool
 	JSON                    bool
 	HelpJSON                bool
 	AllowPrivate            bool
@@ -146,15 +147,13 @@ func Execute(ctx context.Context, args []string) error {
   chatwoot completion zsh > "${fpath[1]}/_chatwoot"
 `),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			// Handle --help-json flag
-			if flags.HelpJSON {
-				if err := printHelpJSON(cmd); err != nil {
-					return err
-				}
-				os.Exit(0)
-			}
-
 			ctx := cmd.Context()
+
+			// Desire path: -y/--yes implies non-interactive mode and should satisfy
+			// force requirements for confirmations.
+			if flags.Yes {
+				flags.NoInput = true
+			}
 
 			// Ensure JSON output when requested or required
 			if flags.JSON {
@@ -289,6 +288,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
+	root.PersistentFlags().BoolVarP(&flags.Yes, "yes", "y", false, "Assume yes for confirmations (desire path alias for --force)")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
 	root.PersistentFlags().BoolVar(&flags.Wait, "wait", false, "Wait for asynchronous operations to complete")
@@ -343,6 +343,20 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newMentionsCmd())
 	root.AddCommand(newAssignCmd())
 	root.AddCommand(newResolveCmd())
+	root.AddCommand(newCloseCmd())
+	root.AddCommand(newReopenCmd())
+	root.AddCommand(newCommentCmd())
+	root.AddCommand(newNoteCmd())
+	root.AddCommand(newCtxCmd())
+
+	// Handle --help-json in a way that bypasses per-command arg validation.
+	// Cobra runs Args() validation before PersistentPreRunE, so flag-based discovery
+	// must happen before root.Execute().
+	if len(args) == 0 {
+		// no-op
+	} else if cmdToDescribe, ok := findHelpJSONTarget(root, args); ok {
+		return printHelpJSON(cmdToDescribe)
+	}
 
 	if len(args) > 0 {
 		if _, _, findErr := root.Find(args); findErr != nil {
@@ -380,6 +394,44 @@ func tryExecExtension(args []string) (bool, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return true, cmd.Run()
+}
+
+func findHelpJSONTarget(root *cobra.Command, args []string) (*cobra.Command, bool) {
+	// Support:
+	// - --help-json
+	// - --help-json=true|false (treated as true only when "true")
+	//
+	// Note: we don't attempt to parse all flags; we only strip help-json tokens.
+	var filtered []string
+	helpJSON := false
+	for _, a := range args {
+		if a == "--help-json" {
+			helpJSON = true
+			continue
+		}
+		if strings.HasPrefix(a, "--help-json=") {
+			v := strings.TrimPrefix(a, "--help-json=")
+			v = strings.TrimSpace(strings.ToLower(v))
+			if v == "true" || v == "1" || v == "yes" || v == "y" || v == "on" {
+				helpJSON = true
+			}
+			continue
+		}
+		filtered = append(filtered, a)
+	}
+	if !helpJSON {
+		return nil, false
+	}
+
+	// If the remaining args don't resolve to a command, fall back to root.
+	if len(filtered) == 0 {
+		return root, true
+	}
+	cmd, _, err := root.Find(filtered)
+	if err != nil || cmd == nil {
+		return root, true
+	}
+	return cmd, true
 }
 
 func parseFields(input string) ([]string, error) {

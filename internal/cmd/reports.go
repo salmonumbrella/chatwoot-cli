@@ -9,7 +9,6 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -641,7 +640,7 @@ func newReportingEventsCmd() *cobra.Command {
 		Short: "List reporting events for a conversation",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}

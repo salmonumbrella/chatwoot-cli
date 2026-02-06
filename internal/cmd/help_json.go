@@ -47,12 +47,16 @@ func printHelpJSON(cmd *cobra.Command) error {
 		Example: cmd.Example,
 	}
 
-	// Collect flags (both local and inherited)
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+	seen := make(map[string]bool)
+	addFlag := func(f *pflag.Flag) {
 		// Skip help flags
 		if f.Name == "help" || f.Name == "help-json" {
 			return
 		}
+		if seen[f.Name] {
+			return
+		}
+		seen[f.Name] = true
 		help.Flags = append(help.Flags, FlagHelp{
 			Name:      f.Name,
 			Shorthand: f.Shorthand,
@@ -60,7 +64,11 @@ func printHelpJSON(cmd *cobra.Command) error {
 			Default:   f.DefValue,
 			Usage:     f.Usage,
 		})
-	})
+	}
+
+	// Collect local + inherited flags (Cobra doesn't include inherited in LocalFlags()).
+	cmd.LocalFlags().VisitAll(addFlag)
+	cmd.InheritedFlags().VisitAll(addFlag)
 
 	// Collect subcommands
 	for _, sub := range cmd.Commands() {

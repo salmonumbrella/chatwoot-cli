@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -29,14 +28,9 @@ Accepts multiple conversation IDs to resolve in a single command.`,
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			// Parse and validate all conversation IDs upfront
-			ids := make([]int, 0, len(args))
-			for _, arg := range args {
-				id, err := validation.ParsePositiveInt(arg, "conversation ID")
-				if err != nil {
-					return err
-				}
-				ids = append(ids, id)
+			ids, err := parseIDArgs(args, "conversation")
+			if err != nil {
+				return err
 			}
 
 			client, err := getClient()

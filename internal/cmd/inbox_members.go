@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ func newInboxMembersListCmd() *cobra.Command {
 		Short: "List all members of an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
+			inboxID, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -80,7 +79,7 @@ func newInboxMembersAddCmd() *cobra.Command {
 		Short: "Add members to an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
+			inboxID, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -122,7 +121,7 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 		Short: "Remove members from an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
+			inboxID, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -164,7 +163,7 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 		Short: "Update inbox members (replaces the list)",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			inboxID, err := validation.ParsePositiveInt(args[0], "inbox ID")
+			inboxID, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -209,7 +208,7 @@ func parseUserIDs(s string) ([]int, error) {
 			continue
 		}
 
-		id, err := validation.ParsePositiveInt(part, "user ID")
+		id, err := parsePositiveIntArg(part, "user ID")
 		if err != nil {
 			return nil, err
 		}

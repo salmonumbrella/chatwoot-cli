@@ -51,6 +51,7 @@ type ConversationSummary struct {
 	LastActivity  *Timestamp  `json:"last_activity_at,omitempty"`
 	Path          []PathEntry `json:"path,omitempty"`
 	Contact       *ContactRef `json:"contact,omitempty"`
+	URL           string      `json:"url,omitempty"`
 }
 
 // ConversationDetail expands the summary with additional context.
@@ -111,6 +112,7 @@ type ContactSummary struct {
 	Identifier     string     `json:"identifier,omitempty"`
 	CreatedAt      *Timestamp `json:"created_at,omitempty"`
 	LastActivityAt *Timestamp `json:"last_activity_at,omitempty"`
+	URL            string     `json:"url,omitempty"`
 }
 
 // ContactDetail expands the summary with additional context.
@@ -171,10 +173,17 @@ type DataEnvelope struct {
 	Data any    `json:"data"`
 }
 
+// ErrorEnvelope wraps structured errors in agent mode.
+type ErrorEnvelope struct {
+	Kind  string               `json:"kind"`
+	Error *api.StructuredError `json:"error"`
+}
+
 func (e ListEnvelope) AgentPayload() any   { return e }
 func (e ItemEnvelope) AgentPayload() any   { return e }
 func (e SearchEnvelope) AgentPayload() any { return e }
 func (e DataEnvelope) AgentPayload() any   { return e }
+func (e ErrorEnvelope) AgentPayload() any  { return e }
 
 // KindFromCommandPath converts a cobra CommandPath to a dotted kind string.
 func KindFromCommandPath(path string) string {
@@ -194,6 +203,10 @@ func Transform(kind string, v any) any {
 	}
 
 	switch val := v.(type) {
+	case api.StructuredError:
+		return ErrorEnvelope{Kind: kind, Error: &val}
+	case *api.StructuredError:
+		return ErrorEnvelope{Kind: kind, Error: val}
 	case api.Conversation:
 		return ItemEnvelope{Kind: kind, Item: ConversationDetailFromConversation(val)}
 	case *api.Conversation:

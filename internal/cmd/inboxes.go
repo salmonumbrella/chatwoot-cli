@@ -8,7 +8,6 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -81,7 +80,7 @@ func newInboxesGetCmd() *cobra.Command {
 		Short: "Get inbox details",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -253,7 +252,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 		Short: "Update an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -358,7 +357,7 @@ func newInboxesDeleteCmd() *cobra.Command {
 		Short: "Delete an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -395,7 +394,7 @@ func newInboxesAgentBotCmd() *cobra.Command {
 		Short: "Get the agent bot assigned to an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -439,7 +438,7 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 		Short: "Assign an agent bot to an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -521,7 +520,7 @@ When called with an inbox ID, shows detailed triage info for that specific inbox
 			}
 
 			// Single inbox mode
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -704,7 +703,7 @@ func newInboxesCampaignsCmd() *cobra.Command {
 		Short: "List campaigns for an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -748,7 +747,7 @@ func newInboxesSyncTemplatesCmd() *cobra.Command {
 		Long:  "Sync WhatsApp message templates from the WhatsApp Business API for this inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -782,7 +781,7 @@ func newInboxesHealthCmd() *cobra.Command {
 		Short: "Get WhatsApp Cloud API health status for an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -819,7 +818,7 @@ func newInboxesDeleteAvatarCmd() *cobra.Command {
 		Short: "Remove the inbox avatar",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -932,7 +931,7 @@ func newInboxesStatsCmd() *cobra.Command {
 		Long:  "Returns inbox health metrics: open count, pending count, unread messages, average wait time",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -1036,7 +1035,7 @@ func newInboxesCSATTemplateGetCmd() *cobra.Command {
 		Short: "Get the CSAT survey template for an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}
@@ -1078,7 +1077,7 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 		Short: "Create or update the CSAT survey template for an inbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "ID")
+			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
 				return err
 			}

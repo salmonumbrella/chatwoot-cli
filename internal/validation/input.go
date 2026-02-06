@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -133,6 +134,8 @@ func ValidatePhoneFormat(phone string) error {
 // ParsePositiveInt parses a string as a positive integer ID.
 // Returns error if the value is not a positive integer or exceeds int32 range.
 func ParsePositiveInt(s string, fieldName string) (int, error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "#")
 	id64, err := strconv.ParseInt(s, 10, 32)
 	if err != nil {
 		return 0, fmt.Errorf("invalid %s: %w", fieldName, err)

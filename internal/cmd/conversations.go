@@ -19,7 +19,6 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/heuristics"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -819,7 +818,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -903,7 +902,7 @@ func newConversationsResolveCmd() *cobra.Command {
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIDArgs(args)
+			ids, err := parseIDArgs(args, "conversation")
 			if err != nil {
 				return err
 			}
@@ -996,7 +995,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1068,7 +1067,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1125,6 +1124,8 @@ func newConversationsUpdateCmd() *cobra.Command {
 
 func newConversationsAssignCmd() *cobra.Command {
 	var (
+		agent       string
+		team        string
 		assigneeID  int
 		teamID      int
 		concurrency int
@@ -1157,7 +1158,7 @@ func newConversationsAssignCmd() *cobra.Command {
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := parseIDArgs(args)
+			ids, err := parseIDArgs(args, "conversation")
 			if err != nil {
 				return err
 			}
@@ -1167,32 +1168,53 @@ func newConversationsAssignCmd() *cobra.Command {
 				return err
 			}
 
+			// Backwards-compat: map deprecated int flags into string flags if set.
+			if agent == "" && assigneeID > 0 {
+				agent = fmt.Sprintf("%d", assigneeID)
+			}
+			if team == "" && teamID > 0 {
+				team = fmt.Sprintf("%d", teamID)
+			}
+
 			// Interactive prompts only for single ID when no flags provided
-			if len(ids) == 1 && assigneeID == 0 && teamID == 0 {
+			if len(ids) == 1 && agent == "" && team == "" {
 				if isInteractive() {
 					selectedAgent, err := promptAgentID(cmdContext(cmd), client)
 					if err != nil {
 						return err
 					}
-					assigneeID = selectedAgent
+					if selectedAgent > 0 {
+						agent = fmt.Sprintf("%d", selectedAgent)
+					}
 					selectedTeam, err := promptTeamID(cmdContext(cmd), client)
 					if err != nil {
 						return err
 					}
-					teamID = selectedTeam
+					if selectedTeam > 0 {
+						team = fmt.Sprintf("%d", selectedTeam)
+					}
 				}
-			}
-
-			if assigneeID == 0 && teamID == 0 {
-				return fmt.Errorf("at least one of --agent or --team is required")
 			}
 
 			ctx := cmdContext(cmd)
 
+			agentID, err := resolveAgentID(ctx, client, agent)
+			if err != nil {
+				return err
+			}
+			resolvedTeamID, err := resolveTeamID(ctx, client, team)
+			if err != nil {
+				return err
+			}
+
+			if agentID == 0 && resolvedTeamID == 0 {
+				return fmt.Errorf("at least one of --agent or --team is required")
+			}
+
 			// Single ID: simple output
 			if len(ids) == 1 {
 				id := ids[0]
-				if _, err := client.Conversations().Assign(ctx, id, assigneeID, teamID); err != nil {
+				if _, err := client.Conversations().Assign(ctx, id, agentID, resolvedTeamID); err != nil {
 					return fmt.Errorf("failed to assign conversation %d: %w", id, err)
 				}
 
@@ -1228,7 +1250,7 @@ func newConversationsAssignCmd() *cobra.Command {
 				bulkProgressEnabled(cmd, progress, noProgress),
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
-					result, err := client.Conversations().Assign(ctx, id, assigneeID, teamID)
+					result, err := client.Conversations().Assign(ctx, id, agentID, resolvedTeamID)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
 						return nil, err
@@ -1247,11 +1269,11 @@ func newConversationsAssignCmd() *cobra.Command {
 						item["error"] = r.Error.Error()
 					}
 					if r.Success {
-						if assigneeID > 0 {
-							item["agent_id"] = assigneeID
+						if agentID > 0 {
+							item["agent_id"] = agentID
 						}
-						if teamID > 0 {
-							item["team_id"] = teamID
+						if resolvedTeamID > 0 {
+							item["team_id"] = resolvedTeamID
 						}
 					}
 					output = append(output, item)
@@ -1268,8 +1290,8 @@ func newConversationsAssignCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().IntVar(&assigneeID, "agent", 0, "Agent ID to assign")
-	cmd.Flags().IntVar(&teamID, "team", 0, "Team ID to assign")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID, name, or email to assign")
+	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations (for multiple IDs)")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running (for multiple IDs)")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
@@ -1297,7 +1319,7 @@ func newConversationsLabelsCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1345,7 +1367,7 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1403,7 +1425,7 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1487,7 +1509,7 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1546,6 +1568,9 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
   # Get conversation context
   chatwoot conversations context 123
 
+  # Use conversation URL from browser
+  chatwoot conversations context https://app.chatwoot.com/app/accounts/1/conversations/123
+
   # Get context with embedded images (for AI vision)
   chatwoot conversations context 123 --embed-images
 
@@ -1554,7 +1579,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -1804,7 +1829,7 @@ as unread in the inbox for all agents (not just the current user).`,
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -2015,7 +2040,7 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -2071,7 +2096,7 @@ Muted conversations will not trigger desktop or push notifications for new messa
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -2128,7 +2153,7 @@ Unmuted conversations will trigger desktop and push notifications for new messag
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -2200,7 +2225,7 @@ locally with private notes included by default.`,
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -2473,7 +2498,7 @@ Use --private to show the typing indicator only to other agents (for private not
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -2769,7 +2794,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
   chatwoot conversations bulk resolve --ids 1,2,3 --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseIntList(conversationIDs)
+			ids, err := ParseConversationIDList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -2837,6 +2862,8 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 func newConversationsBulkAssignCmd() *cobra.Command {
 	var (
 		conversationIDs string
+		agent           string
+		team            string
 		agentID         int
 		teamID          int
 		concurrency     int
@@ -2850,23 +2877,27 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 		Long:  "Assign multiple conversations to an agent and/or team at once",
 		Example: strings.TrimSpace(`
   # Assign conversations to an agent
-  chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5
+  chatwoot conversations bulk assign --ids 1,2,3 --agent 5
 
   # Assign conversations to a team
-  chatwoot conversations bulk assign --ids 1,2,3 --team-id 2
+  chatwoot conversations bulk assign --ids 1,2,3 --team 2
 
   # Assign to both agent and team
-  chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5 --team-id 2
+  chatwoot conversations bulk assign --ids 1,2,3 --agent 5 --team 2
 
   # Assign with custom concurrency
-  chatwoot conversations bulk assign --ids 1,2,3 --agent-id 5 --concurrency 10
+  chatwoot conversations bulk assign --ids 1,2,3 --agent 5 --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if agentID == 0 && teamID == 0 {
-				return fmt.Errorf("at least one of --agent-id or --team-id is required")
+			// Backwards-compat: map deprecated int flags into string flags if set.
+			if agent == "" && agentID > 0 {
+				agent = fmt.Sprintf("%d", agentID)
+			}
+			if team == "" && teamID > 0 {
+				team = fmt.Sprintf("%d", teamID)
 			}
 
-			ids, err := ParseIntList(conversationIDs)
+			ids, err := ParseConversationIDList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}
@@ -2878,6 +2909,19 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 
 			ctx := cmdContext(cmd)
 
+			resolvedAgentID, err := resolveAgentID(ctx, client, agent)
+			if err != nil {
+				return err
+			}
+			resolvedTeamID, err := resolveTeamID(ctx, client, team)
+			if err != nil {
+				return err
+			}
+
+			if resolvedAgentID == 0 && resolvedTeamID == 0 {
+				return fmt.Errorf("at least one of --agent or --team is required")
+			}
+
 			results := runBulkOperation(
 				ctx,
 				ids,
@@ -2885,7 +2929,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 				bulkProgressEnabled(cmd, progress, noProgress),
 				cmd.ErrOrStderr(),
 				func(ctx context.Context, id int) (any, error) {
-					result, err := client.Conversations().Assign(ctx, id, agentID, teamID)
+					result, err := client.Conversations().Assign(ctx, id, resolvedAgentID, resolvedTeamID)
 					if err != nil {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to assign conversation %d: %v\n", id, err)
 						return nil, err
@@ -2904,11 +2948,11 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 					item["error"] = r.Error.Error()
 				}
 				if r.Success {
-					if agentID > 0 {
-						item["agent_id"] = agentID
+					if resolvedAgentID > 0 {
+						item["agent_id"] = resolvedAgentID
 					}
-					if teamID > 0 {
-						item["team_id"] = teamID
+					if resolvedTeamID > 0 {
+						item["team_id"] = resolvedTeamID
 					}
 				}
 				output = append(output, item)
@@ -2928,8 +2972,12 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&conversationIDs, "ids", "", "Comma-separated conversation IDs")
-	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to")
-	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign conversations to")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID, name, or email to assign conversations to")
+	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign conversations to")
+	cmd.Flags().IntVar(&agentID, "agent-id", 0, "Agent ID to assign conversations to (deprecated, use --agent)")
+	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign conversations to (deprecated, use --team)")
+	_ = cmd.Flags().MarkHidden("agent-id")
+	_ = cmd.Flags().MarkHidden("team-id")
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
@@ -2962,7 +3010,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
   chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseIntList(conversationIDs)
+			ids, err := ParseConversationIDList(conversationIDs)
 			if err != nil {
 				return fmt.Errorf("invalid conversation IDs: %w", err)
 			}

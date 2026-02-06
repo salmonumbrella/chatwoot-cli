@@ -432,6 +432,10 @@ func TestParseIDOrURL(t *testing.T) {
 	}{
 		{"plain ID", "123", "", 123, false},
 		{"plain ID with resource", "456", "conversation", 456, false},
+		{"hash ID", "#123", "", 123, false},
+		{"prefixed ID (conv)", "conv:123", "conversation", 123, false},
+		{"prefixed ID (conversation)", "conversation:123", "conversation", 123, false},
+		{"prefixed wrong resource", "contact:42", "conversation", 0, true},
 		{"conversation URL", "https://app.chatwoot.com/app/accounts/1/conversations/789", "conversation", 789, false},
 		{"contact URL", "https://app.chatwoot.com/app/accounts/1/contacts/42", "contact", 42, false},
 		{"wrong resource type", "https://app.chatwoot.com/app/accounts/1/contacts/42", "conversation", 0, true},

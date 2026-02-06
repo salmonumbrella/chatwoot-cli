@@ -262,7 +262,7 @@ func newMessagesCreateCmd() *cobra.Command {
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
@@ -420,12 +420,12 @@ func newMessagesDeleteCmd() *cobra.Command {
 		Short: "Delete a message from a conversation",
 		Args:  cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
 
-			messageID, err := validation.ParsePositiveInt(args[1], "message ID")
+			messageID, err := parsePositiveIntArg(args[1], "message ID")
 			if err != nil {
 				return err
 			}
@@ -478,12 +478,12 @@ func newMessagesUpdateCmd() *cobra.Command {
   chatwoot messages update 123 456 --content "Updated text"`,
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
 
-			messageID, err := validation.ParsePositiveInt(args[1], "message ID")
+			messageID, err := parsePositiveIntArg(args[1], "message ID")
 			if err != nil {
 				return err
 			}
@@ -559,12 +559,12 @@ Requires an AI integration to be configured in your Chatwoot instance.`,
 `),
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
 
-			messageID, err := validation.ParsePositiveInt(args[1], "message ID")
+			messageID, err := parsePositiveIntArg(args[1], "message ID")
 			if err != nil {
 				return err
 			}
@@ -620,12 +620,12 @@ temporary failures (e.g., network issues, rate limiting).`,
 `),
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
 			}
 
-			messageID, err := validation.ParsePositiveInt(args[1], "message ID")
+			messageID, err := parsePositiveIntArg(args[1], "message ID")
 			if err != nil {
 				return err
 			}

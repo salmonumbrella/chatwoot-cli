@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -320,7 +319,7 @@ func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 		Long:  "Get conversation details via the public API",
 		Args:  cobra.ExactArgs(3),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -405,7 +404,7 @@ func newPublicConversationsResolveCmd(baseURL *string) *cobra.Command {
 		Long:  "Resolve/toggle status of a conversation via the public API",
 		Args:  cobra.ExactArgs(3),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -456,7 +455,7 @@ func newPublicMessagesListCmd(baseURL *string) *cobra.Command {
 		Long:  "List messages in a conversation via the public API",
 		Args:  cobra.ExactArgs(3),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -519,7 +518,7 @@ func newPublicMessagesCreateCmd(baseURL *string) *cobra.Command {
 				return fmt.Errorf("--content is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -567,12 +566,12 @@ func newPublicMessagesUpdateCmd(baseURL *string) *cobra.Command {
 				return fmt.Errorf("--content is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[2], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
 				return err
 			}
 
-			messageID, err := validation.ParsePositiveInt(args[3], "message ID")
+			messageID, err := parsePositiveIntArg(args[3], "message ID")
 			if err != nil {
 				return err
 			}

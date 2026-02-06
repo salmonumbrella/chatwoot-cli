@@ -42,7 +42,45 @@ func TestResolveCommand_ValidatesConversationID(t *testing.T) {
 
 	err := Execute(context.Background(), []string{"resolve", "abc"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "conversation ID")
+	assert.Contains(t, err.Error(), "invalid conversation ID")
+}
+
+func TestResolveCommand_AcceptsURLAndPrefixedIDs(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	callCount := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch r.URL.Path {
+		case "/api/v1/accounts/1/conversations/123/toggle_status",
+			"/api/v1/accounts/1/conversations/456/toggle_status":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"payload": map[string]any{
+					"success":        true,
+					"current_status": "resolved",
+				},
+			})
+		default:
+			t.Errorf("Unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	err := Execute(context.Background(), []string{
+		"resolve",
+		"https://app.chatwoot.com/app/accounts/1/conversations/123",
+		"conv:456",
+		"--allow-private",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount, "should resolve both conversations")
 }
 
 func TestResolveCommand_SingleConversation(t *testing.T) {

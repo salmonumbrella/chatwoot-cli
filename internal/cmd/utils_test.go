@@ -50,6 +50,47 @@ func TestParseIntList(t *testing.T) {
 	}
 }
 
+func TestParseConversationIDList(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    []int
+		wantErr bool
+	}{
+		{"single id", "1", []int{1}, false},
+		{"hash ids", "#1,#2", []int{1, 2}, false},
+		{"prefixed ids", "conv:1,conversation:2", []int{1, 2}, false},
+		{
+			"urls",
+			"https://app.chatwoot.com/app/accounts/1/conversations/10,https://app.chatwoot.com/app/accounts/1/conversations/20",
+			[]int{10, 20},
+			false,
+		},
+		{"empty", "", nil, true},
+		{"invalid", "abc", nil, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseConversationIDList(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseConversationIDList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("ParseConversationIDList() = %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("ParseConversationIDList() = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
 func TestParseDate(t *testing.T) {
 	tests := []struct {
 		name    string

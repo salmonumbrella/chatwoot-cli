@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -256,7 +255,7 @@ func newClientConversationsGetCmd(baseURL, inboxIdentifier, contactIdentifier *s
 				return fmt.Errorf("--contact is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -294,7 +293,7 @@ func newClientConversationsResolveCmd(baseURL, inboxIdentifier, contactIdentifie
 				return fmt.Errorf("--contact is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -349,7 +348,7 @@ func newClientMessagesCreateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 				return fmt.Errorf("--content is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -394,7 +393,7 @@ func newClientTypingCmd(baseURL, inboxIdentifier, contactIdentifier *string) *co
 				return fmt.Errorf("--contact is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
 			if err != nil {
 				return err
 			}
@@ -450,7 +449,7 @@ func newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 				return fmt.Errorf("--contact is required")
 			}
 
-			conversationID, err := validation.ParsePositiveInt(args[0], "conversation ID")
+			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
 			if err != nil {
 				return err
 			}
