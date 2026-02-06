@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,6 +31,14 @@ func (c *Client) waitForAsync(ctx context.Context, location string, headers http
 
 		respBody, respHeader, status, err := c.executeRequestWithBodyInternal(waitCtx, http.MethodGet, asyncURL, nil, "", false)
 		if err != nil {
+			// Normalize timeout/cancellation to the canonical context errors so callers
+			// (and tests) can reliably check equality without relying on error wrapping.
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, respHeader, status, context.DeadlineExceeded
+			}
+			if errors.Is(err, context.Canceled) {
+				return nil, respHeader, status, context.Canceled
+			}
 			return nil, respHeader, status, err
 		}
 		if status == http.StatusAccepted {
