@@ -17,6 +17,7 @@ func newAPICmd() *cobra.Command {
 	var fields []string
 	var rawFields []string
 	var inputFile string
+	var jsonBody string
 	var silent bool
 	var includeHeaders bool
 
@@ -41,6 +42,9 @@ For example, "/conversations/123" becomes:
 
   # PATCH with JSON array using raw field
   chatwoot api /conversations/123 -X PATCH -F 'labels=["bug", "urgent"]'
+
+  # Inline JSON body
+  chatwoot api /automation_rules/14 -X PATCH -d '{"automation_rule":{"active":true}}'
 
   # Read body from file
   chatwoot api /contacts -X POST -i body.json
@@ -70,8 +74,13 @@ For example, "/conversations/123" becomes:
 				return fmt.Errorf("invalid HTTP method %q: must be one of GET, POST, PUT, PATCH, DELETE", method)
 			}
 
+			// Validate that --body and --input are not both set
+			if jsonBody != "" && inputFile != "" {
+				return fmt.Errorf("cannot use both --body and --input flags")
+			}
+
 			// Build request body from fields and input
-			body, err := buildRequestBody(fields, rawFields, inputFile)
+			body, err := buildRequestBody(fields, rawFields, inputFile, jsonBody)
 			if err != nil {
 				return err
 			}
@@ -139,6 +148,7 @@ For example, "/conversations/123" becomes:
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Request body field as key=value (string)")
 	cmd.Flags().StringArrayVarP(&rawFields, "raw-field", "F", nil, "Request body field as key=value (JSON parsed)")
 	cmd.Flags().StringVarP(&inputFile, "input", "i", "", "Read request body from file (use - for stdin)")
+	cmd.Flags().StringVarP(&jsonBody, "body", "d", "", "Request body as inline JSON string")
 	cmd.Flags().BoolVarP(&silent, "silent", "s", false, "Suppress output")
 	cmd.Flags().BoolVar(&includeHeaders, "include", false, "Include response headers in output")
 
@@ -171,11 +181,18 @@ func apiJSONBody(respBody []byte) any {
 	return json.RawMessage(pretty.Bytes())
 }
 
-// buildRequestBody constructs the request body from fields and/or input file
-func buildRequestBody(fields, rawFields []string, inputFile string) (map[string]any, error) {
+// buildRequestBody constructs the request body from fields and/or input file/inline JSON
+func buildRequestBody(fields, rawFields []string, inputFile, jsonBody string) (map[string]any, error) {
 	body := make(map[string]any)
 
-	// Read from input file first (can be overridden by fields)
+	// Parse inline JSON body first (can be overridden by fields)
+	if jsonBody != "" {
+		if err := json.Unmarshal([]byte(jsonBody), &body); err != nil {
+			return nil, fmt.Errorf("failed to parse --body JSON: %w", err)
+		}
+	}
+
+	// Read from input file (can be overridden by fields)
 	if inputFile != "" {
 		var inputData []byte
 		var err error

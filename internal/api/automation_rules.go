@@ -53,11 +53,11 @@ func createAutomationRule(ctx context.Context, r Requester, name, eventName stri
 }
 
 // Update updates an existing automation rule.
-func (s AutomationRulesService) Update(ctx context.Context, id int, name string, conditions, actions []map[string]any) (*AutomationRule, error) {
-	return updateAutomationRule(ctx, s, id, name, conditions, actions)
+func (s AutomationRulesService) Update(ctx context.Context, id int, name string, conditions, actions []map[string]any, active *bool) (*AutomationRule, error) {
+	return updateAutomationRule(ctx, s, id, name, conditions, actions, active)
 }
 
-func updateAutomationRule(ctx context.Context, r Requester, id int, name string, conditions, actions []map[string]any) (*AutomationRule, error) {
+func updateAutomationRule(ctx context.Context, r Requester, id int, name string, conditions, actions []map[string]any, active *bool) (*AutomationRule, error) {
 	body := map[string]any{}
 	if name != "" {
 		body["name"] = name
@@ -67,6 +67,9 @@ func updateAutomationRule(ctx context.Context, r Requester, id int, name string,
 	}
 	if actions != nil {
 		body["actions"] = actions
+	}
+	if active != nil {
+		body["active"] = *active
 	}
 
 	var result AutomationRuleResponse

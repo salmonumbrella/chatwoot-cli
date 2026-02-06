@@ -175,6 +175,7 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 		name       string
 		conditions string
 		actions    string
+		active     string
 	)
 
 	cmd := &cobra.Command{
@@ -206,7 +207,21 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 				}
 			}
 
-			rule, err := client.AutomationRules().Update(cmdContext(cmd), id, name, conditionsData, actionsData)
+			var activeBool *bool
+			if cmd.Flags().Changed("active") {
+				switch active {
+				case "true", "yes", "1":
+					b := true
+					activeBool = &b
+				case "false", "no", "0":
+					b := false
+					activeBool = &b
+				default:
+					return fmt.Errorf("invalid --active value %q: must be true/false", active)
+				}
+			}
+
+			rule, err := client.AutomationRules().Update(cmdContext(cmd), id, name, conditionsData, actionsData, activeBool)
 			if err != nil {
 				return err
 			}
@@ -223,6 +238,7 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Rule name")
 	cmd.Flags().StringVar(&conditions, "conditions", "", "Conditions as JSON array")
 	cmd.Flags().StringVar(&actions, "actions", "", "Actions as JSON array")
+	cmd.Flags().StringVar(&active, "active", "", "Enable or disable the rule (true/false)")
 
 	return cmd
 }

@@ -311,7 +311,7 @@ func TestUpdateAutomationRule(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.AutomationRules().Update(context.Background(), tt.ruleID, tt.ruleName, tt.conditions, tt.actions)
+			result, err := client.AutomationRules().Update(context.Background(), tt.ruleID, tt.ruleName, tt.conditions, tt.actions, nil)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")
