@@ -288,7 +288,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
-	root.PersistentFlags().BoolVarP(&flags.Yes, "yes", "y", false, "Assume yes for confirmations (desire path alias for --force)")
+	root.PersistentFlags().BoolVarP(&flags.Yes, "yes", "y", false, "Assume yes for confirmations and disable interactive prompts")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
 	root.PersistentFlags().BoolVar(&flags.Wait, "wait", false, "Wait for asynchronous operations to complete")

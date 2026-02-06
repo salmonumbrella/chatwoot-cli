@@ -27,6 +27,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var slugRegexp = regexp.MustCompile(`^[a-z0-9-]+$`)
+
 // getJQQuery returns the jq query from --jq or --query flags.
 // --jq takes precedence over --query for consistency with gh CLI.
 func getJQQuery() string {
@@ -299,7 +301,7 @@ func validateSlug(slug string) error {
 	if slug == "" {
 		return fmt.Errorf("slug cannot be empty")
 	}
-	if !regexp.MustCompile(`^[a-z0-9-]+$`).MatchString(slug) {
+	if !slugRegexp.MatchString(slug) {
 		return fmt.Errorf("invalid slug %q: must contain only lowercase letters, numbers, and hyphens", slug)
 	}
 	return nil
@@ -1119,6 +1121,11 @@ func parseIDOrURL(input string, expectedResource string) (int, error) {
 	return 0, fmt.Errorf("invalid %s: %q is not a number or URL", label, input)
 }
 
+// canonicalResourceName normalizes a resource name for matching by lowercasing
+// and stripping all non-alphanumeric characters (including hyphens and spaces).
+// This allows fuzzy matching like "custom-attribute" → "customattribute".
+// Safe because the known set of Chatwoot resource names has no collisions
+// after stripping (e.g., no "customattr" vs "custom-attr" ambiguity).
 func canonicalResourceName(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	var b strings.Builder

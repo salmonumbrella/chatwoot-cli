@@ -12,7 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// extractBracketedName extracts a name from LINE-style message prefixes like "[Jack Su]"
+// bracketedNameRegex matches LINE Official Account message prefixes like "[Jack Su] Hello".
+// LINE group messages are relayed through a single Chatwoot contact but prefix each
+// message with the actual sender's name in brackets. This regex extracts that name
+// for sender search matching.
 var bracketedNameRegex = regexp.MustCompile(`^\s*\[([^\]]+)\]`)
 
 // SnippetInfo contains a matching message snippet for a conversation
@@ -70,8 +73,12 @@ func newSearchCmd() *cobra.Command {
 		Short: "Search across multiple resources",
 		Long: `Search across contacts, conversations, and message senders in parallel.
 
-By default searches contacts, conversations, and senders. Use --type to limit
-to specific resource types.
+By default searches contacts and conversations. Use --type to limit to specific
+resource types or to add senders.
+
+Note: Sender search (--type senders) is not included by default because it
+requires scanning messages across many conversations. Use --type senders
+explicitly when searching for people in shared channels like LINE groups.
 
 The "senders" type finds people who message through shared channels (e.g., LINE
 groups) where their name appears in messages but not as a top-level contact.
@@ -121,7 +128,7 @@ of relevant resources with a single query.`,
 			// Default to all types if none specified
 			searchTypes := types
 			if len(searchTypes) == 0 {
-				searchTypes = []string{"contacts", "conversations", "senders"}
+				searchTypes = []string{"contacts", "conversations"}
 			}
 
 			// Validate types
