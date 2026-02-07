@@ -284,7 +284,27 @@ all conversations on the account.
 						cw.Update(id)
 					}
 				}
-				err := followViaWebSocket(ctx, cmd, hook, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, filters, queueSize, dropWhenFull, maxBatch, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
+				wsCfg := followWebSocketConfig{
+					CableURL:       cableURL,
+					ChannelID:      channelID,
+					ConvID:         convID,
+					IncomingOnly:   incomingOnly,
+					LastSeenID:     &lastSeenID,
+					AllowedEvents:  allowedEvents,
+					Debounce:       debounce,
+					IncludeRaw:     includeRaw,
+					ContextEnabled: contextEnabled,
+					ContextMsgs:    contextMsgs,
+					MinCreatedAt:   minCreatedAt,
+					OnLastSeen:     onLastSeen,
+					Filters:        filters,
+					QueueSize:      queueSize,
+					DropWhenFull:   dropWhenFull,
+					MaxBatch:       maxBatch,
+					SnapshotClient: snapshotClient,
+					Hook:           hook,
+				}
+				err := followViaWebSocket(ctx, cmd, wsCfg)
 				if ctx.Err() != nil {
 					return nil
 				}
@@ -365,23 +385,46 @@ func (c followAPISnapshotClient) ListLabels(ctx context.Context, conversationID 
 	return c.client.Conversations().Labels(ctx, conversationID)
 }
 
+// followWebSocketConfig holds the parameters for followViaWebSocket,
+// extracted from the original 20-parameter function signature.
+type followWebSocketConfig struct {
+	CableURL       string
+	ChannelID      actioncable.ChannelID
+	ConvID         int
+	IncomingOnly   bool
+	LastSeenID     *int
+	AllowedEvents  map[string]struct{}
+	Debounce       time.Duration
+	IncludeRaw     bool
+	ContextEnabled bool
+	ContextMsgs    int
+	MinCreatedAt   int64
+	OnLastSeen     func(int)
+	Filters        followFilters
+	QueueSize      int
+	DropWhenFull   bool
+	MaxBatch       int
+	SnapshotClient followSnapshotClient
+	Hook           *followExecHook
+}
+
 // followViaWebSocket connects to ActionCable, subscribes, and processes events
 // until the connection drops or ctx is cancelled. Returns non-nil error on disconnect.
-func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExecHook, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), filters followFilters, queueSize int, dropWhenFull bool, maxBatch int, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
-	conn, err := actioncable.Connect(ctx, cableURL)
+func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cfg followWebSocketConfig) error {
+	conn, err := actioncable.Connect(ctx, cfg.CableURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
-	if err := conn.Subscribe(ctx, channelID); err != nil {
+	if err := conn.Subscribe(ctx, cfg.ChannelID); err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}
 
 	conn.StartPresence(ctx, 30*time.Second)
 
 	events := conn.Listen(ctx)
-	emitter := newFollowEmitter(cmd, queueSize, dropWhenFull)
+	emitter := newFollowEmitter(cmd, cfg.QueueSize, cfg.DropWhenFull)
 	defer func() { _ = emitter.CloseAndDrain() }()
 
 	dropTicker := time.NewTicker(5 * time.Second)
@@ -402,13 +445,13 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 	convCache := make(map[int]*convMeta)
 
 	ensureMeta := func(conversationID int) (*convMeta, error) {
-		if conversationID <= 0 || snapshotClient == nil {
+		if conversationID <= 0 || cfg.SnapshotClient == nil {
 			return nil, nil
 		}
 		if m := convCache[conversationID]; m != nil && m.Hydrated {
 			return m, nil
 		}
-		m, err := fetchConversationMeta(ctx, snapshotClient, conversationID, filters.Labels)
+		m, err := fetchConversationMeta(ctx, cfg.SnapshotClient, conversationID, cfg.Filters.Labels)
 		if err != nil {
 			return nil, err
 		}
@@ -432,7 +475,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 	}
 
 	maybeSnapshot := func(conversationID int) error {
-		if !contextEnabled {
+		if !cfg.ContextEnabled {
 			return nil
 		}
 		if conversationID <= 0 {
@@ -442,11 +485,11 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 			return nil
 		}
 		snapshotted[conversationID] = true
-		if snapshotClient == nil {
+		if cfg.SnapshotClient == nil {
 			return nil
 		}
 		return emitter.Emit(func() error {
-			return emitConversationSnapshot(ctx, cmd, hook, snapshotClient, conversationID, contextMsgs)
+			return emitConversationSnapshot(ctx, cmd, cfg.Hook, cfg.SnapshotClient, conversationID, cfg.ContextMsgs)
 		})
 	}
 
@@ -468,7 +511,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 			return err
 		}
 		return emitter.Emit(func() error {
-			return printFollowMessageBatch(cmd, hook, msgs, "ws", includeRaw)
+			return printFollowMessageBatch(cmd, cfg.Hook, msgs, "ws", cfg.IncludeRaw)
 		})
 	}
 
@@ -523,8 +566,8 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 			}
 
 			// Filter by event type.
-			if allowedEvents != nil {
-				if _, ok := allowedEvents[wsEvent.Event]; !ok {
+			if cfg.AllowedEvents != nil {
+				if _, ok := cfg.AllowedEvents[wsEvent.Event]; !ok {
 					continue
 				}
 			}
@@ -537,48 +580,48 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 				}
 
 				// Filter by conversation ID (WebSocket sends all account events).
-				if convID != 0 && msg.ConversationID != convID {
+				if cfg.ConvID != 0 && msg.ConversationID != cfg.ConvID {
 					continue
 				}
 
 				// Filter by created_at threshold (useful for resume).
-				if minCreatedAt > 0 && msg.CreatedAt < minCreatedAt {
+				if cfg.MinCreatedAt > 0 && msg.CreatedAt < cfg.MinCreatedAt {
 					continue
 				}
 
 				// Dedup by message ID.
-				if lastSeenID != nil && msg.ID <= *lastSeenID {
+				if cfg.LastSeenID != nil && msg.ID <= *cfg.LastSeenID {
 					continue
 				}
-				if lastSeenID != nil {
-					*lastSeenID = msg.ID
-					if onLastSeen != nil {
-						onLastSeen(*lastSeenID)
+				if cfg.LastSeenID != nil {
+					*cfg.LastSeenID = msg.ID
+					if cfg.OnLastSeen != nil {
+						cfg.OnLastSeen(*cfg.LastSeenID)
 					}
 				}
 
 				// Filter by message type if --incoming-only.
-				if incomingOnly && msg.MessageType != api.MessageTypeIncoming {
+				if cfg.IncomingOnly && msg.MessageType != api.MessageTypeIncoming {
 					continue
 				}
-				if filters.ExcludePrivate && msg.Private {
+				if cfg.Filters.ExcludePrivate && msg.Private {
 					continue
 				}
 
-				if filters.metaFiltersEnabled() {
+				if cfg.Filters.metaFiltersEnabled() {
 					meta, _ := ensureMeta(msg.ConversationID)
-					if meta == nil || !filters.matchMeta(meta) {
+					if meta == nil || !cfg.Filters.matchMeta(meta) {
 						continue
 					}
 				}
 
 				// Debounce (batch) rapid messages per conversation.
-				if debounce <= 0 || wsEvent.Event != "message.created" {
+				if cfg.Debounce <= 0 || wsEvent.Event != "message.created" {
 					if err := maybeSnapshot(msg.ConversationID); err != nil {
 						return err
 					}
 					if err := emitter.Emit(func() error {
-						return printFollowMessageWithRaw(cmd, hook, wsEvent.Event, msg, "ws", rawEnvelope, includeRaw)
+						return printFollowMessageWithRaw(cmd, cfg.Hook, wsEvent.Event, msg, "ws", rawEnvelope, cfg.IncludeRaw)
 					}); err != nil {
 						return err
 					}
@@ -592,7 +635,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 					debounced[id] = buf
 				}
 				buf.messages = append(buf.messages, followMsg{msg: msg, raw: rawEnvelope})
-				if maxBatch > 0 && len(buf.messages) >= maxBatch {
+				if cfg.MaxBatch > 0 && len(buf.messages) >= cfg.MaxBatch {
 					if err := flushConv(id); err != nil {
 						return err
 					}
@@ -600,7 +643,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 				}
 				if buf.timer == nil {
 					// Flush after debounce duration from the first message in the batch.
-					buf.timer = time.AfterFunc(debounce, func() {
+					buf.timer = time.AfterFunc(cfg.Debounce, func() {
 						select {
 						case flushCh <- id:
 						case <-done:
@@ -612,9 +655,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 
 			// For non-message events, try to filter by conversation id if following a single conversation.
 			eventConvID := 0
-			if convID != 0 {
+			if cfg.ConvID != 0 {
 				eventConvID = conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
-				if eventConvID != 0 && eventConvID != convID {
+				if eventConvID != 0 && eventConvID != cfg.ConvID {
 					continue
 				}
 			} else {
@@ -622,12 +665,12 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 			}
 
 			updateMetaFromEvent(wsEvent)
-			if filters.metaFiltersEnabled() {
+			if cfg.Filters.metaFiltersEnabled() {
 				if eventConvID <= 0 {
 					continue
 				}
 				meta, _ := ensureMeta(eventConvID)
-				if meta == nil || !filters.matchMeta(meta) {
+				if meta == nil || !cfg.Filters.matchMeta(meta) {
 					continue
 				}
 			}
@@ -637,7 +680,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExe
 			}
 
 			if err := emitter.Emit(func() error {
-				return printFollowEvent(cmd, hook, wsEvent, "ws", rawEnvelope, includeRaw)
+				return printFollowEvent(cmd, cfg.Hook, wsEvent, "ws", rawEnvelope, cfg.IncludeRaw)
 			}); err != nil {
 				return err
 			}

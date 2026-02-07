@@ -144,7 +144,16 @@ func TestFollowViaWebSocket_RoutesDebounces_JSONL_WithRaw(t *testing.T) {
 	var lastSeen int
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- followViaWebSocket(ctx, cmd, nil, nil, false, 0, 0, nil, followFilters{}, 0, false, 0, cableURL, channelID, 100, true, &lastSeen, allowed, 250*time.Millisecond, true)
+		errCh <- followViaWebSocket(ctx, cmd, followWebSocketConfig{
+			CableURL:      cableURL,
+			ChannelID:     channelID,
+			ConvID:        100,
+			IncomingOnly:  true,
+			LastSeenID:    &lastSeen,
+			AllowedEvents: allowed,
+			Debounce:      250 * time.Millisecond,
+			IncludeRaw:    true,
+		})
 	}()
 
 	select {
