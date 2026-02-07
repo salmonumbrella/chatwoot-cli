@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -43,6 +44,9 @@ func newConversationsFollowCmd() *cobra.Command {
 		filterContact  int
 		onlyUnassigned bool
 		excludePrivate bool
+		queueSize      int
+		dropWhenFull   bool
+		maxBatch       int
 	)
 
 	cmd := &cobra.Command{
@@ -273,7 +277,7 @@ all conversations on the account.
 						cw.Update(id)
 					}
 				}
-				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, filters, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
+				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, filters, queueSize, dropWhenFull, maxBatch, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
 				if ctx.Err() != nil {
 					return nil
 				}
@@ -313,6 +317,9 @@ all conversations on the account.
 	cmd.Flags().IntVar(&filterContact, "contact", 0, "Only show events for conversations with this contact ID")
 	cmd.Flags().BoolVar(&onlyUnassigned, "only-unassigned", false, "Only show events for conversations with no assignee")
 	cmd.Flags().BoolVar(&excludePrivate, "exclude-private", false, "Exclude private messages")
+	cmd.Flags().IntVar(&queueSize, "queue", 1024, "Output queue size for backpressure (0 disables queueing)")
+	cmd.Flags().BoolVar(&dropWhenFull, "drop", false, "Drop events when the output queue is full (otherwise block)")
+	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "Maximum messages per debounced batch (0 = unlimited)")
 	return cmd
 }
 
@@ -351,7 +358,7 @@ func (c followAPISnapshotClient) ListLabels(ctx context.Context, conversationID 
 
 // followViaWebSocket connects to ActionCable, subscribes, and processes events
 // until the connection drops or ctx is cancelled. Returns non-nil error on disconnect.
-func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), filters followFilters, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
+func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), filters followFilters, queueSize int, dropWhenFull bool, maxBatch int, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
 	conn, err := actioncable.Connect(ctx, cableURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -365,6 +372,12 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 	conn.StartPresence(ctx, 30*time.Second)
 
 	events := conn.Listen(ctx)
+	emitter := newFollowEmitter(cmd, queueSize, dropWhenFull)
+	defer func() { _ = emitter.CloseAndDrain() }()
+
+	dropTicker := time.NewTicker(5 * time.Second)
+	defer dropTicker.Stop()
+
 	type debounceBuf struct {
 		timer    *time.Timer
 		messages []followMsg
@@ -423,7 +436,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 		if snapshotClient == nil {
 			return nil
 		}
-		return emitConversationSnapshot(ctx, cmd, snapshotClient, conversationID, contextMsgs)
+		return emitter.Emit(func() error {
+			return emitConversationSnapshot(ctx, cmd, snapshotClient, conversationID, contextMsgs)
+		})
 	}
 
 	flushConv := func(id int) error {
@@ -443,7 +458,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 		if err := maybeSnapshot(id); err != nil {
 			return err
 		}
-		return printFollowMessageBatch(cmd, msgs, "ws", includeRaw)
+		return emitter.Emit(func() error {
+			return printFollowMessageBatch(cmd, msgs, "ws", includeRaw)
+		})
 	}
 
 	flushAll := func() error {
@@ -466,6 +483,8 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 		case <-ctx.Done():
 			_ = flushAll()
 			return nil
+		case <-dropTicker.C:
+			emitter.MaybeReportDrops()
 		case id := <-flushCh:
 			if err := flushConv(id); err != nil {
 				return err
@@ -549,7 +568,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 					if err := maybeSnapshot(msg.ConversationID); err != nil {
 						return err
 					}
-					if err := printFollowMessageWithRaw(cmd, wsEvent.Event, msg, "ws", rawEnvelope, includeRaw); err != nil {
+					if err := emitter.Emit(func() error {
+						return printFollowMessageWithRaw(cmd, wsEvent.Event, msg, "ws", rawEnvelope, includeRaw)
+					}); err != nil {
 						return err
 					}
 					continue
@@ -562,6 +583,12 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 					debounced[id] = buf
 				}
 				buf.messages = append(buf.messages, followMsg{msg: msg, raw: rawEnvelope})
+				if maxBatch > 0 && len(buf.messages) >= maxBatch {
+					if err := flushConv(id); err != nil {
+						return err
+					}
+					continue
+				}
 				if buf.timer == nil {
 					// Flush after debounce duration from the first message in the batch.
 					buf.timer = time.AfterFunc(debounce, func() {
@@ -600,7 +627,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 				return err
 			}
 
-			if err := printFollowEvent(cmd, wsEvent, "ws", rawEnvelope, includeRaw); err != nil {
+			if err := emitter.Emit(func() error {
+				return printFollowEvent(cmd, wsEvent, "ws", rawEnvelope, includeRaw)
+			}); err != nil {
 				return err
 			}
 		}
@@ -871,6 +900,138 @@ func writeStreamJSON(cmd *cobra.Command, v any) error {
 	}
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
+}
+
+type followEmitter struct {
+	cmd          *cobra.Command
+	queue        chan func() error
+	dropWhenFull bool
+	done         chan struct{}
+
+	mu       sync.Mutex
+	writeErr error
+	dropped  int
+}
+
+func newFollowEmitter(cmd *cobra.Command, queueSize int, dropWhenFull bool) *followEmitter {
+	if queueSize < 0 {
+		queueSize = 0
+	}
+	e := &followEmitter{
+		cmd:          cmd,
+		dropWhenFull: dropWhenFull,
+		done:         make(chan struct{}),
+	}
+	if queueSize == 0 {
+		close(e.done)
+		return e
+	}
+	e.queue = make(chan func() error, queueSize)
+	go func() {
+		defer close(e.done)
+		for fn := range e.queue {
+			if fn == nil {
+				continue
+			}
+			if err := fn(); err != nil {
+				e.mu.Lock()
+				if e.writeErr == nil {
+					e.writeErr = err
+				}
+				e.mu.Unlock()
+				// Drain remaining items without executing to avoid blocking producers.
+				for range e.queue {
+				}
+				return
+			}
+		}
+	}()
+	return e
+}
+
+func (e *followEmitter) Emit(fn func() error) error {
+	if e == nil {
+		if fn != nil {
+			return fn()
+		}
+		return nil
+	}
+
+	e.mu.Lock()
+	err := e.writeErr
+	e.mu.Unlock()
+	if err != nil {
+		return err
+	}
+
+	if e.queue == nil {
+		if fn == nil {
+			return nil
+		}
+		if err := fn(); err != nil {
+			e.mu.Lock()
+			if e.writeErr == nil {
+				e.writeErr = err
+			}
+			e.mu.Unlock()
+			return err
+		}
+		return nil
+	}
+
+	if e.dropWhenFull {
+		select {
+		case e.queue <- fn:
+			return nil
+		default:
+			e.mu.Lock()
+			e.dropped++
+			e.mu.Unlock()
+			return nil
+		}
+	}
+
+	select {
+	case e.queue <- fn:
+		return nil
+	case <-e.done:
+		e.mu.Lock()
+		err := e.writeErr
+		e.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("output writer stopped")
+	}
+}
+
+func (e *followEmitter) MaybeReportDrops() {
+	if e == nil || e.cmd == nil || !e.dropWhenFull {
+		return
+	}
+	e.mu.Lock()
+	n := e.dropped
+	e.dropped = 0
+	e.mu.Unlock()
+	if n <= 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(e.cmd.ErrOrStderr(), "dropped %d events (output queue full)\n", n)
+}
+
+func (e *followEmitter) CloseAndDrain() error {
+	if e == nil {
+		return nil
+	}
+	e.MaybeReportDrops()
+	if e.queue != nil {
+		close(e.queue)
+		<-e.done
+	}
+	e.mu.Lock()
+	err := e.writeErr
+	e.mu.Unlock()
+	return err
 }
 
 func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, conversationID int, maxMessages int) error {
