@@ -2,6 +2,8 @@ package actioncable
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -58,5 +60,78 @@ func TestConnectRejectsNoWelcome(t *testing.T) {
 	_, err := Connect(ctx, url)
 	if err == nil {
 		t.Fatal("expected error for non-welcome frame")
+	}
+}
+
+func TestSubscribeConfirm(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Errorf("read subscribe: %v", err)
+			return
+		}
+		var f frame
+		_ = json.Unmarshal(data, &f)
+		if f.Command != "subscribe" {
+			t.Errorf("expected subscribe, got %q", f.Command)
+		}
+		idQuoted, _ := json.Marshal(f.Identifier)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(
+			`{"type":"confirm_subscription","identifier":%s}`, idQuoted,
+		)))
+		time.Sleep(100 * time.Millisecond)
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, err := Connect(ctx, url)
+	if err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	err = c.Subscribe(ctx, ChannelID{
+		Channel:     "RoomChannel",
+		PubsubToken: "tok123",
+		AccountID:   1,
+		UserID:      2,
+	})
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+}
+
+func TestSubscribeReject(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, data, _ := conn.Read(ctx)
+		var f frame
+		_ = json.Unmarshal(data, &f)
+		idQuoted, _ := json.Marshal(f.Identifier)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(
+			`{"type":"reject_subscription","identifier":%s}`, idQuoted,
+		)))
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, _ := Connect(ctx, url)
+	defer func() { _ = c.Close() }()
+
+	err := c.Subscribe(ctx, ChannelID{
+		Channel:     "RoomChannel",
+		PubsubToken: "bad_token",
+		AccountID:   1,
+		UserID:      2,
+	})
+	if err == nil {
+		t.Fatal("expected rejection error")
 	}
 }

@@ -19,10 +19,20 @@ type frame struct {
 	Reason     string          `json:"reason,omitempty"`
 }
 
+// ChannelID identifies a channel subscription.
+// Fields are serialized to JSON and double-encoded as the ActionCable identifier string.
+type ChannelID struct {
+	Channel     string `json:"channel"`
+	PubsubToken string `json:"pubsub_token"`
+	AccountID   int    `json:"account_id"`
+	UserID      int    `json:"user_id,omitempty"`
+}
+
 // Client is an ActionCable WebSocket client.
 type Client struct {
-	conn *websocket.Conn
-	url  string
+	conn       *websocket.Conn
+	url        string
+	identifier string // set after Subscribe
 }
 
 // Connect dials the ActionCable endpoint and waits for the welcome frame.
@@ -57,4 +67,43 @@ func Connect(ctx context.Context, url string) (*Client, error) {
 // Close gracefully closes the connection.
 func (c *Client) Close() error {
 	return c.conn.Close(websocket.StatusNormalClosure, "bye")
+}
+
+// Subscribe sends a subscribe command and waits for confirmation.
+func (c *Client) Subscribe(ctx context.Context, id ChannelID) error {
+	idJSON, err := json.Marshal(id)
+	if err != nil {
+		return fmt.Errorf("marshal identifier: %w", err)
+	}
+	idStr := string(idJSON)
+
+	cmd := frame{
+		Command:    "subscribe",
+		Identifier: idStr,
+	}
+	data, _ := json.Marshal(cmd)
+	if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
+		return fmt.Errorf("write subscribe: %w", err)
+	}
+
+	// Wait for confirm or reject.
+	_, resp, err := c.conn.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("read subscription response: %w", err)
+	}
+
+	var f frame
+	if err := json.Unmarshal(resp, &f); err != nil {
+		return fmt.Errorf("parse response: %w", err)
+	}
+
+	switch f.Type {
+	case "confirm_subscription":
+		c.identifier = idStr
+		return nil
+	case "reject_subscription":
+		return fmt.Errorf("subscription rejected (check pubsub_token)")
+	default:
+		return fmt.Errorf("unexpected response type: %q", f.Type)
+	}
 }
