@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -104,5 +105,25 @@ func TestGetProfile(t *testing.T) {
 				tt.validateFunc(t, result)
 			}
 		})
+	}
+}
+
+func TestProfileUnmarshalPubsubToken(t *testing.T) {
+	raw := `{
+		"id": 42,
+		"name": "Agent Smith",
+		"email": "smith@example.com",
+		"pubsub_token": "abc123token",
+		"accounts": [{"id": 1, "name": "Acme"}]
+	}`
+	var p Profile
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if p.PubsubToken != "abc123token" {
+		t.Errorf("PubsubToken = %q, want %q", p.PubsubToken, "abc123token")
+	}
+	if p.ID != 42 {
+		t.Errorf("ID = %d, want 42", p.ID)
 	}
 }

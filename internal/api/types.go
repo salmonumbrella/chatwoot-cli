@@ -361,6 +361,7 @@ type Profile struct {
 	ID                int       `json:"id"`
 	Name              string    `json:"name"`
 	Email             string    `json:"email"`
+	PubsubToken       string    `json:"pubsub_token,omitempty"`
 	AvailableAccounts []Account `json:"accounts,omitempty"`
 }
 
