@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
@@ -13,9 +14,12 @@ import (
 
 func newNoteCmd() *cobra.Command {
 	var (
-		content  string
-		mentions []string
-		resolve  bool
+		content   string
+		mentions  []string
+		resolve   bool
+		labels    []string
+		priority  string
+		snoozeFor string
 	)
 
 	cmd := &cobra.Command{
@@ -85,6 +89,18 @@ This is a convenience shortcut for:
 				return err
 			}
 
+			// Validate side-effect flags before sending so we fail fast.
+			if priority != "" {
+				if err := validatePriority(priority); err != nil {
+					return err
+				}
+			}
+			if snoozeFor != "" {
+				if _, err := parseSnoozeFor(snoozeFor, time.Now()); err != nil {
+					return err
+				}
+			}
+
 			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
 				Operation: "create",
 				Resource:  "message",
@@ -112,6 +128,29 @@ This is a convenience shortcut for:
 					return fmt.Errorf("note sent (ID: %d) but failed to resolve conversation: %w", message.ID, err)
 				}
 				resolved = true
+			}
+
+			if len(labels) > 0 {
+				existing, _ := client.Conversations().Labels(ctx, conversationID)
+				merged := dedupeStrings(append(existing, labels...))
+				if _, err := client.Conversations().AddLabels(ctx, conversationID, merged); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: note sent but failed to add labels: %v\n", err)
+				}
+			}
+			if priority != "" {
+				if err := client.Conversations().TogglePriority(ctx, conversationID, priority); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: note sent but failed to set priority: %v\n", err)
+				}
+			}
+			if snoozeFor != "" {
+				snoozedUntil, err := parseSnoozeFor(snoozeFor, time.Now())
+				if err != nil {
+					return err
+				}
+				_, err = client.Conversations().ToggleStatus(ctx, conversationID, "snoozed", snoozedUntil.Unix())
+				if err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: note sent but failed to snooze: %v\n", err)
+				}
 			}
 
 			u, _ := resourceURL("conversations", conversationID)
@@ -147,6 +186,9 @@ This is a convenience shortcut for:
 	cmd.Flags().StringVar(&content, "content", "", "Note content (alternative to positional text)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated)")
 	cmd.Flags().BoolVar(&resolve, "resolve", false, "Resolve the conversation after sending")
+	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
+	cmd.Flags().StringVar(&priority, "priority", "", "Set priority after sending (urgent|high|medium|low|none)")
+	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")
 
 	return cmd
 }

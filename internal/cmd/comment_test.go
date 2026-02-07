@@ -37,6 +37,30 @@ func TestCommentCommand_SendsMessage(t *testing.T) {
 	}
 }
 
+func TestCommentAcceptsSideEffectFlags(t *testing.T) {
+	for _, name := range []string{"label", "priority", "snooze-for"} {
+		if rootCmd := newCommentCmd(); rootCmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag on comment command", name)
+		}
+	}
+}
+
+func TestNoteAcceptsSideEffectFlags(t *testing.T) {
+	for _, name := range []string{"label", "priority", "snooze-for"} {
+		if rootCmd := newNoteCmd(); rootCmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag on note command", name)
+		}
+	}
+}
+
+func TestReplyAcceptsSideEffectFlags(t *testing.T) {
+	for _, name := range []string{"label", "priority", "snooze-for"} {
+		if rootCmd := newReplyCmd(); rootCmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag on reply command", name)
+		}
+	}
+}
+
 func TestCommentCommand_Resolve(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 55, "conversation_id": 123, "content": "Done", "message_type": 1, "private": false}`)).

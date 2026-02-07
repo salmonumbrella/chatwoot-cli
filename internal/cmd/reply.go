@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -12,6 +13,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// replySideEffects holds optional post-send side-effect parameters for reply.
+type replySideEffects struct {
+	labels    []string
+	priority  string
+	snoozeFor string
+}
+
 // newReplyCmd creates the reply command for one-shot messaging by contact search
 func newReplyCmd() *cobra.Command {
 	var (
@@ -20,6 +28,9 @@ func newReplyCmd() *cobra.Command {
 		contactID      int
 		conversationID int
 		private        bool
+		labels         []string
+		priority       string
+		snoozeFor      string
 	)
 
 	cmd := &cobra.Command{
@@ -58,6 +69,20 @@ If multiple open conversations exist for the contact, disambiguation is required
 				return err
 			}
 
+			// Validate side-effect flags before sending so we fail fast.
+			if priority != "" {
+				if err := validatePriority(priority); err != nil {
+					return err
+				}
+			}
+			if snoozeFor != "" {
+				if _, err := parseSnoozeFor(snoozeFor, time.Now()); err != nil {
+					return err
+				}
+			}
+
+			se := replySideEffects{labels: labels, priority: priority, snoozeFor: snoozeFor}
+
 			// Determine the mode: direct conversation, contact ID, or search
 			if conversationID == 0 && contactID == 0 && len(args) == 0 {
 				return fmt.Errorf("either provide a contact search query, --contact-id, or --conversation-id")
@@ -72,12 +97,12 @@ If multiple open conversations exist for the contact, disambiguation is required
 
 			// Mode 1: Direct conversation ID - skip all lookups
 			if conversationID > 0 {
-				return replyToConversation(cmd, client, conversationID, content, private, resolve, nil)
+				return replyToConversation(cmd, client, conversationID, content, private, resolve, nil, se)
 			}
 
 			// Mode 2: Contact ID - skip search, lookup conversations
 			if contactID > 0 {
-				return replyByContactID(cmd, client, contactID, content, private, resolve)
+				return replyByContactID(cmd, client, contactID, content, private, resolve, se)
 			}
 
 			// Mode 3: Search by contact name/email
@@ -114,14 +139,14 @@ If multiple open conversations exist for the contact, disambiguation is required
 					if !ok {
 						return nil
 					}
-					return replyByContactID(cmd, client, selectedID, content, private, resolve)
+					return replyByContactID(cmd, client, selectedID, content, private, resolve, se)
 				}
 				return outputDisambiguation(cmd, "multiple_contacts", contacts.Payload)
 			}
 
 			// Single contact found
 			contact := contacts.Payload[0]
-			return replyByContactID(cmd, client, contact.ID, content, private, resolve)
+			return replyByContactID(cmd, client, contact.ID, content, private, resolve, se)
 		}),
 	}
 
@@ -130,12 +155,15 @@ If multiple open conversations exist for the contact, disambiguation is required
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Skip search, use specific contact ID")
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Skip all lookups, reply to specific conversation")
 	cmd.Flags().BoolVar(&private, "private", false, "Send as private note (not visible to customer)")
+	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
+	cmd.Flags().StringVar(&priority, "priority", "", "Set priority after sending (urgent|high|medium|low|none)")
+	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")
 
 	return cmd
 }
 
 // replyByContactID finds open conversations for a contact and replies
-func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, content string, private, resolve bool) error {
+func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, content string, private, resolve bool, se replySideEffects) error {
 	ctx := cmdContext(cmd)
 
 	// Get contact details for output
@@ -184,7 +212,7 @@ func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, con
 				Name:  contact.Name,
 				Email: contact.Email,
 			}
-			return replyToConversation(cmd, client, selectedID, content, private, resolve, triageContact)
+			return replyToConversation(cmd, client, selectedID, content, private, resolve, triageContact, se)
 		}
 		return outputConversationDisambiguation(cmd, openConversations, contactID)
 	}
@@ -195,7 +223,7 @@ func replyByContactID(cmd *cobra.Command, client *api.Client, contactID int, con
 		Name:  contact.Name,
 		Email: contact.Email,
 	}
-	return replyToConversation(cmd, client, openConversations[0].ID, content, private, resolve, triageContact)
+	return replyToConversation(cmd, client, openConversations[0].ID, content, private, resolve, triageContact, se)
 }
 
 // isDryRun checks if the command context has dry-run mode enabled
@@ -204,7 +232,7 @@ func isDryRun(cmd *cobra.Command) bool {
 }
 
 // replyToConversation sends a message to a specific conversation
-func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID int, content string, private, resolve bool, contact *api.TriageContact) error {
+func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID int, content string, private, resolve bool, contact *api.TriageContact, se replySideEffects) error {
 	ctx := cmdContext(cmd)
 
 	// Check for dry-run mode BEFORE sending
@@ -228,6 +256,29 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 			return fmt.Errorf("message sent (ID: %d) but failed to resolve conversation: %w", message.ID, err)
 		}
 		resolved = true
+	}
+
+	if len(se.labels) > 0 {
+		existing, _ := client.Conversations().Labels(ctx, conversationID)
+		merged := dedupeStrings(append(existing, se.labels...))
+		if _, err := client.Conversations().AddLabels(ctx, conversationID, merged); err != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: message sent but failed to add labels: %v\n", err)
+		}
+	}
+	if se.priority != "" {
+		if err := client.Conversations().TogglePriority(ctx, conversationID, se.priority); err != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: message sent but failed to set priority: %v\n", err)
+		}
+	}
+	if se.snoozeFor != "" {
+		snoozedUntil, err := parseSnoozeFor(se.snoozeFor, time.Now())
+		if err != nil {
+			return err
+		}
+		_, err = client.Conversations().ToggleStatus(ctx, conversationID, "snoozed", snoozedUntil.Unix())
+		if err != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: message sent but failed to snooze: %v\n", err)
+		}
 	}
 
 	// If we don't have contact info, try to fetch conversation to get it
