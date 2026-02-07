@@ -107,10 +107,11 @@ func Execute(ctx context.Context, args []string) error {
 	completionsNoCache = false
 
 	root := &cobra.Command{
-		Use:           "chatwoot",
-		Short:         "CLI for Chatwoot customer support platform",
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:                "chatwoot",
+		Short:              "CLI for Chatwoot customer support platform",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true, // We provide our own did-you-mean via enhanceUnknownError
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: false,
 		},
