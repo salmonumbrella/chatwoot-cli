@@ -107,6 +107,8 @@ func TestFollowCmdAcceptsFilterFlags(t *testing.T) {
 		"queue",
 		"drop",
 		"max-batch",
+		"exec",
+		"exec-timeout",
 	} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("missing --%s flag", name)

@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sort"
@@ -47,6 +49,8 @@ func newConversationsFollowCmd() *cobra.Command {
 		queueSize      int
 		dropWhenFull   bool
 		maxBatch       int
+		execHandler    string
+		execTimeout    time.Duration
 	)
 
 	cmd := &cobra.Command{
@@ -153,6 +157,8 @@ all conversations on the account.
 
 			ctx, stop := signal.NotifyContext(cmdContext(cmd), os.Interrupt, syscall.SIGTERM)
 			defer stop()
+			// Ensure downstream helpers using cmd.Context() see cancellation.
+			cmd.SetContext(ctx)
 
 			client, err := getClient()
 			if err != nil {
@@ -160,6 +166,7 @@ all conversations on the account.
 			}
 
 			snapshotClient := followAPISnapshotClient{client: client}
+			hook := newFollowExecHook(cmd, execHandler, execTimeout)
 
 			sinceT, err := parseSinceTime(sinceTime, time.Now())
 			if err != nil {
@@ -198,7 +205,7 @@ all conversations on the account.
 			// If we're tailing a single conversation and context is enabled, emit the
 			// snapshot once up front so the agent has full state before history/ws.
 			if contextEnabled && convID != 0 && tail > 0 {
-				if err := emitConversationSnapshot(ctx, cmd, snapshotClient, convID, contextMsgs); err != nil {
+				if err := emitConversationSnapshot(ctx, cmd, hook, snapshotClient, convID, contextMsgs); err != nil {
 					return err
 				}
 			}
@@ -277,7 +284,7 @@ all conversations on the account.
 						cw.Update(id)
 					}
 				}
-				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, filters, queueSize, dropWhenFull, maxBatch, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
+				err := followViaWebSocket(ctx, cmd, hook, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, filters, queueSize, dropWhenFull, maxBatch, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
 				if ctx.Err() != nil {
 					return nil
 				}
@@ -320,6 +327,8 @@ all conversations on the account.
 	cmd.Flags().IntVar(&queueSize, "queue", 1024, "Output queue size for backpressure (0 disables queueing)")
 	cmd.Flags().BoolVar(&dropWhenFull, "drop", false, "Drop events when the output queue is full (otherwise block)")
 	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "Maximum messages per debounced batch (0 = unlimited)")
+	cmd.Flags().StringVar(&execHandler, "exec", "", "Run a command for each emitted JSON/agent event (event JSON on stdin)")
+	cmd.Flags().DurationVar(&execTimeout, "exec-timeout", 30*time.Second, "Timeout per --exec invocation")
 	return cmd
 }
 
@@ -358,7 +367,7 @@ func (c followAPISnapshotClient) ListLabels(ctx context.Context, conversationID 
 
 // followViaWebSocket connects to ActionCable, subscribes, and processes events
 // until the connection drops or ctx is cancelled. Returns non-nil error on disconnect.
-func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), filters followFilters, queueSize int, dropWhenFull bool, maxBatch int, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
+func followViaWebSocket(ctx context.Context, cmd *cobra.Command, hook *followExecHook, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), filters followFilters, queueSize int, dropWhenFull bool, maxBatch int, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
 	conn, err := actioncable.Connect(ctx, cableURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -437,7 +446,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 			return nil
 		}
 		return emitter.Emit(func() error {
-			return emitConversationSnapshot(ctx, cmd, snapshotClient, conversationID, contextMsgs)
+			return emitConversationSnapshot(ctx, cmd, hook, snapshotClient, conversationID, contextMsgs)
 		})
 	}
 
@@ -459,7 +468,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 			return err
 		}
 		return emitter.Emit(func() error {
-			return printFollowMessageBatch(cmd, msgs, "ws", includeRaw)
+			return printFollowMessageBatch(cmd, hook, msgs, "ws", includeRaw)
 		})
 	}
 
@@ -569,7 +578,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 						return err
 					}
 					if err := emitter.Emit(func() error {
-						return printFollowMessageWithRaw(cmd, wsEvent.Event, msg, "ws", rawEnvelope, includeRaw)
+						return printFollowMessageWithRaw(cmd, hook, wsEvent.Event, msg, "ws", rawEnvelope, includeRaw)
 					}); err != nil {
 						return err
 					}
@@ -628,7 +637,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 			}
 
 			if err := emitter.Emit(func() error {
-				return printFollowEvent(cmd, wsEvent, "ws", rawEnvelope, includeRaw)
+				return printFollowEvent(cmd, hook, wsEvent, "ws", rawEnvelope, includeRaw)
 			}); err != nil {
 				return err
 			}
@@ -661,10 +670,10 @@ type followMsg struct {
 }
 
 func printFollowMessage(cmd *cobra.Command, m api.Message, source string) error {
-	return printFollowMessageWithRaw(cmd, "message.created", m, source, nil, false)
+	return printFollowMessageWithRaw(cmd, nil, "message.created", m, source, nil, false)
 }
 
-func printFollowMessageWithRaw(cmd *cobra.Command, event string, m api.Message, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
+func printFollowMessageWithRaw(cmd *cobra.Command, hook *followExecHook, event string, m api.Message, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
 	if isAgent(cmd) {
 		summary := agentfmt.MessageSummaryFromMessage(m)
 		out := map[string]any{
@@ -678,7 +687,7 @@ func printFollowMessageWithRaw(cmd *cobra.Command, event string, m api.Message, 
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
 		}
-		return writeStreamJSON(cmd, out)
+		return emitStreamRecord(cmd, hook, out)
 	}
 	if isJSON(cmd) {
 		// Emit as JSON lines.
@@ -694,7 +703,7 @@ func printFollowMessageWithRaw(cmd *cobra.Command, event string, m api.Message, 
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
 		}
-		return writeStreamJSON(cmd, out)
+		return emitStreamRecord(cmd, hook, out)
 	}
 	ts := time.Unix(m.CreatedAt, 0).Format("15:04:05")
 	sender := "-"
@@ -710,12 +719,12 @@ func printFollowMessageWithRaw(cmd *cobra.Command, event string, m api.Message, 
 	return err
 }
 
-func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source string, includeRaw bool) error {
+func printFollowMessageBatch(cmd *cobra.Command, hook *followExecHook, messages []followMsg, source string, includeRaw bool) error {
 	if len(messages) == 0 {
 		return nil
 	}
 	if len(messages) == 1 {
-		return printFollowMessageWithRaw(cmd, "message.created", messages[0].msg, source, messages[0].raw, includeRaw)
+		return printFollowMessageWithRaw(cmd, hook, "message.created", messages[0].msg, source, messages[0].raw, includeRaw)
 	}
 
 	convID := messages[0].msg.ConversationID
@@ -743,7 +752,7 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 		if includeRaw {
 			out["raw_items"] = rawItems
 		}
-		return writeStreamJSON(cmd, out)
+		return emitStreamRecord(cmd, hook, out)
 	}
 	if isJSON(cmd) {
 		rawItems := make([]json.RawMessage, 0, len(messages))
@@ -768,7 +777,7 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 		if includeRaw {
 			out["raw_items"] = rawItems
 		}
-		return writeStreamJSON(cmd, out)
+		return emitStreamRecord(cmd, hook, out)
 	}
 
 	// Text output: batch as a single entry with concatenated content.
@@ -794,7 +803,7 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 	return err
 }
 
-func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
+func printFollowEvent(cmd *cobra.Command, hook *followExecHook, wsEvent chatwootWSEvent, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
 	convID := conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
 
@@ -810,7 +819,7 @@ func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
 		}
-		return writeStreamJSON(cmd, out)
+		return emitStreamRecord(cmd, hook, out)
 	}
 	if isJSON(cmd) {
 		out := map[string]any{
@@ -825,7 +834,7 @@ func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
 		}
-		return writeStreamJSON(cmd, out)
+		return emitStreamRecord(cmd, hook, out)
 	}
 
 	// Text output: attempt to format known event types.
@@ -1034,7 +1043,62 @@ func (e *followEmitter) CloseAndDrain() error {
 	return err
 }
 
-func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, conversationID int, maxMessages int) error {
+type followExecHook struct {
+	cmd     *cobra.Command
+	command string
+	timeout time.Duration
+}
+
+func newFollowExecHook(cmd *cobra.Command, command string, timeout time.Duration) *followExecHook {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return nil
+	}
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	return &followExecHook{
+		cmd:     cmd,
+		command: command,
+		timeout: timeout,
+	}
+}
+
+func (h *followExecHook) Run(v any) error {
+	if h == nil || strings.TrimSpace(h.command) == "" {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+
+	ctx := h.cmd.Context()
+	if h.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.timeout)
+		defer cancel()
+	}
+
+	c := exec.CommandContext(ctx, "sh", "-c", h.command)
+	c.Stdin = bytes.NewReader(b)
+	// Keep stdout/stderr separate from the event stream (which is stdout).
+	c.Stdout = h.cmd.ErrOrStderr()
+	c.Stderr = h.cmd.ErrOrStderr()
+	return c.Run()
+}
+
+func emitStreamRecord(cmd *cobra.Command, hook *followExecHook, v any) error {
+	if hook != nil && (isJSON(cmd) || isAgent(cmd)) {
+		if err := hook.Run(v); err != nil {
+			return fmt.Errorf("--exec failed: %w", err)
+		}
+	}
+	return writeStreamJSON(cmd, v)
+}
+
+func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, hook *followExecHook, snapshotClient followSnapshotClient, conversationID int, maxMessages int) error {
 	if snapshotClient == nil || conversationID <= 0 {
 		return nil
 	}
@@ -1046,7 +1110,7 @@ func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotC
 	conv, err := snapshotClient.GetConversation(snapCtx, conversationID)
 	if err != nil {
 		if isJSON(cmd) || isAgent(cmd) {
-			return writeStreamJSON(cmd, map[string]any{
+			return emitStreamRecord(cmd, hook, map[string]any{
 				"kind":            "conversations.follow",
 				"event":           "conversation.snapshot_error",
 				"source":          "api",
@@ -1092,7 +1156,7 @@ func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotC
 		if contact != nil {
 			payload["contact"] = agentfmt.ContactDetailFromContact(*contact)
 		}
-		return writeStreamJSON(cmd, payload)
+		return emitStreamRecord(cmd, hook, payload)
 	}
 
 	if isJSON(cmd) {
@@ -1108,7 +1172,7 @@ func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotC
 		if contact != nil {
 			payload["contact"] = contact
 		}
-		return writeStreamJSON(cmd, payload)
+		return emitStreamRecord(cmd, hook, payload)
 	}
 
 	// Text mode: keep snapshots silent by default.
