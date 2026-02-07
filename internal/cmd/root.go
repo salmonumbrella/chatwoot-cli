@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/debug"
@@ -372,11 +373,83 @@ func Execute(ctx context.Context, args []string) error {
 	err := root.Execute()
 	if err != nil {
 		if !errors.Is(err, errAlreadyHandled) {
-			_, _ = fmt.Fprintln(root.ErrOrStderr(), err) //nolint:errcheck
+			enhanced := enhanceUnknownError(err, root)
+			_, _ = fmt.Fprintln(root.ErrOrStderr(), enhanced) //nolint:errcheck
 		}
 		return err
 	}
 	return nil
+}
+
+// enhanceUnknownError adds "did you mean?" suggestions to unknown command/flag errors.
+func enhanceUnknownError(err error, root *cobra.Command) string {
+	msg := err.Error()
+
+	// Unknown command: "unknown command "foo" for "chatwoot""
+	if strings.Contains(msg, "unknown command") {
+		// Extract the unknown command name from the error.
+		unknown := extractQuoted(msg)
+		if unknown != "" {
+			var names []string
+			for _, c := range root.Commands() {
+				if c.IsAvailableCommand() || c.Name() == "help" {
+					names = append(names, c.Name())
+					names = append(names, c.Aliases...)
+				}
+			}
+			if suggestion := suggestCommand(unknown, names); suggestion != "" {
+				return fmt.Sprintf("%s\n\nDid you mean %q?", msg, suggestion)
+			}
+		}
+	}
+
+	// Unknown flag: "unknown flag: --foo" or "flag provided but not defined: --foo"
+	if strings.Contains(msg, "unknown flag") || strings.Contains(msg, "flag provided but not defined") {
+		unknown := extractFlag(msg)
+		if unknown != "" {
+			var flagNames []string
+			root.Flags().VisitAll(func(f *pflag.Flag) {
+				flagNames = append(flagNames, "--"+f.Name)
+			})
+			root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+				flagNames = append(flagNames, "--"+f.Name)
+			})
+			if suggestion := suggestFlag(unknown, flagNames); suggestion != "" {
+				return fmt.Sprintf("%s\n\nDid you mean %q?", msg, suggestion)
+			}
+		}
+	}
+
+	return msg
+}
+
+// extractQuoted extracts the first double-quoted substring from s.
+func extractQuoted(s string) string {
+	start := strings.IndexByte(s, '"')
+	if start < 0 {
+		return ""
+	}
+	end := strings.IndexByte(s[start+1:], '"')
+	if end < 0 {
+		return ""
+	}
+	return s[start+1 : start+1+end]
+}
+
+// extractFlag extracts a flag name (e.g., "--foo") from an error message.
+func extractFlag(s string) string {
+	// Look for --something pattern
+	idx := strings.Index(s, "--")
+	if idx < 0 {
+		return ""
+	}
+	rest := s[idx:]
+	// Take until space or end
+	end := strings.IndexByte(rest, ' ')
+	if end < 0 {
+		end = len(rest)
+	}
+	return strings.TrimRight(rest[:end], ".,;:!?\"'")
 }
 
 func tryExecExtension(args []string) (bool, error) {

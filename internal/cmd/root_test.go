@@ -94,6 +94,64 @@ func TestExecute_InvalidCommand(t *testing.T) {
 	}
 }
 
+func TestExecute_UnknownCommand_DidYouMean(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	ctx := context.Background()
+	_ = Execute(ctx, []string{"conversatins"})
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Did you mean") {
+		t.Errorf("expected 'Did you mean' suggestion in stderr, got: %s", output)
+	}
+	if !strings.Contains(output, "conversations") {
+		t.Errorf("expected 'conversations' suggestion in stderr, got: %s", output)
+	}
+}
+
+func TestExtractQuoted(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{`unknown command "foo" for "chatwoot"`, "foo"},
+		{`no quotes here`, ""},
+		{`only "one quote`, ""},
+		{`"hello"`, "hello"},
+	}
+	for _, tt := range tests {
+		got := extractQuoted(tt.input)
+		if got != tt.want {
+			t.Errorf("extractQuoted(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestExtractFlag(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{`unknown flag: --staus`, "--staus"},
+		{`flag provided but not defined: --pririty`, "--pririty"},
+		{`no flag here`, ""},
+	}
+	for _, tt := range tests {
+		got := extractFlag(tt.input)
+		if got != tt.want {
+			t.Errorf("extractFlag(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestExecute_SubcommandsExist(t *testing.T) {
 	// Verify essential subcommands exist by checking help output
 	oldStdout := os.Stdout
