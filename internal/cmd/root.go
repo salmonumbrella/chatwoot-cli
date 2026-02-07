@@ -371,10 +371,10 @@ func Execute(ctx context.Context, args []string) error {
 		}
 	}
 
-	err := root.Execute()
+	targetCmd, err := root.ExecuteC()
 	if err != nil {
 		if !errors.Is(err, errAlreadyHandled) {
-			enhanced := enhanceUnknownError(err, root)
+			enhanced := enhanceUnknownError(err, root, targetCmd)
 			_, _ = fmt.Fprintln(root.ErrOrStderr(), enhanced) //nolint:errcheck
 		}
 		return err
@@ -383,7 +383,8 @@ func Execute(ctx context.Context, args []string) error {
 }
 
 // enhanceUnknownError adds "did you mean?" suggestions to unknown command/flag errors.
-func enhanceUnknownError(err error, root *cobra.Command) string {
+// targetCmd is the command Cobra resolved before the error (may be root itself).
+func enhanceUnknownError(err error, root *cobra.Command, targetCmd *cobra.Command) string {
 	msg := err.Error()
 
 	// Unknown command: "unknown command "foo" for "chatwoot""
@@ -408,13 +409,26 @@ func enhanceUnknownError(err error, root *cobra.Command) string {
 	if strings.Contains(msg, "unknown flag") || strings.Contains(msg, "flag provided but not defined") {
 		unknown := extractFlag(msg)
 		if unknown != "" {
+			// Collect flags from the target command (not root) so subcommand
+			// flags like --status on "conversations list" are included.
+			seen := make(map[string]bool)
 			var flagNames []string
-			root.Flags().VisitAll(func(f *pflag.Flag) {
-				flagNames = append(flagNames, "--"+f.Name)
-			})
-			root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-				flagNames = append(flagNames, "--"+f.Name)
-			})
+			addFlags := func(fs *pflag.FlagSet) {
+				fs.VisitAll(func(f *pflag.Flag) {
+					name := "--" + f.Name
+					if !seen[name] {
+						seen[name] = true
+						flagNames = append(flagNames, name)
+					}
+				})
+			}
+			if targetCmd != nil {
+				addFlags(targetCmd.Flags())
+				addFlags(targetCmd.InheritedFlags())
+			} else {
+				addFlags(root.Flags())
+				addFlags(root.PersistentFlags())
+			}
 			if suggestion := suggestFlag(unknown, flagNames); suggestion != "" {
 				return fmt.Sprintf("%s\n\nDid you mean %q?", msg, suggestion)
 			}
