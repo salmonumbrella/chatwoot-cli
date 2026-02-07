@@ -1,6 +1,11 @@
 package cmd
 
-import "testing"
+import (
+	"context"
+	"io"
+	"strings"
+	"testing"
+)
 
 func TestFollowCmdAcceptsAllFlag(t *testing.T) {
 	cmd := newConversationsFollowCmd()
@@ -38,5 +43,27 @@ func TestFollowCmdAcceptsTypingFlag(t *testing.T) {
 	cmd := newConversationsFollowCmd()
 	if cmd.Flags().Lookup("typing") == nil {
 		t.Fatal("missing --typing flag")
+	}
+}
+
+func TestFollowCmdAcceptsRawFlag(t *testing.T) {
+	cmd := newConversationsFollowCmd()
+	if cmd.Flags().Lookup("raw") == nil {
+		t.Fatal("missing --raw flag")
+	}
+}
+
+func TestFollowCmdAllWithTailErrors(t *testing.T) {
+	cmd := newConversationsFollowCmd()
+	cmd.SetContext(context.Background())
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--all", "--tail", "5"})
+	_, err := cmd.ExecuteC()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--tail requires a single conversation") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
