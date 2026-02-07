@@ -106,6 +106,49 @@ func TestSubscribeConfirm(t *testing.T) {
 	}
 }
 
+func TestSubscribeSkipsPingBeforeConfirm(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Errorf("read subscribe: %v", err)
+			return
+		}
+		var f frame
+		_ = json.Unmarshal(data, &f)
+		// Send pings before confirm (real servers do this)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"ping","message":1234}`))
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"ping","message":1235}`))
+		// Now confirm
+		idQuoted, _ := json.Marshal(f.Identifier)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(
+			`{"type":"confirm_subscription","identifier":%s}`, idQuoted,
+		)))
+		time.Sleep(100 * time.Millisecond)
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, err := Connect(ctx, url)
+	if err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	err = c.Subscribe(ctx, ChannelID{
+		Channel:     "RoomChannel",
+		PubsubToken: "tok123",
+		AccountID:   1,
+		UserID:      2,
+	})
+	if err != nil {
+		t.Fatalf("Subscribe should succeed despite pings: %v", err)
+	}
+}
+
 func TestSubscribeReject(t *testing.T) {
 	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
 		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))

@@ -93,25 +93,29 @@ func (c *Client) Subscribe(ctx context.Context, id ChannelID) error {
 		return fmt.Errorf("write subscribe: %w", err)
 	}
 
-	// Wait for confirm or reject.
-	_, resp, err := c.conn.Read(ctx)
-	if err != nil {
-		return fmt.Errorf("read subscription response: %w", err)
-	}
+	// Wait for confirm or reject, skipping pings that may arrive in between.
+	for {
+		_, resp, err := c.conn.Read(ctx)
+		if err != nil {
+			return fmt.Errorf("read subscription response: %w", err)
+		}
 
-	var f frame
-	if err := json.Unmarshal(resp, &f); err != nil {
-		return fmt.Errorf("parse response: %w", err)
-	}
+		var f frame
+		if err := json.Unmarshal(resp, &f); err != nil {
+			return fmt.Errorf("parse response: %w", err)
+		}
 
-	switch f.Type {
-	case "confirm_subscription":
-		c.identifier = idStr
-		return nil
-	case "reject_subscription":
-		return fmt.Errorf("subscription rejected (check pubsub_token)")
-	default:
-		return fmt.Errorf("unexpected response type: %q", f.Type)
+		switch f.Type {
+		case "confirm_subscription":
+			c.identifier = idStr
+			return nil
+		case "reject_subscription":
+			return fmt.Errorf("subscription rejected (check pubsub_token)")
+		case "ping":
+			continue // server pings arrive every ~3s, skip them
+		default:
+			return fmt.Errorf("unexpected response type: %q", f.Type)
+		}
 	}
 }
 
