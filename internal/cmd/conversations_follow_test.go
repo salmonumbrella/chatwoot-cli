@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFollowCmdAcceptsAllFlag(t *testing.T) {
@@ -60,6 +61,35 @@ func TestFollowCmdAcceptsContextFlags(t *testing.T) {
 	}
 	if cmd.Flags().Lookup("context-messages") == nil {
 		t.Fatal("missing --context-messages flag")
+	}
+}
+
+func TestFollowCmdAcceptsCursorFlags(t *testing.T) {
+	cmd := newConversationsFollowCmd()
+	if cmd.Flags().Lookup("cursor-file") == nil {
+		t.Fatal("missing --cursor-file flag")
+	}
+	if cmd.Flags().Lookup("since-id") == nil {
+		t.Fatal("missing --since-id flag")
+	}
+	if cmd.Flags().Lookup("since-time") == nil {
+		t.Fatal("missing --since-time flag")
+	}
+}
+
+func TestParseSinceTime(t *testing.T) {
+	now := time.Date(2026, 2, 7, 12, 0, 0, 0, time.UTC)
+	if _, err := parseSinceTime("2026-02-07T11:00:00Z", now); err != nil {
+		t.Fatalf("parse RFC3339: %v", err)
+	}
+	if ts, err := parseSinceTime("60m", now); err != nil || ts.After(now) {
+		t.Fatalf("parse duration: ts=%v err=%v", ts, err)
+	}
+	if _, err := parseSinceTime("1738920000", now); err != nil {
+		t.Fatalf("parse unix seconds: %v", err)
+	}
+	if _, err := parseSinceTime("not-a-time", now); err == nil {
+		t.Fatal("expected error for invalid time")
 	}
 }
 

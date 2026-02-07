@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,9 @@ func newConversationsFollowCmd() *cobra.Command {
 		includeRaw   bool
 		withContext  bool
 		contextMsgs  int
+		cursorFile   string
+		sinceID      int
+		sinceTime    string
 	)
 
 	cmd := &cobra.Command{
@@ -123,6 +127,40 @@ all conversations on the account.
 
 			snapshotClient := followAPISnapshotClient{client: client}
 
+			sinceT, err := parseSinceTime(sinceTime, time.Now())
+			if err != nil {
+				return err
+			}
+			minCreatedAt := int64(0)
+			if !sinceT.IsZero() {
+				minCreatedAt = sinceT.Unix()
+			}
+
+			lastSeenID := 0
+			if sinceID > 0 {
+				lastSeenID = sinceID
+			}
+			if cursorFile != "" && sinceID <= 0 {
+				cur, err := loadFollowCursor(cursorFile)
+				if err != nil {
+					return err
+				}
+				// Ignore cursors from other accounts.
+				if cur.LastSeenMessageID > 0 && (cur.AccountID == 0 || cur.AccountID == client.AccountID) && (cur.BaseURL == "" || cur.BaseURL == client.BaseURL) {
+					lastSeenID = max(lastSeenID, cur.LastSeenMessageID)
+				}
+			}
+
+			var cw *followCursorWriter
+			if cursorFile != "" {
+				w, err := newFollowCursorWriter(cursorFile, client.BaseURL, client.AccountID, lastSeenID, 1*time.Second)
+				if err != nil {
+					return err
+				}
+				cw = w
+				defer func() { _ = cw.Flush() }()
+			}
+
 			// If we're tailing a single conversation and context is enabled, emit the
 			// snapshot once up front so the agent has full state before history/ws.
 			if contextEnabled && convID != 0 && tail > 0 {
@@ -131,21 +169,27 @@ all conversations on the account.
 				}
 			}
 
-			var lastSeenID int
 			if tail > 0 {
 				msgs, err := client.Messages().ListWithLimit(ctx, convID, tail, 10)
 				if err == nil && len(msgs) > 0 {
 					// Print oldest -> newest.
 					sort.Slice(msgs, func(i, j int) bool { return msgs[i].ID < msgs[j].ID })
 					for _, m := range msgs {
-						if m.ID > lastSeenID {
-							lastSeenID = m.ID
+						if minCreatedAt > 0 && m.CreatedAt < minCreatedAt {
+							continue
+						}
+						if m.ID <= lastSeenID {
+							continue
 						}
 						if incomingOnly && m.MessageType != api.MessageTypeIncoming {
 							continue
 						}
 						if err := printFollowMessage(cmd, m, "history"); err != nil {
 							return err
+						}
+						lastSeenID = m.ID
+						if cw != nil {
+							cw.Update(lastSeenID)
 						}
 					}
 				}
@@ -181,9 +225,17 @@ all conversations on the account.
 			maxBackoff := 30 * time.Second
 
 			for {
-				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
+				onLastSeen := func(id int) {
+					if cw != nil {
+						cw.Update(id)
+					}
+				}
+				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
 				if ctx.Err() != nil {
 					return nil
+				}
+				if cw != nil {
+					_ = cw.Flush()
 				}
 				if !isJSON(cmd) {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "disconnected: %v, reconnecting in %s...\n", err, backoff)
@@ -207,6 +259,9 @@ all conversations on the account.
 	cmd.Flags().BoolVar(&includeRaw, "raw", false, "Include raw WebSocket payload (JSON/agent modes only)")
 	cmd.Flags().BoolVar(&withContext, "context", false, "Emit a conversation snapshot on the first event per conversation (default true in agent mode)")
 	cmd.Flags().IntVar(&contextMsgs, "context-messages", 10, "Number of recent messages to include in conversation snapshots")
+	cmd.Flags().StringVar(&cursorFile, "cursor-file", "", "Persist last seen message id to a file for resume/restart")
+	cmd.Flags().IntVar(&sinceID, "since-id", 0, "Skip messages with id <= this value (useful for resume)")
+	cmd.Flags().StringVar(&sinceTime, "since-time", "", "Skip messages created before this time (RFC3339, unix seconds, or duration like 24h)")
 	return cmd
 }
 
@@ -245,7 +300,7 @@ func (c followAPISnapshotClient) ListLabels(ctx context.Context, conversationID 
 
 // followViaWebSocket connects to ActionCable, subscribes, and processes events
 // until the connection drops or ctx is cancelled. Returns non-nil error on disconnect.
-func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
+func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
 	conn, err := actioncable.Connect(ctx, cableURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -375,12 +430,20 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 					continue
 				}
 
+				// Filter by created_at threshold (useful for resume).
+				if minCreatedAt > 0 && msg.CreatedAt < minCreatedAt {
+					continue
+				}
+
 				// Dedup by message ID.
 				if lastSeenID != nil && msg.ID <= *lastSeenID {
 					continue
 				}
 				if lastSeenID != nil {
 					*lastSeenID = msg.ID
+					if onLastSeen != nil {
+						onLastSeen(*lastSeenID)
+					}
 				}
 
 				// Filter by message type if --incoming-only.
@@ -907,4 +970,159 @@ func anyToInt(v any) int {
 	default:
 		return 0
 	}
+}
+
+type followCursor struct {
+	Version           int    `json:"version"`
+	BaseURL           string `json:"base_url,omitempty"`
+	AccountID         int    `json:"account_id,omitempty"`
+	LastSeenMessageID int    `json:"last_seen_message_id"`
+	UpdatedAt         string `json:"updated_at,omitempty"`
+}
+
+func loadFollowCursor(path string) (followCursor, error) {
+	var cur followCursor
+	if strings.TrimSpace(path) == "" {
+		return cur, nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cur, nil
+		}
+		return cur, fmt.Errorf("read cursor file: %w", err)
+	}
+	if err := json.Unmarshal(b, &cur); err != nil {
+		return cur, fmt.Errorf("parse cursor file: %w", err)
+	}
+	return cur, nil
+}
+
+func saveFollowCursor(path string, cur followCursor) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	dir := filepath.Dir(path)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create cursor dir: %w", err)
+		}
+	}
+
+	cur.Version = 1
+	cur.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+
+	tmp, err := os.CreateTemp(dir, ".chatwoot-follow-cursor-*")
+	if err != nil {
+		return fmt.Errorf("create cursor temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+
+	enc := json.NewEncoder(tmp)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(cur); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write cursor temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close cursor temp file: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("replace cursor file: %w", err)
+	}
+	return nil
+}
+
+type followCursorWriter struct {
+	Path        string
+	BaseURL     string
+	AccountID   int
+	MinInterval time.Duration
+
+	LastSeenID  int
+	LastFlushed int
+	LastFlushAt time.Time
+}
+
+func newFollowCursorWriter(path, baseURL string, accountID int, initialLastSeen int, minInterval time.Duration) (*followCursorWriter, error) {
+	w := &followCursorWriter{
+		Path:        path,
+		BaseURL:     baseURL,
+		AccountID:   accountID,
+		MinInterval: minInterval,
+		LastSeenID:  initialLastSeen,
+	}
+	return w, nil
+}
+
+func (w *followCursorWriter) Update(lastSeenID int) {
+	if w == nil || w.Path == "" {
+		return
+	}
+	if lastSeenID <= w.LastSeenID {
+		return
+	}
+	w.LastSeenID = lastSeenID
+	if w.MinInterval <= 0 || w.LastFlushAt.IsZero() || time.Since(w.LastFlushAt) >= w.MinInterval {
+		_ = w.Flush()
+	}
+}
+
+func (w *followCursorWriter) Flush() error {
+	if w == nil || w.Path == "" {
+		return nil
+	}
+	if w.LastSeenID <= 0 || w.LastSeenID == w.LastFlushed {
+		return nil
+	}
+	cur := followCursor{
+		BaseURL:           w.BaseURL,
+		AccountID:         w.AccountID,
+		LastSeenMessageID: w.LastSeenID,
+	}
+	if err := saveFollowCursor(w.Path, cur); err != nil {
+		return err
+	}
+	w.LastFlushed = w.LastSeenID
+	w.LastFlushAt = time.Now()
+	return nil
+}
+
+func parseSinceTime(s string, now time.Time) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, nil
+	}
+
+	// Allow durations as "look back" values (e.g. 24h).
+	if d, err := time.ParseDuration(s); err == nil {
+		if d < 0 {
+			d = -d
+		}
+		return now.Add(-d), nil
+	}
+
+	// Allow unix seconds (or unix milliseconds) as integers.
+	if i, err := strconv.ParseInt(s, 10, 64); err == nil && i > 0 {
+		// Heuristic: > 1e12 is almost certainly milliseconds.
+		if i > 1_000_000_000_000 {
+			return time.UnixMilli(i), nil
+		}
+		return time.Unix(i, 0), nil
+	}
+
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+	for _, layout := range layouts {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid --since-time %q (use RFC3339, unix seconds, or duration like 24h)", s)
 }
