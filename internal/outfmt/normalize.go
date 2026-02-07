@@ -27,7 +27,13 @@ func normalizeJSONOutput(v any) any {
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
 			return v
 		}
-		return map[string]any{"items": rv.Interface()}
+		items := rv.Interface()
+		// Nil slices serialize as null in JSON, which breaks jq .items[].
+		// Coerce to an empty slice so the output is always "items": [].
+		if rv.IsNil() {
+			items = []any{}
+		}
+		return map[string]any{"items": items}
 	default:
 		return v
 	}

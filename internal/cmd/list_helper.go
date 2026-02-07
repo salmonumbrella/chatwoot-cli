@@ -163,11 +163,14 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						summaryPageSize = len(result.Items)
 					}
 					items := result.Items
+					if items == nil {
+						items = make([]T, 0)
+					}
 					meta := map[string]any{
 						"page":          page,
 						"page_size":     summaryPageSize,
 						"pages_fetched": 1,
-						"total_items":   len(result.Items),
+						"total_items":   len(items),
 						"all":           false,
 					}
 					addRateLimitMeta(meta, client)
@@ -324,7 +327,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				return nil
 			}
 
-			var allItems []T
+			allItems := make([]T, 0)
 			currentPage := page
 			pagesFetched := 0
 
