@@ -234,7 +234,7 @@ func validatePriority(priority string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid priority %q: must be one of %s", priority, strings.Join(valid, ", "))
+	return api.NewValidationError("priority", priority, valid)
 }
 
 // validateStatus validates a conversation status value
@@ -245,7 +245,7 @@ func validateStatus(status string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid status %q: must be one of %s", status, strings.Join(valid, ", "))
+	return api.NewValidationError("status", status, valid)
 }
 
 func registerStaticCompletions(cmd *cobra.Command, flagName string, values []string) {

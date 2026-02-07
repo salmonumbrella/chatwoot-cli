@@ -200,6 +200,26 @@ func TestValidatePriority(t *testing.T) {
 	}
 }
 
+func TestValidatePriority_StructuredError(t *testing.T) {
+	err := validatePriority("critical")
+	var se *api.StructuredError
+	if !errors.As(err, &se) {
+		t.Fatal("expected StructuredError")
+	}
+	if se.Code != api.ErrValidation {
+		t.Errorf("got code %q, want validation_failed", se.Code)
+	}
+	if len(se.AllowedValues) != 5 {
+		t.Errorf("expected 5 allowed values, got %d", len(se.AllowedValues))
+	}
+	if se.Context["field"] != "priority" {
+		t.Errorf("expected field=priority, got %v", se.Context["field"])
+	}
+	if se.Context["got"] != "critical" {
+		t.Errorf("expected got=critical, got %v", se.Context["got"])
+	}
+}
+
 func TestValidateStatus(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -222,6 +242,23 @@ func TestValidateStatus(t *testing.T) {
 				t.Errorf("validateStatus(%q) error = %v, wantErr %v", tt.status, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateStatus_StructuredError(t *testing.T) {
+	err := validateStatus("closed")
+	var se *api.StructuredError
+	if !errors.As(err, &se) {
+		t.Fatal("expected StructuredError")
+	}
+	if se.Code != api.ErrValidation {
+		t.Errorf("got code %q, want validation_failed", se.Code)
+	}
+	if len(se.AllowedValues) != 4 {
+		t.Errorf("expected 4 allowed values, got %d", len(se.AllowedValues))
+	}
+	if se.Context["field"] != "status" {
+		t.Errorf("expected field=status, got %v", se.Context["field"])
 	}
 }
 

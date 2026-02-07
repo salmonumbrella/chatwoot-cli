@@ -199,6 +199,53 @@ func TestNewStructuredError(t *testing.T) {
 	}
 }
 
+func TestNewValidationError(t *testing.T) {
+	err := NewValidationError("priority", "critical", []string{"urgent", "high", "medium", "low", "none"})
+
+	if err.Code != ErrValidation {
+		t.Errorf("Code = %v, want %v", err.Code, ErrValidation)
+	}
+	if err.Retryable {
+		t.Error("Retryable should be false for validation errors")
+	}
+	if len(err.AllowedValues) != 5 {
+		t.Errorf("AllowedValues length = %d, want 5", len(err.AllowedValues))
+	}
+	if err.AllowedValues[0] != "urgent" {
+		t.Errorf("AllowedValues[0] = %q, want 'urgent'", err.AllowedValues[0])
+	}
+	if err.Context["field"] != "priority" {
+		t.Errorf("Context[field] = %v, want 'priority'", err.Context["field"])
+	}
+	if err.Context["got"] != "critical" {
+		t.Errorf("Context[got] = %v, want 'critical'", err.Context["got"])
+	}
+	if err.Suggestion == "" {
+		t.Error("Suggestion should be populated")
+	}
+
+	// Verify JSON serialization includes allowed_values
+	data, marshalErr := json.Marshal(err)
+	if marshalErr != nil {
+		t.Fatalf("json.Marshal failed: %v", marshalErr)
+	}
+	var raw map[string]any
+	if unmarshalErr := json.Unmarshal(data, &raw); unmarshalErr != nil {
+		t.Fatalf("json.Unmarshal failed: %v", unmarshalErr)
+	}
+	if _, ok := raw["allowed_values"]; !ok {
+		t.Error("JSON should contain allowed_values field")
+	}
+}
+
+func TestStructuredErrorFromError_StructuredError(t *testing.T) {
+	original := NewValidationError("status", "bogus", []string{"open", "resolved"})
+	result := StructuredErrorFromError(original)
+	if result != original {
+		t.Error("StructuredErrorFromError should return the original StructuredError")
+	}
+}
+
 func TestNewStructuredErrorWithContext(t *testing.T) {
 	ctx := map[string]any{
 		"resource_id":   123,

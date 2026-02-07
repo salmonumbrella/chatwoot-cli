@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // ErrorCode represents machine-readable error codes for agent error handling.
@@ -99,11 +100,12 @@ func ErrorCodeFromStatus(statusCode int) ErrorCode {
 
 // StructuredError provides machine-readable error information for agents.
 type StructuredError struct {
-	Code       ErrorCode      `json:"code"`
-	Message    string         `json:"message"`
-	Retryable  bool           `json:"retryable"`
-	Suggestion string         `json:"suggestion,omitempty"`
-	Context    map[string]any `json:"context,omitempty"`
+	Code          ErrorCode      `json:"code"`
+	Message       string         `json:"message"`
+	Retryable     bool           `json:"retryable"`
+	Suggestion    string         `json:"suggestion,omitempty"`
+	Context       map[string]any `json:"context,omitempty"`
+	AllowedValues []string       `json:"allowed_values,omitempty"`
 }
 
 // Error implements the error interface.
@@ -134,6 +136,19 @@ func NewStructuredErrorWithContext(code ErrorCode, message string, ctx map[strin
 	return err
 }
 
+// NewValidationError creates a StructuredError for input validation failures,
+// including the list of allowed values so agents can self-correct.
+func NewValidationError(field string, got string, allowed []string) *StructuredError {
+	return &StructuredError{
+		Code:          ErrValidation,
+		Message:       fmt.Sprintf("invalid %s %q: must be one of %s", field, got, strings.Join(allowed, ", ")),
+		Retryable:     false,
+		Suggestion:    fmt.Sprintf("Use one of: %s", strings.Join(allowed, ", ")),
+		AllowedValues: allowed,
+		Context:       map[string]any{"field": field, "got": got},
+	}
+}
+
 // StructuredErrorFromAPIError converts an APIError to a StructuredError.
 func StructuredErrorFromAPIError(apiErr *APIError) *StructuredError {
 	code := ErrorCodeFromStatus(apiErr.StatusCode)
@@ -153,10 +168,15 @@ func StructuredErrorFromAPIError(apiErr *APIError) *StructuredError {
 }
 
 // StructuredErrorFromError attempts to convert any error to a StructuredError.
-// It handles APIError, RateLimitError, AuthError, CircuitBreakerError, and generic errors.
+// It handles StructuredError, APIError, RateLimitError, AuthError, CircuitBreakerError, and generic errors.
 func StructuredErrorFromError(err error) *StructuredError {
 	if err == nil {
 		return nil
+	}
+
+	var se *StructuredError
+	if errors.As(err, &se) {
+		return se
 	}
 
 	var apiErr *APIError
