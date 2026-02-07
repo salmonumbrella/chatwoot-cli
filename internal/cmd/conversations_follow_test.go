@@ -53,6 +53,16 @@ func TestFollowCmdAcceptsRawFlag(t *testing.T) {
 	}
 }
 
+func TestFollowCmdAcceptsContextFlags(t *testing.T) {
+	cmd := newConversationsFollowCmd()
+	if cmd.Flags().Lookup("context") == nil {
+		t.Fatal("missing --context flag")
+	}
+	if cmd.Flags().Lookup("context-messages") == nil {
+		t.Fatal("missing --context-messages flag")
+	}
+}
+
 func TestFollowCmdAllWithTailErrors(t *testing.T) {
 	cmd := newConversationsFollowCmd()
 	cmd.SetContext(context.Background())

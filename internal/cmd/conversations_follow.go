@@ -29,6 +29,8 @@ func newConversationsFollowCmd() *cobra.Command {
 		showTyping   bool
 		debounce     time.Duration
 		includeRaw   bool
+		withContext  bool
+		contextMsgs  int
 	)
 
 	cmd := &cobra.Command{
@@ -60,6 +62,14 @@ all conversations on the account.
 				events = append(events, "conversation.typing_on", "conversation.typing_off")
 			}
 			events = dedupeStrings(events)
+
+			contextEnabled := withContext
+			if isAgent(cmd) && !cmd.Flags().Changed("context") {
+				contextEnabled = true
+			}
+			if contextMsgs <= 0 {
+				contextMsgs = 10
+			}
 
 			allowedEvents := make(map[string]struct{}, len(events))
 			for _, e := range events {
@@ -98,6 +108,16 @@ all conversations on the account.
 			client, err := getClient()
 			if err != nil {
 				return err
+			}
+
+			snapshotClient := followAPISnapshotClient{client: client}
+
+			// If we're tailing a single conversation and context is enabled, emit the
+			// snapshot once up front so the agent has full state before history/ws.
+			if contextEnabled && convID != 0 && tail > 0 {
+				if err := emitConversationSnapshot(ctx, cmd, snapshotClient, convID, contextMsgs); err != nil {
+					return err
+				}
 			}
 
 			var lastSeenID int
@@ -150,7 +170,7 @@ all conversations on the account.
 			maxBackoff := 30 * time.Second
 
 			for {
-				err := followViaWebSocket(ctx, cmd, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
+				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
 				if ctx.Err() != nil {
 					return nil
 				}
@@ -174,6 +194,8 @@ all conversations on the account.
 	cmd.Flags().BoolVar(&showTyping, "typing", false, "Show typing indicators")
 	cmd.Flags().DurationVar(&debounce, "debounce", 0, "Batch rapid messages from same conversation (e.g., 2s)")
 	cmd.Flags().BoolVar(&includeRaw, "raw", false, "Include raw WebSocket payload (JSON/agent modes only)")
+	cmd.Flags().BoolVar(&withContext, "context", false, "Emit a conversation snapshot on the first event per conversation (default true in agent mode)")
+	cmd.Flags().IntVar(&contextMsgs, "context-messages", 10, "Number of recent messages to include in conversation snapshots")
 	return cmd
 }
 
@@ -183,9 +205,36 @@ type chatwootWSEvent struct {
 	Data  json.RawMessage `json:"data"`
 }
 
+type followSnapshotClient interface {
+	GetConversation(ctx context.Context, id int) (*api.Conversation, error)
+	GetContact(ctx context.Context, id int) (*api.Contact, error)
+	ListMessages(ctx context.Context, conversationID, limit, maxPages int) ([]api.Message, error)
+	ListLabels(ctx context.Context, conversationID int) ([]string, error)
+}
+
+type followAPISnapshotClient struct {
+	client *api.Client
+}
+
+func (c followAPISnapshotClient) GetConversation(ctx context.Context, id int) (*api.Conversation, error) {
+	return c.client.Conversations().Get(ctx, id)
+}
+
+func (c followAPISnapshotClient) GetContact(ctx context.Context, id int) (*api.Contact, error) {
+	return c.client.Contacts().Get(ctx, id)
+}
+
+func (c followAPISnapshotClient) ListMessages(ctx context.Context, conversationID, limit, maxPages int) ([]api.Message, error) {
+	return c.client.Messages().ListWithLimit(ctx, conversationID, limit, maxPages)
+}
+
+func (c followAPISnapshotClient) ListLabels(ctx context.Context, conversationID int) ([]string, error) {
+	return c.client.Conversations().Labels(ctx, conversationID)
+}
+
 // followViaWebSocket connects to ActionCable, subscribes, and processes events
 // until the connection drops or ctx is cancelled. Returns non-nil error on disconnect.
-func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
+func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
 	conn, err := actioncable.Connect(ctx, cableURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -210,6 +259,24 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cableURL string
 	done := make(chan struct{})
 	defer close(done)
 
+	snapshotted := make(map[int]bool)
+	maybeSnapshot := func(conversationID int) error {
+		if !contextEnabled {
+			return nil
+		}
+		if conversationID <= 0 {
+			return nil
+		}
+		if snapshotted[conversationID] {
+			return nil
+		}
+		snapshotted[conversationID] = true
+		if snapshotClient == nil {
+			return nil
+		}
+		return emitConversationSnapshot(ctx, cmd, snapshotClient, conversationID, contextMsgs)
+	}
+
 	flushConv := func(id int) error {
 		buf, ok := debounced[id]
 		if !ok || buf == nil || len(buf.messages) == 0 {
@@ -224,6 +291,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cableURL string
 		}
 		delete(debounced, id)
 
+		if err := maybeSnapshot(id); err != nil {
+			return err
+		}
 		return printFollowMessageBatch(cmd, msgs, "ws", includeRaw)
 	}
 
@@ -309,6 +379,9 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cableURL string
 
 				// Debounce (batch) rapid messages per conversation.
 				if debounce <= 0 {
+					if err := maybeSnapshot(msg.ConversationID); err != nil {
+						return err
+					}
 					if err := printFollowMessageWithRaw(cmd, msg, "ws", rawEnvelope, includeRaw); err != nil {
 						return err
 					}
@@ -335,10 +408,18 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cableURL string
 			}
 
 			// For non-message events, try to filter by conversation id if following a single conversation.
+			eventConvID := 0
 			if convID != 0 {
-				if id := conversationIDFromEvent(wsEvent.Event, wsEvent.Data); id != 0 && id != convID {
+				eventConvID = conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
+				if eventConvID != 0 && eventConvID != convID {
 					continue
 				}
+			} else {
+				eventConvID = conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
+			}
+
+			if err := maybeSnapshot(eventConvID); err != nil {
+				return err
 			}
 
 			if err := printFollowEvent(cmd, wsEvent, "ws", rawEnvelope, includeRaw); err != nil {
@@ -595,6 +676,84 @@ func writeStreamJSON(cmd *cobra.Command, v any) error {
 	}
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
+}
+
+func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, conversationID int, maxMessages int) error {
+	if snapshotClient == nil || conversationID <= 0 {
+		return nil
+	}
+
+	// Keep snapshot fetches bounded so a slow API doesn't block the stream forever.
+	snapCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	conv, err := snapshotClient.GetConversation(snapCtx, conversationID)
+	if err != nil {
+		if isJSON(cmd) || isAgent(cmd) {
+			return writeStreamJSON(cmd, map[string]any{
+				"kind":            "conversations.follow",
+				"event":           "conversation.snapshot_error",
+				"source":          "api",
+				"conversation_id": conversationID,
+				"error":           err.Error(),
+			})
+		}
+		return nil
+	}
+
+	// Best-effort: attach labels (the show endpoint doesn't always include them).
+	if labels, err := snapshotClient.ListLabels(snapCtx, conversationID); err == nil && len(labels) > 0 {
+		conv.Labels = labels
+	}
+
+	var contact *api.Contact
+	if conv.ContactID > 0 {
+		if c, err := snapshotClient.GetContact(snapCtx, conv.ContactID); err == nil {
+			contact = c
+		}
+	}
+
+	var msgs []api.Message
+	if maxMessages > 0 {
+		if m, err := snapshotClient.ListMessages(snapCtx, conversationID, maxMessages, 10); err == nil && len(m) > 0 {
+			// Oldest -> newest.
+			sort.Slice(m, func(i, j int) bool { return m[i].ID < m[j].ID })
+			msgs = m
+		}
+	}
+
+	if isAgent(cmd) {
+		payload := map[string]any{
+			"kind":            "conversations.follow",
+			"event":           "conversation.snapshot",
+			"source":          "api",
+			"conversation_id": conversationID,
+			"conversation":    agentfmt.ConversationDetailFromConversation(*conv),
+			"messages":        agentfmt.MessageSummaries(msgs),
+		}
+		if contact != nil {
+			payload["contact"] = agentfmt.ContactDetailFromContact(*contact)
+		}
+		return writeStreamJSON(cmd, payload)
+	}
+
+	if isJSON(cmd) {
+		payload := map[string]any{
+			"kind":            "conversations.follow",
+			"event":           "conversation.snapshot",
+			"source":          "api",
+			"conversation_id": conversationID,
+			"conversation":    conv,
+			"messages":        msgs,
+		}
+		if contact != nil {
+			payload["contact"] = contact
+		}
+		return writeStreamJSON(cmd, payload)
+	}
+
+	// Text mode: keep snapshots silent by default.
+	return nil
 }
 
 func dedupeStrings(in []string) []string {
