@@ -277,8 +277,10 @@ all conversations on the account.
 			// Reconnection loop with exponential backoff.
 			backoff := 2 * time.Second
 			maxBackoff := 30 * time.Second
+			resetThreshold := 60 * time.Second
 
 			for {
+				connectStart := time.Now()
 				onLastSeen := func(id int) {
 					if cw != nil {
 						cw.Update(id)
@@ -308,8 +310,13 @@ all conversations on the account.
 				if ctx.Err() != nil {
 					return nil
 				}
+				connectionDuration := time.Since(connectStart)
 				if cw != nil {
 					_ = cw.Flush()
+				}
+				// Reset backoff if the connection was stable for a while.
+				if connectionDuration > resetThreshold {
+					backoff = 2 * time.Second
 				}
 				if !isJSON(cmd) {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "disconnected: %v, reconnecting in %s...\n", err, backoff)

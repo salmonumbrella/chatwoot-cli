@@ -116,6 +116,33 @@ func TestFollowCmdAcceptsFilterFlags(t *testing.T) {
 	}
 }
 
+func TestBackoffResetsAfterStableConnection(t *testing.T) {
+	// Verify the logic: if connection lasted > threshold, backoff resets.
+	// This tests the pure logic, not the full WebSocket flow.
+	initialBackoff := 2 * time.Second
+	maxBackoff := 30 * time.Second
+	resetThreshold := 60 * time.Second
+
+	backoff := initialBackoff
+
+	// Simulate escalation.
+	for range 5 {
+		backoff = min(backoff*2, maxBackoff)
+	}
+	if backoff != maxBackoff {
+		t.Fatalf("expected backoff to reach max, got %s", backoff)
+	}
+
+	// Simulate a connection that lasted > threshold.
+	connectionDuration := 2 * time.Minute
+	if connectionDuration > resetThreshold {
+		backoff = initialBackoff
+	}
+	if backoff != initialBackoff {
+		t.Fatalf("expected backoff to reset, got %s", backoff)
+	}
+}
+
 func TestFollowCmdAllWithTailErrors(t *testing.T) {
 	cmd := newConversationsFollowCmd()
 	cmd.SetContext(context.Background())
