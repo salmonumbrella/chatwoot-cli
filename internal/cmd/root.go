@@ -349,6 +349,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.AddCommand(newNoteCmd())
 	root.AddCommand(newCtxCmd())
 	root.AddCommand(newRefCmd())
+	root.AddCommand(newSnoozeCmd())
 
 	// Handle --help-json in a way that bypasses per-command arg validation.
 	// Cobra runs Args() validation before PersistentPreRunE, so flag-based discovery
