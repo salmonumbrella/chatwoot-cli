@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/spf13/cobra"
@@ -429,6 +430,7 @@ func newPortalsArticlesCmd() *cobra.Command {
 
 	cmd.AddCommand(newPortalsArticlesListCmd())
 	cmd.AddCommand(newPortalsArticlesGetCmd())
+	cmd.AddCommand(newPortalsArticlesSearchCmd())
 	cmd.AddCommand(newPortalsArticlesCreateCmd())
 	cmd.AddCommand(newPortalsArticlesUpdateCmd())
 	cmd.AddCommand(newPortalsArticlesDeleteCmd())
@@ -471,6 +473,68 @@ func newPortalsArticlesListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+}
+
+func newPortalsArticlesSearchCmd() *cobra.Command {
+	var includeBody bool
+
+	cmd := &cobra.Command{
+		Use:   "search <portal-slug> <query>",
+		Short: "Search articles in a portal",
+		Example: strings.TrimSpace(`
+  # Search for articles about returns
+  chatwoot portals articles search help-center "return policy"
+
+  # Include article body in output
+  chatwoot portals articles search help-center "shipping" --include-body
+`),
+		Args: cobra.ExactArgs(2),
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			portalSlug := args[0]
+			if err := validateSlug(portalSlug); err != nil {
+				return err
+			}
+			query := args[1]
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			articles, err := client.Portals().SearchArticles(cmdContext(cmd), portalSlug, query)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, articles)
+			}
+
+			if len(articles) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No articles found.")
+				return nil
+			}
+
+			if includeBody {
+				for _, article := range articles {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "--- Article %d: %s ---\n", article.ID, article.Title)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Status: %s | Views: %d\n", article.Status, article.Views)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n", article.Content)
+				}
+			} else {
+				w := newTabWriterFromCmd(cmd)
+				defer func() { _ = w.Flush() }()
+				_, _ = fmt.Fprintln(w, "ID\tTITLE\tSLUG\tSTATUS\tVIEWS")
+				for _, article := range articles {
+					_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d\n", article.ID, article.Title, article.Slug, article.Status, article.Views)
+				}
+			}
+			return nil
+		}),
+	}
+
+	cmd.Flags().BoolVar(&includeBody, "include-body", false, "Include article body content in output")
+	return cmd
 }
 
 func newPortalsArticlesGetCmd() *cobra.Command {

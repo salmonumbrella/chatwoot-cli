@@ -552,6 +552,79 @@ func TestPortalsArticlesReorderCommand_ArticleIDsFromStdin(t *testing.T) {
 	}
 }
 
+// Search articles tests
+
+func TestPortalsArticlesSearchCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/portals/help/articles", func(w http.ResponseWriter, r *http.Request) {
+			if q := r.URL.Query().Get("query"); q != "return policy" {
+				t.Errorf("expected query 'return policy', got %q", q)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[
+				{"id": 1, "title": "Return Policy", "slug": "return-policy", "status": "published", "views": 42, "content": "Our return policy allows..."}
+			]`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"portals", "articles", "search", "help", "return policy"})
+		if err != nil {
+			t.Fatalf("portals articles search failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Return Policy") {
+		t.Errorf("output missing article title: %s", output)
+	}
+	if !strings.Contains(output, "ID") || !strings.Contains(output, "TITLE") || !strings.Contains(output, "STATUS") {
+		t.Errorf("output missing expected headers: %s", output)
+	}
+}
+
+func TestPortalsArticlesSearchCommand_NoResults(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/portals/help/articles", jsonResponse(200, `[]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"portals", "articles", "search", "help", "nonexistent"})
+		if err != nil {
+			t.Fatalf("portals articles search failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "No articles found.") {
+		t.Errorf("expected 'No articles found.' message, got: %s", output)
+	}
+}
+
+func TestPortalsArticlesSearchCommand_IncludeBody(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/portals/help/articles", jsonResponse(200, `[
+			{"id": 1, "title": "Return Policy", "slug": "return-policy", "status": "published", "views": 42, "content": "Our return policy allows 30-day returns."}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"portals", "articles", "search", "help", "return", "--include-body"})
+		if err != nil {
+			t.Fatalf("portals articles search --include-body failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "--- Article 1: Return Policy ---") {
+		t.Errorf("output missing article header: %s", output)
+	}
+	if !strings.Contains(output, "Our return policy allows 30-day returns.") {
+		t.Errorf("output missing article content: %s", output)
+	}
+}
+
 // Categories tests
 
 func TestPortalsCategoriesListCommand(t *testing.T) {

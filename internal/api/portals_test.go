@@ -1114,6 +1114,33 @@ func TestGetPortalSSLStatus(t *testing.T) {
 	}
 }
 
+func TestSearchPortalArticles(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if q := r.URL.Query().Get("query"); q != "return policy" {
+			t.Errorf("expected query 'return policy', got %q", q)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":1,"title":"Return Policy","slug":"return-policy","status":"published","views":42,"content":"Our return policy allows..."}]`))
+	}
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	defer srv.Close()
+
+	client := newTestClient(srv.URL, "test-token", 1)
+	articles, err := client.Portals().SearchArticles(context.Background(), "help-center", "return policy")
+	if err != nil {
+		t.Fatalf("SearchArticles: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("expected 1 article, got %d", len(articles))
+	}
+	if articles[0].Title != "Return Policy" {
+		t.Errorf("title = %q, want 'Return Policy'", articles[0].Title)
+	}
+}
+
 func TestReorderArticles(t *testing.T) {
 	tests := []struct {
 		name        string

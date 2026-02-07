@@ -118,6 +118,18 @@ func listPortalArticles(ctx context.Context, r Requester, portalSlug string) ([]
 	return result, err
 }
 
+// SearchArticles searches articles in a portal by query string.
+func (s PortalsService) SearchArticles(ctx context.Context, portalSlug, query string) ([]Article, error) {
+	return searchPortalArticles(ctx, s, portalSlug, query)
+}
+
+func searchPortalArticles(ctx context.Context, r Requester, portalSlug, query string) ([]Article, error) {
+	var result []Article
+	path := fmt.Sprintf("/portals/%s/articles?query=%s", url.PathEscape(portalSlug), url.QueryEscape(query))
+	err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result)
+	return result, err
+}
+
 // Categories lists categories in a portal.
 func (s PortalsService) Categories(ctx context.Context, portalSlug string) ([]Category, error) {
 	return listPortalCategories(ctx, s, portalSlug)
