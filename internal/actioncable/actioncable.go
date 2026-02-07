@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/coder/websocket"
 )
@@ -112,6 +113,31 @@ func (c *Client) Subscribe(ctx context.Context, id ChannelID) error {
 	default:
 		return fmt.Errorf("unexpected response type: %q", f.Type)
 	}
+}
+
+// StartPresence sends update_presence actions at the given interval.
+// Stops when ctx is cancelled. For Chatwoot, use 30*time.Second.
+func (c *Client) StartPresence(ctx context.Context, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				msg := frame{
+					Command:    "message",
+					Identifier: c.identifier,
+					Data:       `{"action":"update_presence"}`,
+				}
+				data, _ := json.Marshal(msg)
+				if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
+					return
+				}
+			}
+		}
+	}()
 }
 
 // Listen starts the read loop and returns a channel of events.

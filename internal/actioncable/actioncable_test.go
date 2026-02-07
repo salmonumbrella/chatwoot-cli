@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -211,5 +212,54 @@ func TestListenHandlesDisconnect(t *testing.T) {
 		}
 	case <-ctx.Done():
 		t.Fatal("timed out waiting for disconnect event")
+	}
+}
+
+func TestPresenceKeepalive(t *testing.T) {
+	var presenceCount int32
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, _, _ = conn.Read(ctx) // subscribe
+		id, _ := json.Marshal(`{"channel":"RoomChannel"}`)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"type":"confirm_subscription","identifier":%s}`, string(id))))
+
+		// read presence messages
+		for {
+			_, data, err := conn.Read(ctx)
+			if err != nil {
+				return
+			}
+			var f frame
+			_ = json.Unmarshal(data, &f)
+			if f.Command == "message" {
+				var d struct {
+					Action string `json:"action"`
+				}
+				_ = json.Unmarshal([]byte(f.Data), &d)
+				if d.Action == "update_presence" {
+					atomic.AddInt32(&presenceCount, 1)
+				}
+			}
+		}
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, _ := Connect(ctx, url)
+	defer func() { _ = c.Close() }()
+	_ = c.Subscribe(ctx, ChannelID{Channel: "RoomChannel", PubsubToken: "t", AccountID: 1, UserID: 1})
+
+	// Start presence with short interval for testing
+	c.StartPresence(ctx, 100*time.Millisecond)
+
+	<-ctx.Done()
+	time.Sleep(50 * time.Millisecond) // let goroutine finish
+
+	count := atomic.LoadInt32(&presenceCount)
+	if count < 2 {
+		t.Errorf("expected at least 2 presence pings, got %d", count)
 	}
 }
