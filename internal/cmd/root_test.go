@@ -213,6 +213,52 @@ func TestExecute_OutputFlagShorthand(t *testing.T) {
 	}
 }
 
+func TestCommandAliases(t *testing.T) {
+	tests := []struct {
+		alias   string
+		wantCmd string
+	}{
+		{"find", "search"},
+		{"s", "search"},
+		{"reassign", "assign"},
+		{"respond", "reply"},
+		{"r", "reply"},
+		{"pause", "snooze"},
+		{"defer", "snooze"},
+		{"escalate", "handoff"},
+		{"transfer", "handoff"},
+		{"dash", "dashboard"},
+		{"db", "dashboard"},
+		{"v", "version"},
+	}
+
+	// Build a root command with all subcommands
+	ctx := context.Background()
+	// We need to construct the root command the same way Execute does.
+	// Use Execute internals by resolving against a fresh root.
+	root := &cobra.Command{Use: "chatwoot"}
+	root.AddCommand(newSearchCmd())
+	root.AddCommand(newAssignCmd())
+	root.AddCommand(newReplyCmd())
+	root.AddCommand(newSnoozeCmd())
+	root.AddCommand(newHandoffCmd())
+	root.AddCommand(newDashboardCmd())
+	root.AddCommand(newVersionCmd())
+	root.SetContext(ctx)
+
+	for _, tt := range tests {
+		t.Run(tt.alias+"->"+tt.wantCmd, func(t *testing.T) {
+			cmd, _, err := root.Find([]string{tt.alias})
+			if err != nil {
+				t.Fatalf("Find(%q) error: %v", tt.alias, err)
+			}
+			if cmd.Name() != tt.wantCmd {
+				t.Errorf("Find(%q) resolved to %q, want %q", tt.alias, cmd.Name(), tt.wantCmd)
+			}
+		})
+	}
+}
+
 func TestDefaultResolveNamesFromEnv(t *testing.T) {
 	t.Setenv("CHATWOOT_RESOLVE_NAMES", "1")
 	if !defaultResolveNames() {

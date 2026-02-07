@@ -49,10 +49,10 @@ type UnifiedSearchResult struct {
 // SearchResults represents the combined search results from multiple resource types
 type SearchResults struct {
 	Query         string                 `json:"query"`
-	Results       []UnifiedSearchResult  `json:"results,omitempty"` // unified sorted list
-	Contacts      []api.Contact          `json:"contacts,omitempty"`
-	Conversations []api.Conversation     `json:"conversations,omitempty"`
-	Senders       []SenderMatch          `json:"senders,omitempty"`
+	Results       []UnifiedSearchResult  `json:"results"`       // unified sorted list (never omitted, always [])
+	Contacts      []api.Contact          `json:"contacts"`      // never omitted so jq filters don't fail on null
+	Conversations []api.Conversation     `json:"conversations"` // never omitted so jq filters don't fail on null
+	Senders       []SenderMatch          `json:"senders"`       // never omitted so jq filters don't fail on null
 	Snippets      map[string]SnippetInfo `json:"snippets,omitempty"`
 	Summary       map[string]int         `json:"summary"`
 }
@@ -69,8 +69,9 @@ func newSearchCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search across multiple resources",
+		Use:     "search <query>",
+		Aliases: []string{"find", "s"},
+		Short:   "Search across multiple resources",
 		Long: `Search across contacts, conversations, and message senders in parallel.
 
 By default searches contacts and conversations. Use --type to limit to specific
@@ -145,8 +146,12 @@ of relevant resources with a single query.`,
 
 			// Create result struct
 			results := SearchResults{
-				Query:   query,
-				Summary: make(map[string]int),
+				Query:         query,
+				Results:       []UnifiedSearchResult{},
+				Contacts:      []api.Contact{},
+				Conversations: []api.Conversation{},
+				Senders:       []SenderMatch{},
+				Summary:       make(map[string]int),
 			}
 
 			if best && selectOne {
@@ -216,7 +221,7 @@ of relevant resources with a single query.`,
 						// Apply limit
 						if limit > 0 && len(allContacts) > limit {
 							results.Contacts = allContacts[:limit]
-						} else {
+						} else if allContacts != nil {
 							results.Contacts = allContacts
 						}
 						results.Summary["contacts"] = len(results.Contacts)
@@ -260,7 +265,7 @@ of relevant resources with a single query.`,
 						mu.Lock()
 						if limit > 0 && len(allConversations) > limit {
 							results.Conversations = allConversations[:limit]
-						} else {
+						} else if allConversations != nil {
 							results.Conversations = allConversations
 						}
 						results.Summary["conversations"] = len(results.Conversations)
@@ -422,7 +427,9 @@ of relevant resources with a single query.`,
 						}
 
 						mu.Lock()
-						results.Senders = senderMatches
+						if senderMatches != nil {
+							results.Senders = senderMatches
+						}
 						results.Summary["senders"] = len(senderMatches)
 						mu.Unlock()
 					}
@@ -498,7 +505,9 @@ of relevant resources with a single query.`,
 			sort.Slice(unified, func(i, j int) bool {
 				return unified[i].LastActivityAt > unified[j].LastActivityAt
 			})
-			results.Results = unified
+			if unified != nil {
+				results.Results = unified
+			}
 
 			if best {
 				if len(results.Results) == 0 {

@@ -14,8 +14,9 @@ var version = "dev"
 
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
+		Use:     "version",
+		Aliases: []string{"v"},
+		Short:   "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "chatwoot-cli version %s\n", version)
 

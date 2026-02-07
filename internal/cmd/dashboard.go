@@ -23,8 +23,9 @@ func newDashboardCmd() *cobra.Command {
 	var resolveWarning string
 
 	cmd := &cobra.Command{
-		Use:   "dashboard <name>",
-		Short: "Query a configured dashboard",
+		Use:     "dashboard <name>",
+		Aliases: []string{"dash", "db"},
+		Short:   "Query a configured dashboard",
 		Long: `Query an external dashboard API for contact data.
 
 Dashboards must be configured first using 'chatwoot config dashboard add'.

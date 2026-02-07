@@ -17,8 +17,9 @@ func newSnoozeCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "snooze <conversation-id|url>",
-		Short: "Snooze a conversation",
+		Use:     "snooze <conversation-id|url>",
+		Aliases: []string{"pause", "defer"},
+		Short:   "Snooze a conversation",
 		Long: `Snooze a conversation for a specified duration.
 
 This is a convenience shortcut for:

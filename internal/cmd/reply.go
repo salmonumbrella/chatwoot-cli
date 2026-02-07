@@ -34,8 +34,9 @@ func newReplyCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "reply [contact-search]",
-		Short: "Send a reply to a contact's open conversation",
+		Use:     "reply [contact-search]",
+		Aliases: []string{"respond", "r"},
+		Short:   "Send a reply to a contact's open conversation",
 		Long: `Send a reply by searching for a contact by name or email.
 If multiple contacts match, disambiguation is required.
 If multiple open conversations exist for the contact, disambiguation is required.`,

@@ -18,8 +18,9 @@ func newHandoffCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "handoff <conversation-id|url>",
-		Short: "Escalate a conversation to another agent or team",
+		Use:     "handoff <conversation-id|url>",
+		Aliases: []string{"escalate", "transfer"},
+		Short:   "Escalate a conversation to another agent or team",
 		Long: strings.TrimSpace(`
 Composite escalation command that:
   1. Sends a private note with the handoff reason

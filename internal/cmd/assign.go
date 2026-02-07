@@ -15,8 +15,9 @@ func newAssignCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "assign <conversation-id>",
-		Short: "Assign a conversation to an agent or team",
+		Use:     "assign <conversation-id>",
+		Aliases: []string{"reassign"},
+		Short:   "Assign a conversation to an agent or team",
 		Long: `Assign a conversation to an agent and/or team.
 
 This is a convenience shortcut for 'chatwoot conversations assign'.
