@@ -21,7 +21,7 @@ func newHandoffCmd() *cobra.Command {
 		Use:   "handoff <conversation-id|url>",
 		Short: "Escalate a conversation to another agent or team",
 		Long: strings.TrimSpace(`
-Composite escalation command that atomically:
+Composite escalation command that:
   1. Sends a private note with the handoff reason
   2. Assigns to the specified agent and/or team
   3. Optionally sets priority
@@ -48,6 +48,10 @@ This replaces the three-command sequence of note + assign + update.
 				return err
 			}
 
+			if strings.TrimSpace(agent) == "" && strings.TrimSpace(team) == "" {
+				return fmt.Errorf("at least one of --agent or --team is required")
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -63,10 +67,6 @@ This replaces the three-command sequence of note + assign + update.
 			teamID, err := resolveTeamID(ctx, client, team)
 			if err != nil {
 				return err
-			}
-
-			if agentID == 0 && teamID == 0 {
-				return fmt.Errorf("at least one of --agent or --team is required")
 			}
 
 			if priority != "" {
