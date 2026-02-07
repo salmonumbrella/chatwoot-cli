@@ -28,6 +28,12 @@ type ChannelID struct {
 	UserID      int    `json:"user_id,omitempty"`
 }
 
+// Event is a message received from the ActionCable server.
+type Event struct {
+	Data json.RawMessage // the "message" field payload
+	Err  error           // non-nil on read error or disconnect
+}
+
 // Client is an ActionCable WebSocket client.
 type Client struct {
 	conn       *websocket.Conn
@@ -106,4 +112,50 @@ func (c *Client) Subscribe(ctx context.Context, id ChannelID) error {
 	default:
 		return fmt.Errorf("unexpected response type: %q", f.Type)
 	}
+}
+
+// Listen starts the read loop and returns a channel of events.
+// Pings and internal frames are handled silently.
+// The channel closes when the connection drops or ctx is cancelled.
+func (c *Client) Listen(ctx context.Context) <-chan Event {
+	ch := make(chan Event, 64)
+	go func() {
+		defer close(ch)
+		for {
+			_, data, err := c.conn.Read(ctx)
+			if err != nil {
+				select {
+				case ch <- Event{Err: err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			var f frame
+			if err := json.Unmarshal(data, &f); err != nil {
+				continue // skip malformed frames
+			}
+
+			switch {
+			case f.Type == "ping":
+				continue
+			case f.Type == "disconnect":
+				reconnect := f.Reconnect != nil && *f.Reconnect
+				select {
+				case ch <- Event{Err: fmt.Errorf("disconnect (reason=%s, reconnect=%v)", f.Reason, reconnect)}:
+				case <-ctx.Done():
+				}
+				return
+			case f.Type == "confirm_subscription", f.Type == "reject_subscription":
+				continue
+			case len(f.Message) > 0:
+				select {
+				case ch <- Event{Data: f.Message}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	return ch
 }

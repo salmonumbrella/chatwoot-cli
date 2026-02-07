@@ -135,3 +135,81 @@ func TestSubscribeReject(t *testing.T) {
 		t.Fatal("expected rejection error")
 	}
 }
+
+func TestListenDeliversEvents(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, _, _ = conn.Read(ctx) // subscribe
+		id, _ := json.Marshal(`{"channel":"RoomChannel"}`)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"type":"confirm_subscription","identifier":%s}`, string(id))))
+
+		// send a ping (should be filtered)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"ping","message":1234}`))
+
+		// send a data message
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"identifier":%s,"message":{"event":"message.created","data":{"id":99}}}`, string(id))))
+
+		time.Sleep(200 * time.Millisecond)
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, _ := Connect(ctx, url)
+	defer func() { _ = c.Close() }()
+	_ = c.Subscribe(ctx, ChannelID{Channel: "RoomChannel", PubsubToken: "t", AccountID: 1, UserID: 1})
+
+	events := c.Listen(ctx)
+	select {
+	case ev := <-events:
+		if ev.Err != nil {
+			t.Fatalf("event error: %v", ev.Err)
+		}
+		if len(ev.Data) == 0 {
+			t.Fatal("empty event data")
+		}
+		// Verify the data contains our message
+		var payload map[string]any
+		if err := json.Unmarshal(ev.Data, &payload); err != nil {
+			t.Fatalf("unmarshal payload: %v", err)
+		}
+		if payload["event"] != "message.created" {
+			t.Errorf("event = %v, want message.created", payload["event"])
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for event")
+	}
+}
+
+func TestListenHandlesDisconnect(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, _, _ = conn.Read(ctx) // subscribe
+		id, _ := json.Marshal(`{"channel":"RoomChannel"}`)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"type":"confirm_subscription","identifier":%s}`, string(id))))
+
+		// send disconnect
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"disconnect","reason":"server_restart","reconnect":true}`))
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, _ := Connect(ctx, url)
+	defer func() { _ = c.Close() }()
+	_ = c.Subscribe(ctx, ChannelID{Channel: "RoomChannel", PubsubToken: "t", AccountID: 1, UserID: 1})
+
+	events := c.Listen(ctx)
+	select {
+	case ev := <-events:
+		if ev.Err == nil {
+			t.Fatal("expected error for disconnect")
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for disconnect event")
+	}
+}
