@@ -63,6 +63,14 @@ all conversations on the account.
 			}
 			events = dedupeStrings(events)
 
+			allowAllEvents := false
+			for _, e := range events {
+				if e == "all" || e == "*" {
+					allowAllEvents = true
+					break
+				}
+			}
+
 			contextEnabled := withContext
 			if isAgent(cmd) && !cmd.Flags().Changed("context") {
 				contextEnabled = true
@@ -71,13 +79,16 @@ all conversations on the account.
 				contextMsgs = 10
 			}
 
-			allowedEvents := make(map[string]struct{}, len(events))
-			for _, e := range events {
-				e = strings.TrimSpace(e)
-				if e == "" {
-					continue
+			var allowedEvents map[string]struct{}
+			if !allowAllEvents {
+				allowedEvents = make(map[string]struct{}, len(events))
+				for _, e := range events {
+					e = strings.TrimSpace(e)
+					if e == "" || e == "all" || e == "*" {
+						continue
+					}
+					allowedEvents[e] = struct{}{}
 				}
-				allowedEvents[e] = struct{}{}
 			}
 
 			convID := 0
@@ -190,7 +201,7 @@ all conversations on the account.
 	cmd.Flags().BoolVar(&incomingOnly, "incoming-only", true, "Only show incoming (customer) messages")
 	cmd.Flags().IntVar(&tail, "tail", 20, "Print the last N messages before following (0 to disable)")
 	cmd.Flags().BoolVar(&followAll, "all", false, "Follow all conversations (no conversation ID required)")
-	cmd.Flags().StringSliceVar(&events, "events", []string{"message.created"}, "Event types to show (message.created,conversation.created,conversation.status_changed,assignee.changed)")
+	cmd.Flags().StringSliceVar(&events, "events", []string{"message.created"}, "Event types to show (or 'all'): message.created,message.updated,conversation.created,conversation.updated,conversation.status_changed,assignee.changed,label.added,label.removed,conversation.typing_on,conversation.typing_off")
 	cmd.Flags().BoolVar(&showTyping, "typing", false, "Show typing indicators")
 	cmd.Flags().DurationVar(&debounce, "debounce", 0, "Batch rapid messages from same conversation (e.g., 2s)")
 	cmd.Flags().BoolVar(&includeRaw, "raw", false, "Include raw WebSocket payload (JSON/agent modes only)")
@@ -353,7 +364,7 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 			}
 
 			// message.created has a strongly-typed payload.
-			if wsEvent.Event == "message.created" {
+			if wsEvent.Event == "message.created" || wsEvent.Event == "message.updated" {
 				var msg api.Message
 				if err := json.Unmarshal(wsEvent.Data, &msg); err != nil {
 					continue
@@ -378,11 +389,11 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 				}
 
 				// Debounce (batch) rapid messages per conversation.
-				if debounce <= 0 {
+				if debounce <= 0 || wsEvent.Event != "message.created" {
 					if err := maybeSnapshot(msg.ConversationID); err != nil {
 						return err
 					}
-					if err := printFollowMessageWithRaw(cmd, msg, "ws", rawEnvelope, includeRaw); err != nil {
+					if err := printFollowMessageWithRaw(cmd, wsEvent.Event, msg, "ws", rawEnvelope, includeRaw); err != nil {
 						return err
 					}
 					continue
@@ -454,17 +465,19 @@ type followMsg struct {
 }
 
 func printFollowMessage(cmd *cobra.Command, m api.Message, source string) error {
-	return printFollowMessageWithRaw(cmd, m, source, nil, false)
+	return printFollowMessageWithRaw(cmd, "message.created", m, source, nil, false)
 }
 
-func printFollowMessageWithRaw(cmd *cobra.Command, m api.Message, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
+func printFollowMessageWithRaw(cmd *cobra.Command, event string, m api.Message, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
 	if isAgent(cmd) {
 		summary := agentfmt.MessageSummaryFromMessage(m)
 		out := map[string]any{
-			"kind":   "conversations.follow",
-			"event":  "message.created",
-			"source": source,
-			"item":   summary,
+			"kind":            "conversations.follow",
+			"event":           event,
+			"source":          source,
+			"conversation_id": m.ConversationID,
+			"ts":              time.Unix(m.CreatedAt, 0).UTC().Format(time.RFC3339Nano),
+			"item":            summary,
 		}
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
@@ -474,10 +487,13 @@ func printFollowMessageWithRaw(cmd *cobra.Command, m api.Message, source string,
 	if isJSON(cmd) {
 		// Emit as JSON lines.
 		out := map[string]any{
-			"source": source,
-			"type":   "message",
-			"event":  "message.created",
-			"item":   m,
+			"kind":            "conversations.follow",
+			"source":          source,
+			"type":            "message",
+			"event":           event,
+			"conversation_id": m.ConversationID,
+			"ts":              time.Unix(m.CreatedAt, 0).UTC().Format(time.RFC3339Nano),
+			"item":            m,
 		}
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
@@ -503,10 +519,11 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 		return nil
 	}
 	if len(messages) == 1 {
-		return printFollowMessageWithRaw(cmd, messages[0].msg, source, messages[0].raw, includeRaw)
+		return printFollowMessageWithRaw(cmd, "message.created", messages[0].msg, source, messages[0].raw, includeRaw)
 	}
 
 	convID := messages[0].msg.ConversationID
+	ts := time.Unix(messages[len(messages)-1].msg.CreatedAt, 0).UTC().Format(time.RFC3339Nano)
 
 	if isAgent(cmd) {
 		rawItems := make([]json.RawMessage, 0, len(messages))
@@ -524,6 +541,7 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 			"event":           "message.batch",
 			"source":          source,
 			"conversation_id": convID,
+			"ts":              ts,
 			"items":           agentfmt.MessageSummaries(msgs),
 		}
 		if includeRaw {
@@ -543,10 +561,12 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 			}
 		}
 		out := map[string]any{
+			"kind":            "conversations.follow",
 			"type":            "message_batch",
 			"event":           "message.batch",
 			"source":          source,
 			"conversation_id": convID,
+			"ts":              ts,
 			"items":           msgs,
 		}
 		if includeRaw {
@@ -558,7 +578,7 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 	// Text output: batch as a single entry with concatenated content.
 	first := messages[0].msg
 	last := messages[len(messages)-1].msg
-	ts := time.Unix(last.CreatedAt, 0).Format("15:04:05")
+	tsHuman := time.Unix(last.CreatedAt, 0).Format("15:04:05")
 	sender := "-"
 	if first.Sender != nil && strings.TrimSpace(first.Sender.Name) != "" {
 		sender = first.Sender.Name
@@ -574,17 +594,22 @@ func printFollowMessageBatch(cmd *cobra.Command, messages []followMsg, source st
 		parts = append(parts, strings.TrimSpace(m.msg.Content))
 	}
 	content := strings.TrimSpace(strings.Join(parts, "\n"))
-	_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s (%s)%s: %s\n", ts, sender, kind, privacy, content)
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s (%s)%s: %s\n", tsHuman, sender, kind, privacy, content)
 	return err
 }
 
 func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string, rawEnvelope json.RawMessage, includeRaw bool) error {
+	convID := conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
+	ts := time.Now().UTC().Format(time.RFC3339Nano)
+
 	if isAgent(cmd) {
 		out := map[string]any{
-			"kind":   "conversations.follow",
-			"event":  wsEvent.Event,
-			"source": source,
-			"data":   json.RawMessage(wsEvent.Data),
+			"kind":            "conversations.follow",
+			"event":           wsEvent.Event,
+			"source":          source,
+			"conversation_id": convID,
+			"ts":              ts,
+			"data":            json.RawMessage(wsEvent.Data),
 		}
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
@@ -593,10 +618,13 @@ func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string
 	}
 	if isJSON(cmd) {
 		out := map[string]any{
-			"type":   "event",
-			"event":  wsEvent.Event,
-			"source": source,
-			"data":   json.RawMessage(wsEvent.Data),
+			"kind":            "conversations.follow",
+			"type":            "event",
+			"event":           wsEvent.Event,
+			"source":          source,
+			"conversation_id": convID,
+			"ts":              ts,
+			"data":            json.RawMessage(wsEvent.Data),
 		}
 		if includeRaw && len(rawEnvelope) > 0 {
 			out["raw"] = rawEnvelope
@@ -605,12 +633,12 @@ func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string
 	}
 
 	// Text output: attempt to format known event types.
-	ts := time.Now().Format("15:04:05")
+	tsHuman := time.Now().Format("15:04:05")
 	switch wsEvent.Event {
 	case "conversation.created":
 		id, contactName, inboxID := conversationCreatedSummary(wsEvent.Data)
 		if id == 0 {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", ts, wsEvent.Event)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", tsHuman, wsEvent.Event)
 			return err
 		}
 		msg := fmt.Sprintf("New conversation #%d", id)
@@ -620,36 +648,36 @@ func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string
 		if inboxID != 0 {
 			msg += fmt.Sprintf(" (inbox: %d)", inboxID)
 		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", ts, msg)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", tsHuman, msg)
 		return err
 	case "conversation.status_changed":
 		id, status := conversationStatusChangedSummary(wsEvent.Data)
 		if id == 0 {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", ts, wsEvent.Event)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", tsHuman, wsEvent.Event)
 			return err
 		}
 		if strings.TrimSpace(status) == "" {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d status changed\n", ts, id)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d status changed\n", tsHuman, id)
 			return err
 		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d status changed to %s\n", ts, id, status)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d status changed to %s\n", tsHuman, id, status)
 		return err
 	case "assignee.changed":
 		id, assigneeName, assigned := assigneeChangedSummary(wsEvent.Data)
 		if id == 0 {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", ts, wsEvent.Event)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", tsHuman, wsEvent.Event)
 			return err
 		}
 		if assigned {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d assigned to %s\n", ts, id, assigneeName)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d assigned to %s\n", tsHuman, id, assigneeName)
 			return err
 		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d unassigned\n", ts, id)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] Conversation #%d unassigned\n", tsHuman, id)
 		return err
 	case "conversation.typing_on", "conversation.typing_off":
 		id, userName := typingSummary(wsEvent.Data)
 		if id == 0 {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", ts, wsEvent.Event)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", tsHuman, wsEvent.Event)
 			return err
 		}
 		name := strings.TrimSpace(userName)
@@ -657,13 +685,13 @@ func printFollowEvent(cmd *cobra.Command, wsEvent chatwootWSEvent, source string
 			name = "Someone"
 		}
 		if wsEvent.Event == "conversation.typing_on" {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s is typing in #%d...\n", ts, name, id)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s is typing in #%d...\n", tsHuman, name, id)
 			return err
 		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s stopped typing in #%d\n", ts, name, id)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s stopped typing in #%d\n", tsHuman, name, id)
 		return err
 	default:
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", ts, wsEvent.Event)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s\n", tsHuman, wsEvent.Event)
 		return err
 	}
 }
@@ -695,6 +723,7 @@ func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotC
 				"event":           "conversation.snapshot_error",
 				"source":          "api",
 				"conversation_id": conversationID,
+				"ts":              time.Now().UTC().Format(time.RFC3339Nano),
 				"error":           err.Error(),
 			})
 		}
@@ -728,6 +757,7 @@ func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotC
 			"event":           "conversation.snapshot",
 			"source":          "api",
 			"conversation_id": conversationID,
+			"ts":              time.Now().UTC().Format(time.RFC3339Nano),
 			"conversation":    agentfmt.ConversationDetailFromConversation(*conv),
 			"messages":        agentfmt.MessageSummaries(msgs),
 		}
@@ -743,6 +773,7 @@ func emitConversationSnapshot(ctx context.Context, cmd *cobra.Command, snapshotC
 			"event":           "conversation.snapshot",
 			"source":          "api",
 			"conversation_id": conversationID,
+			"ts":              time.Now().UTC().Format(time.RFC3339Nano),
 			"conversation":    conv,
 			"messages":        msgs,
 		}
