@@ -51,6 +51,7 @@ func newConversationsFollowCmd() *cobra.Command {
 		maxBatch       int
 		execHandler    string
 		execTimeout    time.Duration
+		execFatal      bool
 	)
 
 	cmd := &cobra.Command{
@@ -166,7 +167,7 @@ all conversations on the account.
 			}
 
 			snapshotClient := followAPISnapshotClient{client: client}
-			hook := newFollowExecHook(cmd, execHandler, execTimeout)
+			hook := newFollowExecHook(cmd, execHandler, execTimeout, execFatal)
 
 			sinceT, err := parseSinceTime(sinceTime, time.Now())
 			if err != nil {
@@ -356,6 +357,7 @@ all conversations on the account.
 	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "Maximum messages per debounced batch (0 = unlimited)")
 	cmd.Flags().StringVar(&execHandler, "exec", "", "Run a command for each emitted JSON/agent event (event JSON on stdin)")
 	cmd.Flags().DurationVar(&execTimeout, "exec-timeout", 30*time.Second, "Timeout per --exec invocation")
+	cmd.Flags().BoolVar(&execFatal, "exec-fatal", false, "Treat --exec failures as fatal (default: log to stderr and continue)")
 	return cmd
 }
 
@@ -1097,9 +1099,10 @@ type followExecHook struct {
 	cmd     *cobra.Command
 	command string
 	timeout time.Duration
+	fatal   bool
 }
 
-func newFollowExecHook(cmd *cobra.Command, command string, timeout time.Duration) *followExecHook {
+func newFollowExecHook(cmd *cobra.Command, command string, timeout time.Duration, fatal bool) *followExecHook {
 	command = strings.TrimSpace(command)
 	if command == "" {
 		return nil
@@ -1111,6 +1114,7 @@ func newFollowExecHook(cmd *cobra.Command, command string, timeout time.Duration
 		cmd:     cmd,
 		command: command,
 		timeout: timeout,
+		fatal:   fatal,
 	}
 }
 
@@ -1142,7 +1146,10 @@ func (h *followExecHook) Run(v any) error {
 func emitStreamRecord(cmd *cobra.Command, hook *followExecHook, v any) error {
 	if hook != nil && (isJSON(cmd) || isAgent(cmd)) {
 		if err := hook.Run(v); err != nil {
-			return fmt.Errorf("--exec failed: %w", err)
+			if hook.fatal {
+				return fmt.Errorf("--exec failed: %w", err)
+			}
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "exec hook error: %v\n", err)
 		}
 	}
 	return writeStreamJSON(cmd, v)

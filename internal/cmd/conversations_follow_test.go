@@ -116,6 +116,13 @@ func TestFollowCmdAcceptsFilterFlags(t *testing.T) {
 	}
 }
 
+func TestFollowCmdAcceptsExecFatalFlag(t *testing.T) {
+	cmd := newConversationsFollowCmd()
+	if cmd.Flags().Lookup("exec-fatal") == nil {
+		t.Fatal("missing --exec-fatal flag")
+	}
+}
+
 func TestBackoffResetsAfterStableConnection(t *testing.T) {
 	// Verify the logic: if connection lasted > threshold, backoff resets.
 	// This tests the pure logic, not the full WebSocket flow.
