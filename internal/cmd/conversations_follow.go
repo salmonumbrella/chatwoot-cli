@@ -23,18 +23,26 @@ import (
 
 func newConversationsFollowCmd() *cobra.Command {
 	var (
-		incomingOnly bool
-		tail         int
-		followAll    bool
-		events       []string
-		showTyping   bool
-		debounce     time.Duration
-		includeRaw   bool
-		withContext  bool
-		contextMsgs  int
-		cursorFile   string
-		sinceID      int
-		sinceTime    string
+		incomingOnly   bool
+		tail           int
+		followAll      bool
+		events         []string
+		showTyping     bool
+		debounce       time.Duration
+		includeRaw     bool
+		withContext    bool
+		contextMsgs    int
+		cursorFile     string
+		sinceID        int
+		sinceTime      string
+		filterInbox    int
+		filterStatus   string
+		filterAgent    int
+		filterLabels   []string
+		filterPrio     string
+		filterContact  int
+		onlyUnassigned bool
+		excludePrivate bool
 	)
 
 	cmd := &cobra.Command{
@@ -81,6 +89,28 @@ all conversations on the account.
 			}
 			if contextMsgs <= 0 {
 				contextMsgs = 10
+			}
+
+			if filterStatus != "" {
+				if err := validateStatus(filterStatus); err != nil {
+					return err
+				}
+			}
+			if filterPrio != "" {
+				if err := validatePriority(filterPrio); err != nil {
+					return err
+				}
+			}
+
+			filters := followFilters{
+				InboxID:        filterInbox,
+				Status:         filterStatus,
+				AssigneeID:     filterAgent,
+				Labels:         dedupeStrings(filterLabels),
+				Priority:       filterPrio,
+				ContactID:      filterContact,
+				OnlyUnassigned: onlyUnassigned,
+				ExcludePrivate: excludePrivate,
 			}
 
 			var allowedEvents map[string]struct{}
@@ -170,6 +200,13 @@ all conversations on the account.
 			}
 
 			if tail > 0 {
+				// For a single conversation, we can apply meta-based filters once.
+				var meta *convMeta
+				if convID != 0 && filters.metaFiltersEnabled() {
+					// Best-effort; if meta can't be fetched, fall back to no meta filtering.
+					meta, _ = fetchConversationMeta(ctx, snapshotClient, convID, filters.Labels)
+				}
+
 				msgs, err := client.Messages().ListWithLimit(ctx, convID, tail, 10)
 				if err == nil && len(msgs) > 0 {
 					// Print oldest -> newest.
@@ -181,7 +218,13 @@ all conversations on the account.
 						if m.ID <= lastSeenID {
 							continue
 						}
+						if filters.ExcludePrivate && m.Private {
+							continue
+						}
 						if incomingOnly && m.MessageType != api.MessageTypeIncoming {
+							continue
+						}
+						if filters.metaFiltersEnabled() && meta != nil && !filters.matchMeta(meta) {
 							continue
 						}
 						if err := printFollowMessage(cmd, m, "history"); err != nil {
@@ -230,7 +273,7 @@ all conversations on the account.
 						cw.Update(id)
 					}
 				}
-				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
+				err := followViaWebSocket(ctx, cmd, snapshotClient, contextEnabled, contextMsgs, minCreatedAt, onLastSeen, filters, cableURL, channelID, convID, incomingOnly, &lastSeenID, allowedEvents, debounce, includeRaw)
 				if ctx.Err() != nil {
 					return nil
 				}
@@ -262,6 +305,14 @@ all conversations on the account.
 	cmd.Flags().StringVar(&cursorFile, "cursor-file", "", "Persist last seen message id to a file for resume/restart")
 	cmd.Flags().IntVar(&sinceID, "since-id", 0, "Skip messages with id <= this value (useful for resume)")
 	cmd.Flags().StringVar(&sinceTime, "since-time", "", "Skip messages created before this time (RFC3339, unix seconds, or duration like 24h)")
+	cmd.Flags().IntVar(&filterInbox, "inbox", 0, "Only show events for conversations in this inbox ID")
+	cmd.Flags().StringVar(&filterStatus, "status", "", "Only show events for conversations with this status (open|resolved|pending|snoozed)")
+	cmd.Flags().IntVar(&filterAgent, "assignee", 0, "Only show events for conversations assigned to this agent ID")
+	cmd.Flags().StringSliceVar(&filterLabels, "label", nil, "Only show events for conversations that have all of these labels")
+	cmd.Flags().StringVar(&filterPrio, "priority", "", "Only show events for conversations with this priority (urgent|high|medium|low|none)")
+	cmd.Flags().IntVar(&filterContact, "contact", 0, "Only show events for conversations with this contact ID")
+	cmd.Flags().BoolVar(&onlyUnassigned, "only-unassigned", false, "Only show events for conversations with no assignee")
+	cmd.Flags().BoolVar(&excludePrivate, "exclude-private", false, "Exclude private messages")
 	return cmd
 }
 
@@ -300,7 +351,7 @@ func (c followAPISnapshotClient) ListLabels(ctx context.Context, conversationID 
 
 // followViaWebSocket connects to ActionCable, subscribes, and processes events
 // until the connection drops or ctx is cancelled. Returns non-nil error on disconnect.
-func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
+func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient followSnapshotClient, contextEnabled bool, contextMsgs int, minCreatedAt int64, onLastSeen func(int), filters followFilters, cableURL string, channelID actioncable.ChannelID, convID int, incomingOnly bool, lastSeenID *int, allowedEvents map[string]struct{}, debounce time.Duration, includeRaw bool) error {
 	conn, err := actioncable.Connect(ctx, cableURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -326,6 +377,38 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 	defer close(done)
 
 	snapshotted := make(map[int]bool)
+	convCache := make(map[int]*convMeta)
+
+	ensureMeta := func(conversationID int) (*convMeta, error) {
+		if conversationID <= 0 || snapshotClient == nil {
+			return nil, nil
+		}
+		if m := convCache[conversationID]; m != nil && m.Hydrated {
+			return m, nil
+		}
+		m, err := fetchConversationMeta(ctx, snapshotClient, conversationID, filters.Labels)
+		if err != nil {
+			return nil, err
+		}
+		if m != nil {
+			convCache[conversationID] = m
+		}
+		return m, nil
+	}
+
+	updateMetaFromEvent := func(wsEvent chatwootWSEvent) {
+		id := conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
+		if id <= 0 {
+			return
+		}
+		m := convCache[id]
+		if m == nil {
+			m = &convMeta{ID: id}
+			convCache[id] = m
+		}
+		m.ApplyEvent(wsEvent.Event, wsEvent.Data)
+	}
+
 	maybeSnapshot := func(conversationID int) error {
 		if !contextEnabled {
 			return nil
@@ -450,6 +533,16 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 				if incomingOnly && msg.MessageType != api.MessageTypeIncoming {
 					continue
 				}
+				if filters.ExcludePrivate && msg.Private {
+					continue
+				}
+
+				if filters.metaFiltersEnabled() {
+					meta, _ := ensureMeta(msg.ConversationID)
+					if meta == nil || !filters.matchMeta(meta) {
+						continue
+					}
+				}
 
 				// Debounce (batch) rapid messages per conversation.
 				if debounce <= 0 || wsEvent.Event != "message.created" {
@@ -490,6 +583,17 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, snapshotClient 
 				}
 			} else {
 				eventConvID = conversationIDFromEvent(wsEvent.Event, wsEvent.Data)
+			}
+
+			updateMetaFromEvent(wsEvent)
+			if filters.metaFiltersEnabled() {
+				if eventConvID <= 0 {
+					continue
+				}
+				meta, _ := ensureMeta(eventConvID)
+				if meta == nil || !filters.matchMeta(meta) {
+					continue
+				}
 			}
 
 			if err := maybeSnapshot(eventConvID); err != nil {
@@ -1125,4 +1229,228 @@ func parseSinceTime(s string, now time.Time) (time.Time, error) {
 	}
 
 	return time.Time{}, fmt.Errorf("invalid --since-time %q (use RFC3339, unix seconds, or duration like 24h)", s)
+}
+
+type followFilters struct {
+	InboxID        int
+	Status         string
+	AssigneeID     int
+	Labels         []string
+	Priority       string
+	ContactID      int
+	OnlyUnassigned bool
+	ExcludePrivate bool
+}
+
+func (f followFilters) metaFiltersEnabled() bool {
+	return f.InboxID > 0 ||
+		f.Status != "" ||
+		f.AssigneeID > 0 ||
+		len(f.Labels) > 0 ||
+		f.Priority != "" ||
+		f.ContactID > 0 ||
+		f.OnlyUnassigned
+}
+
+func (f followFilters) matchMeta(m *convMeta) bool {
+	if m == nil {
+		return false
+	}
+	if f.InboxID > 0 && m.InboxID != f.InboxID {
+		return false
+	}
+	if f.Status != "" && strings.TrimSpace(m.Status) != f.Status {
+		return false
+	}
+	if f.Priority != "" && strings.TrimSpace(m.Priority) != f.Priority {
+		return false
+	}
+	if f.ContactID > 0 && m.ContactID != f.ContactID {
+		return false
+	}
+	if f.AssigneeID > 0 {
+		if m.AssigneeID == nil || *m.AssigneeID != f.AssigneeID {
+			return false
+		}
+	}
+	if f.OnlyUnassigned {
+		if m.AssigneeID != nil && *m.AssigneeID != 0 {
+			return false
+		}
+	}
+	if len(f.Labels) > 0 {
+		for _, lbl := range f.Labels {
+			if lbl == "" {
+				continue
+			}
+			if !m.HasLabel(lbl) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+type convMeta struct {
+	ID         int
+	InboxID    int
+	Status     string
+	Priority   string
+	AssigneeID *int
+	ContactID  int
+	Labels     map[string]bool
+	Hydrated   bool
+}
+
+func (m *convMeta) HasLabel(label string) bool {
+	if m == nil || m.Labels == nil {
+		return false
+	}
+	return m.Labels[label]
+}
+
+func (m *convMeta) SetLabels(labels []string) {
+	if m == nil {
+		return
+	}
+	if len(labels) == 0 {
+		m.Labels = nil
+		return
+	}
+	set := make(map[string]bool, len(labels))
+	for _, l := range labels {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		set[l] = true
+	}
+	m.Labels = set
+}
+
+func (m *convMeta) ApplyConversation(conv api.Conversation) {
+	if m == nil {
+		return
+	}
+	m.ID = conv.ID
+	m.InboxID = conv.InboxID
+	m.Status = conv.Status
+	if conv.Priority != nil {
+		m.Priority = *conv.Priority
+	} else {
+		m.Priority = "none"
+	}
+	m.AssigneeID = conv.AssigneeID
+	m.ContactID = conv.ContactID
+	if len(conv.Labels) > 0 {
+		m.SetLabels(conv.Labels)
+	}
+	m.Hydrated = true
+}
+
+func (m *convMeta) ApplyEvent(event string, data json.RawMessage) {
+	if m == nil {
+		return
+	}
+	switch event {
+	case "conversation.status_changed":
+		_, status := conversationStatusChangedSummary(data)
+		if strings.TrimSpace(status) != "" {
+			m.Status = status
+		}
+	case "assignee.changed":
+		var payload map[string]any
+		if err := json.Unmarshal(data, &payload); err != nil {
+			return
+		}
+		assigneeAny, ok := payload["assignee"]
+		if !ok || assigneeAny == nil {
+			m.AssigneeID = nil
+			return
+		}
+		assignee, ok := assigneeAny.(map[string]any)
+		if !ok {
+			return
+		}
+		id := anyToInt(assignee["id"])
+		if id > 0 {
+			m.AssigneeID = &id
+		}
+	case "label.added":
+		var payload map[string]any
+		if err := json.Unmarshal(data, &payload); err != nil {
+			return
+		}
+		if lbl, ok := payload["label"].(string); ok && strings.TrimSpace(lbl) != "" {
+			if m.Labels == nil {
+				m.Labels = make(map[string]bool)
+			}
+			m.Labels[strings.TrimSpace(lbl)] = true
+		}
+	case "label.removed":
+		var payload map[string]any
+		if err := json.Unmarshal(data, &payload); err != nil {
+			return
+		}
+		if lbl, ok := payload["label"].(string); ok && strings.TrimSpace(lbl) != "" {
+			if m.Labels != nil {
+				delete(m.Labels, strings.TrimSpace(lbl))
+			}
+		}
+	case "conversation.created", "conversation.updated":
+		var conv api.Conversation
+		if err := json.Unmarshal(data, &conv); err == nil && conv.ID > 0 {
+			m.ApplyConversation(conv)
+			return
+		}
+		// Best-effort fallback to partial fields.
+		var payload map[string]any
+		if err := json.Unmarshal(data, &payload); err != nil {
+			return
+		}
+		if inboxID := anyToInt(payload["inbox_id"]); inboxID > 0 {
+			m.InboxID = inboxID
+		}
+		if status, ok := payload["status"].(string); ok && strings.TrimSpace(status) != "" {
+			m.Status = status
+		}
+		if prio, ok := payload["priority"].(string); ok && strings.TrimSpace(prio) != "" {
+			m.Priority = prio
+		}
+		if contactID := anyToInt(payload["contact_id"]); contactID > 0 {
+			m.ContactID = contactID
+		}
+		if labelsAny, ok := payload["labels"].([]any); ok && len(labelsAny) > 0 {
+			var labels []string
+			for _, v := range labelsAny {
+				if s, ok := v.(string); ok {
+					labels = append(labels, s)
+				}
+			}
+			m.SetLabels(labels)
+		}
+	}
+}
+
+func fetchConversationMeta(ctx context.Context, snapshotClient followSnapshotClient, conversationID int, wantLabels []string) (*convMeta, error) {
+	if snapshotClient == nil || conversationID <= 0 {
+		return nil, nil
+	}
+	metaCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	conv, err := snapshotClient.GetConversation(metaCtx, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	m := &convMeta{ID: conversationID}
+	m.ApplyConversation(*conv)
+
+	// If label filters are active, fetch the label set explicitly to ensure correctness.
+	if len(wantLabels) > 0 {
+		if labels, err := snapshotClient.ListLabels(metaCtx, conversationID); err == nil {
+			m.SetLabels(labels)
+		}
+	}
+	return m, nil
 }

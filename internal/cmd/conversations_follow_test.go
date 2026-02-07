@@ -93,6 +93,24 @@ func TestParseSinceTime(t *testing.T) {
 	}
 }
 
+func TestFollowCmdAcceptsFilterFlags(t *testing.T) {
+	cmd := newConversationsFollowCmd()
+	for _, name := range []string{
+		"inbox",
+		"status",
+		"assignee",
+		"label",
+		"priority",
+		"contact",
+		"only-unassigned",
+		"exclude-private",
+	} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag", name)
+		}
+	}
+}
+
 func TestFollowCmdAllWithTailErrors(t *testing.T) {
 	cmd := newConversationsFollowCmd()
 	cmd.SetContext(context.Background())
