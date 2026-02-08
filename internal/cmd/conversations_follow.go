@@ -430,7 +430,11 @@ func followViaWebSocket(ctx context.Context, cmd *cobra.Command, cfg followWebSo
 		return fmt.Errorf("subscribe: %w", err)
 	}
 
-	conn.StartPresence(ctx, 30*time.Second)
+	conn.StartPresence(ctx, 30*time.Second, func(err error) {
+		if !isJSON(cmd) {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "presence: %v\n", err)
+		}
+	})
 
 	events := conn.Listen(ctx)
 	emitter := newFollowEmitter(cmd, cfg.QueueSize, cfg.DropWhenFull)

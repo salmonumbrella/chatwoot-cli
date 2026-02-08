@@ -3,6 +3,7 @@ package actioncable
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -258,6 +259,89 @@ func TestListenHandlesDisconnect(t *testing.T) {
 	}
 }
 
+func TestListenPingTimeoutOnSilence(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, _, _ = conn.Read(ctx) // subscribe
+		id, _ := json.Marshal(`{"channel":"RoomChannel"}`)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"type":"confirm_subscription","identifier":%s}`, string(id))))
+		// Send nothing after confirm — simulate dead connection.
+		time.Sleep(2 * time.Second)
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, _ := Connect(ctx, url)
+	defer func() { _ = c.Close() }()
+	_ = c.Subscribe(ctx, ChannelID{Channel: "RoomChannel", PubsubToken: "t", AccountID: 1, UserID: 1})
+
+	// Use a short timeout so the test doesn't take 15 seconds.
+	events := c.ListenWithTimeout(ctx, 200*time.Millisecond)
+	select {
+	case ev := <-events:
+		if ev.Err == nil {
+			t.Fatal("expected error from ping timeout")
+		}
+		if !errors.Is(ev.Err, ErrPingTimeout) {
+			t.Fatalf("expected ErrPingTimeout, got: %v", ev.Err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for ping timeout event")
+	}
+}
+
+func TestListenPingsKeepConnectionAlive(t *testing.T) {
+	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
+		_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"welcome"}`))
+		_, _, _ = conn.Read(ctx) // subscribe
+		id, _ := json.Marshal(`{"channel":"RoomChannel"}`)
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"type":"confirm_subscription","identifier":%s}`, string(id))))
+
+		// Send pings faster than the timeout to keep connection alive.
+		// First ping arrives immediately to avoid a race between
+		// ListenWithTimeout starting and the timeout expiring.
+		for i := 0; i < 5; i++ {
+			if err := conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"type":"ping","message":%d}`, i))); err != nil {
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		// Now send a real message.
+		_ = conn.Write(ctx, websocket.MessageText, []byte(fmt.Sprintf(`{"identifier":%s,"message":{"event":"message.created","data":{"id":1}}}`, string(id))))
+		time.Sleep(200 * time.Millisecond)
+	})
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http")
+	c, _ := Connect(ctx, url)
+	defer func() { _ = c.Close() }()
+	_ = c.Subscribe(ctx, ChannelID{Channel: "RoomChannel", PubsubToken: "t", AccountID: 1, UserID: 1})
+
+	// Timeout is 500ms, but pings arrive every 100ms — should stay alive.
+	events := c.ListenWithTimeout(ctx, 500*time.Millisecond)
+	select {
+	case ev := <-events:
+		if ev.Err != nil {
+			t.Fatalf("unexpected error (pings should have kept connection alive): %v", ev.Err)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(ev.Data, &payload); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if payload["event"] != "message.created" {
+			t.Errorf("event = %v, want message.created", payload["event"])
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for event")
+	}
+}
+
 func TestPresenceKeepalive(t *testing.T) {
 	var presenceCount int32
 	srv := mockCable(t, func(ctx context.Context, conn *websocket.Conn) {
@@ -296,7 +380,7 @@ func TestPresenceKeepalive(t *testing.T) {
 	_ = c.Subscribe(ctx, ChannelID{Channel: "RoomChannel", PubsubToken: "t", AccountID: 1, UserID: 1})
 
 	// Start presence with short interval for testing
-	c.StartPresence(ctx, 100*time.Millisecond)
+	c.StartPresence(ctx, 100*time.Millisecond, nil)
 
 	<-ctx.Done()
 	time.Sleep(50 * time.Millisecond) // let goroutine finish

@@ -3,11 +3,20 @@ package actioncable
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/coder/websocket"
 )
+
+// DefaultPingTimeout is how long we wait without receiving any frame
+// (including server pings) before treating the connection as dead.
+// ActionCable servers ping every ~3s, so 15s means ~5 missed pings.
+var DefaultPingTimeout = 15 * time.Second
+
+// ErrPingTimeout is returned when no frames are received within the ping timeout.
+var ErrPingTimeout = errors.New("ping timeout: no frames received")
 
 // frame is a raw ActionCable JSON frame.
 type frame struct {
@@ -42,6 +51,10 @@ type Client struct {
 	identifier string // set after Subscribe
 }
 
+// maxReadSize caps the maximum WebSocket frame size to 1 MB.
+// ActionCable messages are small JSON; anything larger is likely malformed.
+const maxReadSize = 1 << 20 // 1 MB
+
 // Connect dials the ActionCable endpoint and waits for the welcome frame.
 func Connect(ctx context.Context, url string) (*Client, error) {
 	conn, _, err := websocket.Dial(ctx, url, &websocket.DialOptions{
@@ -50,6 +63,7 @@ func Connect(ctx context.Context, url string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dial: %w", err)
 	}
+	conn.SetReadLimit(maxReadSize)
 
 	// Read the welcome frame.
 	_, data, err := conn.Read(ctx)
@@ -121,7 +135,9 @@ func (c *Client) Subscribe(ctx context.Context, id ChannelID) error {
 
 // StartPresence sends update_presence actions at the given interval.
 // Stops when ctx is cancelled. For Chatwoot, use 30*time.Second.
-func (c *Client) StartPresence(ctx context.Context, interval time.Duration) {
+// If onError is non-nil, it is called once on the first write failure
+// before the goroutine exits (useful for logging).
+func (c *Client) StartPresence(ctx context.Context, interval time.Duration, onError func(error)) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -137,6 +153,9 @@ func (c *Client) StartPresence(ctx context.Context, interval time.Duration) {
 				}
 				data, _ := json.Marshal(msg)
 				if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
+					if onError != nil && ctx.Err() == nil {
+						onError(fmt.Errorf("presence write: %w", err))
+					}
 					return
 				}
 			}
@@ -147,13 +166,40 @@ func (c *Client) StartPresence(ctx context.Context, interval time.Duration) {
 // Listen starts the read loop and returns a channel of events.
 // Pings and internal frames are handled silently.
 // The channel closes when the connection drops or ctx is cancelled.
+//
+// A rolling ping timeout detects half-dead connections: if no frame
+// (including server pings) arrives within DefaultPingTimeout, the
+// connection is treated as dead and an ErrPingTimeout is emitted.
 func (c *Client) Listen(ctx context.Context) <-chan Event {
+	return c.ListenWithTimeout(ctx, DefaultPingTimeout)
+}
+
+// ListenWithTimeout is like Listen but with a configurable ping timeout.
+// Use 0 to disable the timeout (not recommended in production).
+func (c *Client) ListenWithTimeout(ctx context.Context, pingTimeout time.Duration) <-chan Event {
 	ch := make(chan Event, 64)
 	go func() {
 		defer close(ch)
 		for {
-			_, data, err := c.conn.Read(ctx)
+			// Create a per-read context with a deadline so that half-dead
+			// connections (no FIN/RST, just silence) get detected.
+			readCtx := ctx
+			var readCancel context.CancelFunc
+			if pingTimeout > 0 {
+				readCtx, readCancel = context.WithTimeout(ctx, pingTimeout)
+			}
+
+			_, data, err := c.conn.Read(readCtx)
+
+			if readCancel != nil {
+				readCancel()
+			}
+
 			if err != nil {
+				// Distinguish ping timeout from parent context cancellation.
+				if pingTimeout > 0 && ctx.Err() == nil && readCtx.Err() != nil {
+					err = ErrPingTimeout
+				}
 				select {
 				case ch <- Event{Err: err}:
 				case <-ctx.Done():
