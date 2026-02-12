@@ -191,10 +191,9 @@ func Execute(ctx context.Context, args []string) error {
 			cmd.SetOut(ioStreams.Out)
 			cmd.SetErr(ioStreams.ErrOut)
 
-			if flags.AllowPrivate {
-				validation.SetAllowPrivate(true)
-			}
-			if validation.AllowPrivateEnabled() && !flags.Silent && !flags.Quiet {
+			allowPrivate := parseBoolEnv("CHATWOOT_ALLOW_PRIVATE") || flags.AllowPrivate
+			validation.SetAllowPrivate(allowPrivate)
+			if allowPrivate && !flags.Silent && !flags.Quiet {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: allowing private/localhost URLs (use only with trusted targets).") //nolint:errcheck
 			}
 
@@ -280,7 +279,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.JSON, "json", false, "Output JSON (alias for --output json)")
 	root.PersistentFlags().BoolVar(&flags.HelpJSON, "help-json", false, "Output command help as JSON (for agent discovery)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
-	root.PersistentFlags().BoolVar(&flags.ResolveNames, "resolve-names", false, "Resolve contact/inbox names in agent output (extra API calls; env CHATWOOT_RESOLVE_NAMES=1)")
+	root.PersistentFlags().BoolVar(&flags.ResolveNames, "resolve-names", flags.ResolveNames, "Resolve contact/inbox names in agent output (extra API calls; env CHATWOOT_RESOLVE_NAMES=1)")
 	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", false, "Allow private/localhost URLs (unsafe)")
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -326,6 +327,30 @@ func TestDefaultResolveNamesFromEnv(t *testing.T) {
 	t.Setenv("CHATWOOT_RESOLVE_NAMES", "0")
 	if defaultResolveNames() {
 		t.Fatalf("expected resolve-names default false when CHATWOOT_RESOLVE_NAMES=0")
+	}
+}
+
+func TestExecute_AllowPrivateDoesNotLeakAcrossRuns(t *testing.T) {
+	t.Setenv("CHATWOOT_ALLOW_PRIVATE", "0")
+	validation.SetAllowPrivate(false)
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+
+	if validation.AllowPrivateEnabled() {
+		t.Fatalf("expected allow-private to start disabled")
+	}
+
+	if err := Execute(context.Background(), []string{"version", "--allow-private"}); err != nil {
+		t.Fatalf("first execute failed: %v", err)
+	}
+	if !validation.AllowPrivateEnabled() {
+		t.Fatalf("expected allow-private to be enabled after --allow-private")
+	}
+
+	if err := Execute(context.Background(), []string{"version"}); err != nil {
+		t.Fatalf("second execute failed: %v", err)
+	}
+	if validation.AllowPrivateEnabled() {
+		t.Fatalf("expected allow-private to reset for execute without flag")
 	}
 }
 

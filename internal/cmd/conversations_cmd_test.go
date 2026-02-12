@@ -1377,6 +1377,69 @@ func TestConversationsListCommand_AgentResolveNames(t *testing.T) {
 	}
 }
 
+func TestConversationsListCommand_AgentResolveNamesFromEnv(t *testing.T) {
+	t.Setenv("CHATWOOT_RESOLVE_NAMES", "1")
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 10, "inbox_id": 7, "contact_id": 42, "status": "open", "unread_count": 1, "created_at": 1700000000}
+				],
+				"meta": {"total_pages": 1}
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 7, "name": "Support"}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/42", jsonResponse(200, `{
+			"payload": {"id": 42, "name": "Jane Doe", "email": "jane@example.com"}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--output", "agent"})
+		if err != nil {
+			t.Errorf("conversations list --output agent failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			Path []struct {
+				Type  string `json:"type"`
+				ID    int    `json:"id"`
+				Label string `json:"label"`
+			} `json:"path"`
+			Contact *struct {
+				Name string `json:"name"`
+			} `json:"contact"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Contact == nil || payload.Items[0].Contact.Name != "Jane Doe" {
+		t.Errorf("expected resolved contact name, got %#v", payload.Items[0].Contact)
+	}
+	foundInboxLabel := false
+	for _, entry := range payload.Items[0].Path {
+		if entry.Type == "inbox" && entry.ID == 7 && entry.Label == "Support" {
+			foundInboxLabel = true
+			break
+		}
+	}
+	if !foundInboxLabel {
+		t.Errorf("expected inbox label Support in path, got %#v", payload.Items[0].Path)
+	}
+}
+
 func TestConversationsListUnreadOnly(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
