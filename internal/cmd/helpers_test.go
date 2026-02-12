@@ -270,6 +270,36 @@ func TestValidateStatus_StructuredError(t *testing.T) {
 	}
 }
 
+func TestValidateAssigneeType(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"empty", "", "", false},
+		{"me", "me", "me", false},
+		{"assigned", "assigned", "assigned", false},
+		{"unassigned", "unassigned", "unassigned", false},
+		{"prefix m", "m", "me", false},
+		{"prefix a", "a", "assigned", false},
+		{"prefix u", "u", "unassigned", false},
+		{"invalid", "bogus", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateAssigneeType(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateAssigneeType(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("validateAssigneeType(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateSlug(t *testing.T) {
 	tests := []struct {
 		name    string

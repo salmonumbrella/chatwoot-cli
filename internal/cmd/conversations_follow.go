@@ -378,7 +378,13 @@ all conversations on the account.
 	flagAlias(cmd.Flags(), "typing", "ty")
 	flagAlias(cmd.Flags(), "priority", "pri")
 	flagAlias(cmd.Flags(), "assignee", "asn")
-	flagAlias(cmd.Flags(), "queue", "qs")
+	flagAlias(cmd.Flags(), "queue", "qu")
+	flagAlias(cmd.Flags(), "exec", "ex")
+	flagAlias(cmd.Flags(), "exec-timeout", "et")
+	flagAlias(cmd.Flags(), "exec-fatal", "ef")
+	flagAlias(cmd.Flags(), "drop", "dr")
+	flagAlias(cmd.Flags(), "raw", "rw")
+	flagAlias(cmd.Flags(), "contact", "ct")
 	return cmd
 }
 
