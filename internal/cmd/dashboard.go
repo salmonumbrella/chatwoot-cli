@@ -111,6 +111,9 @@ Run 'cw config dashboard list' to see available dashboards.`,
 	cmd.Flags().IntVar(&perPage, "per-page", 100, "Results per page")
 	cmd.Flags().BoolVar(&noResolve, "no-resolve", false, "Do not resolve --contact as a conversation ID")
 	cmd.Flags().BoolVar(&noResolveWarning, "no-resolve-warning", false, "Suppress auto-resolve warning")
+	flagAlias(cmd.Flags(), "conversation", "conv")
+	flagAlias(cmd.Flags(), "per-page", "pp")
+	flagAlias(cmd.Flags(), "contact", "ct")
 
 	return cmd
 }

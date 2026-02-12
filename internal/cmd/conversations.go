@@ -487,6 +487,7 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 	}
 
 	cmd.Flags().StringVar(&payloadStr, "payload", "", "JSON payload for filtering (required)")
+	flagAlias(cmd.Flags(), "payload", "pl")
 
 	return cmd
 }
@@ -1171,6 +1172,7 @@ func newConversationsAssignCmd() *cobra.Command {
 	_ = cmd.Flags().MarkHidden("assignee-id")
 	_ = cmd.Flags().MarkHidden("team-id")
 	flagAlias(cmd.Flags(), "agent", "ag")
+	flagAlias(cmd.Flags(), "team", "tm")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
 
 	return cmd
@@ -1573,6 +1575,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
 	flagAlias(cmd.Flags(), "embed-images", "embed")
+	flagAlias(cmd.Flags(), "embed-images", "em")
 
 	return cmd
 }
@@ -2213,6 +2216,9 @@ locally with private notes included by default.`,
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when listing messages")
 	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from the transcript")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
+	flagAlias(cmd.Flags(), "public-only", "pub")
+	flagAlias(cmd.Flags(), "email", "em")
+	flagAlias(cmd.Flags(), "limit", "lt")
 
 	return cmd
 }
@@ -2568,6 +2574,8 @@ func newConversationsWatchCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum conversations to display")
 	flagAlias(cmd.Flags(), "status", "st")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "interval", "iv")
+	flagAlias(cmd.Flags(), "limit", "lt")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 
 	return cmd
@@ -2874,6 +2882,7 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	flagAlias(cmd.Flags(), "agent", "ag")
+	flagAlias(cmd.Flags(), "team", "tm")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
 	_ = cmd.MarkFlagRequired("ids")
 
@@ -3341,6 +3350,9 @@ the customer has been waiting (oldest first = longest waiting = most urgent).`,
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum conversations to show")
 	cmd.Flags().IntVar(&inboxID, "inbox", 0, "Filter by inbox ID")
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints (agent mode)")
+	flagAlias(cmd.Flags(), "inbox", "ib")
+	flagAlias(cmd.Flags(), "explain", "exp")
+	flagAlias(cmd.Flags(), "limit", "lt")
 
 	return cmd
 }

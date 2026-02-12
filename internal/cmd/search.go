@@ -815,7 +815,9 @@ of relevant resources with a single query.`,
 	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")
 	cmd.Flags().BoolVar(&includeSnippet, "include-snippet", false, "Include matching message snippet for conversations")
 	flagAlias(cmd.Flags(), "include-snippet", "snippet")
+	flagAlias(cmd.Flags(), "include-snippet", "sn")
 	cmd.Flags().BoolVar(&best, "best", false, "Auto-select the best result (no interactive prompt)")
+	flagAlias(cmd.Flags(), "best", "b")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Output format with --best: json (default), id, or url")
 
 	return cmd

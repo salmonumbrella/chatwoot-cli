@@ -115,6 +115,7 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
 	flagAlias(cmd.Flags(), "embed-images", "embed")
+	flagAlias(cmd.Flags(), "embed-images", "em")
 
 	return cmd
 }

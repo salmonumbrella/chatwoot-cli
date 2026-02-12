@@ -336,7 +336,7 @@ all conversations on the account.
 
 	cmd.Flags().BoolVar(&incomingOnly, "incoming-only", true, "Only show incoming (customer) messages")
 	cmd.Flags().IntVar(&tail, "tail", 20, "Print the last N messages before following (0 to disable)")
-	cmd.Flags().BoolVar(&followAll, "all", false, "Follow all conversations (no conversation ID required)")
+	cmd.Flags().BoolVarP(&followAll, "all", "A", false, "Follow all conversations (no conversation ID required)")
 	cmd.Flags().StringSliceVar(&events, "events", []string{"message.created"}, "Event types to show (or 'all'): message.created,message.updated,conversation.created,conversation.updated,conversation.status_changed,assignee.changed,label.added,label.removed,conversation.typing_on,conversation.typing_off")
 	cmd.Flags().BoolVar(&showTyping, "typing", false, "Show typing indicators")
 	cmd.Flags().DurationVar(&debounce, "debounce", 0, "Batch rapid messages from same conversation (e.g., 2s)")
@@ -362,9 +362,23 @@ all conversations on the account.
 	cmd.Flags().BoolVar(&execFatal, "exec-fatal", false, "Treat --exec failures as fatal (default: log to stderr and continue)")
 	flagAlias(cmd.Flags(), "context-messages", "cm")
 	flagAlias(cmd.Flags(), "only-unassigned", "unassigned")
+	flagAlias(cmd.Flags(), "only-unassigned", "ua")
 	flagAlias(cmd.Flags(), "exclude-private", "pub")
 	flagAlias(cmd.Flags(), "tail", "tl")
 	flagAlias(cmd.Flags(), "context", "ctx")
+	flagAlias(cmd.Flags(), "incoming-only", "in")
+	flagAlias(cmd.Flags(), "events", "ev")
+	flagAlias(cmd.Flags(), "debounce", "db")
+	flagAlias(cmd.Flags(), "cursor-file", "cf")
+	flagAlias(cmd.Flags(), "since-id", "sid")
+	flagAlias(cmd.Flags(), "since-time", "since")
+	flagAlias(cmd.Flags(), "max-batch", "mb")
+	flagAlias(cmd.Flags(), "inbox", "ib")
+	flagAlias(cmd.Flags(), "label", "lb")
+	flagAlias(cmd.Flags(), "typing", "ty")
+	flagAlias(cmd.Flags(), "priority", "pri")
+	flagAlias(cmd.Flags(), "assignee", "asn")
+	flagAlias(cmd.Flags(), "queue", "qs")
 	return cmd
 }
 

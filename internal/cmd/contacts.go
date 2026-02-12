@@ -265,6 +265,7 @@ Use 'cw contacts show <id>' as an alias for this command.`,
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 	cmd.Flags().StringP("emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "with-open-conversations", "woc")
 
 	return cmd
 }
@@ -299,6 +300,7 @@ This is an alias for 'cw contacts get <id>'.`,
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 	cmd.Flags().StringP("emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "with-open-conversations", "woc")
 
 	return cmd
 }
@@ -629,6 +631,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().StringVar(&query, "query", "", "Search query string")
+	flagAlias(cmd.Flags(), "query", "q")
 
 	return cmd
 }
@@ -713,6 +716,7 @@ Available query operators: and, or`,
 	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().StringVar(&payload, "payload", "", "JSON array of filter conditions")
+	flagAlias(cmd.Flags(), "payload", "pl")
 
 	return cmd
 }

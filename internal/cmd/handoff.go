@@ -154,6 +154,9 @@ This replaces the three-command sequence of note + assign + update.
 	cmd.Flags().StringVar(&reason, "reason", "", "Handoff reason (sent as private note)")
 	cmd.Flags().StringVar(&priority, "priority", "", "Set priority (urgent|high|medium|low|none)")
 	flagAlias(cmd.Flags(), "agent", "ag")
+	flagAlias(cmd.Flags(), "priority", "pri")
+	flagAlias(cmd.Flags(), "reason", "rs")
+	flagAlias(cmd.Flags(), "team", "tm")
 
 	return cmd
 }

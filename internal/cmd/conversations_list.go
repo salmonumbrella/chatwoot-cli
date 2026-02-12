@@ -73,6 +73,12 @@ func newConversationsListCmd() *cobra.Command {
 				return ListResult[api.Conversation]{}, err
 			}
 
+			// Normalize assignee-type prefix (e.g. "u" → "unassigned").
+			normalizedAssigneeType, err := validateAssigneeType(assigneeType)
+			if err != nil {
+				return ListResult[api.Conversation]{}, err
+			}
+
 			// Resolve inbox name to ID if provided.
 			resolvedInboxID := inboxID
 			if inboxID != "" {
@@ -86,7 +92,7 @@ func newConversationsListCmd() *cobra.Command {
 			params := api.ListConversationsParams{
 				Status:       normalizedStatus,
 				InboxID:      resolvedInboxID,
-				AssigneeType: assigneeType,
+				AssigneeType: normalizedAssigneeType,
 				Query:        search,
 				Page:         page,
 			}

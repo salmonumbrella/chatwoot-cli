@@ -276,6 +276,14 @@ func validateStatusWithAll(status string) (string, error) {
 	return normalizeEnum("status", status, []string{"open", "resolved", "pending", "snoozed", "all"})
 }
 
+// validateAssigneeType validates and normalizes an assignee-type filter value
+func validateAssigneeType(assigneeType string) (string, error) {
+	if assigneeType == "" {
+		return "", nil
+	}
+	return normalizeEnum("assignee-type", assigneeType, []string{"me", "assigned", "unassigned"})
+}
+
 func registerStaticCompletions(cmd *cobra.Command, flagName string, values []string) {
 	_ = cmd.RegisterFlagCompletionFunc(flagName, cobra.FixedCompletions(values, cobra.ShellCompDirectiveNoFileComp))
 }

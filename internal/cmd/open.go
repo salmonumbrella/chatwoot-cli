@@ -273,7 +273,7 @@ Or provide a bare ID (defaults to conversation):
 		}),
 	}
 
-	cmd.Flags().StringVar(&resourceTypeFlag, "type", "", "Resource type when opening by ID (contact, conversation, inbox, team, agent, campaign)")
+	cmd.Flags().StringVarP(&resourceTypeFlag, "type", "T", "", "Resource type when opening by ID (contact, conversation, inbox, team, agent, campaign)")
 	registerStaticCompletions(cmd, "type", []string{"contact", "conversation", "inbox", "team", "agent", "campaign"})
 
 	return cmd

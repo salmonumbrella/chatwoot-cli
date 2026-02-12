@@ -198,7 +198,7 @@ Examples:
 		}),
 	}
 
-	cmd.Flags().StringVar(&typeFlag, "type", "", "Resource type to assume for bare IDs (skips probing)")
+	cmd.Flags().StringVarP(&typeFlag, "type", "T", "", "Resource type to assume for bare IDs (skips probing)")
 	cmd.Flags().StringSliceVar(&tryFlags, "try", nil, "Resource types to probe for bare IDs (repeatable; default: conversation, contact)")
 	cmd.Flags().BoolVar(&noProbe, "no-probe", false, "Do not probe bare IDs; default them to conversations")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit format: json|id|url (defaults: id for text output; json for json/agent)")
