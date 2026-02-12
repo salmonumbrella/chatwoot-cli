@@ -809,13 +809,14 @@ of relevant resources with a single query.`,
 		}),
 	}
 
-	cmd.Flags().StringArrayVar(&types, "type", nil, "Resource types to search (contacts, conversations, senders); repeatable")
-	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum results per type")
+	cmd.Flags().StringArrayVarP(&types, "type", "t", nil, "Resource types to search (contacts, conversations, senders); repeatable")
+	cmd.Flags().IntVarP(&limit, "limit", "l", 25, "Maximum results per type")
 	cmd.Flags().BoolVar(&selectOne, "select", false, "Interactively select a single result")
 	cmd.Flags().BoolVar(&selectRaw, "select-raw", false, "Emit raw selected object in JSON output (no wrapper)")
 	cmd.Flags().BoolVar(&includeSnippet, "include-snippet", false, "Include matching message snippet for conversations")
+	flagAlias(cmd.Flags(), "include-snippet", "snippet")
 	cmd.Flags().BoolVar(&best, "best", false, "Auto-select the best result (no interactive prompt)")
-	cmd.Flags().StringVar(&emit, "emit", "", "Output format with --best: json (default), id, or url")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Output format with --best: json (default), id, or url")
 
 	return cmd
 }
