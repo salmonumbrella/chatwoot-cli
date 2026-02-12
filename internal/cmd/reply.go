@@ -151,14 +151,17 @@ If multiple open conversations exist for the contact, disambiguation is required
 		}),
 	}
 
-	cmd.Flags().StringVar(&content, "content", "", "Message content (required)")
-	cmd.Flags().BoolVar(&resolve, "resolve", false, "Resolve the conversation after replying")
+	cmd.Flags().StringVarP(&content, "content", "c", "", "Message content (required)")
+	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after replying")
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Skip search, use specific contact ID")
+	flagAlias(cmd.Flags(), "contact-id", "cid")
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Skip all lookups, reply to specific conversation")
-	cmd.Flags().BoolVar(&private, "private", false, "Send as private note (not visible to customer)")
+	cmd.Flags().BoolVarP(&private, "private", "P", false, "Send as private note (not visible to customer)")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
 	cmd.Flags().StringVar(&priority, "priority", "", "Set priority after sending (urgent|high|medium|low|none)")
+	flagAlias(cmd.Flags(), "priority", "pri")
 	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")
+	flagAlias(cmd.Flags(), "snooze-for", "for")
 
 	return cmd
 }

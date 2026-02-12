@@ -183,12 +183,14 @@ This is a convenience shortcut for:
 		}),
 	}
 
-	cmd.Flags().StringVar(&content, "content", "", "Note content (alternative to positional text)")
+	cmd.Flags().StringVarP(&content, "content", "c", "", "Note content (alternative to positional text)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated)")
-	cmd.Flags().BoolVar(&resolve, "resolve", false, "Resolve the conversation after sending")
+	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after sending")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
 	cmd.Flags().StringVar(&priority, "priority", "", "Set priority after sending (urgent|high|medium|low|none)")
+	flagAlias(cmd.Flags(), "priority", "pri")
 	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")
+	flagAlias(cmd.Flags(), "snooze-for", "for")
 
 	return cmd
 }
