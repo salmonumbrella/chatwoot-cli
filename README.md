@@ -1,4 +1,4 @@
-# 💬 Chatwoot CLI — Chatwoot in your terminal.
+# Chatwoot CLI
 
 Chatwoot in your terminal. Manage conversations, contacts, campaigns, help center, and integrations.
 
@@ -42,26 +42,23 @@ make build
 
 **Browser:**
 ```bash
-chatwoot auth login
+chatwoot au login
 ```
 
 **Terminal:**
 ```bash
-chatwoot auth login --browser=false --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
+chatwoot au login --browser=false --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
 ```
 
 ### 2. Verify Setup
 
 ```bash
-chatwoot profile get
+chatwoot pr g
 ```
 
 ### 3. List Conversations
 
 ```bash
-chatwoot conversations list --status open
-
-# Or use short aliases:
 chatwoot c ls --st open
 ```
 
@@ -69,13 +66,13 @@ chatwoot c ls --st open
 
 ```bash
 # Search across contacts + conversations
-chatwoot search "john"
+chatwoot s "john"
 
 # Auto-pick the best result (no interactive prompt)
-chatwoot search "refund" --best
+chatwoot s "refund" --best
 
 # Emit just an ID for chaining (no jq)
-chatwoot search "refund" --best --emit id
+chatwoot s "refund" --best --emit id
 ```
 
 ## Configuration
@@ -89,23 +86,23 @@ Credentials are checked in this order:
 
 Check current configuration:
 ```bash
-chatwoot auth status
-chatwoot auth status --json
+chatwoot au status
+chatwoot au status --json
 ```
 
 Remove stored credentials:
 ```bash
-chatwoot auth logout
+chatwoot au logout
 ```
 
 ### Profiles
 
 Manage multiple stored accounts:
 ```bash
-chatwoot config profiles list
-chatwoot config profiles use staging
-chatwoot config profiles show --name staging
-chatwoot config profiles delete staging
+chatwoot cfg profiles ls
+chatwoot cfg profiles use staging
+chatwoot cfg profiles show --name staging
+chatwoot cfg profiles del staging
 ```
 
 ### Environment Variables
@@ -125,7 +122,7 @@ export CHATWOOT_RESOLVE_NAMES=1
 
 ### Credential Storage
 
-Credentials saved with `chatwoot auth login` are stored securely in your system's keychain:
+Credentials saved with `chatwoot au login` are stored securely in your system's keychain:
 - **macOS**: Keychain Access
 - **Linux**: Secret Service (GNOME Keyring, KWallet)
 - **Windows**: Credential Manager
@@ -135,10 +132,10 @@ Credentials saved with `chatwoot auth login` are stored securely in your system'
 ### Authentication
 
 ```bash
-chatwoot auth login                                                 # Authenticate via browser
-chatwoot auth login --no-browser --url <url> --token <t> --account-id <id>  # CLI login
-chatwoot auth status                                                # Show current config
-chatwoot auth logout                                                # Remove credentials
+chatwoot au login                                                       # Authenticate via browser
+chatwoot au login --no-browser --url <url> --token <t> --account-id <id>  # CLI login
+chatwoot au status                                                      # Show current config
+chatwoot au logout                                                      # Remove credentials
 ```
 
 ## Extensions
@@ -155,80 +152,80 @@ Convenience commands designed for agent workflows:
 
 ```bash
 # "get/show" are aliases for `open`
-chatwoot get conversation 123
+chatwoot o 123
 chatwoot show https://app.chatwoot.com/app/accounts/1/conversations/123
 
 # One-ID actions (no extra lookups)
-chatwoot comment 123 "Hello! How can I help?"
-chatwoot note 123 "Internal note" --mention lily
-chatwoot close 123 456
-chatwoot reopen 123
-chatwoot ctx 123 --output agent
+chatwoot cmt 123 "Hello! How can I help?"
+chatwoot n 123 "Internal note" --mention lily
+chatwoot x 123 456
+chatwoot ro 123
+chatwoot ct 123 -o agent
 ```
 
 ### Conversations
 
 ```bash
 # List and filter
-chatwoot conversations list
-chatwoot conversations list --status open --inbox-id 1
-chatwoot conversations list --status open --assignee-type unassigned
-chatwoot conversations list --status open --team-id 2 --labels "vip,urgent"
-chatwoot conversations list --status open --search "refund"
-chatwoot conversations list --all --max-pages 50
-chatwoot conversations filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'
-chatwoot conversations search --query "refund"
+chatwoot c ls
+chatwoot c ls --st open --iid 1
+chatwoot c ls --st open --at unassigned
+chatwoot c ls --st open --tid 2 -L "vip,urgent"
+chatwoot c ls --st open --search "refund"
+chatwoot c ls -a --mp 50
+chatwoot c filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'
+chatwoot c search --query "refund"
 
 # Get details
-chatwoot conversations get 123
-chatwoot conversations counts                     # Get counts by status
-chatwoot conversations meta                       # Get metadata
-chatwoot conversations attachments 123            # List attachments
+chatwoot c g 123
+chatwoot c counts                              # Get counts by status
+chatwoot c meta                                # Get metadata
+chatwoot c attachments 123                     # List attachments
 
 # Manage status and assignment
-chatwoot conversations toggle-status 123 --status resolved
-chatwoot conversations toggle-priority 123 --priority high
-chatwoot conversations assign 123 --agent 5 --team 2
-chatwoot conversations mark-unread 123
+chatwoot c toggle-status 123 --st resolved
+chatwoot c toggle-priority 123 --pri high
+chatwoot c assign 123 --ag 5 --team 2
+chatwoot c mark-unread 123
 
 # Labels
-chatwoot conversations labels 123
-chatwoot conversations labels-add 123 --labels "urgent,vip"
+chatwoot c labels 123
+chatwoot c labels-add 123 --labels "urgent,vip"
 
 # Custom attributes
-chatwoot conversations custom-attributes 123 --payload '{"key":"value"}'
+chatwoot c custom-attributes 123 --payload '{"key":"value"}'
 
 # AI context
-chatwoot conversations context 123 --embed-images   # Get full context for AI
-chatwoot conversations context 123 --output agent   # Agent-friendly envelope
-chatwoot conversations context 123 --output agent --resolve-names
+chatwoot c context 123 --embed                 # Get full context for AI
+chatwoot c context 123 -o agent                # Agent-friendly envelope
+chatwoot c context 123 -o agent --rn
 
 # Transcript
-chatwoot conversations transcript 123               # Render transcript locally
-chatwoot conversations transcript 123 --public-only # Exclude private notes
-chatwoot conversations transcript 123 --limit 200   # Limit to most recent messages
-chatwoot conversations transcript 123 --email user@example.com
+chatwoot c transcript 123                      # Render transcript locally
+chatwoot c transcript 123 --public-only        # Exclude private notes
+chatwoot c transcript 123 -l 200               # Limit to most recent messages
+chatwoot c transcript 123 --email user@example.com
 ```
 
 ### Messages
 
 ```bash
 # List messages
-chatwoot messages list 123
-chatwoot messages list 123 --all
-chatwoot messages list 123 --limit 500
-chatwoot messages list 123 --output agent --resolve-names
+chatwoot m ls 123
+chatwoot m ls 123 -a
+chatwoot m ls 123 -l 500
+chatwoot m ls 123 -o agent --rn
 
 # Create messages
-chatwoot messages create 123 --content "Hello!"
+chatwoot m cr 123 -c "Hello!"
 
 # Update and delete
-chatwoot messages update 123 456 --content "Updated text"
-chatwoot messages delete 123 456
+chatwoot m up 123 456 -c "Updated text"
+chatwoot m del 123 456
 ```
 
 > **Note:** Messages are returned in chronological order (oldest first, most recent at end of array).
-> To get the last N messages: `chatwoot messages list 123 --json | jq '.items[-N:]'`
+> To get the last N messages: `chatwoot m ls 123 --json | jq '.items[-N:]'`
 
 ### Private Notes & Mentions
 
@@ -236,283 +233,283 @@ Private notes are internal messages visible only to agents, not customers. You c
 
 ```bash
 # Create a private note (internal, not visible to customer)
-chatwoot messages create 123 --private --content "Internal note for the team"
+chatwoot m cr 123 -P -c "Internal note for the team"
 
 # Mention an agent (they'll receive a notification)
-chatwoot messages create 123 --private --mention lily --content "Can you follow up on this?"
+chatwoot m cr 123 -P --mention lily -c "Can you follow up on this?"
 
 # Mention multiple agents
-chatwoot messages create 123 --private --mention lily --mention jack --content "Please review together"
+chatwoot m cr 123 -P --mention lily --mention jack -c "Please review together"
 
 # Mention by email
-chatwoot messages create 123 --private --mention lily@example.com --content "Check this out"
+chatwoot m cr 123 -P --mention lily@example.com -c "Check this out"
 ```
 
 The `--mention` flag:
 - Accepts agent name (partial match) or email
 - Automatically resolves to the agent's ID
 - Formats the mention correctly so the agent receives a notification
-- Requires the `--private` flag (mentions only work in private notes)
+- Requires the `-P` flag (mentions only work in private notes)
 
 ### Contacts
 
 ```bash
 # List and search
-chatwoot contacts list
-chatwoot contacts list --sort name --order asc
-chatwoot contacts list --sort -last_activity_at
-chatwoot contacts search --query "john"
-chatwoot contacts filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@example.com"]}]'
+chatwoot co ls
+chatwoot co ls --sort name --order asc
+chatwoot co ls --sort -last_activity_at
+chatwoot co search --query "john"
+chatwoot co filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@example.com"]}]'
 
 # CRUD operations
-chatwoot contacts get 123
-chatwoot contacts show 123                        # Alias for 'get'
-chatwoot contacts get +16042091231                # Lookup by phone number
-chatwoot contacts create --name "John Doe" --email "john@example.com"
-chatwoot contacts update 123 --phone "+1234567890"
-chatwoot contacts update john@example.com --name "John Smith"
-chatwoot contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"
-chatwoot contacts delete 123
+chatwoot co g 123
+chatwoot co show 123                           # Alias for 'get'
+chatwoot co g +16042091231                     # Lookup by phone number
+chatwoot co cr -n "John Doe" -e "john@example.com"
+chatwoot co up 123 --phone "+1234567890"
+chatwoot co up john@example.com -n "John Smith"
+chatwoot co up +16042091231 -n "Wenqi Qu" -e "quwenqi@example.com"
+chatwoot co del 123
 
 # Merge contacts (combine duplicates)
-chatwoot contacts merge 123 456                   # Merge 456 INTO 123 (456 deleted)
-chatwoot contacts merge 123 456 --force           # Skip confirmation
+chatwoot co merge 123 456                      # Merge 456 INTO 123 (456 deleted)
+chatwoot co merge 123 456 -y                   # Skip confirmation
 
 # Related data
-chatwoot contacts conversations 123
-chatwoot contacts contactable-inboxes 123
+chatwoot co conversations 123
+chatwoot co contactable-inboxes 123
 
 # Inbox association
-chatwoot contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"
+chatwoot co create-inbox 123 --iid 1 --source-id "+15551234567"
 
 # Labels
-chatwoot contacts labels 123
-chatwoot contacts labels-add 123 --labels "customer,premium"
+chatwoot co labels 123
+chatwoot co labels-add 123 --labels "customer,premium"
 
 # Bulk label operations
-chatwoot contacts bulk add-label --ids 1,2,3 --labels "vip,priority"
-chatwoot contacts bulk remove-label --ids 1,2,3 --labels "old-tag"
+chatwoot co bulk add-label --ids 1,2,3 --labels "vip,priority"
+chatwoot co bulk remove-label --ids 1,2,3 --labels "old-tag"
 
 # Bulk IDs can also come from stdin/files: @- or @path
-printf "1\n2\n3\n" | chatwoot contacts bulk add-label --ids @- --labels vip
+printf "1\n2\n3\n" | chatwoot co bulk add-label --ids @- --labels vip
 
 # Notes
-chatwoot contacts notes 123
-chatwoot contacts notes-add 123 --content "Called about refund"
-chatwoot contacts notes-delete 123 456
+chatwoot co notes 123
+chatwoot co notes-add 123 --content "Called about refund"
+chatwoot co notes-delete 123 456
 ```
 
 ### Campaigns
 
 ```bash
 # List and get
-chatwoot campaigns list
-chatwoot campaigns list --all
-chatwoot campaigns get 123
+chatwoot cm ls
+chatwoot cm ls -a
+chatwoot cm g 123
 
 # Create campaign
-chatwoot campaigns create --title "Welcome" --message "Hello!" --inbox-id 1 --labels 5,6
+chatwoot cm cr --title "Welcome" -m "Hello!" --iid 1 --labels 5,6
 
 # Update and delete
-chatwoot campaigns update 123 --enabled=false
-chatwoot campaigns delete 123 --force
+chatwoot cm up 123 --enabled=false
+chatwoot cm del 123 -y
 ```
 
 ### Help Center (Portals)
 
 ```bash
 # Portals
-chatwoot portals list
-chatwoot portals get help
-chatwoot portals create --name "Help Center" --slug help
-chatwoot portals update help --name "Support Center"
-chatwoot portals delete help
+chatwoot po ls
+chatwoot po g help
+chatwoot po cr -n "Help Center" --slug help
+chatwoot po up help -n "Support Center"
+chatwoot po del help
 
 # Articles
-chatwoot portals articles list help
-chatwoot portals articles create help --title "Getting Started" --content "..." --category-id 1
-chatwoot portals articles update help 123 --status 1  # 0=draft, 1=published, 2=archived
-chatwoot portals articles delete help 123
+chatwoot po articles ls help
+chatwoot po articles cr help --title "Getting Started" --content "..." --category-id 1
+chatwoot po articles up help 123 --status 1    # 0=draft, 1=published, 2=archived
+chatwoot po articles del help 123
 
 # Categories
-chatwoot portals categories list help
-chatwoot portals categories create help --name "FAQ" --slug faq
-chatwoot portals categories update help faq --name "Frequently Asked Questions"
-chatwoot portals categories delete help faq
+chatwoot po categories ls help
+chatwoot po categories cr help -n "FAQ" --slug faq
+chatwoot po categories up help faq -n "Frequently Asked Questions"
+chatwoot po categories del help faq
 ```
 
 ### Inboxes
 
 ```bash
-chatwoot inboxes list
-chatwoot inboxes get 1
-chatwoot inboxes create --name "Support" --channel-type api --greeting-enabled --greeting-message "Hi!"
-chatwoot inboxes update 1 --timezone "America/New_York" --working-hours-enabled
+chatwoot in ls
+chatwoot in g 1
+chatwoot in cr -n "Support" --channel-type api --greeting-enabled --greeting-message "Hi!"
+chatwoot in up 1 --timezone "America/New_York" --working-hours-enabled
 ```
 
 ### Inbox Members
 
 ```bash
-chatwoot inbox-members list --inbox-id 1
-chatwoot inbox-members add --inbox-id 1 --user-id 5
-chatwoot inbox-members update --inbox-id 1 --user-id 5 --role administrator
-chatwoot inbox-members remove --inbox-id 1 --user-id 5
+chatwoot inbox-members ls --iid 1
+chatwoot inbox-members add --iid 1 --user-id 5
+chatwoot inbox-members up --iid 1 --user-id 5 --role administrator
+chatwoot inbox-members remove --iid 1 --user-id 5
 ```
 
 ### Agents & Teams
 
 ```bash
 # Agents
-chatwoot agents list
-chatwoot agents get 5
+chatwoot a ls
+chatwoot a g 5
 
 # Teams
-chatwoot teams list
-chatwoot teams get 1
-chatwoot teams members 1
+chatwoot t ls
+chatwoot t g 1
+chatwoot t members 1
 ```
 
 ### Canned Responses
 
 ```bash
-chatwoot canned-responses list
-chatwoot canned-responses get 123
-chatwoot canned-responses create --short-code "greeting" --content "Hello! How can I help?"
-chatwoot canned-responses update 123 --content "Updated response"
-chatwoot canned-responses delete 123
+chatwoot canned-responses ls
+chatwoot canned-responses g 123
+chatwoot canned-responses cr --short-code "greeting" --content "Hello! How can I help?"
+chatwoot canned-responses up 123 --content "Updated response"
+chatwoot canned-responses del 123
 ```
 
 ### Webhooks
 
 ```bash
-chatwoot webhooks list
-chatwoot webhooks get 123
-chatwoot webhooks create --url "https://example.com/webhook" --subscriptions "message_created,conversation_created"
-chatwoot webhooks update 123 --url "https://new.example.com/hook"
-chatwoot webhooks delete 123
+chatwoot wh ls
+chatwoot wh g 123
+chatwoot wh cr --url "https://example.com/webhook" --subscriptions "message_created,conversation_created"
+chatwoot wh up 123 --url "https://new.example.com/hook"
+chatwoot wh del 123
 ```
 
 ### Automation Rules
 
 ```bash
-chatwoot automation-rules list
-chatwoot automation-rules get 123
+chatwoot automation-rules ls
+chatwoot automation-rules g 123
 ```
 
 ### Agent Bots
 
 ```bash
-chatwoot agent-bots list
-chatwoot agent-bots get 123
-chatwoot agent-bots create --name "Support Bot" --description "Handles FAQs"
-chatwoot agent-bots update 123 --name "FAQ Bot"
-chatwoot agent-bots delete 123
+chatwoot agent-bots ls
+chatwoot agent-bots g 123
+chatwoot agent-bots cr -n "Support Bot" --desc "Handles FAQs"
+chatwoot agent-bots up 123 -n "FAQ Bot"
+chatwoot agent-bots del 123
 ```
 
 ### Custom Attributes
 
 ```bash
-chatwoot custom-attributes list --attribute-model contact_attribute
-chatwoot custom-attributes get 123 --attribute-model contact_attribute
-chatwoot custom-attributes create --attribute-model contact_attribute --attribute-key "vip_status" --attribute-display-name "VIP Status" --attribute-display-type list --attribute-values '["gold","silver","bronze"]'
-chatwoot custom-attributes update 123 --attribute-model contact_attribute --attribute-display-name "VIP Level"
-chatwoot custom-attributes delete 123 --attribute-model contact_attribute
+chatwoot custom-attributes ls --attribute-model contact_attribute
+chatwoot custom-attributes g 123 --attribute-model contact_attribute
+chatwoot custom-attributes cr --attribute-model contact_attribute --attribute-key "vip_status" --attribute-display-name "VIP Status" --attribute-display-type list --attribute-values '["gold","silver","bronze"]'
+chatwoot custom-attributes up 123 --attribute-model contact_attribute --attribute-display-name "VIP Level"
+chatwoot custom-attributes del 123 --attribute-model contact_attribute
 ```
 
 ### Custom Filters
 
 ```bash
-chatwoot custom-filters list --filter-type conversation
-chatwoot custom-filters get 123 --filter-type conversation
-chatwoot custom-filters create --filter-type conversation --name "High Priority Open" --query '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]},{"attribute_key":"priority","filter_operator":"equal_to","values":["high"]}]}'
-chatwoot custom-filters update 123 --filter-type conversation --name "Updated Filter"
-chatwoot custom-filters delete 123 --filter-type conversation
+chatwoot custom-filters ls --filter-type conversation
+chatwoot custom-filters g 123 --filter-type conversation
+chatwoot custom-filters cr --filter-type conversation -n "High Priority Open" --query '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]},{"attribute_key":"priority","filter_operator":"equal_to","values":["high"]}]}'
+chatwoot custom-filters up 123 --filter-type conversation -n "Updated Filter"
+chatwoot custom-filters del 123 --filter-type conversation
 ```
 
 ### Labels
 
 ```bash
-chatwoot labels list
-chatwoot labels get 123
-chatwoot labels create --title "VIP"
-chatwoot labels update 123 --title "Premium Customer"
-chatwoot labels delete 123
+chatwoot l ls
+chatwoot l g 123
+chatwoot l cr --title "VIP"
+chatwoot l up 123 --title "Premium Customer"
+chatwoot l del 123
 ```
 
 ### Integrations
 
 ```bash
-chatwoot integrations list
-chatwoot integrations hooks list --app-id slack
-chatwoot integrations hooks create --app-id slack --inbox-id 1 --settings '{"webhook_url":"https://hooks.slack.com/..."}'
-chatwoot integrations hooks update 123 --app-id slack --settings '{"webhook_url":"https://new.hooks.slack.com/..."}'
-chatwoot integrations hooks delete 123 --app-id slack
+chatwoot integrations ls
+chatwoot integrations hooks ls --app-id slack
+chatwoot integrations hooks cr --app-id slack --iid 1 --settings '{"webhook_url":"https://hooks.slack.com/..."}'
+chatwoot integrations hooks up 123 --app-id slack --settings '{"webhook_url":"https://new.hooks.slack.com/..."}'
+chatwoot integrations hooks del 123 --app-id slack
 ```
 
 ### Platform APIs
 
 ```bash
 # Accounts
-chatwoot platform accounts create --name "Acme Inc" --domain acme.example.com --support-email support@acme.example.com
-chatwoot platform accounts get 123
-chatwoot platform accounts delete 123
+chatwoot pf accounts cr -n "Acme Inc" --domain acme.example.com --support-email support@acme.example.com
+chatwoot pf accounts g 123
+chatwoot pf accounts del 123
 
 # Users
-chatwoot platform users create --name "Jane Doe" --email jane@example.com --password "secret"
-chatwoot platform users update 45 --display-name "Jane D"
-chatwoot platform users delete 45
+chatwoot pf users cr -n "Jane Doe" --email jane@example.com --password "secret"
+chatwoot pf users up 45 --display-name "Jane D"
+chatwoot pf users del 45
 
 # Account users
-chatwoot platform account-users list 123
-chatwoot platform account-users create 123 --user-id 45 --role agent
-chatwoot platform account-users delete 123 --user-id 45
+chatwoot pf account-users ls 123
+chatwoot pf account-users cr 123 --user-id 45 --role agent
+chatwoot pf account-users del 123 --user-id 45
 ```
 
 ### Public Client APIs
 
 ```bash
 # Contacts
-chatwoot client contacts create --inbox <inbox-identifier> --name "Visitor" --email visitor@example.com
-chatwoot client contacts get --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client contacts cr --inbox <inbox-identifier> -n "Visitor" -e visitor@example.com
+chatwoot client contacts g --inbox <inbox-identifier> --contact <contact-identifier>
 
 # Conversations
-chatwoot client conversations list --inbox <inbox-identifier> --contact <contact-identifier>
-chatwoot client conversations create --inbox <inbox-identifier> --contact <contact-identifier>
-chatwoot client conversations get 123 --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client conversations ls --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client conversations cr --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client conversations g 123 --inbox <inbox-identifier> --contact <contact-identifier>
 chatwoot client conversations resolve 123 --inbox <inbox-identifier> --contact <contact-identifier>
 
 # Messages & typing
-chatwoot client messages create 123 --inbox <inbox-identifier> --contact <contact-identifier> --content "Hello!"
+chatwoot client messages cr 123 --inbox <inbox-identifier> --contact <contact-identifier> -c "Hello!"
 chatwoot client typing 123 --inbox <inbox-identifier> --contact <contact-identifier> --status on
-chatwoot client last-seen update 123 --inbox <inbox-identifier> --contact <contact-identifier>
+chatwoot client last-seen up 123 --inbox <inbox-identifier> --contact <contact-identifier>
 ```
 
 ### Reports
 
 ```bash
-chatwoot reports summary --since 2024-01-01 --until 2024-12-31
-chatwoot reports summary --metric conversations_count --type account
+chatwoot rp summary --since 2024-01-01 --until 2024-12-31
+chatwoot rp summary --metric conversations_count --type account
 ```
 
 ### CSAT (Customer Satisfaction)
 
 ```bash
-chatwoot csat list
-chatwoot csat metrics --since 2024-01-01 --until 2024-12-31
+chatwoot cs ls
+chatwoot cs metrics --since 2024-01-01 --until 2024-12-31
 ```
 
 ### Audit Logs
 
 ```bash
-chatwoot audit-logs list
-chatwoot audit-logs list --user-id 5
+chatwoot audit-logs ls
+chatwoot audit-logs ls --user-id 5
 ```
 
 ### Profile & Account
 
 ```bash
-chatwoot profile get                              # Get your user profile
-chatwoot account get                              # Get account details
+chatwoot pr g                                  # Get your user profile
+chatwoot account g                             # Get account details
 ```
 
 ## Output Formats
@@ -522,7 +519,7 @@ chatwoot account get                              # Get account details
 Human-readable tables:
 
 ```bash
-$ chatwoot conversations list
+$ chatwoot c ls
 ID      STATUS    INBOX         CONTACT           MESSAGES    UPDATED
 123     open      Support       John Doe          5           2 hours ago
 124     pending   Sales         Jane Smith        3           1 day ago
@@ -533,7 +530,7 @@ ID      STATUS    INBOX         CONTACT           MESSAGES    UPDATED
 Machine-readable output:
 
 ```bash
-$ chatwoot conversations list --output json
+$ chatwoot c ls -o json
 {
   "items": [
     {
@@ -547,36 +544,36 @@ $ chatwoot conversations list --output json
 }
 ```
 
-Tip: `--json` is a shorthand for `--output json`.
+Tip: `--json` is a shorthand for `-o json`.
 
 ### Agent JSON
 
 Agent-optimized JSON output with consistent `kind` envelopes, compact summaries, and readable timestamps.
-Enable it per command with `--output agent`, or set a default for your shell:
+Enable it per command with `-o agent`, or set a default for your shell:
 
 ```bash
 export CHATWOOT_OUTPUT=agent
 ```
 
-Use `--resolve-names` to fetch inbox/contact names for conversation results (extra API calls).
-Agent output is available for `conversations context` with message metadata and summary.
+Use `--rn` to fetch inbox/contact names for conversation results (extra API calls).
+Agent output is available for `c context` with message metadata and summary.
 
 **Context commands return a single envelope**:
 ```bash
-chatwoot conversations context 123 --output agent | jq '.item.summary'
-chatwoot conversations context 123 --output agent --resolve-names | jq '.item.contact_labels'
+chatwoot c context 123 -o agent | jq '.item.summary'
+chatwoot c context 123 -o agent --rn | jq '.item.contact_labels'
 ```
 
 **List commands return an object with an "items" array** (plus `has_more` and `meta`):
 ```bash
-chatwoot contacts list --output agent | jq '.items[0]'
-chatwoot conversations list --output agent | jq '.items[] | select(.status == "open")'
+chatwoot co ls -o agent | jq '.items[0]'
+chatwoot c ls -o agent | jq '.items[] | select(.status == "open")'
 ```
 
 **Get commands return single objects**:
 ```bash
-chatwoot contacts get 123 --output agent | jq '.item.email'
-chatwoot conversations get 456 --output agent | jq '.item.messages_count'
+chatwoot co g 123 -o agent | jq '.item.email'
+chatwoot c g 456 -o agent | jq '.item.messages_count'
 ```
 
 Data goes to stdout, errors and progress to stderr for clean piping.
@@ -586,7 +583,7 @@ Data goes to stdout, errors and progress to stderr for clean piping.
 Streaming-friendly output (one JSON object per line):
 
 ```bash
-$ chatwoot conversations list --output jsonl
+$ chatwoot c ls -o jsonl
 {"id":123,"status":"open",...}
 {"id":124,"status":"pending",...}
 ```
@@ -599,22 +596,22 @@ Tip: `--query` and `--template` apply per line in JSONL mode.
 
 ```bash
 # List all open conversations
-chatwoot conversations list --status open --output json | \
+chatwoot c ls --st open -o json | \
   jq '.items[] | {id, contact: .contact.name, messages: .messages_count}'
 
 # Assign high-priority to agent
-chatwoot conversations assign 123 --agent 5
-chatwoot conversations toggle-priority 123 --priority high
+chatwoot c assign 123 --ag 5
+chatwoot c toggle-priority 123 --pri high
 ```
 
 ### Send bulk campaign
 
 ```bash
 # Create campaign for specific labels
-chatwoot campaigns create \
+chatwoot cm cr \
   --title "Product Update" \
-  --message "Check out our new feature!" \
-  --inbox-id 1 \
+  -m "Check out our new feature!" \
+  --iid 1 \
   --labels 10,11,12
 ```
 
@@ -622,30 +619,30 @@ chatwoot campaigns create \
 
 ```bash
 # Get conversation context with images for AI vision
-chatwoot conversations context 123 --embed-images --output json > context.json
+chatwoot c context 123 --embed -o json > context.json
 
 # Process with AI (example using OpenAI or similar)
 cat context.json | your-ai-tool --prompt "Draft a helpful response"
 
 # Send the response
-chatwoot messages create 123 --content "Your drafted response here"
+chatwoot m cr 123 -c "Your drafted response here"
 ```
 
 ### Search contacts by email domain
 
 ```bash
-chatwoot contacts filter \
+chatwoot co filter \
   --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@example.com"]}]' \
-  --output json | jq '.items[].email'
+  -o json | jq '.items[].email'
 ```
 
 ### Export conversations for analysis
 
 ```bash
 # Get all resolved conversations from last month
-chatwoot conversations filter \
+chatwoot c filter \
   --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["resolved"]}]' \
-  --output json > resolved-conversations.json
+  -o json > resolved-conversations.json
 
 # Extract key metrics
 jq '[.items[] | {id, resolved_at: .updated_at, messages: .messages_count, agent: .assignee.name}]' \
@@ -656,13 +653,13 @@ jq '[.items[] | {id, resolved_at: .updated_at, messages: .messages_count, agent:
 
 ```bash
 # Create portal
-chatwoot portals create --name "Knowledge Base" --slug kb
+chatwoot po cr -n "Knowledge Base" --slug kb
 
 # Create category
-chatwoot portals categories create kb --name "Getting Started" --slug getting-started
+chatwoot po categories cr kb -n "Getting Started" --slug getting-started
 
 # Publish article
-chatwoot portals articles create kb \
+chatwoot po articles cr kb \
   --title "How to Get Started" \
   --content "..." \
   --category-id 1 \
@@ -675,13 +672,13 @@ Get complete conversation data optimized for use by LLMs:
 
 ```bash
 # Text format with embedded images
-chatwoot conversations context 123 --embed-images
+chatwoot c context 123 --embed
 
 # JSON format for programmatic access
-chatwoot conversations context 123 --embed-images --output json
+chatwoot c context 123 --embed -o json
 ```
 
-The `--embed-images` flag converts images to base64 data URIs that AI vision models can process directly.
+The `--embed` flag converts images to base64 data URIs that AI vision models can process directly.
 
 ### Pagination
 
@@ -689,91 +686,90 @@ List commands support pagination:
 
 ```bash
 # Get all results (automatic pagination)
-chatwoot conversations list --all
+chatwoot c ls -a
 
 # Limit pagination depth
-chatwoot conversations list --all --max-pages 50
+chatwoot c ls -a --mp 50
 ```
 
 ### Filtering and Search
 
 **Filter** uses Chatwoot's filter API for structured queries:
 ```bash
-chatwoot conversations filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'
-chatwoot contacts filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@vip.com"]}]'
+chatwoot c filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'
+chatwoot co filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@vip.com"]}]'
 ```
 
 **Search** performs full-text search:
 ```bash
-chatwoot conversations search --query "refund request"
-chatwoot contacts search --query "john smith"
+chatwoot c search --query "refund request"
+chatwoot co search --query "john smith"
 ```
 
 ## Common Workflows
 
-### Inbox → Conversation → Message
+### Inbox -> Conversation -> Message
 
 ```bash
 # Pick an inbox
-chatwoot inboxes list
+chatwoot in ls
 
 # List open conversations in an inbox
-chatwoot conversations list --status open --inbox-id 1
+chatwoot c ls --st open --iid 1
 
 # Send a message in a conversation
-chatwoot messages create 123 --content "Hello! How can I help?"
+chatwoot m cr 123 -c "Hello! How can I help?"
 ```
 
-### Contacts → Conversations
+### Contacts -> Conversations
 
 ```bash
 # Find a contact
-chatwoot contacts search --query "john@example.com"
+chatwoot co search --query "john@example.com"
 
 # Get the conversations for a contact
-chatwoot contacts conversations 123
-chatwoot contacts conversations 123 --output agent --resolve-names
+chatwoot co conversations 123
+chatwoot co conversations 123 -o agent --rn
 ```
 
 ## Troubleshooting
 
-- **401 Unauthorized**: run `chatwoot auth login` and verify your token.
+- **401 Unauthorized**: run `chatwoot au login` and verify your token.
 - **403 Forbidden**: check your account role and permissions.
 - **404 Not Found**: verify the resource ID (it may have been deleted).
 - **URL validation failed**: ensure the base URL is public, or use `--allow-private` only if you trust the target.
-- **Base URL not configured**: set `CHATWOOT_BASE_URL` / `CHATWOOT_API_TOKEN` / `CHATWOOT_ACCOUNT_ID` or run `chatwoot auth login`.
+- **Base URL not configured**: set `CHATWOOT_BASE_URL` / `CHATWOOT_API_TOKEN` / `CHATWOOT_ACCOUNT_ID` or run `chatwoot au login`.
 
 ## Global Flags
 
 All commands support these flags:
 
-- `--output <format>` - Output format: `text`, `json`, or `jsonl` (default: text)
-- `--json` - Alias for `--output json`
+- `-o <format>` / `--output <format>` - Output format: `text`, `json`, or `jsonl` (default: text)
+- `--json` - Alias for `-o json`
 - `--color <mode>` - Color mode: `auto`, `always`, or `never` (default: auto)
 - `--allow-private` - Allow private/localhost URLs (unsafe)
 - `--debug` - Enable verbose debug logging
-- `--dry-run` - Preview changes without executing mutations
+- `--dr` / `--dry-run` - Preview changes without executing mutations
 - `--timeout <duration>` - HTTP request timeout (default: 30s)
-- `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
-- `--query <expr>` - JQ expression to filter JSON output
-- `--jq <expr>` - Alias for `--query`
+- `--idem <key|auto>` / `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
+- `--query <expr>` / `--jq <expr>` - JQ expression to filter JSON output
 - `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`; supports presets like `minimal`, `default`, `debug` on supported resources)
-- `--quiet` - Suppress non-essential output
+- `-q` / `--quiet` - Suppress non-essential output
 - `--silent` - Suppress non-error output to stderr
 - `--no-input` - Disable interactive prompts
-- `--yes`, `-y` - Assume yes for confirmations (desire path alias for `--force`)
+- `-y` / `--yes` - Assume yes for confirmations (desire path alias for `--force`)
 - `--template <tmpl>` - Go template (or `@path`) to render JSON output
 - `--utc` - Display timestamps in UTC
-- `--time-zone <tz>` - Display timestamps in a specific time zone (e.g., `America/Los_Angeles`)
-- `--max-rate-limit-retries <n>` - Max retries for HTTP 429 responses
+- `--tz <tz>` / `--time-zone <tz>` - Display timestamps in a specific time zone (e.g., `America/Los_Angeles`)
+- `--max-rl <n>` / `--max-rate-limit-retries <n>` - Max retries for HTTP 429 responses
 - `--max-5xx-retries <n>` - Max retries for HTTP 5xx responses
-- `--rate-limit-delay <duration>` - Base delay for 429 retries (e.g., 1s)
-- `--server-error-delay <duration>` - Delay between 5xx retries (e.g., 1s)
+- `--rld <duration>` / `--rate-limit-delay <duration>` - Base delay for 429 retries (e.g., 1s)
+- `--sed <duration>` / `--server-error-delay <duration>` - Delay between 5xx retries (e.g., 1s)
 - `--circuit-breaker-threshold <n>` - Failures before circuit opens
 - `--circuit-breaker-reset-time <duration>` - Circuit breaker reset time (e.g., 30s)
 - `--help` - Show help for any command
 
-Note: `--utc` and `--time-zone` are mutually exclusive.
+Note: `--utc` and `--tz` are mutually exclusive.
 
 You can force interactive prompts in non-TTY environments by setting `CHATWOOT_FORCE_INTERACTIVE=true`.
 
@@ -829,7 +825,7 @@ Every command has 1-2 letter aliases for fast typing. Use `chatwoot <alias>` ins
 | `profile` | `pr` |
 | `version` | `v` |
 
-Subcommands also have aliases (e.g., `list` → `ls`, `get` → `g`, `create` → `cr`, `update` → `up`, `delete` → `del`).
+Subcommands also have aliases (e.g., `list` -> `ls`, `get` -> `g`, `create` -> `cr`, `update` -> `up`, `delete` -> `del`).
 
 ### Examples
 
@@ -903,20 +899,20 @@ Filter JSON output with JQ expressions:
 
 ```bash
 # Get only conversation IDs
-chatwoot conversations list -o json --query '.items[].id'
+chatwoot c ls -o json --query '.items[].id'
 
 # Filter by status
-chatwoot conversations list -o json --query '.items[] | select(.status == "open")'
+chatwoot c ls -o json --query '.items[] | select(.status == "open")'
 ```
 
 **Fields shorthand & templates**
 
 ```bash
 # Select fields without writing JQ
-chatwoot conversations list -o json --fields id,status,assignee_id
+chatwoot c ls -o json --fields id,status,assignee_id
 
 # Render custom output with a template
-chatwoot conversations get 123 -o json --template '{{.id}} {{.status}}'
+chatwoot c g 123 -o json --template '{{.id}} {{.status}}'
 ```
 
 ### Field Presets
@@ -925,13 +921,13 @@ Many commands support field presets for common use cases. Instead of listing ind
 
 ```bash
 # Minimal output - just essential identifiers
-chatwoot contacts list -o json --fields minimal
+chatwoot co ls -o json --fields minimal
 
 # Default output - commonly needed fields
-chatwoot conversations list -o json --fields default
+chatwoot c ls -o json --fields default
 
 # Debug output - all fields for troubleshooting
-chatwoot contacts list -o json --fields debug
+chatwoot co ls -o json --fields debug
 ```
 
 **Available presets:**
@@ -988,7 +984,7 @@ chatwoot completion powershell >> $PROFILE
 ## Version & Updates
 
 ```bash
-chatwoot version
+chatwoot v
 ```
 
 ## Development
