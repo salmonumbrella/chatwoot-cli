@@ -300,9 +300,10 @@ func newTeamsMembersAddCmd() *cobra.Command {
 	var userIDsStr string
 
 	cmd := &cobra.Command{
-		Use:   "members-add <id>",
-		Short: "Add members to a team",
-		Args:  cobra.ExactArgs(1),
+		Use:     "members-add <id>",
+		Aliases: []string{"ma"},
+		Short:   "Add members to a team",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
@@ -349,9 +350,10 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 	var userIDsStr string
 
 	cmd := &cobra.Command{
-		Use:   "members-remove <id>",
-		Short: "Remove members from a team",
-		Args:  cobra.ExactArgs(1),
+		Use:     "members-remove <id>",
+		Aliases: []string{"mr"},
+		Short:   "Remove members from a team",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {

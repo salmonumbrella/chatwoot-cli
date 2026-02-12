@@ -58,14 +58,14 @@ func newContactsListCmd() *cobra.Command {
 
 JSON output returns an object with an "items" array for easy jq processing.`,
 		Example: `  # List contacts in table format
-  chatwoot contacts list
+  cw contacts list
 
   # List with pagination
-  chatwoot contacts list --page 2
+  cw contacts list --page 2
 
   # JSON output - returns an object with an "items" array
-  chatwoot contacts list --output json | jq '.items[0]'
-  chatwoot contacts list --output json | jq '.items[] | {id, name, email}'`,
+  cw contacts list --output json | jq '.items[0]'
+  cw contacts list --output json | jq '.items[] | {id, name, email}'`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -230,27 +230,27 @@ func newContactsGetCmd() *cobra.Command {
 		Long: `Get a specific contact by their ID, email address, phone number, or name.
 
 Accepts numeric ID, Chatwoot URL, email address, phone number, or name to search.
-Use 'chatwoot contacts show <id>' as an alias for this command.`,
+Use 'cw contacts show <id>' as an alias for this command.`,
 		Example: `  # Get contact by ID
-  chatwoot contacts get 123
+  cw contacts get 123
 
   # Get contact by email
-  chatwoot contacts get john@example.com
+  cw contacts get john@example.com
 
   # Get contact by phone number
-  chatwoot contacts get +16042091231
+  cw contacts get +16042091231
 
   # Get contact by name
-  chatwoot contacts get "John Smith"
+  cw contacts get "John Smith"
 
   # Get contact as JSON
-  chatwoot contacts get 123 --output json
+  cw contacts get 123 --output json
 
   # Agent mode with open conversations
-  chatwoot contacts get 123 --output agent --with-open-conversations
+  cw contacts get 123 --output agent --with-open-conversations
 
   # Get contact using URL from browser
-  chatwoot contacts get https://app.chatwoot.com/app/accounts/1/contacts/123`,
+  cw contacts get https://app.chatwoot.com/app/accounts/1/contacts/123`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}
@@ -276,15 +276,15 @@ func newContactsShowCmd() *cobra.Command {
 		Short: "Show contact by ID (alias for 'get')",
 		Long: `Show a specific contact by their ID.
 
-This is an alias for 'chatwoot contacts get <id>'.`,
+This is an alias for 'cw contacts get <id>'.`,
 		Example: `  # Show contact by ID
-  chatwoot contacts show 123
+  cw contacts show 123
 
   # Show contact as JSON
-  chatwoot contacts show 123 --output json
+  cw contacts show 123 --output json
 
   # Agent mode with open conversations
-  chatwoot contacts show 123 --output agent --with-open-conversations`,
+  cw contacts show 123 --output agent --with-open-conversations`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(contactGetRunE),
 	}
@@ -320,16 +320,16 @@ func newContactsCreateCmd() *cobra.Command {
 
 When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 		Example: `  # Create contact with flags
-  chatwoot contacts create --name "John Doe" --email "john@example.com"
+  cw contacts create --name "John Doe" --email "john@example.com"
 
   # Create contact from JSON stdin
-  echo '{"name":"John","email":"john@test.com"}' | chatwoot contacts create --json
+  echo '{"name":"John","email":"john@test.com"}' | cw contacts create --json
 
   # JSON stdin with flag override (flag takes precedence)
-  echo '{"name":"JSON Name","email":"json@test.com"}' | chatwoot contacts create --json --name "Override Name"
+  echo '{"name":"JSON Name","email":"json@test.com"}' | cw contacts create --json --name "Override Name"
 
   # Create contact with additional fields via JSON
-  cat <<EOF | chatwoot contacts create --json
+  cat <<EOF | cw contacts create --json
   {
     "name": "Full Contact",
     "email": "full@test.com",
@@ -449,13 +449,13 @@ func newContactsUpdateCmd() *cobra.Command {
 
 Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolve the contact.`,
 		Example: `  # Update by ID
-  chatwoot contacts update 123 --name "Updated Name"
+  cw contacts update 123 --name "Updated Name"
 
   # Update by email
-  chatwoot contacts update john@example.com --name "John Smith"
+  cw contacts update john@example.com --name "John Smith"
 
   # Update by phone number (if searchable)
-  chatwoot contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"`,
+  cw contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 
@@ -571,10 +571,10 @@ func newContactsSearchCmd() *cobra.Command {
 The query matches against contact name, email, phone number, and identifier.
 JSON output returns an object with an "items" array for easy jq processing.`,
 		Example: `  # Search for contacts by name
-  chatwoot contacts search --query "John"
+  cw contacts search --query "John"
 
   # Search and output as JSON
-  chatwoot contacts search --query "acme" --output json | jq '.items[] | {id, name}'`,
+  cw contacts search --query "acme" --output json | jq '.items[] | {id, name}'`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if query == "" {
 				return fmt.Errorf("--query is required")
@@ -725,13 +725,13 @@ func newContactsConversationsCmd() *cobra.Command {
 
 Accepts contact ID, email address, phone number, or name to search for the contact.`,
 		Example: `  # Get conversations by contact ID
-  chatwoot contacts conversations 123
+  cw contacts conversations 123
 
   # Get conversations by email
-  chatwoot contacts conversations john@example.com
+  cw contacts conversations john@example.com
 
   # Get conversations by name
-  chatwoot contacts conversations "John Smith"`,
+  cw contacts conversations "John Smith"`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
@@ -829,10 +829,11 @@ func newContactsLabelsAddCmd() *cobra.Command {
 	var labels string
 
 	cmd := &cobra.Command{
-		Use:   "labels-add <id>",
-		Short: "Add labels to contact",
-		Long:  "Add one or more labels to a contact (comma-separated)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "labels-add <id>",
+		Aliases: []string{"la"},
+		Short:   "Add labels to contact",
+		Long:    "Add one or more labels to a contact (comma-separated)",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
@@ -878,10 +879,11 @@ func newContactsLabelsAddCmd() *cobra.Command {
 
 func newContactsContactableInboxesCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "contactable-inboxes <id>",
-		Short: "Get contactable inboxes",
-		Long:  "Get all contactable inboxes for a contact",
-		Args:  cobra.ExactArgs(1),
+		Use:     "contactable-inboxes <id>",
+		Aliases: []string{"ci"},
+		Short:   "Get contactable inboxes",
+		Long:    "Get all contactable inboxes for a contact",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
@@ -931,14 +933,15 @@ func newContactsCreateInboxCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create-inbox <contact-id>",
-		Short: "Associate contact with an inbox",
-		Long:  "Create a contact inbox association, allowing the contact to be reached via that inbox",
+		Use:     "create-inbox <contact-id>",
+		Aliases: []string{"cri"},
+		Short:   "Associate contact with an inbox",
+		Long:    "Create a contact inbox association, allowing the contact to be reached via that inbox",
 		Example: `  # Associate contact 123 with inbox 1
-  chatwoot contacts create-inbox 123 --inbox-id 1
+  cw contacts create-inbox 123 --inbox-id 1
 
   # With custom source ID (for channel-specific identifiers)
-  chatwoot contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"`,
+  cw contacts create-inbox 123 --inbox-id 1 --source-id "+15551234567"`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			contactID, err := parseIDOrURL(args[0], "contact")
@@ -999,10 +1002,10 @@ func newContactsNotesCmd() *cobra.Command {
 		Long:  "List all notes for a specific contact",
 		Example: strings.TrimSpace(`
   # List notes for a contact
-  chatwoot contacts notes 123
+  cw contacts notes 123
 
   # JSON output
-  chatwoot contacts notes 123 -o json
+  cw contacts notes 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1054,12 +1057,13 @@ func newContactsNotesAddCmd() *cobra.Command {
 	var content string
 
 	cmd := &cobra.Command{
-		Use:   "notes-add <contact-id>",
-		Short: "Add note to contact",
-		Long:  "Add a new note to a contact",
+		Use:     "notes-add <contact-id>",
+		Aliases: []string{"na"},
+		Short:   "Add note to contact",
+		Long:    "Add a new note to a contact",
 		Example: strings.TrimSpace(`
   # Add a note to a contact
-  chatwoot contacts notes-add 123 --content "VIP customer, handle with care"
+  cw contacts notes-add 123 --content "VIP customer, handle with care"
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1098,12 +1102,13 @@ func newContactsNotesAddCmd() *cobra.Command {
 
 func newContactsNotesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "notes-delete <contact-id> <note-id>",
-		Short: "Delete contact note",
-		Long:  "Delete a note from a contact",
+		Use:     "notes-delete <contact-id> <note-id>",
+		Aliases: []string{"nd"},
+		Short:   "Delete contact note",
+		Long:    "Delete a note from a contact",
 		Example: strings.TrimSpace(`
   # Delete a note from a contact
-  chatwoot contacts notes-delete 123 456
+  cw contacts notes-delete 123 456
 `),
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1158,18 +1163,19 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-label",
-		Short: "Add labels to multiple contacts",
-		Long:  "Add one or more labels to multiple contacts at once",
+		Use:     "add-label",
+		Aliases: []string{"al"},
+		Short:   "Add labels to multiple contacts",
+		Long:    "Add one or more labels to multiple contacts at once",
 		Example: strings.TrimSpace(`
   # Add a single label to multiple contacts
-  chatwoot contacts bulk add-label --ids 1,2,3 --labels important
+  cw contacts bulk add-label --ids 1,2,3 --labels important
 
   # Add multiple labels to multiple contacts
-  chatwoot contacts bulk add-label --ids 1,2,3 --labels important,vip
+  cw contacts bulk add-label --ids 1,2,3 --labels important,vip
 
   # Control concurrency (default: 5)
-  chatwoot contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
+  cw contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseResourceIDListFlag(contactIDs, "contact")
@@ -1244,21 +1250,22 @@ func newContactsBulkRemoveLabelCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "remove-label",
-		Short: "Remove labels from multiple contacts",
+		Use:     "remove-label",
+		Aliases: []string{"rl"},
+		Short:   "Remove labels from multiple contacts",
 		Long: `Remove one or more labels from multiple contacts at once.
 
 For each contact, this command fetches current labels, removes the specified
 labels, and updates the contact with the remaining labels.`,
 		Example: strings.TrimSpace(`
   # Remove a single label from multiple contacts
-  chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam
+  cw contacts bulk remove-label --ids 1,2,3 --labels spam
 
   # Remove multiple labels from multiple contacts
-  chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam,inactive
+  cw contacts bulk remove-label --ids 1,2,3 --labels spam,inactive
 
   # Control concurrency (default: 5)
-  chatwoot contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
+  cw contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseResourceIDListFlag(contactIDs, "contact")
@@ -1359,16 +1366,16 @@ will be transferred to the surviving contact.
 
 This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 		Example: `  # Merge contact 456 INTO contact 123 (456 gets deleted, 123 keeps all data)
-  chatwoot contacts merge 123 456
+  cw contacts merge 123 456
 
   # Preview the merge without executing
-  chatwoot contacts merge 123 456 --dry-run
+  cw contacts merge 123 456 --dry-run
 
   # Skip confirmation (for scripting)
-  chatwoot contacts merge 123 456 --force
+  cw contacts merge 123 456 --force
 
   # JSON output (requires --force)
-  chatwoot contacts merge 123 456 --force --output json`,
+  cw contacts merge 123 456 --force --output json`,
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			keepID, err := parsePositiveIntArg(args[0], "keep-id")

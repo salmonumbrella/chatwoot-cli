@@ -298,9 +298,10 @@ func newAgentsBulkCreateCmd() *cobra.Command {
 	var emails string
 
 	cmd := &cobra.Command{
-		Use:   "bulk-create",
-		Short: "Create multiple agents at once",
-		Long:  "Create multiple agents at once by providing a list of email addresses",
+		Use:     "bulk-create",
+		Aliases: []string{"bc"},
+		Short:   "Create multiple agents at once",
+		Long:    "Create multiple agents at once by providing a list of email addresses",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if emails == "" {
 				return fmt.Errorf("--emails is required")

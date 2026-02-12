@@ -117,8 +117,8 @@ Report types:
   inbox   - Specific inbox summary (requires --id)
   label   - Specific label summary (requires --id)
   team    - Specific team summary (requires --id)`,
-		Example: `  chatwoot reports summary --type account --from 2024-01-01 --to 2024-01-31
-  chatwoot reports summary --type agent --id 123 --from 2024-01-01 --to 2024-01-31`,
+		Example: `  cw reports summary --type account --from 2024-01-01 --to 2024-01-31
+  cw reports summary --type agent --id 123 --from 2024-01-01 --to 2024-01-31`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if reportType == "" {
 				return fmt.Errorf("--type is required (account, agent, inbox, label, or team)")
@@ -204,8 +204,8 @@ Report types:
   inbox   - Specific inbox data (requires --id)
   label   - Specific label data (requires --id)
   team    - Specific team data (requires --id)`,
-		Example: `  chatwoot reports data --metric conversations_count --type account --from 2024-01-01 --to 2024-01-31
-  chatwoot reports data --metric avg_first_response_time --type inbox --id 5 --from 2024-01-01 --to 2024-01-31`,
+		Example: `  cw reports data --metric conversations_count --type account --from 2024-01-01 --to 2024-01-31
+  cw reports data --metric avg_first_response_time --type inbox --id 5 --from 2024-01-01 --to 2024-01-31`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if metric == "" {
 				return fmt.Errorf("--metric is required (conversations_count, incoming_messages_count, outgoing_messages_count, avg_first_response_time, avg_resolution_time, resolutions_count)")
@@ -274,7 +274,7 @@ func newReportsLiveCmd() *cobra.Command {
 		Use:     "live",
 		Short:   "Get real-time conversation metrics",
 		Long:    "Get current counts of open, unattended, and unassigned conversations.",
-		Example: "chatwoot reports live",
+		Example: "cw reports live",
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -308,8 +308,8 @@ func newReportsAgentsCmd() *cobra.Command {
 		Use:   "agents",
 		Short: "Get agent conversation metrics",
 		Long:  "Get current conversation metrics for all agents or a specific agent.",
-		Example: `  chatwoot reports agents
-  chatwoot reports agents --user-id 123`,
+		Example: `  cw reports agents
+  cw reports agents --user-id 123`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -358,9 +358,9 @@ func newReportsChannelsCmd() *cobra.Command {
 		Long: `Get conversation statistics grouped by channel type.
 
 Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
-		Example: `  chatwoot reports channels --from 2024-01-01 --to 2024-01-31
-  chatwoot reports channels --business-hours
-  chatwoot reports channels -o json`,
+		Example: `  cw reports channels --from 2024-01-01 --to 2024-01-31
+  cw reports channels --business-hours
+  cw reports channels -o json`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
 			if err != nil {
@@ -444,13 +444,13 @@ func newReportsAgentSummaryCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "agent-summary",
-		Aliases: []string{"agents-summary"},
+		Aliases: []string{"agents-summary", "as"},
 		Short:   "Get summary report grouped by agent",
 		Long: `Get summary report grouped by agent.
 
 Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
-		Example: `  chatwoot reports agent-summary --from 2024-01-01 --to 2024-01-31
-  chatwoot reports agent-summary --business-hours`,
+		Example: `  cw reports agent-summary --from 2024-01-01 --to 2024-01-31
+  cw reports agent-summary --business-hours`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
 			if err != nil {
@@ -489,8 +489,8 @@ func newReportsInboxesCmd() *cobra.Command {
 		Long: `Get summary report grouped by inbox.
 
 Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
-		Example: `  chatwoot reports inboxes --from 2024-01-01 --to 2024-01-31
-  chatwoot reports inboxes --business-hours`,
+		Example: `  cw reports inboxes --from 2024-01-01 --to 2024-01-31
+  cw reports inboxes --business-hours`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
 			if err != nil {
@@ -529,8 +529,8 @@ func newReportsTeamsCmd() *cobra.Command {
 		Long: `Get summary report grouped by team.
 
 Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix timestamps.`,
-		Example: `  chatwoot reports teams --from 2024-01-01 --to 2024-01-31
-  chatwoot reports teams --business-hours`,
+		Example: `  cw reports teams --from 2024-01-01 --to 2024-01-31
+  cw reports teams --business-hours`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			sinceTS, untilTS, err := parseOptionalDateRange(from, to)
 			if err != nil {

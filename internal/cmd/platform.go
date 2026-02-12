@@ -467,8 +467,9 @@ func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAccountUsersCmd(baseURL, token *string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "account-users",
-		Short: "Manage account users via platform API",
+		Use:     "account-users",
+		Aliases: []string{"au"},
+		Short:   "Manage account users via platform API",
 	}
 
 	cmd.AddCommand(newPlatformAccountUsersListCmd(baseURL, token))
@@ -605,8 +606,9 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAgentBotsCmd(baseURL, token *string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "agent-bots",
-		Short: "Manage agent bots via platform API",
+		Use:     "agent-bots",
+		Aliases: []string{"ab"},
+		Short:   "Manage agent bots via platform API",
 	}
 
 	cmd.AddCommand(newPlatformAgentBotsListCmd(baseURL, token))

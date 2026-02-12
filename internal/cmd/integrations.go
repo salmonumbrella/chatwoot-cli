@@ -30,7 +30,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "apps",
 		Short:   "List available integration apps",
-		Example: "chatwoot integrations apps",
+		Example: "cw integrations apps",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -65,7 +65,7 @@ func newIntegrationsHooksCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "hooks",
 		Short:   "List integration hooks",
-		Example: "chatwoot integrations hooks",
+		Example: "cw integrations hooks",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -103,8 +103,9 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "hook-create",
+		Aliases: []string{"hc"},
 		Short:   "Create an integration hook",
-		Example: "chatwoot integrations hook-create --app-id slack --inbox-id 1 --settings '{\"webhook_url\":\"https://...\"}'",
+		Example: "cw integrations hook-create --app-id slack --inbox-id 1 --settings '{\"webhook_url\":\"https://...\"}'",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if appID == "" {
 				return fmt.Errorf("--app-id is required")
@@ -149,8 +150,9 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "hook-update <hook-id>",
+		Aliases: []string{"hu"},
 		Short:   "Update an integration hook",
-		Example: "chatwoot integrations hook-update 123 --settings '{\"webhook_url\":\"https://...\"}'",
+		Example: "cw integrations hook-update 123 --settings '{\"webhook_url\":\"https://...\"}'",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			hookID, err := parseIDOrURL(args[0], "hook")
@@ -192,8 +194,9 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 func newIntegrationsHookDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "hook-delete <hook-id>",
+		Aliases: []string{"hd"},
 		Short:   "Delete an integration hook",
-		Example: "chatwoot integrations hook-delete 123",
+		Example: "cw integrations hook-delete 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			hookID, err := parseIDOrURL(args[0], "hook")
@@ -239,7 +242,7 @@ func newShopifyAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "auth",
 		Short:   "Authenticate Shopify integration",
-		Example: "chatwoot integrations shopify auth --shop mystore.myshopify.com --code AUTH_CODE",
+		Example: "cw integrations shopify auth --shop mystore.myshopify.com --code AUTH_CODE",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if shopDomain == "" {
 				return fmt.Errorf("--shop is required")
@@ -276,7 +279,7 @@ func newShopifyOrdersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "orders",
 		Short:   "List Shopify orders for a contact",
-		Example: "chatwoot integrations shopify orders --contact-id 123",
+		Example: "cw integrations shopify orders --contact-id 123",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if contactID == 0 {
 				return fmt.Errorf("--contact-id is required")
@@ -323,7 +326,7 @@ func newShopifyDeleteCmd() *cobra.Command {
 		Use:     "delete",
 		Aliases: []string{"rm"},
 		Short:   "Delete Shopify integration",
-		Example: "chatwoot integrations shopify delete",
+		Example: "cw integrations shopify delete",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -359,7 +362,7 @@ func newNotionDeleteCmd() *cobra.Command {
 		Use:     "delete",
 		Aliases: []string{"rm"},
 		Short:   "Delete Notion integration",
-		Example: "chatwoot integrations notion delete",
+		Example: "cw integrations notion delete",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {

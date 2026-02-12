@@ -54,22 +54,22 @@ func newMessagesListCmd() *cobra.Command {
 Messages are returned in chronological order: oldest first, most recent at the
 end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 		Example: `  # List recent messages
-  chatwoot messages list 123
+  cw messages list 123
 
   # List all messages (paginated)
-  chatwoot messages list 123 --all
+  cw messages list 123 --all
 
   # Limit messages (paginates as needed)
-  chatwoot messages list 123 --limit 500
+  cw messages list 123 --limit 500
 
   # JSON output - returns an object with an "items" array
-  chatwoot messages list 123 --all --output json | jq '[.items[] | select(.private)]'
+  cw messages list 123 --all --output json | jq '[.items[] | select(.private)]'
 
   # Get last 6 messages (most recent) - messages are oldest-first in the array
-  chatwoot messages list 123 --json | jq '.items[-6:]'
+  cw messages list 123 --json | jq '.items[-6:]'
 
   # Use conversation URL from browser
-  chatwoot messages list https://app.chatwoot.com/app/accounts/1/conversations/123`,
+  cw messages list https://app.chatwoot.com/app/accounts/1/conversations/123`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := parseIDOrURL(args[0], "conversation")
@@ -245,25 +245,25 @@ func newMessagesCreateCmd() *cobra.Command {
 		Short:   "Create a message in a conversation",
 		Example: strings.TrimSpace(`
   # Send a text message
-  chatwoot messages create 123 --content "Hello!"
+  cw messages create 123 --content "Hello!"
 
   # Send a private note (internal, not visible to customer)
-  chatwoot messages create 123 --private --content "Internal note for team"
+  cw messages create 123 --private --content "Internal note for team"
 
   # Tag/mention an agent in a private note (agent will be notified)
-  chatwoot messages create 123 --private --mention lily --content "Can you follow up on this?"
+  cw messages create 123 --private --mention lily --content "Can you follow up on this?"
 
   # Mention multiple agents
-  chatwoot messages create 123 --private --mention lily --mention jack --content "Please review"
+  cw messages create 123 --private --mention lily --mention jack --content "Please review"
 
   # Send a message with attachment
-  chatwoot messages create 123 --content "See attached" --attachment /path/to/file.pdf
+  cw messages create 123 --content "See attached" --attachment /path/to/file.pdf
 
   # Send multiple attachments
-  chatwoot messages create 123 --content "Documents" --attachment doc1.pdf --attachment doc2.png
+  cw messages create 123 --content "Documents" --attachment doc1.pdf --attachment doc2.png
 
   # Send attachment only (no text)
-  chatwoot messages create 123 --attachment screenshot.png
+  cw messages create 123 --attachment screenshot.png
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -482,7 +482,7 @@ func newMessagesUpdateCmd() *cobra.Command {
 		Aliases: []string{"up"},
 		Short:   "Update a message's content",
 		Example: `  # Update a message
-  chatwoot messages update 123 456 --content "Updated text"`,
+  cw messages update 123 456 --content "Updated text"`,
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := parseIDOrURL(args[0], "conversation")
@@ -556,13 +556,13 @@ Uses the Chatwoot translation service to translate message content.
 Requires an AI integration to be configured in your Chatwoot instance.`,
 		Example: strings.TrimSpace(`
   # Translate a message to Spanish
-  chatwoot messages translate 123 456 --lang es
+  cw messages translate 123 456 --lang es
 
   # Translate to French
-  chatwoot messages translate 123 456 --lang fr
+  cw messages translate 123 456 --lang fr
 
   # Get translation as JSON
-  chatwoot messages translate 123 456 --lang de --output json
+  cw messages translate 123 456 --lang de --output json
 `),
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -620,10 +620,10 @@ Use this to reattempt delivery of messages that encountered
 temporary failures (e.g., network issues, rate limiting).`,
 		Example: strings.TrimSpace(`
   # Retry a failed message
-  chatwoot messages retry 123 456
+  cw messages retry 123 456
 
   # Retry and get result as JSON
-  chatwoot messages retry 123 456 --output json
+  cw messages retry 123 456 --output json
 `),
 		Args: cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -689,8 +689,9 @@ func newMessagesBatchSendCmd() *cobra.Command {
 	var concurrency int
 
 	cmd := &cobra.Command{
-		Use:   "batch-send",
-		Short: "Send messages to multiple conversations",
+		Use:     "batch-send",
+		Aliases: []string{"bs"},
+		Short:   "Send messages to multiple conversations",
 		Long: `Send messages to multiple conversations in parallel.
 
 Reads JSON input from stdin with an array of messages to send.
@@ -700,16 +701,16 @@ Messages are sent concurrently for efficiency.`,
   echo '[
     {"conversation_id": 123, "content": "Thanks for your patience!"},
     {"conversation_id": 456, "content": "Your order has shipped."}
-  ]' | chatwoot messages batch-send
+  ]' | cw messages batch-send
 
   # Send from a file
-  cat messages.json | chatwoot messages batch-send
+  cat messages.json | cw messages batch-send
 
   # With custom concurrency
-  cat messages.json | chatwoot messages batch-send --concurrency 10
+  cat messages.json | cw messages batch-send --concurrency 10
 
   # Send private notes
-  echo '[{"conversation_id": 123, "content": "Internal note", "private": true}]' | chatwoot messages batch-send
+  echo '[{"conversation_id": 123, "content": "Internal note", "private": true}]' | cw messages batch-send
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Read input from stdin

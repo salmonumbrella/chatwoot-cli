@@ -423,9 +423,10 @@ func newInboxesDeleteCmd() *cobra.Command {
 
 func newInboxesAgentBotCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "agent-bot <id>",
-		Short: "Get the agent bot assigned to an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "agent-bot <id>",
+		Aliases: []string{"ab"},
+		Short:   "Get the agent bot assigned to an inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -467,9 +468,10 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 	var botID int
 
 	cmd := &cobra.Command{
-		Use:   "set-agent-bot <id>",
-		Short: "Assign an agent bot to an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "set-agent-bot <id>",
+		Aliases: []string{"sab"},
+		Short:   "Assign an agent bot to an inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -775,10 +777,11 @@ func newInboxesCampaignsCmd() *cobra.Command {
 
 func newInboxesSyncTemplatesCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync-templates <id>",
-		Short: "Sync WhatsApp templates for an inbox",
-		Long:  "Sync WhatsApp message templates from the WhatsApp Business API for this inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "sync-templates <id>",
+		Aliases: []string{"st"},
+		Short:   "Sync WhatsApp templates for an inbox",
+		Long:    "Sync WhatsApp message templates from the WhatsApp Business API for this inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -847,9 +850,10 @@ func newInboxesHealthCmd() *cobra.Command {
 
 func newInboxesDeleteAvatarCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete-avatar <id>",
-		Short: "Remove the inbox avatar",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete-avatar <id>",
+		Aliases: []string{"da"},
+		Short:   "Remove the inbox avatar",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -881,9 +885,10 @@ func newInboxesDeleteAvatarCmd() *cobra.Command {
 
 func newInboxesCSATTemplateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "csat-template <id>",
-		Short: "Get or set CSAT survey template for an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "csat-template <id>",
+		Aliases: []string{"cst"},
+		Short:   "Get or set CSAT survey template for an inbox",
+		Args:    cobra.ExactArgs(1),
 	}
 
 	cmd.AddCommand(newInboxesCSATTemplateGetCmd())

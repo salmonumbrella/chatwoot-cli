@@ -434,8 +434,9 @@ func newClientTypingCmd(baseURL, inboxIdentifier, contactIdentifier *string) *co
 
 func newClientLastSeenCmd(baseURL, inboxIdentifier, contactIdentifier *string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "last-seen",
-		Short: "Update last seen status",
+		Use:     "last-seen",
+		Aliases: []string{"lsn"},
+		Short:   "Update last seen status",
 	}
 
 	cmd.AddCommand(newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier))

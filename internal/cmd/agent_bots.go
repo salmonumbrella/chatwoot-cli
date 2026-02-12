@@ -241,9 +241,10 @@ func newAgentBotsDeleteCmd() *cobra.Command {
 
 func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete-avatar <id>",
-		Short: "Remove the avatar from an agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete-avatar <id>",
+		Aliases: []string{"da"},
+		Short:   "Remove the avatar from an agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
@@ -271,9 +272,10 @@ func newAgentBotsDeleteAvatarCmd() *cobra.Command {
 
 func newAgentBotsResetTokenCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "reset-token <id>",
-		Short: "Reset the access token for an agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "reset-token <id>",
+		Aliases: []string{"rt"},
+		Short:   "Reset the access token for an agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
