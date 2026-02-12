@@ -29,22 +29,22 @@ func newNoteCmd() *cobra.Command {
 		Long: `Send a private (internal-only) note to a conversation.
 
 This is a convenience shortcut for:
-  chatwoot messages create <conversation-id> --private --content "..."`,
+  cw messages create <conversation-id> --private --content "..."`,
 		Example: strings.TrimSpace(`
   # Private note by conversation ID
-  chatwoot note 123 "Internal note for the team"
+  cw note 123 "Internal note for the team"
 
   # Mention/tag agents (they'll be notified)
-  chatwoot note 123 --mention lily --mention jack "Please review"
+  cw note 123 --mention lily --mention jack "Please review"
 
   # Resolve after noting
-  chatwoot note 123 "Resolved and documented" --resolve
+  cw note 123 "Resolved and documented" --resolve
 
   # Use --content instead of positional text
-  chatwoot note 123 --content "Internal note"
+  cw note 123 --content "Internal note"
 
   # Agent-friendly envelope
-  chatwoot note 123 "FYI" --output agent
+  cw note 123 "FYI" --output agent
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -91,7 +91,7 @@ This is a convenience shortcut for:
 
 			// Validate side-effect flags before sending so we fail fast.
 			if priority != "" {
-				if err := validatePriority(priority); err != nil {
+				if priority, err = validatePriority(priority); err != nil {
 					return err
 				}
 			}

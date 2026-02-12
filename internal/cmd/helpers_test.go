@@ -178,30 +178,34 @@ func TestValidatePriority(t *testing.T) {
 	tests := []struct {
 		name     string
 		priority string
+		want     string
 		wantErr  bool
 	}{
-		{"urgent", "urgent", false},
-		{"high", "high", false},
-		{"medium", "medium", false},
-		{"low", "low", false},
-		{"none", "none", false},
-		{"invalid", "invalid", true},
-		{"empty", "", true},
-		{"uppercase", "HIGH", true},
+		{"urgent", "urgent", "urgent", false},
+		{"high", "high", "high", false},
+		{"medium", "medium", "medium", false},
+		{"low", "low", "low", false},
+		{"none", "none", "none", false},
+		{"invalid", "invalid", "", true},
+		{"empty", "", "", true},
+		{"uppercase", "HIGH", "high", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validatePriority(tt.priority)
+			got, err := validatePriority(tt.priority)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validatePriority(%q) error = %v, wantErr %v", tt.priority, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("validatePriority(%q) = %q, want %q", tt.priority, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestValidatePriority_StructuredError(t *testing.T) {
-	err := validatePriority("critical")
+	_, err := validatePriority("critical")
 	var se *api.StructuredError
 	if !errors.As(err, &se) {
 		t.Fatal("expected StructuredError")
@@ -224,29 +228,33 @@ func TestValidateStatus(t *testing.T) {
 	tests := []struct {
 		name    string
 		status  string
+		want    string
 		wantErr bool
 	}{
-		{"open", "open", false},
-		{"resolved", "resolved", false},
-		{"pending", "pending", false},
-		{"snoozed", "snoozed", false},
-		{"invalid", "closed", true},
-		{"empty", "", true},
-		{"uppercase", "OPEN", true},
+		{"open", "open", "open", false},
+		{"resolved", "resolved", "resolved", false},
+		{"pending", "pending", "pending", false},
+		{"snoozed", "snoozed", "snoozed", false},
+		{"invalid", "closed", "", true},
+		{"empty", "", "", true},
+		{"uppercase", "OPEN", "open", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateStatus(tt.status)
+			got, err := validateStatus(tt.status)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateStatus(%q) error = %v, wantErr %v", tt.status, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("validateStatus(%q) = %q, want %q", tt.status, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestValidateStatus_StructuredError(t *testing.T) {
-	err := validateStatus("closed")
+	_, err := validateStatus("closed")
 	var se *api.StructuredError
 	if !errors.As(err, &se) {
 		t.Fatal("expected StructuredError")
@@ -576,5 +584,79 @@ func TestResolveInboxID_NumericID(t *testing.T) {
 	}
 	if id != 5 {
 		t.Errorf("resolveInboxID() = %v, want 5", id)
+	}
+}
+
+func TestNormalizeEnum(t *testing.T) {
+	statuses := []string{"open", "resolved", "pending", "snoozed"}
+	tests := []struct {
+		input string
+		want  string
+		err   bool
+	}{
+		{"open", "open", false},
+		{"o", "open", false},
+		{"r", "resolved", false},
+		{"res", "resolved", false},
+		{"p", "pending", false},
+		{"s", "snoozed", false},
+		{"sn", "snoozed", false},
+		{"x", "", true},
+		{"", "", true},
+	}
+	for _, tt := range tests {
+		got, err := normalizeEnum("status", tt.input, statuses)
+		if tt.err && err == nil {
+			t.Errorf("normalizeEnum(%q) expected error", tt.input)
+		}
+		if !tt.err && err != nil {
+			t.Errorf("normalizeEnum(%q) unexpected error: %v", tt.input, err)
+		}
+		if !tt.err && got != tt.want {
+			t.Errorf("normalizeEnum(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeEnumWithAll(t *testing.T) {
+	statuses := []string{"open", "resolved", "pending", "snoozed", "all"}
+	got, err := normalizeEnum("status", "a", statuses)
+	if err != nil {
+		t.Fatalf("normalizeEnum(%q) unexpected error: %v", "a", err)
+	}
+	if got != "all" {
+		t.Errorf("normalizeEnum(%q) = %q, want %q", "a", got, "all")
+	}
+}
+
+func TestNormalizeEnumPriority(t *testing.T) {
+	priorities := []string{"urgent", "high", "medium", "low", "none"}
+	tests := []struct {
+		input, want string
+	}{
+		{"u", "urgent"},
+		{"h", "high"},
+		{"m", "medium"},
+		{"l", "low"},
+		{"n", "none"},
+		{"urg", "urgent"},
+	}
+	for _, tt := range tests {
+		got, err := normalizeEnum("priority", tt.input, priorities)
+		if err != nil {
+			t.Errorf("normalizeEnum(%q) unexpected error: %v", tt.input, err)
+		}
+		if got != tt.want {
+			t.Errorf("normalizeEnum(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeEnumAmbiguous(t *testing.T) {
+	// "al" matches both "alpha" and "also"
+	values := []string{"alpha", "also", "beta"}
+	_, err := normalizeEnum("test", "al", values)
+	if err == nil {
+		t.Error("expected ambiguity error for 'al' matching alpha and also")
 	}
 }

@@ -76,31 +76,31 @@ func newConversationsGetCmd() *cobra.Command {
 		Long:    "Retrieve detailed information about a specific conversation",
 		Example: strings.TrimSpace(`
   # Get conversation details
-  chatwoot conversations get 123
+  cw conversations get 123
 
   # Get conversation as JSON
-  chatwoot conversations get 123 --output json
+  cw conversations get 123 --output json
 
   # Get conversation with recent messages (agent mode)
-  chatwoot conversations get 123 --with-messages --output agent
+  cw conversations get 123 --with-messages --output agent
 
   # Get comprehensive context (agent mode only)
-  chatwoot conversations get 123 --context --output agent
+  cw conversations get 123 --context --output agent
 
   # Get context with limited messages
-  chatwoot conversations get 123 --context --message-limit 10 --output agent
+  cw conversations get 123 --context --message-limit 10 --output agent
 
   # Get conversation with AI-suggested actions (agent mode)
-  chatwoot conversations get 123 --suggested-actions --output agent
+  cw conversations get 123 --suggested-actions --output agent
 
   # Get conversation with reasoning hints (agent mode)
-  chatwoot conversations get 123 --explain --output agent
+  cw conversations get 123 --explain --output agent
 
   # Get conversation using URL from browser
-  chatwoot conversations get https://app.chatwoot.com/app/accounts/1/conversations/123
+  cw conversations get https://app.chatwoot.com/app/accounts/1/conversations/123
 
   # Get the web UI URL for a conversation
-  chatwoot conversations get 461 --url
+  cw conversations get 461 --url
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -320,13 +320,13 @@ func newConversationsCreateCmd() *cobra.Command {
 		Long:    "Create a new conversation in an inbox",
 		Example: strings.TrimSpace(`
   # Create a conversation
-  chatwoot conversations create --inbox-id 1 --contact-id 123
+  cw conversations create --inbox-id 1 --contact-id 123
 
   # Create a conversation with an initial message
-  chatwoot conversations create --inbox-id 1 --contact-id 123 --message "Hello!"
+  cw conversations create --inbox-id 1 --contact-id 123 --message "Hello!"
 
   # Create a conversation with status and assignment
-  chatwoot conversations create --inbox-id 1 --contact-id 123 --status open --assignee-id 5 --team-id 2
+  cw conversations create --inbox-id 1 --contact-id 123 --status open --assignee-id 5 --team-id 2
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if inboxID == 0 {
@@ -348,8 +348,9 @@ func newConversationsCreateCmd() *cobra.Command {
 				return fmt.Errorf("--contact-id is required")
 			}
 
+			var err error
 			if status != "" {
-				if err := validateStatus(status); err != nil {
+				if status, err = validateStatus(status); err != nil {
 					return err
 				}
 			}
@@ -408,7 +409,7 @@ func newConversationsCreateCmd() *cobra.Command {
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Contact ID (required)")
 	cmd.Flags().StringVarP(&message, "message", "m", "", "Initial message content")
-	cmd.Flags().StringVar(&status, "status", "", "Status (open|resolved|pending|snoozed)")
+	cmd.Flags().StringVarP(&status, "status", "s", "", "Status (open|resolved|pending|snoozed)")
 	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
@@ -433,13 +434,13 @@ The payload follows the Chatwoot filter API format with an array of filter condi
 See: https://developers.chatwoot.com/api-reference/conversations/conversations-filter`,
 		Example: strings.TrimSpace(`
   # Filter by multiple statuses (open OR pending OR snoozed)
-  chatwoot conversations filter --payload '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open","pending","snoozed"]}]}'
+  cw conversations filter --payload '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open","pending","snoozed"]}]}'
 
   # Filter by inbox
-  chatwoot conversations filter --payload '{"payload":[{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[1]}]}'
+  cw conversations filter --payload '{"payload":[{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[1]}]}'
 
   # Combine filters with AND
-  chatwoot conversations filter --payload '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"],"query_operator":"AND"},{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[1]}]}'
+  cw conversations filter --payload '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"],"query_operator":"AND"},{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[1]}]}'
 
   # Filter operators: equal_to, not_equal_to, contains, does_not_contain
 `),
@@ -503,7 +504,7 @@ func newConversationsMetaCmd() *cobra.Command {
 		Long:  "Retrieve metadata about conversations (counts by status, etc.)",
 		Example: strings.TrimSpace(`
   # Get conversations metadata
-  chatwoot conversations meta
+  cw conversations meta
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
@@ -511,8 +512,13 @@ func newConversationsMetaCmd() *cobra.Command {
 				return err
 			}
 
+			normalizedStatus, err := validateStatusWithAll(status)
+			if err != nil {
+				return err
+			}
+
 			params := api.ListConversationsParams{
-				Status:  status,
+				Status:  normalizedStatus,
 				InboxID: inboxID,
 				Query:   search,
 			}
@@ -541,7 +547,7 @@ func newConversationsMetaCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
+	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
@@ -566,10 +572,10 @@ func newConversationsCountsCmd() *cobra.Command {
 		Long:  "Get counts of conversations grouped by status (open, pending, resolved, etc.)",
 		Example: strings.TrimSpace(`
   # Get all counts
-  chatwoot conversations counts
+  cw conversations counts
 
   # Get counts as JSON
-  chatwoot conversations counts --output json
+  cw conversations counts --output json
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()
@@ -577,8 +583,13 @@ func newConversationsCountsCmd() *cobra.Command {
 				return err
 			}
 
+			normalizedStatus, err := validateStatusWithAll(status)
+			if err != nil {
+				return err
+			}
+
 			params := api.ListConversationsParams{
-				Status:  status,
+				Status:  normalizedStatus,
 				InboxID: inboxID,
 				Query:   search,
 			}
@@ -625,7 +636,7 @@ func newConversationsCountsCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
+	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
@@ -642,24 +653,25 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 	var snoozedUntilStr string
 
 	cmd := &cobra.Command{
-		Use:   "toggle-status <id>",
-		Short: "Toggle conversation status",
-		Long:  "Change the status of a conversation",
+		Use:     "toggle-status <id>",
+		Aliases: []string{"ts"},
+		Short:   "Toggle conversation status",
+		Long:    "Change the status of a conversation",
 		Example: strings.TrimSpace(`
   # Mark conversation as resolved
-  chatwoot conversations toggle-status 123 --status resolved
+  cw conversations toggle-status 123 --status resolved
 
   # Reopen a conversation
-  chatwoot conversations toggle-status 123 --status open
+  cw conversations toggle-status 123 --status open
 
   # Snooze until next customer reply (default behavior)
-  chatwoot conversations toggle-status 123 --status snoozed
+  cw conversations toggle-status 123 --status snoozed
 
   # Snooze until specific time (RFC3339)
-  chatwoot conversations toggle-status 123 --status snoozed --snoozed-until "2025-01-15T10:00:00Z"
+  cw conversations toggle-status 123 --status snoozed --snoozed-until "2025-01-15T10:00:00Z"
 
   # Snooze until specific time (Unix timestamp)
-  chatwoot conversations toggle-status 123 --status snoozed --snoozed-until 1735689600
+  cw conversations toggle-status 123 --status snoozed --snoozed-until 1735689600
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -672,7 +684,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 				return fmt.Errorf("--status is required")
 			}
 
-			if err := validateStatus(status); err != nil {
+			if status, err = validateStatus(status); err != nil {
 				return err
 			}
 
@@ -714,7 +726,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&status, "status", "", "New status (open|resolved|pending|snoozed) (required)")
+	cmd.Flags().StringVarP(&status, "status", "s", "", "New status (open|resolved|pending|snoozed) (required)")
 	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp, RFC3339, or relative)")
 	flagAlias(cmd.Flags(), "status", "st")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed"})
@@ -735,16 +747,16 @@ func newConversationsResolveCmd() *cobra.Command {
 		Long:  "Mark one or more conversations as resolved",
 		Example: strings.TrimSpace(`
   # Resolve a single conversation
-  chatwoot conversations resolve 123
+  cw conversations resolve 123
 
   # Resolve multiple conversations (space-separated)
-  chatwoot conversations resolve 123 456 789
+  cw conversations resolve 123 456 789
 
   # Resolve multiple conversations (comma-separated)
-  chatwoot conversations resolve 123,456,789
+  cw conversations resolve 123,456,789
 
   # Resolve with JSON output
-  chatwoot conversations resolve 123 456 --output json
+  cw conversations resolve 123 456 --output json
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -830,15 +842,16 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 	var priority string
 
 	cmd := &cobra.Command{
-		Use:   "toggle-priority <id>",
-		Short: "Toggle conversation priority",
-		Long:  "Change the priority of a conversation",
+		Use:     "toggle-priority <id>",
+		Aliases: []string{"tp"},
+		Short:   "Toggle conversation priority",
+		Long:    "Change the priority of a conversation",
 		Example: strings.TrimSpace(`
   # Set conversation priority to urgent
-  chatwoot conversations toggle-priority 123 --priority urgent
+  cw conversations toggle-priority 123 --priority urgent
 
   # Set conversation priority to low
-  chatwoot conversations toggle-priority 123 --priority low
+  cw conversations toggle-priority 123 --priority low
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -851,7 +864,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 				return fmt.Errorf("--priority is required")
 			}
 
-			if err := validatePriority(priority); err != nil {
+			if priority, err = validatePriority(priority); err != nil {
 				return err
 			}
 
@@ -907,13 +920,13 @@ func newConversationsUpdateCmd() *cobra.Command {
 		Long:    "Update conversation attributes such as priority and SLA policy",
 		Example: strings.TrimSpace(`
   # Update conversation priority
-  chatwoot conversations update 123 --priority high
+  cw conversations update 123 --priority high
 
   # Assign SLA policy (Enterprise feature)
-  chatwoot conversations update 123 --sla-policy-id 5
+  cw conversations update 123 --sla-policy-id 5
 
   # Update both priority and SLA policy
-  chatwoot conversations update 123 --priority urgent --sla-policy-id 5
+  cw conversations update 123 --priority urgent --sla-policy-id 5
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -929,7 +942,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 
 			// Validate priority if provided
 			if priority != "" {
-				if err := validatePriority(priority); err != nil {
+				if priority, err = validatePriority(priority); err != nil {
 					return err
 				}
 			}
@@ -995,22 +1008,22 @@ func newConversationsAssignCmd() *cobra.Command {
 		Long:  "Assign one or more conversations to an agent and/or team",
 		Example: strings.TrimSpace(`
   # Assign to agent
-  chatwoot conversations assign 123 --agent 5
+  cw conversations assign 123 --agent 5
 
   # Assign to team
-  chatwoot conversations assign 123 --team 2
+  cw conversations assign 123 --team 2
 
   # Assign to both agent and team
-  chatwoot conversations assign 123 --agent 5 --team 2
+  cw conversations assign 123 --agent 5 --team 2
 
   # Assign multiple conversations (space-separated)
-  chatwoot conversations assign 123 456 789 --agent 5
+  cw conversations assign 123 456 789 --agent 5
 
   # Assign multiple conversations (comma-separated)
-  chatwoot conversations assign 123,456,789 --agent 5
+  cw conversations assign 123,456,789 --agent 5
 
   # Assign with JSON output
-  chatwoot conversations assign 123 456 --agent 5 --output json
+  cw conversations assign 123 456 --agent 5 --output json
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1170,10 +1183,10 @@ func newConversationsLabelsCmd() *cobra.Command {
 		Long:  "Retrieve labels for a specific conversation",
 		Example: strings.TrimSpace(`
   # Get labels for a conversation
-  chatwoot conversations labels 123
+  cw conversations labels 123
 
   # JSON output - returns an object with an "items" array
-  chatwoot conversations labels 123 --output json
+  cw conversations labels 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1216,12 +1229,13 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 	var labelsStr string
 
 	cmd := &cobra.Command{
-		Use:   "labels-add <id>",
-		Short: "Add labels to conversation",
-		Long:  "Add one or more labels to a conversation",
+		Use:     "labels-add <id>",
+		Aliases: []string{"la"},
+		Short:   "Add labels to conversation",
+		Long:    "Add one or more labels to a conversation",
 		Example: strings.TrimSpace(`
   # Add labels to a conversation
-  chatwoot conversations labels-add 123 --labels "bug,urgent"
+  cw conversations labels-add 123 --labels "bug,urgent"
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1274,12 +1288,13 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 	var labelsStr string
 
 	cmd := &cobra.Command{
-		Use:   "labels-remove <id>",
-		Short: "Remove labels from conversation",
-		Long:  "Remove one or more labels from a conversation",
+		Use:     "labels-remove <id>",
+		Aliases: []string{"lr"},
+		Short:   "Remove labels from conversation",
+		Long:    "Remove one or more labels from a conversation",
 		Example: strings.TrimSpace(`
   # Remove labels from a conversation
-  chatwoot conversations labels-remove 123 --labels "bug,urgent"
+  cw conversations labels-remove 123 --labels "bug,urgent"
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1355,15 +1370,16 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 	var setAttrs []string
 
 	cmd := &cobra.Command{
-		Use:   "custom-attributes <id>",
-		Short: "Update conversation custom attributes",
-		Long:  "Update custom attributes for a conversation",
+		Use:     "custom-attributes <id>",
+		Aliases: []string{"ca"},
+		Short:   "Update conversation custom attributes",
+		Long:    "Update custom attributes for a conversation",
 		Example: strings.TrimSpace(`
   # Set custom attributes
-  chatwoot conversations custom-attributes 123 --set priority=high --set source=web
+  cw conversations custom-attributes 123 --set priority=high --set source=web
 
   # JSON output - returns attributes object directly
-  chatwoot conversations custom-attributes 123 --set priority=high --output json
+  cw conversations custom-attributes 123 --set priority=high --output json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1424,16 +1440,16 @@ Includes conversation metadata, contact info, all messages, and optionally
 embeds images as base64 data URIs that AI vision models can consume directly.`,
 		Example: strings.TrimSpace(`
   # Get conversation context
-  chatwoot conversations context 123
+  cw conversations context 123
 
   # Use conversation URL from browser
-  chatwoot conversations context https://app.chatwoot.com/app/accounts/1/conversations/123
+  cw conversations context https://app.chatwoot.com/app/accounts/1/conversations/123
 
   # Get context with embedded images (for AI vision)
-  chatwoot conversations context 123 --embed-images
+  cw conversations context 123 --embed-images
 
   # Pipe to AI for draft response
-  chatwoot conversations context 123 --embed-images --output json | ai-tool
+  cw conversations context 123 --embed-images --output json | ai-tool
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1673,18 +1689,19 @@ func agentTimestampFromUnix(unix int64) *agentfmt.Timestamp {
 
 func newConversationsMarkUnreadCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mark-unread <id>",
-		Short: "Mark conversation as unread",
+		Use:     "mark-unread <id>",
+		Aliases: []string{"mu"},
+		Short:   "Mark conversation as unread",
 		Long: `Mark a conversation as unread for all agents.
 
 This resets the agent_last_seen_at timestamp, making the conversation appear
 as unread in the inbox for all agents (not just the current user).`,
 		Example: strings.TrimSpace(`
   # Mark a single conversation as unread
-  chatwoot conversations mark-unread 123
+  cw conversations mark-unread 123
 
   # Mark multiple conversations as unread
-  for id in 123 124 125; do chatwoot conversations mark-unread $id; done
+  for id in 123 124 125; do cw conversations mark-unread $id; done
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1749,16 +1766,16 @@ func newConversationsSearchCmd() *cobra.Command {
 		Long:    "Search conversations by message content across all conversations",
 		Example: strings.TrimSpace(`
   # Search for conversations mentioning "password reset"
-  chatwoot conversations search "password reset"
+  cw conversations search "password reset"
 
   # Search with pagination
-  chatwoot conversations search "refund" --page 2
+  cw conversations search "refund" --page 2
 
   # Fetch all matching conversations
-  chatwoot conversations search "error" --all
+  cw conversations search "error" --all
 
   # JSON output
-  chatwoot conversations search "billing" -o json
+  cw conversations search "billing" -o json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1894,10 +1911,10 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 		Long:  "List all attachments (files, images) in a conversation",
 		Example: strings.TrimSpace(`
   # List attachments in a conversation
-  chatwoot conversations attachments 123
+  cw conversations attachments 123
 
   # JSON output with URLs
-  chatwoot conversations attachments 123 -o json
+  cw conversations attachments 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -1950,10 +1967,10 @@ func newConversationsMuteCmd() *cobra.Command {
 Muted conversations will not trigger desktop or push notifications for new messages.`,
 		Example: strings.TrimSpace(`
   # Mute a conversation
-  chatwoot conversations mute 123
+  cw conversations mute 123
 
   # Mute and output as JSON
-  chatwoot conversations mute 123 --output json
+  cw conversations mute 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -2007,10 +2024,10 @@ func newConversationsUnmuteCmd() *cobra.Command {
 Unmuted conversations will trigger desktop and push notifications for new messages.`,
 		Example: strings.TrimSpace(`
   # Unmute a conversation
-  chatwoot conversations unmute 123
+  cw conversations unmute 123
 
   # Unmute and output as JSON
-  chatwoot conversations unmute 123 --output json
+  cw conversations unmute 123 --output json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -2073,16 +2090,16 @@ message content is printed. Without --email, the transcript is rendered
 locally with private notes included by default.`,
 		Example: strings.TrimSpace(`
   # Render transcript to stdout (includes private notes)
-  chatwoot conversations transcript 123
+  cw conversations transcript 123
 
   # Render public-only transcript
-  chatwoot conversations transcript 123 --public-only
+  cw conversations transcript 123 --public-only
 
   # Limit to the most recent messages
-  chatwoot conversations transcript 123 --limit 200
+  cw conversations transcript 123 --limit 200
 
   # Send transcript to an email address
-  chatwoot conversations transcript 123 --email user@example.com
+  cw conversations transcript 123 --email user@example.com
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -2350,13 +2367,13 @@ This shows or hides the "agent is typing" indicator that the customer sees.
 Use --private to show the typing indicator only to other agents (for private notes).`,
 		Example: strings.TrimSpace(`
   # Show typing indicator to customer
-  chatwoot conversations typing 123 --on
+  cw conversations typing 123 --on
 
   # Hide typing indicator
-  chatwoot conversations typing 123
+  cw conversations typing 123
 
   # Show typing indicator for private note (visible only to agents)
-  chatwoot conversations typing 123 --on --private
+  cw conversations typing 123 --on --private
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -2489,15 +2506,20 @@ func newConversationsWatchCmd() *cobra.Command {
 		Long:  "Poll for new and updated conversations at regular intervals",
 		Example: strings.TrimSpace(`
   # Watch all open conversations
-  chatwoot conversations watch --status open
+  cw conversations watch --status open
 
   # Watch specific inbox every 5 seconds
-  chatwoot conversations watch --inbox-id 1 --interval 5
+  cw conversations watch --inbox-id 1 --interval 5
 
   # Watch with custom limit
-  chatwoot conversations watch --status open --limit 20
+  cw conversations watch --status open --limit 20
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			status, err := validateStatusWithAll(status)
+			if err != nil {
+				return err
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -2538,7 +2560,7 @@ func newConversationsWatchCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&status, "status", "open", "Filter by status: open, resolved, pending, snoozed, all")
+	cmd.Flags().StringVarP(&status, "status", "s", "open", "Filter by status: open, resolved, pending, snoozed, all")
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
 	cmd.Flags().IntVar(&interval, "interval", 10, "Polling interval in seconds")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum conversations to display")
@@ -2649,13 +2671,13 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 		Long:  "Mark multiple conversations as resolved at once",
 		Example: strings.TrimSpace(`
   # Resolve multiple conversations
-  chatwoot conversations bulk resolve --ids 1,2,3
+  cw conversations bulk resolve --ids 1,2,3
 
   # Resolve and output result as JSON
-  chatwoot conversations bulk resolve --ids 1,2,3 --output json
+  cw conversations bulk resolve --ids 1,2,3 --output json
 
   # Resolve with custom concurrency
-  chatwoot conversations bulk resolve --ids 1,2,3 --concurrency 10
+  cw conversations bulk resolve --ids 1,2,3 --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseResourceIDListFlag(conversationIDs, "conversation")
@@ -2742,16 +2764,16 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 		Long:  "Assign multiple conversations to an agent and/or team at once",
 		Example: strings.TrimSpace(`
   # Assign conversations to an agent
-  chatwoot conversations bulk assign --ids 1,2,3 --agent 5
+  cw conversations bulk assign --ids 1,2,3 --agent 5
 
   # Assign conversations to a team
-  chatwoot conversations bulk assign --ids 1,2,3 --team 2
+  cw conversations bulk assign --ids 1,2,3 --team 2
 
   # Assign to both agent and team
-  chatwoot conversations bulk assign --ids 1,2,3 --agent 5 --team 2
+  cw conversations bulk assign --ids 1,2,3 --agent 5 --team 2
 
   # Assign with custom concurrency
-  chatwoot conversations bulk assign --ids 1,2,3 --agent 5 --concurrency 10
+  cw conversations bulk assign --ids 1,2,3 --agent 5 --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Backwards-compat: map deprecated int flags into string flags if set.
@@ -2863,18 +2885,19 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-label",
-		Short: "Add labels to multiple conversations",
-		Long:  "Add one or more labels to multiple conversations at once",
+		Use:     "add-label",
+		Aliases: []string{"al"},
+		Short:   "Add labels to multiple conversations",
+		Long:    "Add one or more labels to multiple conversations at once",
 		Example: strings.TrimSpace(`
   # Add a single label to multiple conversations
-  chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent
+  cw conversations bulk add-label --ids 1,2,3 --labels urgent
 
   # Add multiple labels to multiple conversations
-  chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent,bug
+  cw conversations bulk add-label --ids 1,2,3 --labels urgent,bug
 
   # Add labels with custom concurrency
-  chatwoot conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
+  cw conversations bulk add-label --ids 1,2,3 --labels urgent --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := ParseResourceIDListFlag(conversationIDs, "conversation")
@@ -2984,8 +3007,9 @@ func newConversationsBatchUpdateCmd() *cobra.Command {
 	var concurrency int
 
 	cmd := &cobra.Command{
-		Use:   "batch-update",
-		Short: "Update multiple conversations with different operations",
+		Use:     "batch-update",
+		Aliases: []string{"bu"},
+		Short:   "Update multiple conversations with different operations",
 		Long: `Update multiple conversations in parallel with varying operations per conversation.
 
 Reads JSON input from stdin with an array of updates. Each item can specify different
@@ -2996,13 +3020,13 @@ operations (status, priority, labels, assignment).`,
     {"id": 123, "status": "resolved"},
     {"id": 456, "labels": ["handled"], "assignee_id": 5},
     {"id": 789, "priority": "low"}
-  ]' | chatwoot conversations bulk batch-update
+  ]' | cw conversations bulk batch-update
 
   # From a file
-  cat updates.json | chatwoot conversations bulk batch-update
+  cat updates.json | cw conversations bulk batch-update
 
   # With custom concurrency
-  cat updates.json | chatwoot conversations bulk batch-update --concurrency 10
+  cat updates.json | cw conversations bulk batch-update --concurrency 10
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Read input from stdin
@@ -3185,16 +3209,16 @@ Fetches open and pending conversations with unread messages, sorted by how long
 the customer has been waiting (oldest first = longest waiting = most urgent).`,
 		Example: strings.TrimSpace(`
   # Show top 20 conversations needing attention
-  chatwoot conversations triage
+  cw conversations triage
 
   # Show top 10 with detailed reasoning
-  chatwoot conversations triage --limit 10 --explain
+  cw conversations triage --limit 10 --explain
 
   # Filter by inbox
-  chatwoot conversations triage --inbox 5
+  cw conversations triage --inbox 5
 
   # JSON output for agent processing
-  chatwoot conversations triage --output json
+  cw conversations triage --output json
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			client, err := getClient()

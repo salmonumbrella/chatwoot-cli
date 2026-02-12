@@ -31,16 +31,16 @@ This replaces the three-command sequence of note + assign + update.
 `),
 		Example: strings.TrimSpace(`
   # Handoff to an agent with reason
-  chatwoot handoff 123 --agent 5 --reason "Refund request, needs billing approval"
+  cw handoff 123 --agent 5 --reason "Refund request, needs billing approval"
 
   # Handoff to a team
-  chatwoot handoff 123 --team 2 --reason "Technical issue beyond L1 scope"
+  cw handoff 123 --team 2 --reason "Technical issue beyond L1 scope"
 
   # Handoff with priority escalation
-  chatwoot handoff 123 --agent 5 --team 2 --priority urgent --reason "VIP customer, SLA at risk"
+  cw handoff 123 --agent 5 --team 2 --priority urgent --reason "VIP customer, SLA at risk"
 
   # Handoff using agent/team names
-  chatwoot handoff 123 --agent "lily" --team "billing" --reason "Escalating to billing"
+  cw handoff 123 --agent "lily" --team "billing" --reason "Escalating to billing"
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -71,7 +71,7 @@ This replaces the three-command sequence of note + assign + update.
 			}
 
 			if priority != "" {
-				if err := validatePriority(priority); err != nil {
+				if priority, err = validatePriority(priority); err != nil {
 					return err
 				}
 			}

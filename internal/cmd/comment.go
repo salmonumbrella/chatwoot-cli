@@ -39,22 +39,22 @@ func newCommentCmd() *cobra.Command {
 		Long: `Send a public (customer-visible) message to a conversation.
 
 This is a convenience shortcut for:
-  chatwoot messages create <conversation-id> --content "..."`,
+  cw messages create <conversation-id> --content "..."`,
 		Example: strings.TrimSpace(`
   # Comment by conversation ID
-  chatwoot comment 123 "Hello! How can I help?"
+  cw comment 123 "Hello! How can I help?"
 
   # Comment by URL from browser
-  chatwoot comment https://app.chatwoot.com/app/accounts/1/conversations/123 "On it."
+  cw comment https://app.chatwoot.com/app/accounts/1/conversations/123 "On it."
 
   # Resolve after commenting
-  chatwoot comment 123 "Done" --resolve
+  cw comment 123 "Done" --resolve
 
   # Use --content instead of positional text
-  chatwoot comment 123 --content "Hello!"
+  cw comment 123 --content "Hello!"
 
   # Agent-friendly envelope
-  chatwoot comment 123 "Hello" --output agent
+  cw comment 123 "Hello" --output agent
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -81,7 +81,7 @@ This is a convenience shortcut for:
 
 			// Validate side-effect flags before sending so we fail fast.
 			if priority != "" {
-				if err := validatePriority(priority); err != nil {
+				if priority, err = validatePriority(priority); err != nil {
 					return err
 				}
 			}

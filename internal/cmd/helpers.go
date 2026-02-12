@@ -227,26 +227,53 @@ func cmdContext(cmd *cobra.Command) context.Context {
 	return cmd.Context()
 }
 
-// validatePriority validates a conversation priority value
-func validatePriority(priority string) error {
-	valid := []string{"urgent", "high", "medium", "low", "none"}
+// normalizeEnum normalizes and validates a flag value against a list of valid enum values.
+// It lowercases and trims the input, then tries exact match followed by unique prefix match.
+// Returns the matched valid value or an error.
+func normalizeEnum(flagName, input string, valid []string) (string, error) {
+	input = strings.ToLower(strings.TrimSpace(input))
+	if input == "" {
+		return "", api.NewValidationError(flagName, input, valid)
+	}
+
+	// Exact match first.
 	for _, v := range valid {
-		if priority == v {
-			return nil
+		if input == v {
+			return v, nil
 		}
 	}
-	return api.NewValidationError("priority", priority, valid)
+
+	// Prefix match: find all valid values that start with input.
+	var matches []string
+	for _, v := range valid {
+		if strings.HasPrefix(v, input) {
+			matches = append(matches, v)
+		}
+	}
+
+	switch len(matches) {
+	case 1:
+		return matches[0], nil
+	case 0:
+		return "", api.NewValidationError(flagName, input, valid)
+	default:
+		return "", fmt.Errorf("ambiguous %s %q: matches %s", flagName, input, strings.Join(matches, ", "))
+	}
 }
 
-// validateStatus validates a conversation status value
-func validateStatus(status string) error {
-	valid := []string{"open", "resolved", "pending", "snoozed"}
-	for _, v := range valid {
-		if status == v {
-			return nil
-		}
-	}
-	return api.NewValidationError("status", status, valid)
+// validatePriority validates and normalizes a conversation priority value
+func validatePriority(priority string) (string, error) {
+	return normalizeEnum("priority", priority, []string{"urgent", "high", "medium", "low", "none"})
+}
+
+// validateStatus validates and normalizes a conversation status value
+func validateStatus(status string) (string, error) {
+	return normalizeEnum("status", status, []string{"open", "resolved", "pending", "snoozed"})
+}
+
+// validateStatusWithAll validates and normalizes a conversation status value, including "all"
+func validateStatusWithAll(status string) (string, error) {
+	return normalizeEnum("status", status, []string{"open", "resolved", "pending", "snoozed", "all"})
 }
 
 func registerStaticCompletions(cmd *cobra.Command, flagName string, values []string) {

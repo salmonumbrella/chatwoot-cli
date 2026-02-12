@@ -42,22 +42,22 @@ If multiple contacts match, disambiguation is required.
 If multiple open conversations exist for the contact, disambiguation is required.`,
 		Example: strings.TrimSpace(`
   # Reply by contact name
-  chatwoot reply "welgrow" --content "Your shipment is ready!"
+  cw reply "welgrow" --content "Your shipment is ready!"
 
   # Reply by email
-  chatwoot reply "john@example.com" --content "Thanks for reaching out"
+  cw reply "john@example.com" --content "Thanks for reaching out"
 
   # Reply and resolve the conversation
-  chatwoot reply "welgrow" --content "Done!" --resolve
+  cw reply "welgrow" --content "Done!" --resolve
 
   # Reply using a specific contact ID (skip search)
-  chatwoot reply --contact-id 789 --content "Hello!"
+  cw reply --contact-id 789 --content "Hello!"
 
   # Reply to a specific conversation (skip all lookups)
-  chatwoot reply --conversation-id 123 --content "Confirmed"
+  cw reply --conversation-id 123 --content "Confirmed"
 
   # Send a private note (internal, not visible to customer)
-  chatwoot reply "welgrow" --content "Internal note" --private
+  cw reply "welgrow" --content "Internal note" --private
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -71,8 +71,9 @@ If multiple open conversations exist for the contact, disambiguation is required
 			}
 
 			// Validate side-effect flags before sending so we fail fast.
+			var err error
 			if priority != "" {
-				if err := validatePriority(priority); err != nil {
+				if priority, err = validatePriority(priority); err != nil {
 					return err
 				}
 			}
@@ -354,7 +355,7 @@ func outputDisambiguation(cmd *cobra.Command, disambiguationType string, contact
 		Action:  "disambiguation_needed",
 		Type:    disambiguationType,
 		Matches: matches,
-		Hint:    "Use contact ID: chatwoot reply --contact-id <id> --content '...'",
+		Hint:    "Use contact ID: cw reply --contact-id <id> --content '...'",
 	}
 
 	if isJSON(cmd) {
@@ -539,7 +540,7 @@ func outputConversationDisambiguation(cmd *cobra.Command, conversations []api.Co
 		Action:  "disambiguation_needed",
 		Type:    "multiple_conversations",
 		Matches: matches,
-		Hint:    "Use conversation ID: chatwoot reply --conversation-id <id> --content '...'",
+		Hint:    "Use conversation ID: cw reply --conversation-id <id> --content '...'",
 	}
 
 	if isJSON(cmd) {

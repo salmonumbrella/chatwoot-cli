@@ -48,25 +48,31 @@ func newConversationsListCmd() *cobra.Command {
 		DisablePagination: false,
 		Example: strings.TrimSpace(`
   # List open conversations
-  chatwoot conversations list --status open
+  cw conversations list --status open
 
   # Filter by inbox ID
-  chatwoot conversations list --inbox-id 1
+  cw conversations list --inbox-id 1
 
   # Filter by inbox name
-  chatwoot conversations list --inbox-id Support
+  cw conversations list --inbox-id Support
 
   # JSON output - returns an object with an "items" array
-  chatwoot conversations list --output json | jq '.items[0]'
+  cw conversations list --output json | jq '.items[0]'
 
   # Fetch all pages
-  chatwoot conversations list --status open --all
+  cw conversations list --status open --all
 `),
 		AgentTransform: func(ctx context.Context, client *api.Client, items []api.Conversation) (any, error) {
 			summaries := agentfmt.ConversationSummaries(items)
 			return resolveConversationSummaries(ctx, client, summaries), nil
 		},
 		Fetch: func(ctx context.Context, client *api.Client, page, _ int) (ListResult[api.Conversation], error) {
+			// Normalize status prefix (e.g. "o" → "open").
+			normalizedStatus, err := validateStatusWithAll(status)
+			if err != nil {
+				return ListResult[api.Conversation]{}, err
+			}
+
 			// Resolve inbox name to ID if provided.
 			resolvedInboxID := inboxID
 			if inboxID != "" {
@@ -78,7 +84,7 @@ func newConversationsListCmd() *cobra.Command {
 			}
 
 			params := api.ListConversationsParams{
-				Status:       status,
+				Status:       normalizedStatus,
 				InboxID:      resolvedInboxID,
 				AssigneeType: assigneeType,
 				Query:        search,
@@ -146,7 +152,7 @@ func newConversationsListCmd() *cobra.Command {
 	registerFieldSchema(cmd, "conversation")
 
 	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID or name")
-	cmd.Flags().StringVar(&status, "status", "all", "Filter by status (open|resolved|pending|snoozed|all)")
+	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&assigneeType, "assignee-type", "", "Filter by assignee type (me|assigned|unassigned)")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVarP(&labels, "labels", "L", "", "Filter by labels (comma-separated)")

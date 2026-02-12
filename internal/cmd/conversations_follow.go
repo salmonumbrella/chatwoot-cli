@@ -100,13 +100,14 @@ all conversations on the account.
 				contextMsgs = 10
 			}
 
+			var err error
 			if filterStatus != "" {
-				if err := validateStatus(filterStatus); err != nil {
+				if filterStatus, err = validateStatus(filterStatus); err != nil {
 					return err
 				}
 			}
 			if filterPrio != "" {
-				if err := validatePriority(filterPrio); err != nil {
+				if filterPrio, err = validatePriority(filterPrio); err != nil {
 					return err
 				}
 			}
@@ -345,7 +346,7 @@ all conversations on the account.
 	cmd.Flags().IntVar(&sinceID, "since-id", 0, "Skip messages with id <= this value (useful for resume)")
 	cmd.Flags().StringVar(&sinceTime, "since-time", "", "Skip messages created before this time (RFC3339, unix seconds, or duration like 24h)")
 	cmd.Flags().IntVar(&filterInbox, "inbox", 0, "Only show events for conversations in this inbox ID")
-	cmd.Flags().StringVar(&filterStatus, "status", "", "Only show events for conversations with this status (open|resolved|pending|snoozed)")
+	cmd.Flags().StringVarP(&filterStatus, "status", "s", "", "Only show events for conversations with this status (open|resolved|pending|snoozed)")
 	cmd.Flags().IntVar(&filterAgent, "assignee", 0, "Only show events for conversations assigned to this agent ID")
 	cmd.Flags().StringSliceVar(&filterLabels, "label", nil, "Only show events for conversations that have all of these labels")
 	cmd.Flags().StringVar(&filterPrio, "priority", "", "Only show events for conversations with this priority (urgent|high|medium|low|none)")
