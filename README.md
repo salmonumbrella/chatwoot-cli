@@ -60,6 +60,9 @@ chatwoot profile get
 
 ```bash
 chatwoot conversations list --status open
+
+# Or use short aliases:
+chatwoot c ls --st open
 ```
 
 ### 4. Search (Agent-Friendly)
@@ -773,6 +776,126 @@ All commands support these flags:
 Note: `--utc` and `--time-zone` are mutually exclusive.
 
 You can force interactive prompts in non-TTY environments by setting `CHATWOOT_FORCE_INTERACTIVE=true`.
+
+### Global Flag Aliases
+
+Frequently used global flags have short aliases:
+
+| Flag | Alias |
+|------|-------|
+| `--dry-run` | `--dr` |
+| `--resolve-names` | `--rn` |
+| `--time-zone` | `--tz` |
+| `--help-json` | `--hj` |
+| `--idempotency-key` | `--idem` |
+| `--max-rate-limit-retries` | `--max-rl` |
+| `--rate-limit-delay` | `--rld` |
+| `--server-error-delay` | `--sed` |
+
+## Command Aliases
+
+Every command has 1-2 letter aliases for fast typing. Use `chatwoot <alias>` instead of the full command name:
+
+| Command | Aliases |
+|---------|---------|
+| `conversations` | `conv`, `c` |
+| `messages` | `msg`, `m` |
+| `contacts` | `co` |
+| `search` | `s` |
+| `reply` | `r` |
+| `note` | `n` |
+| `comment` | `cmt` |
+| `close` | `resolve`, `x` |
+| `reopen` | `ro` |
+| `assign` | `as` |
+| `ctx` | `ct` |
+| `open` | `get`, `show`, `o` |
+| `agents` | `a` |
+| `teams` | `t` |
+| `labels` | `l` |
+| `inboxes` | `in` |
+| `campaigns` | `camp`, `cm` |
+| `webhooks` | `wh` |
+| `reports` | `rp` |
+| `snooze` | `sn` |
+| `handoff` | `ho` |
+| `mentions` | `mn` |
+| `csat` | `cs` |
+| `portals` | `po` |
+| `platform` | `pf` |
+| `schema` | `sc` |
+| `config` | `cfg` |
+| `auth` | `au` |
+| `profile` | `pr` |
+| `version` | `v` |
+
+Subcommands also have aliases (e.g., `list` → `ls`, `get` → `g`, `create` → `cr`, `update` → `up`, `delete` → `del`).
+
+### Examples
+
+```bash
+# These are equivalent:
+chatwoot conversations list --status open
+chatwoot c ls --st open
+
+chatwoot messages list 123 --limit 50
+chatwoot m ls 123 -l 50
+
+chatwoot search "refund" --type conversations --limit 5
+chatwoot s "refund" -t conversations -l 5
+
+chatwoot contacts create --name "John" --email "john@example.com"
+chatwoot co cr -n "John" -e "john@example.com"
+
+chatwoot close 123
+chatwoot x 123
+```
+
+## Flag Aliases
+
+Commonly used flags have short aliases to reduce typing. Single-letter aliases appear in `--help` output. Multi-letter aliases (like `--st`, `--iid`) are hidden from help but work the same way.
+
+### Single-Letter Flag Aliases
+
+| Flag | Alias | Available on |
+|------|-------|-------------|
+| `--content` | `-c` | messages create/update, comment, note, reply |
+| `--name` | `-n` | contacts create/update, campaigns, inboxes, platform |
+| `--email` | `-e` | contacts create/update |
+| `--limit` | `-l` | messages list, search, all list commands |
+| `--type` | `-t` | search |
+| `--page` | `-p` | contacts list, all list commands |
+| `--all` | `-a` | all list commands |
+| `--emit` | `-E` | agents, campaigns, contacts, conversations, inboxes, teams, search, webhooks, ref |
+| `--labels` | `-L` | conversations list, campaigns |
+| `--private` | `-P` | messages create, conversations typing, reply |
+| `--since` | `-S` | conversations list, mentions, reports |
+| `--resolve` | `-R` | comment, note, reply |
+| `--message` | `-m` | campaigns create, inboxes |
+
+### Multi-Letter Flag Aliases
+
+| Flag | Alias | Available on |
+|------|-------|-------------|
+| `--status` | `--st` | conversations list/create/update |
+| `--inbox-id` | `--iid` | conversations, campaigns, contacts, csat, integrations |
+| `--contact-id` | `--cid` | conversations create, integrations, reply |
+| `--team-id` | `--tid` | conversations list/create |
+| `--priority` | `--pri` | conversations, comment, note, reply |
+| `--agent` | `--ag` | assign, conversations, handoff |
+| `--description` | `--desc` | campaigns, labels, platform, portals, teams |
+| `--assignee-type` | `--at` | conversations list |
+| `--unread-only` | `--unread` | conversations list |
+| `--max-pages` | `--mp` | all list commands, conversations, messages |
+| `--concurrency` | `--cc` | contacts bulk, conversations bulk, messages |
+| `--since-last-agent` | `--sla` | messages list |
+| `--transcript` | `--tr` | messages list |
+| `--snooze-for` | `--for` | comment, note, reply |
+| `--include-snippet` | `--snippet` | search |
+| `--embed-images` | `--embed` | conversations context, ctx |
+| `--context-messages` | `--cm` | conversations follow |
+| `--only-unassigned` | `--unassigned` | conversations follow |
+| `--exclude-private` | `--pub` | conversations follow |
 
 ### JQ Filtering
 
