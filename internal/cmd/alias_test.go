@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // buildFullRootCmd constructs the full command tree for alias collision testing.
@@ -69,6 +70,29 @@ func buildFullRootCmd() *cobra.Command {
 func TestNoAliasCollisions(t *testing.T) {
 	root := buildFullRootCmd()
 	checkCollisions(t, root, "root")
+}
+
+func TestNoFlagShorthandCollisions(t *testing.T) {
+	root := buildFullRootCmd()
+	checkFlagCollisions(t, root, "root")
+}
+
+func checkFlagCollisions(t *testing.T, cmd *cobra.Command, path string) {
+	t.Helper()
+	seen := map[string]string{} // shorthand → flag name
+
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Shorthand != "" {
+			if prev, ok := seen[f.Shorthand]; ok {
+				t.Errorf("%s: flag shorthand -%s collides between --%s and --%s", path, f.Shorthand, prev, f.Name)
+			}
+			seen[f.Shorthand] = f.Name
+		}
+	})
+
+	for _, child := range cmd.Commands() {
+		checkFlagCollisions(t, child, path+"/"+child.Name())
+	}
 }
 
 func checkCollisions(t *testing.T, cmd *cobra.Command, path string) {
