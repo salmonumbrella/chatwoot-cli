@@ -219,9 +219,12 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when using --all or --limit")
-	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")
+	flagAlias(cmd.Flags(), "max-pages", "mp")
+	cmd.Flags().IntVarP(&limit, "limit", "l", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")
 	cmd.Flags().BoolVar(&transcript, "transcript", false, "Output as readable conversation transcript")
+	flagAlias(cmd.Flags(), "transcript", "tr")
 	cmd.Flags().BoolVar(&sinceLastAgent, "since-last-agent", false, "Only show messages since the last agent reply")
+	flagAlias(cmd.Flags(), "since-last-agent", "sla")
 
 	return cmd
 }
@@ -406,8 +409,8 @@ func newMessagesCreateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&content, "content", "", "Message content")
-	cmd.Flags().BoolVar(&private, "private", false, "Mark message as private (internal note)")
+	cmd.Flags().StringVarP(&content, "content", "c", "", "Message content")
+	cmd.Flags().BoolVarP(&private, "private", "P", false, "Mark message as private (internal note)")
 	cmd.Flags().StringVar(&messageType, "type", "outgoing", "Message type: outgoing|incoming")
 	cmd.Flags().StringArrayVar(&attachments, "attachment", nil, "File path to attach (can be repeated)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated). Requires --private")
@@ -534,7 +537,7 @@ func newMessagesUpdateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&content, "content", "", "New message content (required)")
+	cmd.Flags().StringVarP(&content, "content", "c", "", "New message content (required)")
 	_ = cmd.MarkFlagRequired("content")
 
 	return cmd
@@ -805,6 +808,7 @@ Messages are sent concurrently for efficiency.`,
 	}
 
 	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Maximum concurrent requests")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 
 	return cmd
 }
