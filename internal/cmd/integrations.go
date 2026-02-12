@@ -11,7 +11,7 @@ import (
 func newIntegrationsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "integrations",
-		Aliases: []string{"integration", "int"},
+		Aliases: []string{"integration", "int", "ig"},
 		Short:   "Manage integrations",
 	}
 
@@ -319,6 +319,7 @@ func newShopifyOrdersCmd() *cobra.Command {
 func newShopifyDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete",
+		Aliases: []string{"rm"},
 		Short:   "Delete Shopify integration",
 		Example: "chatwoot integrations shopify delete",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -354,6 +355,7 @@ func newNotionCmd() *cobra.Command {
 func newNotionDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete",
+		Aliases: []string{"rm"},
 		Short:   "Delete Notion integration",
 		Example: "chatwoot integrations notion delete",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

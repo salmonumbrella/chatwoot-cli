@@ -14,7 +14,7 @@ import (
 func newCampaignsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "campaigns",
-		Aliases: []string{"campaign", "camp"},
+		Aliases: []string{"campaign", "camp", "cm"},
 		Short:   "Manage campaigns",
 		Long:    "Create, list, update, and delete campaigns for SMS and other channels.",
 	}
@@ -33,6 +33,7 @@ func newCampaignsListCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List all campaigns",
 		Example: "chatwoot campaigns list --page 2",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -105,6 +106,7 @@ func newCampaignsGetCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "get <id>",
+		Aliases: []string{"g"},
 		Short:   "Get a campaign by ID",
 		Example: "chatwoot campaigns get 123",
 		Args:    cobra.ExactArgs(1),
@@ -193,8 +195,9 @@ func newCampaignsCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new campaign",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new campaign",
 		Long: `Create a new campaign. For SMS campaigns, provide inbox-id of your Twilio/SMS inbox.
 
 The --labels flag accepts comma-separated label IDs for simpler targeting:
@@ -327,8 +330,9 @@ func newCampaignsUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an existing campaign",
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update an existing campaign",
 		Long: `Update an existing campaign.
 
 The --labels flag accepts comma-separated label IDs for simpler targeting:
@@ -438,6 +442,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "delete <id>",
+		Aliases: []string{"rm"},
 		Short:   "Delete a campaign",
 		Example: "chatwoot campaigns delete 123 --force",
 		Args:    cobra.ExactArgs(1),

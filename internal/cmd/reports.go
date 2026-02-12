@@ -15,7 +15,7 @@ import (
 func newReportsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "reports",
-		Aliases: []string{"report", "rpt"},
+		Aliases: []string{"report", "rpt", "rp"},
 		Short:   "View reports and analytics",
 		Long: `View reports and analytics from the Chatwoot API.
 
@@ -567,8 +567,9 @@ func newReportingEventsCmd() *cobra.Command {
 	// List account events
 	var since, until, eventType string
 	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List account reporting events",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List account reporting events",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			parseEventTimestamp := func(value string) (string, time.Time, error) {
 				trimmed := strings.TrimSpace(value)

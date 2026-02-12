@@ -72,9 +72,10 @@ func newCannedResponsesListCmd() *cobra.Command {
 
 func newCannedResponsesGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a canned response by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get a canned response by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "canned response")
 			if err != nil {
@@ -116,8 +117,9 @@ func newCannedResponsesSearchCmd() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search canned responses by short code or content",
+		Use:     "search",
+		Aliases: []string{"q"},
+		Short:   "Search canned responses by short code or content",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if query == "" {
 				return fmt.Errorf("--query is required")
@@ -190,8 +192,9 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new canned response",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new canned response",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if shortCode == "" {
 				return fmt.Errorf("--short-code is required")
@@ -234,9 +237,10 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a canned response",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update a canned response",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "canned response")
 			if err != nil {

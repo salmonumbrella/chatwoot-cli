@@ -13,7 +13,7 @@ import (
 func newCSATCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "csat",
-		Aliases: []string{"satisfaction"},
+		Aliases: []string{"satisfaction", "cs"},
 		Short:   "View customer satisfaction data",
 		Long:    "List, view, and analyze CSAT (Customer Satisfaction) survey responses",
 	}
@@ -35,8 +35,9 @@ func newCSATListCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List CSAT responses",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List CSAT responses",
 		Example: strings.TrimSpace(`
   # List all CSAT responses
   chatwoot csat list
@@ -125,8 +126,9 @@ func newCSATListCmd() *cobra.Command {
 
 func newCSATGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <conversation-id>",
-		Short: "Get CSAT for a conversation",
+		Use:     "get <conversation-id>",
+		Aliases: []string{"g"},
+		Short:   "Get CSAT for a conversation",
 		Example: strings.TrimSpace(`
   # Get CSAT for conversation
   chatwoot csat get 123

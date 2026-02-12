@@ -44,8 +44,9 @@ func newCustomFiltersListCmd() *cobra.Command {
 	var filterType string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List custom filters",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List custom filters",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -97,9 +98,10 @@ func newCustomFiltersListCmd() *cobra.Command {
 
 func newCustomFiltersGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a custom filter by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get a custom filter by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "custom filter")
 			if err != nil {
@@ -147,8 +149,9 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a custom filter",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a custom filter",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
@@ -198,9 +201,10 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a custom filter",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update a custom filter",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "custom filter")
 			if err != nil {
@@ -245,9 +249,10 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 
 func newCustomFiltersDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a custom filter",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a custom filter",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "custom filter")
 			if err != nil {

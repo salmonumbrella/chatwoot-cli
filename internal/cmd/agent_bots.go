@@ -11,7 +11,7 @@ import (
 func newAgentBotsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "agent-bots",
-		Aliases: []string{"bots"},
+		Aliases: []string{"bots", "ab"},
 		Short:   "Manage agent bots",
 		Long:    "Create, list, update, and delete agent bots in your Chatwoot account",
 	}
@@ -29,8 +29,9 @@ func newAgentBotsCmd() *cobra.Command {
 
 func newAgentBotsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all agent bots",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all agent bots",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -72,9 +73,10 @@ func newAgentBotsListCmd() *cobra.Command {
 
 func newAgentBotsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get agent bot by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get agent bot by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -119,8 +121,9 @@ func newAgentBotsCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new agent bot",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new agent bot",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Validate outgoing URL if provided
 			if outgoingURL != "" {
@@ -163,9 +166,10 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update an agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Validate outgoing URL if provided
 			if outgoingURL != "" {
@@ -206,9 +210,10 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 
 func newAgentBotsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete an agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete an agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {

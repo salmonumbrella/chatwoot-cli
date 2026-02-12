@@ -70,9 +70,10 @@ func newConversationsGetCmd() *cobra.Command {
 	var emit string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get conversation details",
-		Long:  "Retrieve detailed information about a specific conversation",
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get conversation details",
+		Long:    "Retrieve detailed information about a specific conversation",
 		Example: strings.TrimSpace(`
   # Get conversation details
   chatwoot conversations get 123
@@ -313,9 +314,10 @@ func newConversationsCreateCmd() *cobra.Command {
 	var emit string
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new conversation",
-		Long:  "Create a new conversation in an inbox",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new conversation",
+		Long:    "Create a new conversation in an inbox",
 		Example: strings.TrimSpace(`
   # Create a conversation
   chatwoot conversations create --inbox-id 1 --contact-id 123
@@ -418,8 +420,9 @@ func newConversationsFilterCmd() *cobra.Command {
 	var payloadStr string
 
 	cmd := &cobra.Command{
-		Use:   "filter",
-		Short: "Filter conversations with custom query",
+		Use:     "filter",
+		Aliases: []string{"f"},
+		Short:   "Filter conversations with custom query",
 		Long: `Filter conversations using the Chatwoot filter API.
 
 The payload follows the Chatwoot filter API format with an array of filter conditions.
@@ -885,9 +888,10 @@ func newConversationsUpdateCmd() *cobra.Command {
 	var emit string
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update conversation attributes",
-		Long:  "Update conversation attributes such as priority and SLA policy",
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update conversation attributes",
+		Long:    "Update conversation attributes such as priority and SLA policy",
 		Example: strings.TrimSpace(`
   # Update conversation priority
   chatwoot conversations update 123 --priority high
@@ -1722,9 +1726,10 @@ func newConversationsSearchCmd() *cobra.Command {
 	var maxPages int
 
 	cmd := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search conversations by message content",
-		Long:  "Search conversations by message content across all conversations",
+		Use:     "search <query>",
+		Aliases: []string{"q"},
+		Short:   "Search conversations by message content",
+		Long:    "Search conversations by message content across all conversations",
 		Example: strings.TrimSpace(`
   # Search for conversations mentioning "password reset"
   chatwoot conversations search "password reset"

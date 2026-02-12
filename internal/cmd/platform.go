@@ -13,9 +13,10 @@ func newPlatformCmd() *cobra.Command {
 	var token string
 
 	cmd := &cobra.Command{
-		Use:   "platform",
-		Short: "Manage Chatwoot via platform APIs",
-		Long:  "Use platform APIs to manage accounts and users (requires platform token).",
+		Use:     "platform",
+		Aliases: []string{"pf"},
+		Short:   "Manage Chatwoot via platform APIs",
+		Long:    "Use platform APIs to manage accounts and users (requires platform token).",
 	}
 
 	cmd.PersistentFlags().StringVar(&baseURL, "base-url", "", "Override Chatwoot base URL")
@@ -55,8 +56,9 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create an account",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create an account",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
@@ -116,9 +118,10 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAccountsGetCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <account-id>",
-		Short: "Get an account",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <account-id>",
+		Aliases: []string{"g"},
+		Short:   "Get an account",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
@@ -147,9 +150,10 @@ func newPlatformAccountsGetCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAccountsDeleteCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <account-id>",
-		Short: "Delete an account",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <account-id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete an account",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
@@ -183,9 +187,10 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <account-id>",
-		Short: "Update an account",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <account-id>",
+		Aliases: []string{"up"},
+		Short:   "Update an account",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
@@ -253,8 +258,9 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a user",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a user",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" || email == "" || password == "" {
 				return fmt.Errorf("--name, --email, and --password are required")
@@ -303,9 +309,10 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformUsersGetCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <user-id>",
-		Short: "Get a user",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <user-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a user",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
@@ -342,9 +349,10 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <user-id>",
-		Short: "Update a user",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <user-id>",
+		Aliases: []string{"up"},
+		Short:   "Update a user",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
@@ -398,9 +406,10 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <user-id>",
-		Short: "Delete a user",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <user-id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a user",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			userID, err := parseIDOrURL(args[0], "user")
 			if err != nil {
@@ -471,9 +480,10 @@ func newPlatformAccountUsersCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAccountUsersListCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <account-id>",
-		Short: "List account users",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <account-id>",
+		Aliases: []string{"ls"},
+		Short:   "List account users",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
@@ -510,9 +520,10 @@ func newPlatformAccountUsersCreateCmd(baseURL, token *string) *cobra.Command {
 	var role string
 
 	cmd := &cobra.Command{
-		Use:   "create <account-id>",
-		Short: "Add a user to an account",
-		Args:  cobra.ExactArgs(1),
+		Use:     "create <account-id>",
+		Aliases: []string{"mk"},
+		Short:   "Add a user to an account",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
@@ -557,9 +568,10 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 	var userID int
 
 	cmd := &cobra.Command{
-		Use:   "delete <account-id>",
-		Short: "Remove a user from an account",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <account-id>",
+		Aliases: []string{"rm"},
+		Short:   "Remove a user from an account",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			accountID, err := parseIDOrURL(args[0], "account")
 			if err != nil {
@@ -608,8 +620,9 @@ func newPlatformAgentBotsCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAgentBotsListCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List all platform agent bots",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all platform agent bots",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPlatformClient(*baseURL, *token)
 			if err != nil {
@@ -638,9 +651,10 @@ func newPlatformAgentBotsListCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAgentBotsGetCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <bot-id>",
-		Short: "Get a platform agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <bot-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a platform agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			botID, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
@@ -684,8 +698,9 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a platform agent bot",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a platform agent bot",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
@@ -729,9 +744,10 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <bot-id>",
-		Short: "Update a platform agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <bot-id>",
+		Aliases: []string{"up"},
+		Short:   "Update a platform agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			botID, err := parseIDOrURL(args[0], "bot")
 			if err != nil {
@@ -774,9 +790,10 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAgentBotsDeleteCmd(baseURL, token *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <bot-id>",
-		Short: "Delete a platform agent bot",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <bot-id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a platform agent bot",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			botID, err := parseIDOrURL(args[0], "bot")
 			if err != nil {

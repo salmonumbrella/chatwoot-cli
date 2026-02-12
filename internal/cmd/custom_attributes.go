@@ -45,8 +45,9 @@ func newCustomAttributesListCmd() *cobra.Command {
 	var model string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List custom attribute definitions",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List custom attribute definitions",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -98,9 +99,10 @@ func newCustomAttributesListCmd() *cobra.Command {
 
 func newCustomAttributesGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a custom attribute definition by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get a custom attribute definition by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "custom attribute")
 			if err != nil {
@@ -155,8 +157,9 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a custom attribute definition",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a custom attribute definition",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
@@ -204,9 +207,10 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 	var name string
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a custom attribute definition",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update a custom attribute definition",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "custom attribute")
 			if err != nil {
@@ -243,9 +247,10 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 
 func newCustomAttributesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a custom attribute definition",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a custom attribute definition",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "custom attribute")
 			if err != nil {

@@ -63,6 +63,7 @@ func newInboxesListCmd() *cobra.Command {
 	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+	cmd.Aliases = []string{"ls"}
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "channel_type"},
@@ -78,9 +79,10 @@ func newInboxesGetCmd() *cobra.Command {
 	var emit string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get inbox details",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get inbox details",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -156,8 +158,9 @@ func newInboxesCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new inbox",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new inbox",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("name is required")
@@ -271,9 +274,10 @@ func newInboxesUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update an inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -381,9 +385,10 @@ func newInboxesUpdateCmd() *cobra.Command {
 
 func newInboxesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete an inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -1059,9 +1064,10 @@ func formatDuration(seconds int64) string {
 
 func newInboxesCSATTemplateGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <inbox-id>",
-		Short: "Get the CSAT survey template for an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <inbox-id>",
+		Aliases: []string{"g"},
+		Short:   "Get the CSAT survey template for an inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {

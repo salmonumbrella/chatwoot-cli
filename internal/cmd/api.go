@@ -22,8 +22,9 @@ func newAPICmd() *cobra.Command {
 	var includeHeaders bool
 
 	cmd := &cobra.Command{
-		Use:   "api <endpoint>",
-		Short: "Make raw API requests to any Chatwoot endpoint",
+		Use:     "api <endpoint>",
+		Aliases: []string{"ap"},
+		Short:   "Make raw API requests to any Chatwoot endpoint",
 		Long: `Make raw API requests to any Chatwoot endpoint.
 
 This command provides direct access to any Chatwoot API endpoint, giving agents

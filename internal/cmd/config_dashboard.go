@@ -84,6 +84,7 @@ func newDashboardAddCmd() *cobra.Command {
 func newDashboardListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List configured dashboards",
 		Example: "chatwoot config dashboard list",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

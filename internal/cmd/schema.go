@@ -12,9 +12,10 @@ import (
 
 func newSchemaCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "schema",
-		Short: "Discover API resource schemas",
-		Long:  "List and show schema definitions for Chatwoot API resources",
+		Use:     "schema",
+		Aliases: []string{"sc"},
+		Short:   "Discover API resource schemas",
+		Long:    "List and show schema definitions for Chatwoot API resources",
 		Example: strings.TrimSpace(`
   # List available schemas
   chatwoot schema list
@@ -35,9 +36,10 @@ func newSchemaCmd() *cobra.Command {
 
 func newSchemaListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List available schemas",
-		Long:  "List all registered resource schemas with their descriptions",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List available schemas",
+		Long:    "List all registered resource schemas with their descriptions",
 		Example: strings.TrimSpace(`
   # List all schemas
   chatwoot schema list

@@ -14,9 +14,10 @@ func newClientCmd() *cobra.Command {
 	var contactIdentifier string
 
 	cmd := &cobra.Command{
-		Use:   "client",
-		Short: "Access Chatwoot public client APIs",
-		Long:  "Interact with Chatwoot public client APIs using inbox and contact identifiers.",
+		Use:     "client",
+		Aliases: []string{"cl"},
+		Short:   "Access Chatwoot public client APIs",
+		Long:    "Interact with Chatwoot public client APIs using inbox and contact identifiers.",
 	}
 
 	cmd.PersistentFlags().StringVar(&baseURL, "base-url", "", "Override Chatwoot base URL")
@@ -56,8 +57,9 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a contact via public API",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a contact via public API",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
@@ -110,8 +112,9 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 
 func newClientContactsGetCmd(baseURL, inboxIdentifier, contactIdentifier *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get",
-		Short: "Get a contact via public API",
+		Use:     "get",
+		Aliases: []string{"g"},
+		Short:   "Get a contact via public API",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
@@ -159,8 +162,9 @@ func newClientConversationsCmd(baseURL, inboxIdentifier, contactIdentifier *stri
 
 func newClientConversationsListCmd(baseURL, inboxIdentifier, contactIdentifier *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List conversations for a contact",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List conversations for a contact",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
@@ -201,8 +205,9 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 	var customAttributes string
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a conversation for a contact",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a conversation for a contact",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
@@ -244,9 +249,10 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 
 func newClientConversationsGetCmd(baseURL, inboxIdentifier, contactIdentifier *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <conversation-id>",
-		Short: "Get a conversation",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <conversation-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a conversation",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
@@ -334,9 +340,10 @@ func newClientMessagesCreateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 	var echoID string
 
 	cmd := &cobra.Command{
-		Use:   "create <conversation-id>",
-		Short: "Create a message in a conversation",
-		Args:  cobra.ExactArgs(1),
+		Use:     "create <conversation-id>",
+		Aliases: []string{"mk"},
+		Short:   "Create a message in a conversation",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")
@@ -438,9 +445,10 @@ func newClientLastSeenCmd(baseURL, inboxIdentifier, contactIdentifier *string) *
 
 func newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "update <conversation-id>",
-		Short: "Update last seen for a conversation",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <conversation-id>",
+		Aliases: []string{"up"},
+		Short:   "Update last seen for a conversation",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if *inboxIdentifier == "" {
 				return fmt.Errorf("--inbox is required")

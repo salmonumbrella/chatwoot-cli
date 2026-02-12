@@ -8,14 +8,16 @@ import (
 
 func newSurveyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "survey",
-		Short: "Survey operations",
+		Use:     "survey",
+		Aliases: []string{"sv"},
+		Short:   "Survey operations",
 	}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get <conversation-uuid>",
-		Short: "Get survey response for a conversation",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <conversation-uuid>",
+		Aliases: []string{"g"},
+		Short:   "Get survey response for a conversation",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {

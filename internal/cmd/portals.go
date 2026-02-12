@@ -22,7 +22,7 @@ func validateArticleStatus(status int) error {
 func newPortalsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "portals",
-		Aliases: []string{"portal"},
+		Aliases: []string{"portal", "po"},
 		Short:   "Manage help center portals",
 	}
 
@@ -44,6 +44,7 @@ func newPortalsCmd() *cobra.Command {
 func newPortalsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List all portals",
 		Example: "chatwoot portals list",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -83,6 +84,7 @@ func newPortalsListCmd() *cobra.Command {
 func newPortalsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get <portal-slug>",
+		Aliases: []string{"g"},
 		Short:   "Get a portal by slug",
 		Example: "chatwoot portals get help-center",
 		Args:    cobra.ExactArgs(1),
@@ -130,6 +132,7 @@ func newPortalsCreateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create",
+		Aliases: []string{"mk"},
 		Short:   "Create a new portal",
 		Example: "chatwoot portals create --name 'Help Center' --slug help",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -186,6 +189,7 @@ func newPortalsUpdateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "update <portal-slug>",
+		Aliases: []string{"up"},
 		Short:   "Update a portal",
 		Example: "chatwoot portals update help-center --name 'New Name'",
 		Args:    cobra.ExactArgs(1),
@@ -247,6 +251,7 @@ func newPortalsUpdateCmd() *cobra.Command {
 func newPortalsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete <portal-slug>",
+		Aliases: []string{"rm"},
 		Short:   "Delete a portal",
 		Example: "chatwoot portals delete help-center",
 		Args:    cobra.ExactArgs(1),
@@ -441,9 +446,10 @@ func newPortalsArticlesCmd() *cobra.Command {
 
 func newPortalsArticlesListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <portal-slug>",
-		Short: "List articles in a portal",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <portal-slug>",
+		Aliases: []string{"ls"},
+		Short:   "List articles in a portal",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
@@ -479,8 +485,9 @@ func newPortalsArticlesSearchCmd() *cobra.Command {
 	var includeBody bool
 
 	cmd := &cobra.Command{
-		Use:   "search <portal-slug> <query>",
-		Short: "Search articles in a portal",
+		Use:     "search <portal-slug> <query>",
+		Aliases: []string{"q"},
+		Short:   "Search articles in a portal",
 		Example: strings.TrimSpace(`
   # Search for articles about returns
   chatwoot portals articles search help-center "return policy"
@@ -539,9 +546,10 @@ func newPortalsArticlesSearchCmd() *cobra.Command {
 
 func newPortalsArticlesGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <portal-slug> <article-id>",
-		Short: "Get an article by ID",
-		Args:  cobra.ExactArgs(2),
+		Use:     "get <portal-slug> <article-id>",
+		Aliases: []string{"g"},
+		Short:   "Get an article by ID",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
@@ -590,6 +598,7 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create <portal-slug>",
+		Aliases: []string{"mk"},
 		Short:   "Create a new article",
 		Example: `  chatwoot portals articles create help --title "Getting Started" --content "..." --category-id 1`,
 		Args:    cobra.ExactArgs(1),
@@ -673,9 +682,10 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <portal-slug> <article-id>",
-		Short: "Update an article",
-		Args:  cobra.ExactArgs(2),
+		Use:     "update <portal-slug> <article-id>",
+		Aliases: []string{"up"},
+		Short:   "Update an article",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
@@ -749,9 +759,10 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 
 func newPortalsArticlesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <portal-slug> <article-id>",
-		Short: "Delete an article",
-		Args:  cobra.ExactArgs(2),
+		Use:     "delete <portal-slug> <article-id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete an article",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
@@ -856,9 +867,10 @@ func newPortalsCategoriesCmd() *cobra.Command {
 
 func newPortalsCategoriesListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <portal-slug>",
-		Short: "List categories in a portal",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <portal-slug>",
+		Aliases: []string{"ls"},
+		Short:   "List categories in a portal",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			if err := validateSlug(portalSlug); err != nil {
@@ -892,9 +904,10 @@ func newPortalsCategoriesListCmd() *cobra.Command {
 
 func newPortalsCategoriesGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <portal-slug> <category-slug>",
-		Short: "Get a category by slug",
-		Args:  cobra.ExactArgs(2),
+		Use:     "get <portal-slug> <category-slug>",
+		Aliases: []string{"g"},
+		Short:   "Get a category by slug",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			categorySlug := args[1]
@@ -943,6 +956,7 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create <portal-slug>",
+		Aliases: []string{"mk"},
 		Short:   "Create a new category",
 		Example: `  chatwoot portals categories create help --name "FAQ" --slug faq`,
 		Args:    cobra.ExactArgs(1),
@@ -1019,9 +1033,10 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <portal-slug> <category-slug>",
-		Short: "Update a category",
-		Args:  cobra.ExactArgs(2),
+		Use:     "update <portal-slug> <category-slug>",
+		Aliases: []string{"up"},
+		Short:   "Update a category",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			categorySlug := args[1]
@@ -1085,9 +1100,10 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 
 func newPortalsCategoriesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <portal-slug> <category-slug>",
-		Short: "Delete a category",
-		Args:  cobra.ExactArgs(2),
+		Use:     "delete <portal-slug> <category-slug>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a category",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			portalSlug := args[0]
 			categorySlug := args[1]

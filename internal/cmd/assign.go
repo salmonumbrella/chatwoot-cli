@@ -16,7 +16,7 @@ func newAssignCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "assign <conversation-id>",
-		Aliases: []string{"reassign"},
+		Aliases: []string{"reassign", "as"},
 		Short:   "Assign a conversation to an agent or team",
 		Long: `Assign a conversation to an agent and/or team.
 

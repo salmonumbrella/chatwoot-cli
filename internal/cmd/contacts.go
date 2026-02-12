@@ -51,8 +51,9 @@ func newContactsListCmd() *cobra.Command {
 	var order string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all contacts",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all contacts",
 		Long: `List all contacts in your Chatwoot account.
 
 JSON output returns an object with an "items" array for easy jq processing.`,
@@ -223,8 +224,9 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 
 func newContactsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <identifier>",
-		Short: "Get contact by ID, email, or name",
+		Use:     "get <identifier>",
+		Aliases: []string{"g"},
+		Short:   "Get contact by ID, email, or name",
 		Long: `Get a specific contact by their ID, email address, phone number, or name.
 
 Accepts numeric ID, Chatwoot URL, email address, phone number, or name to search.
@@ -311,8 +313,9 @@ func newContactsCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new contact",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new contact",
 		Long: `Create a new contact with the specified name, email, and/or phone number.
 
 When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
@@ -439,8 +442,9 @@ func newContactsUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <identifier>",
-		Short: "Update a contact",
+		Use:     "update <identifier>",
+		Aliases: []string{"up"},
+		Short:   "Update a contact",
 		Long: `Update a contact's name, email, and/or phone number.
 
 Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolve the contact.`,
@@ -527,9 +531,10 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 
 func newContactsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a contact",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a contact",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "contact")
 			if err != nil {
@@ -558,8 +563,9 @@ func newContactsSearchCmd() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search contacts",
+		Use:     "search",
+		Aliases: []string{"q"},
+		Short:   "Search contacts",
 		Long: `Search for contacts by query string.
 
 The query matches against contact name, email, phone number, and identifier.
@@ -631,8 +637,9 @@ func newContactsFilterCmd() *cobra.Command {
 	var payload string
 
 	cmd := &cobra.Command{
-		Use:   "filter",
-		Short: "Filter contacts",
+		Use:     "filter",
+		Aliases: []string{"f"},
+		Short:   "Filter contacts",
 		Long: `Filter contacts using a JSON array of filter conditions.
 
 Example payload format:

@@ -9,7 +9,7 @@ import (
 func newAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "account",
-		Aliases: []string{"acc"},
+		Aliases: []string{"acc", "ac"},
 		Short:   "Manage account",
 	}
 
@@ -22,6 +22,7 @@ func newAccountCmd() *cobra.Command {
 func newAccountGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "get",
+		Aliases: []string{"g"},
 		Short:   "Get account details",
 		Example: "chatwoot account get",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -53,6 +54,7 @@ func newAccountUpdateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "update",
+		Aliases: []string{"up"},
 		Short:   "Update account",
 		Example: "chatwoot account update --name 'New Name'",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

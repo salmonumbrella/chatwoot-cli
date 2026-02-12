@@ -66,6 +66,7 @@ func newLabelsListCmd() *cobra.Command {
 	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+	cmd.Aliases = []string{"ls"}
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "title"},
@@ -79,9 +80,10 @@ func newLabelsListCmd() *cobra.Command {
 
 func newLabelsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get label details",
-		Long:  "Get details of a specific label",
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get label details",
+		Long:    "Get details of a specific label",
 		Example: strings.TrimSpace(`
   # Get label details
   chatwoot labels get 123
@@ -135,9 +137,10 @@ func newLabelsCreateCmd() *cobra.Command {
 	var showOnSidebar bool
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new label",
-		Long:  "Create a new account-level label",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new label",
+		Long:    "Create a new account-level label",
 		Example: strings.TrimSpace(`
   # Create a simple label
   chatwoot labels create --title "Bug Report"
@@ -195,9 +198,10 @@ func newLabelsUpdateCmd() *cobra.Command {
 	var showOnSidebar bool
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a label",
-		Long:  "Update an existing label",
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update a label",
+		Long:    "Update an existing label",
 		Example: strings.TrimSpace(`
   # Update label title
   chatwoot labels update 123 --title "New Title"
@@ -267,9 +271,10 @@ func newLabelsUpdateCmd() *cobra.Command {
 
 func newLabelsDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a label",
-		Long:  "Delete an account label",
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a label",
+		Long:    "Delete an account label",
 		Example: strings.TrimSpace(`
   # Delete a label
   chatwoot labels delete 123

@@ -10,7 +10,7 @@ import (
 func newAutomationRulesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "automation-rules",
-		Aliases: []string{"automation", "rules"},
+		Aliases: []string{"automation", "rules", "ar"},
 		Short:   "Manage automation rules",
 		Long:    "Create, list, update, and delete automation rules in your Chatwoot account",
 	}
@@ -27,8 +27,9 @@ func newAutomationRulesCmd() *cobra.Command {
 
 func newAutomationRulesListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all automation rules",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all automation rules",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -74,9 +75,10 @@ func newAutomationRulesListCmd() *cobra.Command {
 
 func newAutomationRulesGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get automation rule by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get automation rule by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -126,8 +128,9 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new automation rule",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new automation rule",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -179,9 +182,10 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an automation rule",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update an automation rule",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -245,9 +249,10 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 
 func newAutomationRulesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete an automation rule",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete an automation rule",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {

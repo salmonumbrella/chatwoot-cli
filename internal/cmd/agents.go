@@ -54,6 +54,7 @@ func newAgentsListCmd() *cobra.Command {
 	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+	cmd.Aliases = []string{"ls"}
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "email"},
@@ -69,9 +70,10 @@ func newAgentsGetCmd() *cobra.Command {
 	var emit string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get agent by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get agent by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {
@@ -134,9 +136,10 @@ func newAgentsCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new agent",
-		Long:  "Create a new agent with the specified name, email, and role (agent or admin)",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new agent",
+		Long:    "Create a new agent with the specified name, email, and role (agent or admin)",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
@@ -201,10 +204,11 @@ func newAgentsUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an agent",
-		Long:  "Update an agent's name and/or role",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update an agent",
+		Long:    "Update an agent's name and/or role",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {
@@ -262,9 +266,10 @@ func newAgentsUpdateCmd() *cobra.Command {
 
 func newAgentsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete an agent",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete an agent",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "agent")
 			if err != nil {

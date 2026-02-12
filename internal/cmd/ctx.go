@@ -13,7 +13,7 @@ func newCtxCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "ctx <conversation-id|url>",
-		Aliases: []string{"context"},
+		Aliases: []string{"context", "ct"},
 		Short:   "Get full conversation context for AI",
 		Long: `Convenience shortcut for 'chatwoot conversations context'.
 

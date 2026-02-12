@@ -41,8 +41,9 @@ func newStatusCmd() *cobra.Command {
 	var checkOnly bool
 
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show current configuration and authentication status",
+		Use:     "status",
+		Aliases: []string{"st"},
+		Short:   "Show current configuration and authentication status",
 		Long: `Display the current CLI configuration including authentication status,
 base URL, account ID, and other useful information.
 

@@ -75,7 +75,7 @@ func newWebhooksListCmd() *cobra.Command {
 func newWebhooksGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get <id>",
-		Aliases: []string{"show"},
+		Aliases: []string{"show", "g"},
 		Short:   "Get a webhook by ID",
 		Example: "  chatwoot webhooks get 123",
 		Args:    cobra.ExactArgs(1),
@@ -130,8 +130,9 @@ func newWebhooksCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new webhook",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new webhook",
 		Long: `Create a new webhook subscription.
 
 Available subscription events:
@@ -224,8 +225,9 @@ func newWebhooksUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a webhook",
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update a webhook",
 		Long: `Update an existing webhook's URL or subscriptions.
 
 Available subscription events:

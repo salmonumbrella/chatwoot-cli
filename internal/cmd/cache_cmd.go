@@ -11,8 +11,9 @@ import (
 
 func newCacheCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cache",
-		Short: "Manage the local cache",
+		Use:     "cache",
+		Aliases: []string{"ch"},
+		Short:   "Manage the local cache",
 	}
 
 	cmd.AddCommand(newCacheClearCmd())

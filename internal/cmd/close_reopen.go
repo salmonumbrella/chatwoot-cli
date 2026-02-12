@@ -11,7 +11,7 @@ import (
 func newCloseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "close <conversation-id> [conversation-id...]",
-		Aliases: []string{"close-conversation", "resolve-conversation", "resolve"},
+		Aliases: []string{"close-conversation", "resolve-conversation", "resolve", "x"},
 		Short:   "Resolve one or more conversations",
 		Long: `Resolve one or more conversations by setting their status to "resolved".
 
@@ -95,7 +95,7 @@ This is a convenience shortcut for:
 func newReopenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "reopen <conversation-id> [conversation-id...]",
-		Aliases: []string{"open-conversation"},
+		Aliases: []string{"open-conversation", "ro"},
 		Short:   "Reopen one or more conversations",
 		Long: `Reopen one or more conversations by setting their status to "open".
 

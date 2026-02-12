@@ -8,8 +8,9 @@ import (
 
 func newProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "profile",
-		Short: "View user profile",
+		Use:     "profile",
+		Aliases: []string{"pr"},
+		Short:   "View user profile",
 	}
 
 	cmd.AddCommand(newProfileGetCmd())
@@ -20,6 +21,7 @@ func newProfileCmd() *cobra.Command {
 func newProfileGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "get",
+		Aliases: []string{"g"},
 		Short:   "Get user profile",
 		Example: "chatwoot profile get",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

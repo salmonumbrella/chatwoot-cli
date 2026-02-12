@@ -10,7 +10,7 @@ import (
 func newInboxMembersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "inbox-members",
-		Aliases: []string{"inbox_members"},
+		Aliases: []string{"inbox_members", "im"},
 		Short:   "Manage inbox members",
 		Long:    "List, add, and remove agents from inboxes",
 	}
@@ -25,9 +25,10 @@ func newInboxMembersCmd() *cobra.Command {
 
 func newInboxMembersListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <inbox-id>",
-		Short: "List all members of an inbox",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <inbox-id>",
+		Aliases: []string{"ls"},
+		Short:   "List all members of an inbox",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			inboxID, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {
@@ -159,9 +160,10 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 	var userIDsStr string
 
 	cmd := &cobra.Command{
-		Use:   "update <inbox-id>",
-		Short: "Update inbox members (replaces the list)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <inbox-id>",
+		Aliases: []string{"up"},
+		Short:   "Update inbox members (replaces the list)",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			inboxID, err := parseIDOrURL(args[0], "inbox")
 			if err != nil {

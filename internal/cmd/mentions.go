@@ -14,7 +14,7 @@ import (
 func newMentionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "mentions",
-		Aliases: []string{"m"},
+		Aliases: []string{"mn"},
 		Short:   "View mentions in private notes",
 		Long:    "List mentions of the current user in private notes across conversations",
 	}
@@ -33,8 +33,9 @@ func newMentionsListCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List mentions of the current user",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List mentions of the current user",
 		Long: `List mentions of the current user in private notes across conversations.
 
 Mentions are created when an agent tags another agent in a private note using

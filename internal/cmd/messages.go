@@ -21,7 +21,7 @@ import (
 func newMessagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "messages",
-		Aliases: []string{"message", "msg"},
+		Aliases: []string{"message", "msg", "m"},
 		Short:   "Manage conversation messages",
 		Long:    "List, create, and delete messages in conversations",
 	}
@@ -46,8 +46,9 @@ func newMessagesListCmd() *cobra.Command {
 	var sinceLastAgent bool
 
 	cmd := &cobra.Command{
-		Use:   "list <conversation-id>",
-		Short: "List messages in a conversation",
+		Use:     "list <conversation-id>",
+		Aliases: []string{"ls"},
+		Short:   "List messages in a conversation",
 		Long: `List messages in a conversation.
 
 Messages are returned in chronological order: oldest first, most recent at the
@@ -236,8 +237,9 @@ func newMessagesCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create <conversation-id>",
-		Short: "Create a message in a conversation",
+		Use:     "create <conversation-id>",
+		Aliases: []string{"mk"},
+		Short:   "Create a message in a conversation",
 		Example: strings.TrimSpace(`
   # Send a text message
   chatwoot messages create 123 --content "Hello!"
@@ -416,9 +418,10 @@ func newMessagesCreateCmd() *cobra.Command {
 // newMessagesDeleteCmd creates the delete subcommand
 func newMessagesDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <conversation-id> <message-id>",
-		Short: "Delete a message from a conversation",
-		Args:  cobra.ExactArgs(2),
+		Use:     "delete <conversation-id> <message-id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a message from a conversation",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
@@ -472,8 +475,9 @@ func newMessagesUpdateCmd() *cobra.Command {
 	var content string
 
 	cmd := &cobra.Command{
-		Use:   "update <conversation-id> <message-id>",
-		Short: "Update a message's content",
+		Use:     "update <conversation-id> <message-id>",
+		Aliases: []string{"up"},
+		Short:   "Update a message's content",
 		Example: `  # Update a message
   chatwoot messages update 123 456 --content "Updated text"`,
 		Args: cobra.ExactArgs(2),

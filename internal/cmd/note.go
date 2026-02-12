@@ -24,7 +24,7 @@ func newNoteCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "note <conversation-id|url> [text...]",
-		Aliases: []string{"internal-note"},
+		Aliases: []string{"internal-note", "n"},
 		Short:   "Add a private note to a conversation",
 		Long: `Send a private (internal-only) note to a conversation.
 

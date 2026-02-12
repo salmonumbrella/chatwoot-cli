@@ -9,8 +9,9 @@ import (
 
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage CLI configuration",
+		Use:     "config",
+		Aliases: []string{"cfg"},
+		Short:   "Manage CLI configuration",
 	}
 
 	cmd.AddCommand(newConfigProfilesCmd())
@@ -36,6 +37,7 @@ func newConfigProfilesCmd() *cobra.Command {
 func newProfilesListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List configured profiles",
 		Example: "chatwoot config profiles list",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -148,6 +150,7 @@ func newProfilesShowCmd() *cobra.Command {
 func newProfilesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete <name>",
+		Aliases: []string{"rm"},
 		Short:   "Delete a profile",
 		Example: "chatwoot config profiles delete staging",
 		Args:    cobra.ExactArgs(1),

@@ -59,6 +59,7 @@ func newTeamsListCmd() *cobra.Command {
 	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
 		return getClient()
 	})
+	cmd.Aliases = []string{"ls"}
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name"},
@@ -74,9 +75,10 @@ func newTeamsGetCmd() *cobra.Command {
 	var emit string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a team by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Aliases: []string{"g"},
+		Short:   "Get a team by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
@@ -134,8 +136,9 @@ func newTeamsCreateCmd() *cobra.Command {
 	var name, description, emit string
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new team",
+		Use:     "create",
+		Aliases: []string{"mk"},
+		Short:   "Create a new team",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
@@ -175,9 +178,10 @@ func newTeamsUpdateCmd() *cobra.Command {
 	var name, description, emit string
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a team",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Aliases: []string{"up"},
+		Short:   "Update a team",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {
@@ -220,9 +224,10 @@ func newTeamsUpdateCmd() *cobra.Command {
 
 func newTeamsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a team",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a team",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "team")
 			if err != nil {

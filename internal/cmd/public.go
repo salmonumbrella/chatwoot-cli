@@ -11,8 +11,9 @@ func newPublicCmd() *cobra.Command {
 	var baseURL string
 
 	cmd := &cobra.Command{
-		Use:   "public",
-		Short: "Public API commands (unauthenticated)",
+		Use:     "public",
+		Aliases: []string{"pub"},
+		Short:   "Public API commands (unauthenticated)",
 		Long: `Access Chatwoot's public API for widget/client-side operations.
 
 The public API does not require authentication, but requires --base-url to be set.
@@ -52,10 +53,11 @@ func newPublicInboxesCmd(baseURL *string) *cobra.Command {
 
 func newPublicInboxesGetCmd(baseURL *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <inbox-identifier>",
-		Short: "Get inbox info",
-		Long:  "Get information about an inbox via the public API",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <inbox-identifier>",
+		Aliases: []string{"g"},
+		Short:   "Get inbox info",
+		Long:    "Get information about an inbox via the public API",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
@@ -110,10 +112,11 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create <inbox-identifier>",
-		Short: "Create a contact",
-		Long:  "Create a contact via the public API",
-		Args:  cobra.ExactArgs(1),
+		Use:     "create <inbox-identifier>",
+		Aliases: []string{"mk"},
+		Short:   "Create a contact",
+		Long:    "Create a contact via the public API",
+		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
@@ -161,10 +164,11 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 
 func newPublicContactsGetCmd(baseURL *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <inbox-identifier> <contact-identifier>",
-		Short: "Get a contact",
-		Long:  "Get contact information via the public API",
-		Args:  cobra.ExactArgs(2),
+		Use:     "get <inbox-identifier> <contact-identifier>",
+		Aliases: []string{"g"},
+		Short:   "Get a contact",
+		Long:    "Get contact information via the public API",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
@@ -204,10 +208,11 @@ func newPublicContactsUpdateCmd(baseURL *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <inbox-identifier> <contact-identifier>",
-		Short: "Update a contact",
-		Long:  "Update contact information via the public API",
-		Args:  cobra.ExactArgs(2),
+		Use:     "update <inbox-identifier> <contact-identifier>",
+		Aliases: []string{"up"},
+		Short:   "Update a contact",
+		Long:    "Update contact information via the public API",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" && email == "" && phone == "" {
 				return fmt.Errorf("at least one of --name, --email, or --phone must be provided")
@@ -272,10 +277,11 @@ func newPublicConversationsCmd(baseURL *string) *cobra.Command {
 
 func newPublicConversationsListCmd(baseURL *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <inbox-identifier> <contact-identifier>",
-		Short: "List conversations",
-		Long:  "List conversations for a contact via the public API",
-		Args:  cobra.ExactArgs(2),
+		Use:     "list <inbox-identifier> <contact-identifier>",
+		Aliases: []string{"ls"},
+		Short:   "List conversations",
+		Long:    "List conversations for a contact via the public API",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
@@ -314,10 +320,11 @@ func newPublicConversationsListCmd(baseURL *string) *cobra.Command {
 
 func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <inbox-identifier> <contact-identifier> <conversation-id>",
-		Short: "Get a conversation",
-		Long:  "Get conversation details via the public API",
-		Args:  cobra.ExactArgs(3),
+		Use:     "get <inbox-identifier> <contact-identifier> <conversation-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a conversation",
+		Long:    "Get conversation details via the public API",
+		Args:    cobra.ExactArgs(3),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
@@ -359,10 +366,11 @@ func newPublicConversationsGetCmd(baseURL *string) *cobra.Command {
 
 func newPublicConversationsCreateCmd(baseURL *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "create <inbox-identifier> <contact-identifier>",
-		Short: "Create a conversation",
-		Long:  "Create a new conversation via the public API",
-		Args:  cobra.ExactArgs(2),
+		Use:     "create <inbox-identifier> <contact-identifier>",
+		Aliases: []string{"mk"},
+		Short:   "Create a conversation",
+		Long:    "Create a new conversation via the public API",
+		Args:    cobra.ExactArgs(2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getPublicClient(*baseURL)
 			if err != nil {
@@ -450,10 +458,11 @@ func newPublicMessagesCmd(baseURL *string) *cobra.Command {
 
 func newPublicMessagesListCmd(baseURL *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <inbox-identifier> <contact-identifier> <conversation-id>",
-		Short: "List messages",
-		Long:  "List messages in a conversation via the public API",
-		Args:  cobra.ExactArgs(3),
+		Use:     "list <inbox-identifier> <contact-identifier> <conversation-id>",
+		Aliases: []string{"ls"},
+		Short:   "List messages",
+		Long:    "List messages in a conversation via the public API",
+		Args:    cobra.ExactArgs(3),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			conversationID, err := parsePositiveIntArg(args[2], "conversation ID")
 			if err != nil {
@@ -509,10 +518,11 @@ func newPublicMessagesCreateCmd(baseURL *string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create <inbox-identifier> <contact-identifier> <conversation-id>",
-		Short: "Create a message",
-		Long:  "Create a new message in a conversation via the public API",
-		Args:  cobra.ExactArgs(3),
+		Use:     "create <inbox-identifier> <contact-identifier> <conversation-id>",
+		Aliases: []string{"mk"},
+		Short:   "Create a message",
+		Long:    "Create a new message in a conversation via the public API",
+		Args:    cobra.ExactArgs(3),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if content == "" {
 				return fmt.Errorf("--content is required")
@@ -557,10 +567,11 @@ func newPublicMessagesUpdateCmd(baseURL *string) *cobra.Command {
 	var content string
 
 	cmd := &cobra.Command{
-		Use:   "update <inbox-identifier> <contact-identifier> <conversation-id> <message-id>",
-		Short: "Update a message",
-		Long:  "Update a message in a conversation via the public API",
-		Args:  cobra.ExactArgs(4),
+		Use:     "update <inbox-identifier> <contact-identifier> <conversation-id> <message-id>",
+		Aliases: []string{"up"},
+		Short:   "Update a message",
+		Long:    "Update a message in a conversation via the public API",
+		Args:    cobra.ExactArgs(4),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if content == "" {
 				return fmt.Errorf("--content is required")

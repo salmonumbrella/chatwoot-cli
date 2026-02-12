@@ -19,9 +19,10 @@ import (
 // newAuthCmd returns the auth command with subcommands
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "auth",
-		Short: "Manage authentication credentials",
-		Long:  "Configure and manage Chatwoot API authentication credentials stored securely in your OS keychain.",
+		Use:     "auth",
+		Aliases: []string{"au"},
+		Short:   "Manage authentication credentials",
+		Long:    "Configure and manage Chatwoot API authentication credentials stored securely in your OS keychain.",
 	}
 
 	cmd.AddCommand(newAuthLoginCmd())

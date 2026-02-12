@@ -120,7 +120,7 @@ func newOpenCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "open <url> | open <resource> <id> | open <id> [--type <resource>]",
-		Aliases: []string{"get", "show"},
+		Aliases: []string{"get", "show", "o"},
 		Short:   "Open a Chatwoot URL or resource ID and display details",
 		Long: `Parse a Chatwoot URL (or resource + ID) and display the corresponding resource details.
 

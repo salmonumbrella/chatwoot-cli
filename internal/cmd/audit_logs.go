@@ -10,7 +10,7 @@ import (
 func newAuditLogsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "audit-logs",
-		Aliases: []string{"audit"},
+		Aliases: []string{"audit", "al"},
 		Short:   "View audit logs",
 	}
 
@@ -23,8 +23,9 @@ func newAuditLogsListCmd() *cobra.Command {
 	var page int
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List audit logs",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List audit logs",
 		Example: `  # List audit logs
   chatwoot audit-logs list
 
