@@ -287,7 +287,6 @@ func TestCommandAliases(t *testing.T) {
 		{"escalate", "handoff"},
 		{"transfer", "handoff"},
 		{"dash", "dashboard"},
-		{"db", "dashboard"},
 		{"v", "version"},
 	}
 

@@ -24,7 +24,7 @@ func newDashboardCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "dashboard <name>",
-		Aliases: []string{"dash", "db"},
+		Aliases: []string{"dash"},
 		Short:   "Query a configured dashboard",
 		Long: `Query an external dashboard API for contact data.
 
