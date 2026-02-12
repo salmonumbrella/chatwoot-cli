@@ -115,7 +115,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	})
 	registerFieldSchema(cmd, "contact")
 
-	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
+	cmd.Flags().IntVarP(&page, "page", "p", 0, "Page number for pagination")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at); prefix with '-' for desc")
 	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
 
@@ -264,7 +264,7 @@ Use 'chatwoot contacts show <id>' as an alias for this command.`,
 
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().String("emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringP("emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -298,7 +298,7 @@ This is an alias for 'chatwoot contacts get <id>'.`,
 
 	cmd.Flags().Bool("with-open-conversations", false, "Include open/pending conversations in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().String("emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringP("emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -424,11 +424,11 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Contact name (required unless provided via --json)")
-	cmd.Flags().StringVar(&email, "email", "", "Contact email address")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Contact name (required unless provided via --json)")
+	cmd.Flags().StringVarP(&email, "email", "e", "", "Contact email address")
 	cmd.Flags().StringVar(&phone, "phone", "", "Contact phone number")
 	cmd.Flags().BoolVar(&fromStdin, "json", false, "Read contact data from stdin as JSON")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -521,10 +521,10 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "New contact name")
-	cmd.Flags().StringVar(&email, "email", "", "New contact email address")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "New contact name")
+	cmd.Flags().StringVarP(&email, "email", "e", "", "New contact email address")
 	cmd.Flags().StringVar(&phone, "phone", "", "New contact phone number")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -987,6 +987,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
 	cmd.Flags().StringVar(&sourceID, "source-id", "", "Channel-specific source identifier")
+	flagAlias(cmd.Flags(), "inbox-id", "iid")
 
 	return cmd
 }
@@ -1226,6 +1227,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
@@ -1334,6 +1336,7 @@ labels, and updates the contact with the remaining labels.`,
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
