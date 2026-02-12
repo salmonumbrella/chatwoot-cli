@@ -105,7 +105,7 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Account name (required)")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Account name (required)")
 	cmd.Flags().StringVar(&locale, "locale", "", "Account locale")
 	cmd.Flags().StringVar(&domain, "domain", "", "Account domain")
 	cmd.Flags().StringVar(&supportEmail, "support-email", "", "Support email")
@@ -225,7 +225,7 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Account name")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Account name")
 	cmd.Flags().StringVar(&locale, "locale", "", "Account locale")
 	cmd.Flags().StringVar(&domain, "domain", "", "Account domain")
 	cmd.Flags().StringVar(&status, "status", "", "Account status")
@@ -298,7 +298,7 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "User name (required)")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "User name (required)")
 	cmd.Flags().StringVar(&displayName, "display-name", "", "User display name")
 	cmd.Flags().StringVar(&email, "email", "", "User email (required)")
 	cmd.Flags().StringVar(&password, "password", "", "User password (required)")
@@ -395,7 +395,7 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "User name")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "User name")
 	cmd.Flags().StringVar(&displayName, "display-name", "", "User display name")
 	cmd.Flags().StringVar(&email, "email", "", "User email")
 	cmd.Flags().StringVar(&password, "password", "", "User password")
@@ -729,8 +729,9 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Agent bot name (required)")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Agent bot name (required)")
 	cmd.Flags().StringVar(&description, "description", "", "Agent bot description")
+	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Webhook URL for bot events")
 
 	return cmd
@@ -781,8 +782,9 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Agent bot name")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Agent bot name")
 	cmd.Flags().StringVar(&description, "description", "", "Agent bot description")
+	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Webhook URL for bot events")
 
 	return cmd

@@ -1019,6 +1019,7 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Category name (required)")
 	cmd.Flags().StringVar(&slug, "slug", "", "URL slug")
 	cmd.Flags().StringVar(&description, "description", "", "Category description")
+	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().IntVar(&position, "position", 0, "Sort position")
 	cmd.Flags().StringVar(&locale, "locale", "", "Locale (e.g., en)")
 
@@ -1093,6 +1094,7 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Category name")
 	cmd.Flags().StringVar(&description, "description", "", "Category description")
+	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().IntVar(&position, "position", 0, "Sort position")
 
 	return cmd

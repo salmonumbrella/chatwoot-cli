@@ -124,7 +124,7 @@ func newInboxesGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "channel_type"},
@@ -230,7 +230,7 @@ func newInboxesCreateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Inbox name (required)")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Inbox name (required)")
 	cmd.Flags().StringVar(&channelType, "channel-type", "", "Channel type (required)")
 	cmd.Flags().BoolVar(&greetingEnabled, "greeting-enabled", false, "Enable greeting message")
 	cmd.Flags().StringVar(&greetingMessage, "greeting-message", "", "Greeting message")
@@ -246,7 +246,7 @@ func newInboxesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&senderNameType, "sender-name-type", "", "Sender name type")
 	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
 	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("channel-type")
 
@@ -363,7 +363,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Inbox name")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Inbox name")
 	cmd.Flags().BoolVar(&greetingEnabled, "greeting-enabled", false, "Enable greeting message")
 	cmd.Flags().StringVar(&greetingMessage, "greeting-message", "", "Greeting message")
 	cmd.Flags().BoolVar(&enableEmailCollect, "enable-email-collect", false, "Enable email collection")
@@ -378,7 +378,7 @@ func newInboxesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&senderNameType, "sender-name-type", "", "Sender name type")
 	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
 	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -1155,7 +1155,7 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&question, "question", "", "Survey question (required)")
-	cmd.Flags().StringVar(&message, "message", "", "Survey message (required)")
+	cmd.Flags().StringVarP(&message, "message", "m", "", "Survey message (required)")
 	_ = cmd.MarkFlagRequired("question")
 	_ = cmd.MarkFlagRequired("message")
 

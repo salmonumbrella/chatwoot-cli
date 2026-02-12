@@ -120,7 +120,7 @@ func newTeamsGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name"},
@@ -169,7 +169,8 @@ func newTeamsCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Team name (required)")
 	cmd.Flags().StringVar(&description, "description", "", "Team description")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "description", "desc")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -217,7 +218,8 @@ func newTeamsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Team name")
 	cmd.Flags().StringVar(&description, "description", "", "Team description")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "description", "desc")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }

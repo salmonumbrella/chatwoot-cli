@@ -151,7 +151,7 @@ func newCampaignsGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "title", "campaign_status"},
@@ -299,15 +299,17 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 
 	cmd.Flags().StringVar(&title, "title", "", "Campaign title (required)")
 	cmd.Flags().StringVar(&description, "description", "", "Campaign description")
-	cmd.Flags().StringVar(&message, "message", "", "Campaign message (required)")
+	flagAlias(cmd.Flags(), "description", "desc")
+	cmd.Flags().StringVarP(&message, "message", "m", "", "Campaign message (required)")
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID for the campaign (required)")
+	flagAlias(cmd.Flags(), "inbox-id", "iid")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Label IDs for targeting (CSV, whitespace, JSON array; or @- / @path) (e.g., 1,2,3)")
+	cmd.Flags().StringVarP(&labels, "labels", "L", "", "Label IDs for targeting (CSV, whitespace, JSON array; or @- / @path) (e.g., 1,2,3)")
 	cmd.Flags().StringVar(&audience, "audience", "", "Audience targeting as JSON array (mutually exclusive with --labels)")
 	cmd.Flags().BoolVar(&enabled, "enabled", true, "Enable the campaign")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Trigger only during business hours")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	_ = cmd.MarkFlagRequired("title")
 	_ = cmd.MarkFlagRequired("message")
@@ -425,14 +427,15 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 
 	cmd.Flags().StringVar(&title, "title", "", "Campaign title")
 	cmd.Flags().StringVar(&description, "description", "", "Campaign description")
-	cmd.Flags().StringVar(&message, "message", "", "Campaign message")
+	flagAlias(cmd.Flags(), "description", "desc")
+	cmd.Flags().StringVarP(&message, "message", "m", "", "Campaign message")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Label IDs for targeting (CSV, whitespace, JSON array; or @- / @path) (e.g., 1,2,3)")
+	cmd.Flags().StringVarP(&labels, "labels", "L", "", "Label IDs for targeting (CSV, whitespace, JSON array; or @- / @path) (e.g., 1,2,3)")
 	cmd.Flags().StringVar(&audience, "audience", "", "Audience targeting as JSON array (mutually exclusive with --labels)")
 	cmd.Flags().BoolVar(&enabled, "enabled", false, "Enable/disable campaign")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Trigger only during business hours")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
