@@ -27,6 +27,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var slugRegexp = regexp.MustCompile(`^[a-z0-9-]+$`)
@@ -278,7 +279,7 @@ func maybeDryRun(cmd *cobra.Command, preview *dryrun.Preview) (bool, error) {
 
 func anyFlagChanged(cmd *cobra.Command, flags ...string) bool {
 	for _, flag := range flags {
-		if cmd.Flags().Changed(flag) {
+		if flagOrAliasChanged(cmd, flag) {
 			return true
 		}
 	}
@@ -286,16 +287,62 @@ func anyFlagChanged(cmd *cobra.Command, flags ...string) bool {
 }
 
 func boolPtrIfChanged(cmd *cobra.Command, flag string, value bool) *bool {
-	if cmd.Flags().Changed(flag) {
+	if flagOrAliasChanged(cmd, flag) {
 		return &value
 	}
 	return nil
 }
 
 func setMapIfChanged(cmd *cobra.Command, flag, key string, params map[string]any, value any) {
-	if cmd.Flags().Changed(flag) {
+	if flagOrAliasChanged(cmd, flag) {
 		params[key] = value
 	}
+}
+
+// flagAlias registers a hidden alias for an existing flag.
+// Both flags share the same underlying Value, so setting either one sets both.
+// The alias is annotated so flagOrAliasChanged() can detect it.
+func flagAlias(fs *pflag.FlagSet, name, alias string) {
+	f := fs.Lookup(name)
+	if f == nil {
+		panic(fmt.Sprintf("flagAlias: flag %q not found", name))
+	}
+	a := *f // shallow copy — shares the Value interface
+	a.Name = alias
+	a.Shorthand = ""
+	a.Usage = ""
+	a.Hidden = true
+	if a.Annotations == nil {
+		a.Annotations = map[string][]string{}
+	}
+	a.Annotations["alias-of"] = []string{name}
+	fs.AddFlag(&a)
+}
+
+// flagOrAliasChanged returns true if the named flag or any of its
+// hidden aliases was explicitly set by the user.
+func flagOrAliasChanged(cmd *cobra.Command, name string) bool {
+	fs := cmd.Flags()
+	if fs.Changed(name) {
+		return true
+	}
+	// Also check inherited persistent flags
+	if cmd.InheritedFlags().Changed(name) {
+		return true
+	}
+	// Check hidden aliases registered via flagAlias
+	found := false
+	fs.VisitAll(func(f *pflag.Flag) {
+		if found {
+			return
+		}
+		if ann, ok := f.Annotations["alias-of"]; ok && len(ann) > 0 && ann[0] == name {
+			if fs.Changed(f.Name) {
+				found = true
+			}
+		}
+	})
+	return found
 }
 
 // validateSlug validates a portal/article/category slug
