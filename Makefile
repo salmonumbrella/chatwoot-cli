@@ -1,6 +1,6 @@
 .PHONY: build clean fmt lint test install setup
 
-BINARY_NAME=chatwoot
+BINARY_NAME=cw
 BUILD_DIR=./bin
 
 setup:
@@ -23,7 +23,7 @@ test:
 	go test ./...
 
 install:
-	go install ./cmd/chatwoot
+	go build -ldflags="-s -w" -trimpath -o $(shell go env GOPATH)/bin/$(BINARY_NAME) ./cmd/chatwoot
 
 # Development helpers
 run:

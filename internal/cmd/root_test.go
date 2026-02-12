@@ -41,8 +41,8 @@ func TestExecute_Help(t *testing.T) {
 		t.Error("Help output missing 'Available Commands'")
 	}
 
-	if !strings.Contains(output, "chatwoot") {
-		t.Error("Help output missing 'chatwoot' command name")
+	if !strings.Contains(output, "cw") {
+		t.Error("Help output missing 'cw' command name")
 	}
 }
 
@@ -123,7 +123,7 @@ func TestExtractQuoted(t *testing.T) {
 		input string
 		want  string
 	}{
-		{`unknown command "foo" for "chatwoot"`, "foo"},
+		{`unknown command "foo" for "cw"`, "foo"},
 		{`no quotes here`, ""},
 		{`only "one quote`, ""},
 		{`"hello"`, "hello"},
@@ -294,7 +294,7 @@ func TestCommandAliases(t *testing.T) {
 	ctx := context.Background()
 	// We need to construct the root command the same way Execute does.
 	// Use Execute internals by resolving against a fresh root.
-	root := &cobra.Command{Use: "chatwoot"}
+	root := &cobra.Command{Use: "cw"}
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newAssignCmd())
 	root.AddCommand(newReplyCmd())

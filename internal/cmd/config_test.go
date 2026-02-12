@@ -57,7 +57,7 @@ func TestNewProfilesListCmd(t *testing.T) {
 	if cmd.Short != "List configured profiles" {
 		t.Errorf("Expected Short to be 'List configured profiles', got %s", cmd.Short)
 	}
-	if !strings.Contains(cmd.Example, "chatwoot config profiles list") {
+	if !strings.Contains(cmd.Example, "cw config profiles list") {
 		t.Errorf("Expected Example to contain usage example, got %s", cmd.Example)
 	}
 }

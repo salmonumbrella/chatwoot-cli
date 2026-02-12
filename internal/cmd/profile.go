@@ -23,7 +23,7 @@ func newProfileGetCmd() *cobra.Command {
 		Use:     "get",
 		Aliases: []string{"g"},
 		Short:   "Get user profile",
-		Example: "chatwoot profile get",
+		Example: "cw profile get",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {

@@ -188,7 +188,7 @@ func (e ErrorEnvelope) AgentPayload() any  { return e }
 // KindFromCommandPath converts a cobra CommandPath to a dotted kind string.
 func KindFromCommandPath(path string) string {
 	path = strings.TrimSpace(path)
-	path = strings.TrimPrefix(path, "chatwoot ")
+	path = strings.TrimPrefix(path, "cw ")
 	parts := strings.Fields(path)
 	if len(parts) == 0 {
 		return "unknown"

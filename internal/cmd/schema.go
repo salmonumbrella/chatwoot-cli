@@ -18,13 +18,13 @@ func newSchemaCmd() *cobra.Command {
 		Long:    "List and show schema definitions for Chatwoot API resources",
 		Example: strings.TrimSpace(`
   # List available schemas
-  chatwoot schema list
+  cw schema list
 
   # Show conversation schema
-  chatwoot schema show conversation
+  cw schema show conversation
 
   # Show schema as JSON (for programmatic use)
-  chatwoot schema show conversation -o json
+  cw schema show conversation -o json
 `),
 	}
 
@@ -42,10 +42,10 @@ func newSchemaListCmd() *cobra.Command {
 		Long:    "List all registered resource schemas with their descriptions",
 		Example: strings.TrimSpace(`
   # List all schemas
-  chatwoot schema list
+  cw schema list
 
   # List as JSON
-  chatwoot schema list -o json
+  cw schema list -o json
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			names := schema.List()
@@ -96,13 +96,13 @@ func newSchemaShowCmd() *cobra.Command {
 		Long:  "Display the full schema definition for a resource type",
 		Example: strings.TrimSpace(`
   # Show conversation schema
-  chatwoot schema show conversation
+  cw schema show conversation
 
   # Show contact schema as JSON
-  chatwoot schema show contact -o json
+  cw schema show contact -o json
 
   # Show message schema
-  chatwoot schema show message
+  cw schema show message
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

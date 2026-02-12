@@ -18,8 +18,8 @@ func TestHelpJSON_Root(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
 		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
 	}
-	if payload.Name != "chatwoot" {
-		t.Fatalf("expected name chatwoot, got %q", payload.Name)
+	if payload.Name != "cw" {
+		t.Fatalf("expected name cw, got %q", payload.Name)
 	}
 	if len(payload.Subcommands) == 0 {
 		t.Fatalf("expected subcommands, got none")

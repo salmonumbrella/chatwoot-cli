@@ -140,29 +140,29 @@ Supported URL formats:
   https://app.chatwoot.com/app/accounts/{account_id}/campaigns/{id}
 
 You can also provide a resource type and ID directly:
-  chatwoot open contact 456
-  chatwoot open 456 --type contact
+  cw open contact 456
+  cw open 456 --type contact
 
 Or provide a bare ID (defaults to conversation):
-  chatwoot open 456`,
+  cw open 456`,
 		Example: strings.TrimSpace(`
   # Open a conversation URL
-  chatwoot open https://app.chatwoot.com/app/accounts/1/conversations/123
+  cw open https://app.chatwoot.com/app/accounts/1/conversations/123
 
   # Open a contact URL
-  chatwoot open https://app.chatwoot.com/app/accounts/1/contacts/456
+  cw open https://app.chatwoot.com/app/accounts/1/contacts/456
 
   # Open by resource type + ID
-  chatwoot open contact 456
+  cw open contact 456
 
   # Open by bare ID (defaults to conversation)
-  chatwoot open 123
+  cw open 123
 
   # Open by bare ID with explicit type
-  chatwoot open 456 --type contact
+  cw open 456 --type contact
 
   # Open with JSON output
-  chatwoot open https://app.chatwoot.com/app/accounts/1/conversations/123 --output json
+  cw open https://app.chatwoot.com/app/accounts/1/conversations/123 --output json
 `),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -187,7 +187,7 @@ Or provide a bare ID (defaults to conversation):
 
 			// Verify account ID matches (URLs only)
 			if parsedFromURL && client.AccountID != parsed.AccountID {
-				return fmt.Errorf("URL account ID (%d) does not match authenticated account ID (%d); use 'chatwoot auth login' to switch accounts", parsed.AccountID, client.AccountID)
+				return fmt.Errorf("URL account ID (%d) does not match authenticated account ID (%d); use 'cw auth login' to switch accounts", parsed.AccountID, client.AccountID)
 			}
 
 			// Require resource ID for all resource types

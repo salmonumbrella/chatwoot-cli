@@ -7,7 +7,7 @@ import (
 )
 
 func TestKindFromCommandPath(t *testing.T) {
-	kind := KindFromCommandPath("chatwoot conversations list")
+	kind := KindFromCommandPath("cw conversations list")
 	if kind != "conversations.list" {
 		t.Fatalf("expected kind conversations.list, got %s", kind)
 	}

@@ -34,7 +34,7 @@ func newDashboardAddCmd() *cobra.Command {
 		Short: "Add a dashboard integration",
 		Long:  "Configure an external dashboard API endpoint",
 		Example: `  # Add an orders dashboard
-  chatwoot config dashboard add orders \
+  cw config dashboard add orders \
     --endpoint https://api.example.com/api/public/chatwoot/contact/orders \
     --auth-token mytoken123 \
     --name "Customer Orders"`,
@@ -86,7 +86,7 @@ func newDashboardListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List configured dashboards",
-		Example: "chatwoot config dashboard list",
+		Example: "cw config dashboard list",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			dashboards, err := config.ListDashboards()
 			if err != nil {
@@ -98,7 +98,7 @@ func newDashboardListCmd() *cobra.Command {
 			}
 
 			if len(dashboards) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No dashboards configured. Run 'chatwoot config dashboard add --help' to add one.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No dashboards configured. Run 'cw config dashboard add --help' to add one.")
 				return nil
 			}
 
@@ -125,7 +125,7 @@ func newDashboardShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "show <dashboard-name>",
 		Short:   "Show dashboard configuration",
-		Example: "chatwoot config dashboard show orders",
+		Example: "cw config dashboard show orders",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -158,7 +158,7 @@ func newDashboardRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "remove <dashboard-name>",
 		Short:   "Remove a dashboard integration",
-		Example: "chatwoot config dashboard remove orders",
+		Example: "cw config dashboard remove orders",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			name := args[0]

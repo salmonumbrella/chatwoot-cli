@@ -167,7 +167,7 @@ func TestReplyResult_DisambiguationJSON(t *testing.T) {
 		Action:  "disambiguation_needed",
 		Type:    "multiple_contacts",
 		Matches: matches,
-		Hint:    "Use contact ID: chatwoot reply --contact-id <id> --content '...'",
+		Hint:    "Use contact ID: cw reply --contact-id <id> --content '...'",
 	}
 
 	data, err := json.Marshal(result)

@@ -6,7 +6,7 @@ builds:
   # Darwin builds require CGO for keychain access
   - id: chatwoot-darwin
     main: ./cmd/chatwoot
-    binary: chatwoot
+    binary: cw
     env:
       - CGO_ENABLED=1
     goos:
@@ -23,7 +23,7 @@ builds:
   # Linux and Windows builds without CGO
   - id: chatwoot-other
     main: ./cmd/chatwoot
-    binary: chatwoot
+    binary: cw
     env:
       - CGO_ENABLED=0
     goos:
@@ -75,6 +75,6 @@ brews:
     description: "CLI for Chatwoot to manage conversations, contacts, and inboxes"
     license: "MIT"
     install: |
-      bin.install "chatwoot"
+      bin.install "cw"
     test: |
-      system "#{bin}/chatwoot", "--help"
+      system "#{bin}/cw", "--help"

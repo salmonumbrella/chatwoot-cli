@@ -24,7 +24,7 @@ func newAccountGetCmd() *cobra.Command {
 		Use:     "get",
 		Aliases: []string{"g"},
 		Short:   "Get account details",
-		Example: "chatwoot account get",
+		Example: "cw account get",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -56,7 +56,7 @@ func newAccountUpdateCmd() *cobra.Command {
 		Use:     "update",
 		Aliases: []string{"up"},
 		Short:   "Update account",
-		Example: "chatwoot account update --name 'New Name'",
+		Example: "cw account update --name 'New Name'",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")

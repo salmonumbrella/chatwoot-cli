@@ -41,7 +41,7 @@ func HandleError(err error) string {
 	case errors.As(err, &authErr):
 		msg.WriteString(fmt.Sprintf("Authentication failed: %s\n\n", authErr.Reason))
 		msg.WriteString("Suggestions:\n")
-		msg.WriteString("  - Run: chatwoot auth login\n")
+		msg.WriteString("  - Run: cw auth login\n")
 		msg.WriteString("  - Verify your API token is valid\n")
 		msg.WriteString("  - Check if your account has the required permissions\n")
 
@@ -56,7 +56,7 @@ func HandleError(err error) string {
 		msg.WriteString("Connection refused.\n\n")
 		msg.WriteString("Suggestions:\n")
 		msg.WriteString("  - Check if the Chatwoot server is running\n")
-		msg.WriteString("  - Verify the URL: chatwoot auth status\n")
+		msg.WriteString("  - Verify the URL: cw auth status\n")
 		msg.WriteString("  - Check your network connection\n")
 
 	case strings.Contains(err.Error(), "no such host"):
@@ -94,7 +94,7 @@ func suggestionsForStatusCode(code int, body string) string {
 
 	case 401:
 		suggestions.WriteString("  - Your API token may be invalid or expired\n")
-		suggestions.WriteString("  - Run: chatwoot auth login\n")
+		suggestions.WriteString("  - Run: cw auth login\n")
 
 	case 403:
 		suggestions.WriteString("  - You don't have permission for this action\n")

@@ -50,13 +50,13 @@ base URL, account ID, and other useful information.
 This command is useful for agents and scripts to verify configuration
 before making API calls.`,
 		Example: `  # Show current status
-  chatwoot status
+  cw status
 
   # Show status as JSON
-  chatwoot status --output json
+  cw status --output json
 
   # Check if authenticated (exits with code 1 if not)
-  chatwoot status --check`,
+  cw status --check`,
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			info := StatusInfo{
 				CLIVersion: version,
@@ -84,7 +84,7 @@ before making API calls.`,
 			// If --check flag is set, just exit with appropriate code
 			if checkOnly {
 				if !info.Authenticated {
-					return fmt.Errorf("not authenticated - run 'chatwoot auth login' first")
+					return fmt.Errorf("not authenticated - run 'cw auth login' first")
 				}
 				if !isJSON(cmd) {
 					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "authenticated")
@@ -116,7 +116,7 @@ before making API calls.`,
 				}
 			} else {
 				_, _ = fmt.Fprintf(w, "Authenticated:\t%s\n", red("no"))
-				_, _ = fmt.Fprintf(w, "Hint:\tRun 'chatwoot auth login' to authenticate\n")
+				_, _ = fmt.Fprintf(w, "Hint:\tRun 'cw auth login' to authenticate\n")
 			}
 
 			_, _ = fmt.Fprintln(w)

@@ -36,10 +36,10 @@ func newLabelsListCmd() *cobra.Command {
 		EmptyMessage:      "No labels found",
 		Example: strings.TrimSpace(`
   # List all labels
-  chatwoot labels list
+  cw labels list
 
   # JSON output
-  chatwoot labels list -o json
+  cw labels list -o json
 `),
 		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Label], error) {
 			labels, err := client.Labels().List(ctx)
@@ -86,10 +86,10 @@ func newLabelsGetCmd() *cobra.Command {
 		Long:    "Get details of a specific label",
 		Example: strings.TrimSpace(`
   # Get label details
-  chatwoot labels get 123
+  cw labels get 123
 
   # JSON output
-  chatwoot labels get 123 -o json
+  cw labels get 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -143,10 +143,10 @@ func newLabelsCreateCmd() *cobra.Command {
 		Long:    "Create a new account-level label",
 		Example: strings.TrimSpace(`
   # Create a simple label
-  chatwoot labels create --title "Bug Report"
+  cw labels create --title "Bug Report"
 
   # Create a label with all options
-  chatwoot labels create --title "Urgent" --color "#FF0000" --description "High priority issues" --show-on-sidebar
+  cw labels create --title "Urgent" --color "#FF0000" --description "High priority issues" --show-on-sidebar
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if title == "" {
@@ -205,10 +205,10 @@ func newLabelsUpdateCmd() *cobra.Command {
 		Long:    "Update an existing label",
 		Example: strings.TrimSpace(`
   # Update label title
-  chatwoot labels update 123 --title "New Title"
+  cw labels update 123 --title "New Title"
 
   # Update label color
-  chatwoot labels update 123 --color "#00FF00"
+  cw labels update 123 --color "#00FF00"
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -279,7 +279,7 @@ func newLabelsDeleteCmd() *cobra.Command {
 		Long:    "Delete an account label",
 		Example: strings.TrimSpace(`
   # Delete a label
-  chatwoot labels delete 123
+  cw labels delete 123
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

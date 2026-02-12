@@ -99,7 +99,7 @@ func (r *rootCmd) PersistentFlags() *pflag.FlagSet {
 
 func newRootCmd() *rootCmd {
 	cmd := &cobra.Command{
-		Use:           "chatwoot",
+		Use:           "cw",
 		Short:         "CLI for Chatwoot customer support platform",
 		SilenceUsage:  true,
 		SilenceErrors: true,

@@ -108,7 +108,7 @@ func Execute(ctx context.Context, args []string) error {
 	completionsNoCache = false
 
 	root := &cobra.Command{
-		Use:                "chatwoot",
+		Use:                "cw",
 		Short:              "CLI for Chatwoot customer support platform",
 		SilenceUsage:       true,
 		SilenceErrors:      true,
@@ -118,36 +118,36 @@ func Execute(ctx context.Context, args []string) error {
 		},
 		Example: strings.TrimSpace(`
   # Authenticate via browser
-  chatwoot auth login
+  cw auth login
 
   # List open conversations
-  chatwoot conversations list --status open
+  cw conversations list --status open
 
   # Send a message
-  chatwoot messages create 123 --content "Hello, how can I help?"
+  cw messages create 123 --content "Hello, how can I help?"
 
   # List contacts
-  chatwoot contacts list
+  cw contacts list
 
   # Search for a contact
-  chatwoot contacts search --query "John"
+  cw contacts search --query "John"
 
   # Get a specific contact
-  chatwoot contacts get 123
-  chatwoot contacts show 123  # alias for 'get'
+  cw contacts get 123
+  cw contacts show 123  # alias for 'get'
 
   # Get all conversations for a contact
-  chatwoot contacts conversations 123
+  cw contacts conversations 123
 
   # JSON output for scripting
-  chatwoot conversations list --output json
+  cw conversations list --output json
 
   # JSON with jq - list commands return an object with an "items" array
-  chatwoot contacts list --output json | jq '.items[0]'
-  chatwoot contacts search --query "test" --output json | jq '.items[] | {id, name}'
+  cw contacts list --output json | jq '.items[0]'
+  cw contacts search --query "test" --output json | jq '.items[] | {id, name}'
 
   # Generate shell completions
-  chatwoot completion zsh > "${fpath[1]}/_chatwoot"
+  cw completion zsh > "${fpath[1]}/_cw"
 `),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
@@ -485,7 +485,7 @@ func tryExecExtension(args []string) (bool, error) {
 	if strings.HasPrefix(name, "-") {
 		return false, nil
 	}
-	bin := "chatwoot-" + name
+	bin := "cw-" + name
 	path, err := exec.LookPath(bin)
 	if err != nil {
 		return false, nil

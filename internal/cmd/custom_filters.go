@@ -13,22 +13,22 @@ func newCustomFiltersCmd() *cobra.Command {
 		Aliases: []string{"filters", "cf"},
 		Short:   "Manage custom filters",
 		Example: `  # List all custom filters
-  chatwoot custom-filters list
+  cw custom-filters list
 
   # List conversation filters
-  chatwoot custom-filters list --type conversation
+  cw custom-filters list --type conversation
 
   # Get a custom filter
-  chatwoot custom-filters get 123
+  cw custom-filters get 123
 
   # Create a custom filter
-  chatwoot custom-filters create --name "Open Conversations" --type conversation --query '{"status":"open"}'
+  cw custom-filters create --name "Open Conversations" --type conversation --query '{"status":"open"}'
 
   # Update a custom filter
-  chatwoot custom-filters update 123 --name "Updated Name" --query '{"status":"pending"}'
+  cw custom-filters update 123 --name "Updated Name" --query '{"status":"pending"}'
 
   # Delete a custom filter
-  chatwoot custom-filters delete 123`,
+  cw custom-filters delete 123`,
 	}
 
 	cmd.AddCommand(newCustomFiltersListCmd())

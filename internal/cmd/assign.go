@@ -20,20 +20,20 @@ func newAssignCmd() *cobra.Command {
 		Short:   "Assign a conversation to an agent or team",
 		Long: `Assign a conversation to an agent and/or team.
 
-This is a convenience shortcut for 'chatwoot conversations assign'.
+This is a convenience shortcut for 'cw conversations assign'.
 At least one of --agent or --team must be specified.`,
 		Example: strings.TrimSpace(`
   # Assign to an agent
-  chatwoot assign 123 --agent 5
+  cw assign 123 --agent 5
 
   # Assign to a team
-  chatwoot assign 123 --team 2
+  cw assign 123 --team 2
 
   # Assign to both agent and team
-  chatwoot assign 123 --agent 5 --team 2
+  cw assign 123 --agent 5 --team 2
 
   # JSON output
-  chatwoot assign 123 --agent 5 --output json
+  cw assign 123 --agent 5 --output json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

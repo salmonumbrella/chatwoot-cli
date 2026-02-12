@@ -64,12 +64,12 @@ If the input is a bare numeric ID without a type, this command can probe
 one or more resource types to determine what the ID refers to.
 
 Examples:
-  chatwoot ref 123
-  chatwoot ref #123
-  chatwoot ref conversation:123
-  chatwoot ref https://app.chatwoot.com/app/accounts/1/conversations/123
-  chatwoot ref 123 --try conversation --try contact
-  chatwoot ref 123 --type contact
+  cw ref 123
+  cw ref #123
+  cw ref conversation:123
+  cw ref https://app.chatwoot.com/app/accounts/1/conversations/123
+  cw ref 123 --try conversation --try contact
+  cw ref 123 --type contact
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -269,120 +269,120 @@ func actionsForType(resourceType string, typedID string) []refAction {
 	switch resourceType {
 	case "conversation":
 		return []refAction{
-			{ID: "open", Title: "Open details", Argv: []string{"chatwoot", "open", typedID}},
-			{ID: "ctx", Title: "Get context (messages + contact)", Argv: []string{"chatwoot", "ctx", typedID}},
-			{ID: "comment", Title: "Send a public reply", Argv: []string{"chatwoot", "comment", typedID, "$text"}, Inputs: []refActionInput{{Name: "text", Prompt: "Message text", Required: true}}},
-			{ID: "note", Title: "Add a private note", Argv: []string{"chatwoot", "note", typedID, "$text"}, Inputs: []refActionInput{{Name: "text", Prompt: "Note text", Required: true}}},
+			{ID: "open", Title: "Open details", Argv: []string{"cw", "open", typedID}},
+			{ID: "ctx", Title: "Get context (messages + contact)", Argv: []string{"cw", "ctx", typedID}},
+			{ID: "comment", Title: "Send a public reply", Argv: []string{"cw", "comment", typedID, "$text"}, Inputs: []refActionInput{{Name: "text", Prompt: "Message text", Required: true}}},
+			{ID: "note", Title: "Add a private note", Argv: []string{"cw", "note", typedID, "$text"}, Inputs: []refActionInput{{Name: "text", Prompt: "Note text", Required: true}}},
 			{
 				ID:    "assign",
 				Title: "Assign to an agent or team",
-				Argv:  []string{"chatwoot", "assign", typedID, "--agent", "$agent"},
+				Argv:  []string{"cw", "assign", typedID, "--agent", "$agent"},
 				Inputs: []refActionInput{
 					{Name: "agent", Prompt: "Agent identifier (id, name, or email)", Required: true},
 				},
 				Notes: "You can also use --team $team instead of --agent.",
 			},
-			{ID: "close", Title: "Close conversation", Argv: []string{"chatwoot", "close", typedID}, Destructive: true},
-			{ID: "reopen", Title: "Reopen conversation", Argv: []string{"chatwoot", "reopen", typedID}},
+			{ID: "close", Title: "Close conversation", Argv: []string{"cw", "close", typedID}, Destructive: true},
+			{ID: "reopen", Title: "Reopen conversation", Argv: []string{"cw", "reopen", typedID}},
 		}
 
 	case "contact":
 		return []refAction{
-			{ID: "open", Title: "Open details", Argv: []string{"chatwoot", "open", typedID}},
-			{ID: "get", Title: "Get contact", Argv: []string{"chatwoot", "contacts", "get", typedID}},
-			{ID: "conversations", Title: "List conversations for contact", Argv: []string{"chatwoot", "contacts", "conversations", typedID}},
-			{ID: "update", Title: "Update contact", Argv: []string{"chatwoot", "contacts", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Contact name", Required: true}}},
+			{ID: "open", Title: "Open details", Argv: []string{"cw", "open", typedID}},
+			{ID: "get", Title: "Get contact", Argv: []string{"cw", "contacts", "get", typedID}},
+			{ID: "conversations", Title: "List conversations for contact", Argv: []string{"cw", "contacts", "conversations", typedID}},
+			{ID: "update", Title: "Update contact", Argv: []string{"cw", "contacts", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Contact name", Required: true}}},
 		}
 
 	case "inbox":
 		return []refAction{
-			{ID: "open", Title: "Open details", Argv: []string{"chatwoot", "open", typedID}},
-			{ID: "get", Title: "Get inbox", Argv: []string{"chatwoot", "inboxes", "get", typedID}},
-			{ID: "members", Title: "List inbox members", Argv: []string{"chatwoot", "inbox-members", "list", typedID}},
+			{ID: "open", Title: "Open details", Argv: []string{"cw", "open", typedID}},
+			{ID: "get", Title: "Get inbox", Argv: []string{"cw", "inboxes", "get", typedID}},
+			{ID: "members", Title: "List inbox members", Argv: []string{"cw", "inbox-members", "list", typedID}},
 		}
 
 	case "team":
 		return []refAction{
-			{ID: "open", Title: "Open details", Argv: []string{"chatwoot", "open", typedID}},
-			{ID: "get", Title: "Get team", Argv: []string{"chatwoot", "teams", "get", typedID}},
+			{ID: "open", Title: "Open details", Argv: []string{"cw", "open", typedID}},
+			{ID: "get", Title: "Get team", Argv: []string{"cw", "teams", "get", typedID}},
 		}
 
 	case "agent":
 		return []refAction{
-			{ID: "open", Title: "Open details", Argv: []string{"chatwoot", "open", typedID}},
-			{ID: "get", Title: "Get agent", Argv: []string{"chatwoot", "agents", "get", typedID}},
+			{ID: "open", Title: "Open details", Argv: []string{"cw", "open", typedID}},
+			{ID: "get", Title: "Get agent", Argv: []string{"cw", "agents", "get", typedID}},
 		}
 
 	case "campaign":
 		return []refAction{
-			{ID: "open", Title: "Open details", Argv: []string{"chatwoot", "open", typedID}},
-			{ID: "get", Title: "Get campaign", Argv: []string{"chatwoot", "campaigns", "get", typedID}},
-			{ID: "update", Title: "Update campaign", Argv: []string{"chatwoot", "campaigns", "update", typedID, "--title", "$title"}, Inputs: []refActionInput{{Name: "title", Prompt: "Campaign title", Required: true}}},
-			{ID: "delete", Title: "Delete campaign", Argv: []string{"chatwoot", "campaigns", "delete", typedID, "--force"}, Destructive: true},
+			{ID: "open", Title: "Open details", Argv: []string{"cw", "open", typedID}},
+			{ID: "get", Title: "Get campaign", Argv: []string{"cw", "campaigns", "get", typedID}},
+			{ID: "update", Title: "Update campaign", Argv: []string{"cw", "campaigns", "update", typedID, "--title", "$title"}, Inputs: []refActionInput{{Name: "title", Prompt: "Campaign title", Required: true}}},
+			{ID: "delete", Title: "Delete campaign", Argv: []string{"cw", "campaigns", "delete", typedID, "--force"}, Destructive: true},
 		}
 
 	case "label":
 		return []refAction{
-			{ID: "get", Title: "Get label", Argv: []string{"chatwoot", "labels", "get", typedID}},
-			{ID: "update", Title: "Update label", Argv: []string{"chatwoot", "labels", "update", typedID, "--title", "$title"}, Inputs: []refActionInput{{Name: "title", Prompt: "Label title", Required: true}}},
-			{ID: "delete", Title: "Delete label", Argv: []string{"chatwoot", "labels", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get label", Argv: []string{"cw", "labels", "get", typedID}},
+			{ID: "update", Title: "Update label", Argv: []string{"cw", "labels", "update", typedID, "--title", "$title"}, Inputs: []refActionInput{{Name: "title", Prompt: "Label title", Required: true}}},
+			{ID: "delete", Title: "Delete label", Argv: []string{"cw", "labels", "delete", typedID}, Destructive: true},
 		}
 
 	case "canned response":
 		return []refAction{
-			{ID: "get", Title: "Get canned response", Argv: []string{"chatwoot", "canned-responses", "get", typedID}},
-			{ID: "update", Title: "Update canned response", Argv: []string{"chatwoot", "canned-responses", "update", typedID, "--content", "$content"}, Inputs: []refActionInput{{Name: "content", Prompt: "Response content", Required: true}}},
-			{ID: "delete", Title: "Delete canned response", Argv: []string{"chatwoot", "canned-responses", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get canned response", Argv: []string{"cw", "canned-responses", "get", typedID}},
+			{ID: "update", Title: "Update canned response", Argv: []string{"cw", "canned-responses", "update", typedID, "--content", "$content"}, Inputs: []refActionInput{{Name: "content", Prompt: "Response content", Required: true}}},
+			{ID: "delete", Title: "Delete canned response", Argv: []string{"cw", "canned-responses", "delete", typedID}, Destructive: true},
 		}
 
 	case "rule":
 		return []refAction{
-			{ID: "get", Title: "Get automation rule", Argv: []string{"chatwoot", "automation-rules", "get", typedID}},
-			{ID: "clone", Title: "Clone automation rule", Argv: []string{"chatwoot", "automation-rules", "clone", typedID}},
-			{ID: "update", Title: "Update automation rule", Argv: []string{"chatwoot", "automation-rules", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Rule name", Required: true}}},
-			{ID: "delete", Title: "Delete automation rule", Argv: []string{"chatwoot", "automation-rules", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get automation rule", Argv: []string{"cw", "automation-rules", "get", typedID}},
+			{ID: "clone", Title: "Clone automation rule", Argv: []string{"cw", "automation-rules", "clone", typedID}},
+			{ID: "update", Title: "Update automation rule", Argv: []string{"cw", "automation-rules", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Rule name", Required: true}}},
+			{ID: "delete", Title: "Delete automation rule", Argv: []string{"cw", "automation-rules", "delete", typedID}, Destructive: true},
 		}
 
 	case "bot":
 		return []refAction{
-			{ID: "get", Title: "Get agent bot", Argv: []string{"chatwoot", "agent-bots", "get", typedID}},
-			{ID: "update", Title: "Update agent bot", Argv: []string{"chatwoot", "agent-bots", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Bot name", Required: true}}},
-			{ID: "reset-token", Title: "Reset bot access token", Argv: []string{"chatwoot", "agent-bots", "reset-token", typedID}, Destructive: true},
-			{ID: "delete", Title: "Delete agent bot", Argv: []string{"chatwoot", "agent-bots", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get agent bot", Argv: []string{"cw", "agent-bots", "get", typedID}},
+			{ID: "update", Title: "Update agent bot", Argv: []string{"cw", "agent-bots", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Bot name", Required: true}}},
+			{ID: "reset-token", Title: "Reset bot access token", Argv: []string{"cw", "agent-bots", "reset-token", typedID}, Destructive: true},
+			{ID: "delete", Title: "Delete agent bot", Argv: []string{"cw", "agent-bots", "delete", typedID}, Destructive: true},
 		}
 
 	case "webhook":
 		return []refAction{
-			{ID: "get", Title: "Get webhook", Argv: []string{"chatwoot", "webhooks", "get", typedID}},
-			{ID: "delete", Title: "Delete webhook", Argv: []string{"chatwoot", "webhooks", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get webhook", Argv: []string{"cw", "webhooks", "get", typedID}},
+			{ID: "delete", Title: "Delete webhook", Argv: []string{"cw", "webhooks", "delete", typedID}, Destructive: true},
 		}
 
 	case "custom attribute":
 		return []refAction{
-			{ID: "get", Title: "Get custom attribute", Argv: []string{"chatwoot", "custom-attributes", "get", typedID}},
-			{ID: "delete", Title: "Delete custom attribute", Argv: []string{"chatwoot", "custom-attributes", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get custom attribute", Argv: []string{"cw", "custom-attributes", "get", typedID}},
+			{ID: "delete", Title: "Delete custom attribute", Argv: []string{"cw", "custom-attributes", "delete", typedID}, Destructive: true},
 		}
 
 	case "custom filter":
 		return []refAction{
-			{ID: "get", Title: "Get custom filter", Argv: []string{"chatwoot", "custom-filters", "get", typedID}},
-			{ID: "delete", Title: "Delete custom filter", Argv: []string{"chatwoot", "custom-filters", "delete", typedID}, Destructive: true},
+			{ID: "get", Title: "Get custom filter", Argv: []string{"cw", "custom-filters", "get", typedID}},
+			{ID: "delete", Title: "Delete custom filter", Argv: []string{"cw", "custom-filters", "delete", typedID}, Destructive: true},
 		}
 
 	case "account":
-		// Note: "account" here is the platform account ID, not "chatwoot account get" (which has no ID).
+		// Note: "account" here is the platform account ID, not "cw account get" (which has no ID).
 		return []refAction{
-			{ID: "platform-get", Title: "Get platform account", Argv: []string{"chatwoot", "platform", "accounts", "get", typedID}},
-			{ID: "platform-update", Title: "Update platform account", Argv: []string{"chatwoot", "platform", "accounts", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Account name", Required: true}}},
-			{ID: "platform-delete", Title: "Delete platform account", Argv: []string{"chatwoot", "platform", "accounts", "delete", typedID}, Destructive: true},
+			{ID: "platform-get", Title: "Get platform account", Argv: []string{"cw", "platform", "accounts", "get", typedID}},
+			{ID: "platform-update", Title: "Update platform account", Argv: []string{"cw", "platform", "accounts", "update", typedID, "--name", "$name"}, Inputs: []refActionInput{{Name: "name", Prompt: "Account name", Required: true}}},
+			{ID: "platform-delete", Title: "Delete platform account", Argv: []string{"cw", "platform", "accounts", "delete", typedID}, Destructive: true},
 		}
 
 	case "user":
 		return []refAction{
-			{ID: "platform-get", Title: "Get platform user", Argv: []string{"chatwoot", "platform", "users", "get", typedID}},
-			{ID: "platform-update", Title: "Update platform user", Argv: []string{"chatwoot", "platform", "users", "update", typedID, "--email", "$email"}, Inputs: []refActionInput{{Name: "email", Prompt: "User email", Required: true}}},
-			{ID: "platform-delete", Title: "Delete platform user", Argv: []string{"chatwoot", "platform", "users", "delete", typedID}, Destructive: true},
-			{ID: "platform-login", Title: "Get platform SSO login URL", Argv: []string{"chatwoot", "platform", "users", "login", typedID}},
+			{ID: "platform-get", Title: "Get platform user", Argv: []string{"cw", "platform", "users", "get", typedID}},
+			{ID: "platform-update", Title: "Update platform user", Argv: []string{"cw", "platform", "users", "update", typedID, "--email", "$email"}, Inputs: []refActionInput{{Name: "email", Prompt: "User email", Required: true}}},
+			{ID: "platform-delete", Title: "Delete platform user", Argv: []string{"cw", "platform", "users", "delete", typedID}, Destructive: true},
+			{ID: "platform-login", Title: "Get platform SSO login URL", Argv: []string{"cw", "platform", "users", "login", typedID}},
 		}
 
 	case "article":
@@ -390,15 +390,15 @@ func actionsForType(resourceType string, typedID string) []refAction {
 			{
 				ID:    "get",
 				Title: "Get portal article (requires portal slug)",
-				Argv:  []string{"chatwoot", "portals", "articles", "get", "<portal-slug>", typedID},
+				Argv:  []string{"cw", "portals", "articles", "get", "<portal-slug>", typedID},
 				Notes: "Portal article commands require a portal slug (e.g. \"help\").",
 			},
 		}
 
 	case "hook":
 		return []refAction{
-			{ID: "update", Title: "Update integration hook", Argv: []string{"chatwoot", "integrations", "hook-update", typedID, "--settings", "$json"}, Inputs: []refActionInput{{Name: "json", Prompt: "Settings JSON object (stringified)", Required: true}}},
-			{ID: "delete", Title: "Delete integration hook", Argv: []string{"chatwoot", "integrations", "hook-delete", typedID}, Destructive: true},
+			{ID: "update", Title: "Update integration hook", Argv: []string{"cw", "integrations", "hook-update", typedID, "--settings", "$json"}, Inputs: []refActionInput{{Name: "json", Prompt: "Settings JSON object (stringified)", Required: true}}},
+			{ID: "delete", Title: "Delete integration hook", Argv: []string{"cw", "integrations", "hook-delete", typedID}, Destructive: true},
 		}
 	}
 

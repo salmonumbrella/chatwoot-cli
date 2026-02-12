@@ -89,31 +89,31 @@ a contact named "Welgrow Support".
 This command is optimized for agent workflows, enabling quick discovery
 of relevant resources with a single query.`,
 		Example: `  # Search for "john" across all supported types
-  chatwoot search john
+  cw search john
 
   # Search only contacts
-  chatwoot search john --type contacts
+  cw search john --type contacts
 
   # Search only conversations
-  chatwoot search "support issue" --type conversations
+  cw search "support issue" --type conversations
 
   # Search message senders (finds people in shared channels)
-  chatwoot search "Jack" --type senders
+  cw search "Jack" --type senders
 
   # Search multiple types explicitly
-  chatwoot search john --type contacts --type conversations
+  cw search john --type contacts --type conversations
 
   # Limit results per type
-  chatwoot search john --limit 10
+  cw search john --limit 10
 
   # JSON output for scripting
-  chatwoot search john --output json
+  cw search john --output json
 
   # Select a result and emit a typed JSON wrapper
-  chatwoot search john --select --output json
+  cw search john --select --output json
 
   # Select a result and emit the raw JSON object
-  chatwoot search john --select --select-raw --output json`,
+  cw search john --select --select-raw --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			query := args[0]

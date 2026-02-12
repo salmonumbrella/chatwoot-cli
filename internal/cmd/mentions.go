@@ -43,28 +43,28 @@ the @mention syntax. This command helps you find all places where you've been
 mentioned so you can follow up on requests from teammates.`,
 		Example: strings.TrimSpace(`
   # List all recent mentions
-  chatwoot mentions list
+  cw mentions list
 
   # List mentions from the last 24 hours
-  chatwoot mentions list --since 24h
+  cw mentions list --since 24h
 
   # List mentions from the last 7 days
-  chatwoot mentions list --since 7d
+  cw mentions list --since 7d
 
   # List mentions from the last week
-  chatwoot mentions list --since 1w
+  cw mentions list --since 1w
 
   # List mentions in a specific conversation
-  chatwoot mentions list --conversation-id 123
+  cw mentions list --conversation-id 123
 
   # Limit results
-  chatwoot mentions list --limit 10
+  cw mentions list --limit 10
 
   # JSON output
-  chatwoot mentions list --output json
+  cw mentions list --output json
 
   # Combine filters
-  chatwoot mentions list --since 7d --limit 20 --output json
+  cw mentions list --since 7d --limit 20 --output json
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Parse --since using dual parsing strategy:

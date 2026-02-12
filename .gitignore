@@ -1,7 +1,7 @@
 # Build output
 /bin/
-/chatwoot
-chatwoot-*
+/cw
+cw-*
 
 # IDE
 .idea/

@@ -11,7 +11,7 @@ import (
 // This mirrors the command registration in Execute() without flags or middleware.
 func buildFullRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "chatwoot",
+		Use:   "cw",
 		Short: "CLI for Chatwoot customer support platform",
 	}
 

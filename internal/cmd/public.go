@@ -19,13 +19,13 @@ func newPublicCmd() *cobra.Command {
 The public API does not require authentication, but requires --base-url to be set.
 It uses inbox identifiers instead of account IDs.`,
 		Example: `  # Get inbox info
-  chatwoot public inboxes get abc123 --base-url https://chatwoot.example.com
+  cw public inboxes get abc123 --base-url https://chatwoot.example.com
 
   # Create a contact
-  chatwoot public contacts create abc123 --name "John Doe" --email "john@example.com" --base-url https://chatwoot.example.com
+  cw public contacts create abc123 --name "John Doe" --email "john@example.com" --base-url https://chatwoot.example.com
 
   # List conversations for a contact
-  chatwoot public conversations list abc123 contact456 --base-url https://chatwoot.example.com`,
+  cw public conversations list abc123 contact456 --base-url https://chatwoot.example.com`,
 	}
 
 	cmd.PersistentFlags().StringVar(&baseURL, "base-url", "", "Chatwoot instance base URL (required, or set CHATWOOT_BASE_URL)")

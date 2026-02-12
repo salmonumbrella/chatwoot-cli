@@ -35,7 +35,7 @@ func newCampaignsListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all campaigns",
-		Example: "chatwoot campaigns list --page 2",
+		Example: "cw campaigns list --page 2",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -108,7 +108,7 @@ func newCampaignsGetCmd() *cobra.Command {
 		Use:     "get <id>",
 		Aliases: []string{"g"},
 		Short:   "Get a campaign by ID",
-		Example: "chatwoot campaigns get 123",
+		Example: "cw campaigns get 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "campaign")
@@ -210,10 +210,10 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
   --scheduled-at '30m'
   --scheduled-at '2025-01-15T10:00:00Z'`,
 		Example: `  # Create an SMS campaign with label targeting (simple)
-  chatwoot campaigns create --title "Promo" --message "50% off today!" --inbox-id 5 --labels 1,2,3 --scheduled-at '2025-01-15T10:00:00Z'
+  cw campaigns create --title "Promo" --message "50% off today!" --inbox-id 5 --labels 1,2,3 --scheduled-at '2025-01-15T10:00:00Z'
 
   # Create an SMS campaign with JSON audience (advanced)
-  chatwoot campaigns create --title "Promo" --message "50% off today!" --inbox-id 5 --audience '[{"type":"Label","id":1}]' --scheduled-at '2025-01-15T10:00:00Z'`,
+  cw campaigns create --title "Promo" --message "50% off today!" --inbox-id 5 --audience '[{"type":"Label","id":1}]' --scheduled-at '2025-01-15T10:00:00Z'`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -343,10 +343,10 @@ The --labels flag accepts comma-separated label IDs for simpler targeting:
 The --audience flag accepts JSON array of audience targets (mutually exclusive with --labels):
   --audience '[{"type":"Label","id":1}]'`,
 		Example: `  # Update campaign with label targeting (simple)
-  chatwoot campaigns update 123 --title 'New Title' --labels 1,2,3 --enabled true
+  cw campaigns update 123 --title 'New Title' --labels 1,2,3 --enabled true
 
   # Update campaign with JSON audience (advanced)
-  chatwoot campaigns update 123 --audience '[{"type":"Label","id":1}]' --enabled true`,
+  cw campaigns update 123 --audience '[{"type":"Label","id":1}]' --enabled true`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "campaign")
@@ -447,7 +447,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 		Use:     "delete <id>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a campaign",
-		Example: "chatwoot campaigns delete 123 --force",
+		Example: "cw campaigns delete 123 --force",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "campaign")

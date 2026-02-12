@@ -39,7 +39,7 @@ func newProfilesListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List configured profiles",
-		Example: "chatwoot config profiles list",
+		Example: "cw config profiles list",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			profiles, err := config.ListProfiles()
 			if err != nil {
@@ -55,7 +55,7 @@ func newProfilesListCmd() *cobra.Command {
 			}
 
 			if len(profiles) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run 'chatwoot auth login' to add one.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run 'cw auth login' to add one.")
 				return nil
 			}
 
@@ -83,7 +83,7 @@ func newProfilesUseCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "use <name>",
 		Short:   "Switch active profile",
-		Example: "chatwoot config profiles use staging",
+		Example: "cw config profiles use staging",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -106,7 +106,7 @@ func newProfilesShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show",
 		Short:   "Show profile details",
-		Example: "chatwoot config profiles show --name staging",
+		Example: "cw config profiles show --name staging",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				current, err := config.CurrentProfile()
@@ -152,7 +152,7 @@ func newProfilesDeleteCmd() *cobra.Command {
 		Use:     "delete <name>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a profile",
-		Example: "chatwoot config profiles delete staging",
+		Example: "cw config profiles delete staging",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			name := args[0]

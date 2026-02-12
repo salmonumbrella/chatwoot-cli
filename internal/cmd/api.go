@@ -36,31 +36,31 @@ The endpoint path is relative to the account API base path:
 For example, "/conversations/123" becomes:
   /api/v1/accounts/1/conversations/123`,
 		Example: `  # GET request (default)
-  chatwoot api /conversations/123
+  cw api /conversations/123
 
   # POST request with fields
-  chatwoot api /conversations -X POST -f inbox_id=1 -f contact_id=5
+  cw api /conversations -X POST -f inbox_id=1 -f contact_id=5
 
   # PATCH with JSON array using raw field
-  chatwoot api /conversations/123 -X PATCH -F 'labels=["bug", "urgent"]'
+  cw api /conversations/123 -X PATCH -F 'labels=["bug", "urgent"]'
 
   # Inline JSON body
-  chatwoot api /automation_rules/14 -X PATCH -d '{"automation_rule":{"active":true}}'
+  cw api /automation_rules/14 -X PATCH -d '{"automation_rule":{"active":true}}'
 
   # Read body from file
-  chatwoot api /contacts -X POST -i body.json
+  cw api /contacts -X POST -i body.json
 
   # Read body from stdin
-  echo '{"name": "Test"}' | chatwoot api /contacts -X POST -i -
+  echo '{"name": "Test"}' | cw api /contacts -X POST -i -
 
   # Filter response with jq (JSON output required)
-  chatwoot api /contacts --output json --jq '.payload[0].name'
+  cw api /contacts --output json --jq '.payload[0].name'
 
   # Silent mode (no output, useful for mutations)
-  chatwoot api /conversations/123 -X DELETE --silent
+  cw api /conversations/123 -X DELETE --silent
 
   # Show response headers
-  chatwoot api /conversations/123 --include`,
+  cw api /conversations/123 --include`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			endpoint := args[0]

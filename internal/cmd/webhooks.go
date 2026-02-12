@@ -31,7 +31,7 @@ func newWebhooksListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all webhooks",
-		Example: "  chatwoot webhooks list",
+		Example: "  cw webhooks list",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
 			if err != nil {
@@ -77,7 +77,7 @@ func newWebhooksGetCmd() *cobra.Command {
 		Use:     "get <id>",
 		Aliases: []string{"show", "g"},
 		Short:   "Get a webhook by ID",
-		Example: "  chatwoot webhooks get 123",
+		Example: "  cw webhooks get 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "webhook")
@@ -142,8 +142,8 @@ Available subscription events:
   - message_created
   - message_updated
   - webwidget_triggered`,
-		Example: `  chatwoot webhooks create --url https://example.com/webhook --subscriptions conversation_created,message_created
-  chatwoot webhooks create --url https://example.com/webhook --subscriptions message_created`,
+		Example: `  cw webhooks create --url https://example.com/webhook --subscriptions conversation_created,message_created
+  cw webhooks create --url https://example.com/webhook --subscriptions message_created`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			if url == "" {
 				return fmt.Errorf("--url is required")
@@ -237,9 +237,9 @@ Available subscription events:
   - message_created
   - message_updated
   - webwidget_triggered`,
-		Example: `  chatwoot webhooks update 123 --url https://example.com/new-webhook
-  chatwoot webhooks update 123 --subscriptions conversation_created,message_created
-  chatwoot webhooks update 123 --url https://example.com/new --subscriptions message_created`,
+		Example: `  cw webhooks update 123 --url https://example.com/new-webhook
+  cw webhooks update 123 --subscriptions conversation_created,message_created
+  cw webhooks update 123 --url https://example.com/new --subscriptions message_created`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "webhook")
@@ -321,7 +321,7 @@ func newWebhooksDeleteCmd() *cobra.Command {
 		Use:     "delete <id>",
 		Aliases: []string{"rm", "remove"},
 		Short:   "Delete a webhook",
-		Example: "  chatwoot webhooks delete 123",
+		Example: "  cw webhooks delete 123",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			id, err := parseIDOrURL(args[0], "webhook")

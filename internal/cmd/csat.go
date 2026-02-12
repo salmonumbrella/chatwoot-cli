@@ -40,16 +40,16 @@ func newCSATListCmd() *cobra.Command {
 		Short:   "List CSAT responses",
 		Example: strings.TrimSpace(`
   # List all CSAT responses
-  chatwoot csat list
+  cw csat list
 
   # List responses in date range
-  chatwoot csat list --from 2024-01-01 --to 2024-01-31
+  cw csat list --from 2024-01-01 --to 2024-01-31
 
   # Filter by low ratings
-  chatwoot csat list --rating 1,2
+  cw csat list --rating 1,2
 
   # Filter by inbox
-  chatwoot csat list --inbox-id 5
+  cw csat list --inbox-id 5
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()
@@ -132,10 +132,10 @@ func newCSATGetCmd() *cobra.Command {
 		Short:   "Get CSAT for a conversation",
 		Example: strings.TrimSpace(`
   # Get CSAT for conversation
-  chatwoot csat get 123
+  cw csat get 123
 
   # JSON output
-  chatwoot csat get 123 -o json
+  cw csat get 123 -o json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -192,10 +192,10 @@ func newCSATSummaryCmd() *cobra.Command {
 		Short: "Get CSAT summary statistics",
 		Example: strings.TrimSpace(`
   # Get summary for date range
-  chatwoot csat summary --from 2024-01-01 --to 2024-01-31
+  cw csat summary --from 2024-01-01 --to 2024-01-31
 
   # Get summary for inbox
-  chatwoot csat summary --inbox-id 5 --from 2024-01-01 --to 2024-12-31
+  cw csat summary --inbox-id 5 --from 2024-01-01 --to 2024-12-31
 `),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			client, err := getClient()

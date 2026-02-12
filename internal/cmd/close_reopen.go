@@ -18,16 +18,16 @@ func newCloseCmd() *cobra.Command {
 Aliases: close, resolve, close-conversation, resolve-conversation.
 
 This is a convenience shortcut for:
-  chatwoot conversations toggle-status <id> --status resolved`,
+  cw conversations toggle-status <id> --status resolved`,
 		Example: strings.TrimSpace(`
   # Close a single conversation
-  chatwoot close 123
+  cw close 123
 
   # Close multiple conversations
-  chatwoot close 123 456 789
+  cw close 123 456 789
 
   # JSON output summary
-  chatwoot close 123 456 --output json
+  cw close 123 456 --output json
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -100,16 +100,16 @@ func newReopenCmd() *cobra.Command {
 		Long: `Reopen one or more conversations by setting their status to "open".
 
 This is a convenience shortcut for:
-  chatwoot conversations toggle-status <id> --status open`,
+  cw conversations toggle-status <id> --status open`,
 		Example: strings.TrimSpace(`
   # Reopen a single conversation
-  chatwoot reopen 123
+  cw reopen 123
 
   # Reopen multiple conversations
-  chatwoot reopen 123 456 789
+  cw reopen 123 456 789
 
   # JSON output summary
-  chatwoot reopen 123 456 --output json
+  cw reopen 123 456 --output json
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

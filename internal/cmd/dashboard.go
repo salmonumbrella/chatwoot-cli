@@ -28,19 +28,19 @@ func newDashboardCmd() *cobra.Command {
 		Short:   "Query a configured dashboard",
 		Long: `Query an external dashboard API for contact data.
 
-Dashboards must be configured first using 'chatwoot config dashboard add'.
-Run 'chatwoot config dashboard list' to see available dashboards.`,
+Dashboards must be configured first using 'cw config dashboard add'.
+Run 'cw config dashboard list' to see available dashboards.`,
 		Example: `  # Query the orders dashboard for a contact
-  chatwoot dashboard orders --contact 180712
+  cw dashboard orders --contact 180712
 
   # With pagination
-  chatwoot dashboard orders --contact 180712 --page 2 --per-page 20
+  cw dashboard orders --contact 180712 --page 2 --per-page 20
 
   # JSON output
-  chatwoot dashboard orders --contact 180712 --output json
+  cw dashboard orders --contact 180712 --output json
 
   # Resolve contact from conversation
-  chatwoot dashboard orders --conversation 24445`,
+  cw dashboard orders --conversation 24445`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			dashboardName := args[0]
@@ -81,7 +81,7 @@ Run 'chatwoot config dashboard list' to see available dashboards.`,
 					sort.Strings(names)
 					return fmt.Errorf("dashboard %q not found. Available: %s", dashboardName, strings.Join(names, ", "))
 				}
-				return fmt.Errorf("dashboard %q not found. Run 'chatwoot config dashboard add --help' to configure one", dashboardName)
+				return fmt.Errorf("dashboard %q not found. Run 'cw config dashboard add --help' to configure one", dashboardName)
 			}
 
 			client := api.NewDashboardClient(cfg.Endpoint, cfg.AuthToken)

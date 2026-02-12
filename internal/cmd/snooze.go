@@ -23,16 +23,16 @@ func newSnoozeCmd() *cobra.Command {
 		Long: `Snooze a conversation for a specified duration.
 
 This is a convenience shortcut for:
-  chatwoot conversations toggle-status <id> --status snoozed`,
+  cw conversations toggle-status <id> --status snoozed`,
 		Example: strings.TrimSpace(`
   # Snooze for 2 hours
-  chatwoot snooze 123 --for 2h
+  cw snooze 123 --for 2h
 
   # Snooze for 1 day
-  chatwoot snooze 123 --for 24h
+  cw snooze 123 --for 24h
 
   # Snooze with a note
-  chatwoot snooze 123 --for 2h --note "Waiting for customer to check email"
+  cw snooze 123 --for 2h --note "Waiting for customer to check email"
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

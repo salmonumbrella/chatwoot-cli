@@ -15,18 +15,18 @@ func newCtxCmd() *cobra.Command {
 		Use:     "ctx <conversation-id|url>",
 		Aliases: []string{"context", "ct"},
 		Short:   "Get full conversation context for AI",
-		Long: `Convenience shortcut for 'chatwoot conversations context'.
+		Long: `Convenience shortcut for 'cw conversations context'.
 
 Accepts a conversation ID or a pasted Chatwoot URL.`,
 		Example: strings.TrimSpace(`
   # Context by conversation ID
-  chatwoot ctx 123 --output agent
+  cw ctx 123 --output agent
 
   # Context by URL from browser
-  chatwoot ctx https://app.chatwoot.com/app/accounts/1/conversations/123 --output agent
+  cw ctx https://app.chatwoot.com/app/accounts/1/conversations/123 --output agent
 
   # Embed images for vision models
-  chatwoot ctx 123 --embed-images --output json
+  cw ctx 123 --embed-images --output json
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {

@@ -42,7 +42,7 @@ func TestHandleError(t *testing.T) {
 			err:  &api.AuthError{Reason: "invalid token"},
 			wantContains: []string{
 				"Authentication failed",
-				"chatwoot auth login",
+				"cw auth login",
 			},
 		},
 		{

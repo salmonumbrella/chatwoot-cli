@@ -14,22 +14,22 @@ func newCustomAttributesCmd() *cobra.Command {
 		Aliases: []string{"attrs", "ca"},
 		Short:   "Manage custom attribute definitions",
 		Example: `  # List all custom attributes
-  chatwoot custom-attributes list
+  cw custom-attributes list
 
   # List contact custom attributes
-  chatwoot custom-attributes list --model contact
+  cw custom-attributes list --model contact
 
   # Get a custom attribute
-  chatwoot custom-attributes get 123
+  cw custom-attributes get 123
 
   # Create a custom attribute
-  chatwoot custom-attributes create --name "Customer ID" --model contact --type text
+  cw custom-attributes create --name "Customer ID" --model contact --type text
 
   # Update a custom attribute
-  chatwoot custom-attributes update 123 --name "Updated Name"
+  cw custom-attributes update 123 --name "Updated Name"
 
   # Delete a custom attribute
-  chatwoot custom-attributes delete 123`,
+  cw custom-attributes delete 123`,
 	}
 
 	cmd.AddCommand(newCustomAttributesListCmd())

@@ -63,13 +63,13 @@ Optional:
 `),
 		Example: strings.TrimSpace(`
   # Interactive browser-based login (default)
-  chatwoot auth login
+  cw auth login
 
   # CLI-only login with flags
-  chatwoot auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
+  cw auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
 
   # Save to a named profile with a platform token
-  chatwoot auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1 --profile staging --platform-token PLATFORM_TOKEN
+  cw auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1 --profile staging --platform-token PLATFORM_TOKEN
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			// If browser mode (default) and no flags provided, use browser setup
@@ -206,13 +206,13 @@ if your workspace configuration changes.
 `),
 		Example: strings.TrimSpace(`
   # Regenerate workspace skill
-  chatwoot auth skill
+  cw auth skill
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			account, err := config.LoadAccount()
 			if err != nil {
 				if err == config.ErrNotConfigured {
-					return fmt.Errorf("not authenticated; run 'chatwoot auth login' first")
+					return fmt.Errorf("not authenticated; run 'cw auth login' first")
 				}
 				return fmt.Errorf("failed to load credentials: %w", err)
 			}
@@ -233,10 +233,10 @@ func newAuthStatusCmd() *cobra.Command {
 		Long:  "Display the currently saved authentication configuration (API token is masked for security).",
 		Example: strings.TrimSpace(`
   # Check authentication status
-  chatwoot auth status
+  cw auth status
 
   # JSON output for scripting
-  chatwoot auth status --json
+  cw auth status --json
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			envBaseURL := strings.TrimSpace(os.Getenv("CHATWOOT_BASE_URL"))
@@ -250,11 +250,11 @@ func newAuthStatusCmd() *cobra.Command {
 					if isJSON(cmd) {
 						return printJSON(cmd, map[string]any{
 							"authenticated": false,
-							"message":       "Not authenticated. Run 'chatwoot auth login' to configure credentials.",
+							"message":       "Not authenticated. Run 'cw auth login' to configure credentials.",
 						})
 					}
 					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Not authenticated.")
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Run 'chatwoot auth login' to configure credentials.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Run 'cw auth login' to configure credentials.")
 					return nil
 				}
 				return fmt.Errorf("failed to load credentials: %w", err)
@@ -313,7 +313,7 @@ func newAuthLogoutCmd() *cobra.Command {
 		Long:  "Delete the stored authentication credentials from your OS keychain.",
 		Example: strings.TrimSpace(`
   # Remove stored credentials
-  chatwoot auth logout
+  cw auth logout
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if profile == "" {
