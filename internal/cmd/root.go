@@ -304,6 +304,16 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().IntVar(&flags.CircuitBreakerThreshold, "circuit-breaker-threshold", 0, "Failures before circuit opens (overrides env)")
 	root.PersistentFlags().DurationVar(&flags.CircuitBreakerResetTime, "circuit-breaker-reset-time", 0, "Circuit breaker reset time (e.g., 30s; overrides env)")
 
+	// Short aliases for persistent flags
+	flagAlias(root.PersistentFlags(), "resolve-names", "rn")
+	flagAlias(root.PersistentFlags(), "dry-run", "dr")
+	flagAlias(root.PersistentFlags(), "help-json", "hj")
+	flagAlias(root.PersistentFlags(), "time-zone", "tz")
+	flagAlias(root.PersistentFlags(), "idempotency-key", "idem")
+	flagAlias(root.PersistentFlags(), "max-rate-limit-retries", "max-rl")
+	flagAlias(root.PersistentFlags(), "rate-limit-delay", "rld")
+	flagAlias(root.PersistentFlags(), "server-error-delay", "sed")
+
 	// Add subcommands
 	root.AddCommand(newAuthCmd())
 	root.AddCommand(newConfigCmd())
