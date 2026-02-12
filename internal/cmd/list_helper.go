@@ -387,14 +387,15 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 	}
 
 	if !cfg.DisablePagination {
-		cmd.Flags().IntVar(&page, "page", defaultPage, "Page number")
+		cmd.Flags().IntVarP(&page, "page", "p", defaultPage, "Page number")
 		if !cfg.DisableLimit {
-			cmd.Flags().IntVar(&pageSize, "limit", defaultLimit, fmt.Sprintf("Max results (min %d)", minLimit))
+			cmd.Flags().IntVarP(&pageSize, "limit", "l", defaultLimit, fmt.Sprintf("Max results (min %d)", minLimit))
 		} else {
 			pageSize = defaultLimit
 		}
-		cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
+		cmd.Flags().BoolVarP(&all, "all", "a", false, "Fetch all pages")
 		cmd.Flags().IntVar(&maxPages, "max-pages", defaultMaxPages, "Maximum number of pages to fetch when using --all")
+		flagAlias(cmd.Flags(), "max-pages", "mp")
 	} else {
 		page = 1
 		pageSize = defaultLimit
