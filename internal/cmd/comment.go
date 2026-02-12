@@ -182,6 +182,7 @@ This is a convenience shortcut for:
 	cmd.Flags().StringVarP(&content, "content", "c", "", "Message content (alternative to positional text)")
 	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after sending")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
+	flagAlias(cmd.Flags(), "label", "lb")
 	cmd.Flags().StringVar(&priority, "priority", "", "Set priority after sending (urgent|high|medium|low|none)")
 	flagAlias(cmd.Flags(), "priority", "pri")
 	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")

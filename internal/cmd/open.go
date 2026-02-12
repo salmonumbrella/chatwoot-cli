@@ -13,16 +13,22 @@ var openResourceAliases = map[string]string{
 	"conversation":  "conversation",
 	"conversations": "conversation",
 	"conv":          "conversation",
+	"cv":            "conversation",
 	"contact":       "contact",
 	"contacts":      "contact",
+	"ct":            "contact",
 	"inbox":         "inbox",
 	"inboxes":       "inbox",
+	"ib":            "inbox",
 	"team":          "team",
 	"teams":         "team",
+	"tm":            "team",
 	"agent":         "agent",
 	"agents":        "agent",
+	"ag":            "agent",
 	"campaign":      "campaign",
 	"campaigns":     "campaign",
+	"cp":            "campaign",
 }
 
 func normalizeOpenResourceType(input string) (string, error) {
@@ -33,7 +39,7 @@ func normalizeOpenResourceType(input string) (string, error) {
 	if resourceType, ok := openResourceAliases[normalized]; ok {
 		return resourceType, nil
 	}
-	valid := []string{"conversation", "contact", "inbox", "team", "agent", "campaign"}
+	valid := []string{"conversation (cv)", "contact (ct)", "inbox (ib)", "team (tm)", "agent (ag)", "campaign (cp)"}
 	return "", fmt.Errorf("invalid resource type %q: must be one of %s", input, strings.Join(valid, ", "))
 }
 

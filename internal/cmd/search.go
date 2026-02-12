@@ -132,15 +132,23 @@ of relevant resources with a single query.`,
 				searchTypes = []string{"contacts", "conversations"}
 			}
 
-			// Validate types
-			validTypes := map[string]bool{
-				"contacts":      true,
-				"senders":       true,
-				"conversations": true,
+			// Normalize and validate types
+			typeAliases := map[string]string{
+				"contacts":      "contacts",
+				"contact":       "contacts",
+				"ct":            "contacts",
+				"conversations": "conversations",
+				"conversation":  "conversations",
+				"cv":            "conversations",
+				"senders":       "senders",
+				"sender":        "senders",
+				"s":             "senders",
 			}
-			for _, t := range searchTypes {
-				if !validTypes[t] {
-					return fmt.Errorf("invalid type %q: must be one of contacts, conversations, senders", t)
+			for i, t := range searchTypes {
+				if normalized, ok := typeAliases[strings.ToLower(t)]; ok {
+					searchTypes[i] = normalized
+				} else {
+					return fmt.Errorf("invalid type %q: must be one of contacts (ct), conversations (cv), senders (s)", t)
 				}
 			}
 

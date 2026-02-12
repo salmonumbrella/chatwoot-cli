@@ -723,8 +723,9 @@ Available query operators: and, or`,
 
 func newContactsConversationsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "conversations <identifier>",
-		Short: "Get contact conversations",
+		Use:     "conversations <identifier>",
+		Aliases: []string{"cv"},
+		Short:   "Get contact conversations",
 		Long: `Get all conversations for a specific contact.
 
 Accepts contact ID, email address, phone number, or name to search for the contact.`,
