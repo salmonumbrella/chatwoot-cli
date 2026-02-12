@@ -8,8 +8,9 @@
 //   - ValidateChatwootURL: strict validation for Chatwoot instance URLs
 //   - ValidateWebhookURL: relaxed validation that allows localhost for development
 //
-// Private IP ranges can be allowed via the CHATWOOT_ALLOW_PRIVATE=1 environment
-// variable or by calling SetAllowPrivate(true). Even when private IPs are allowed,
+// Private IP ranges can be allowed via the CHATWOOT_ALLOW_PRIVATE environment
+// variable (accepts any value recognized by strconv.ParseBool: 1, t, true, TRUE,
+// etc.) or by calling SetAllowPrivate(true). Even when private IPs are allowed,
 // cloud metadata endpoints remain blocked for security.
 package validation
 
@@ -19,13 +20,15 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 )
 
 // allowPrivate controls whether private/localhost URLs are permitted.
-// Set via CHATWOOT_ALLOW_PRIVATE=1 environment variable or SetAllowPrivate().
+// Set via CHATWOOT_ALLOW_PRIVATE environment variable (accepts 1, t, true, TRUE, etc.)
+// or SetAllowPrivate().
 var allowPrivate atomic.Bool
 
 // privateNetworks contains pre-parsed private IP ranges for efficient lookups.
@@ -34,7 +37,8 @@ var allowPrivate atomic.Bool
 var privateNetworks []*net.IPNet
 
 func init() {
-	allowPrivate.Store(strings.TrimSpace(os.Getenv("CHATWOOT_ALLOW_PRIVATE")) == "1")
+	v, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("CHATWOOT_ALLOW_PRIVATE")))
+	allowPrivate.Store(v)
 
 	// Pre-parse all private CIDR ranges at init time for efficiency.
 	// This avoids repeated string parsing and slice allocation on each isPrivateIP call.

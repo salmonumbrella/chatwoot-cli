@@ -19,25 +19,7 @@ func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 	w := newTabWriter(out)
 	_, _ = fmt.Fprintln(w, "ID\tINBOX\tSTATUS\tPRIORITY\tUNREAD\tMSGS\tCREATED\tLAST_ACTIVITY")
 	for _, conv := range conversations {
-		priority := "-"
-		if conv.Priority != nil {
-			priority = *conv.Priority
-		}
-		displayID := conv.ID
-		if conv.DisplayID != nil {
-			displayID = *conv.DisplayID
-		}
-		msgs := formatMessageCount(conv.MessagesCount)
-		_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n",
-			displayID,
-			conv.InboxID,
-			conv.Status,
-			priority,
-			conv.Unread,
-			msgs,
-			formatTimestampShort(conv.CreatedAtTime()),
-			formatTimestampShort(conv.LastActivityAtTime()),
-		)
+		_, _ = fmt.Fprintln(w, strings.Join(conversationRow(conv), "\t"))
 	}
 	_ = w.Flush()
 }

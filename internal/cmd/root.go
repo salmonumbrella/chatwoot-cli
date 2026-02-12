@@ -101,6 +101,7 @@ func Execute(ctx context.Context, args []string) error {
 		Output:       defaultOutput(),
 		Color:        "auto",
 		ResolveNames: defaultResolveNames(),
+		AllowPrivate: parseBoolEnv("CHATWOOT_ALLOW_PRIVATE"),
 		Timeout:      api.DefaultTimeout,
 	}
 	setTimeLocation(nil)
@@ -280,7 +281,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().BoolVar(&flags.HelpJSON, "help-json", false, "Output command help as JSON (for agent discovery)")
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
 	root.PersistentFlags().BoolVar(&flags.ResolveNames, "resolve-names", flags.ResolveNames, "Resolve contact/inbox names in agent output (extra API calls; env CHATWOOT_RESOLVE_NAMES=1)")
-	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", false, "Allow private/localhost URLs (unsafe)")
+	root.PersistentFlags().BoolVar(&flags.AllowPrivate, "allow-private", flags.AllowPrivate, "Allow private/localhost URLs (unsafe)")
 	root.PersistentFlags().BoolVar(&flags.Debug, "debug", false, "Enable debug logging")
 	root.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without executing")
 	root.PersistentFlags().StringVar(&flags.Query, "query", "", "JQ expression to filter JSON output")

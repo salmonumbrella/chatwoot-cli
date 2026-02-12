@@ -22,6 +22,7 @@ Thumbs.db
 CLAUDE.md
 PLAN-*.md
 BATCH-*.md
+CODE_REVIEW_*.md
 *test-results*.md
 *test_results*.md
 *.test.sh
