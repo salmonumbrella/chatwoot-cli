@@ -2081,8 +2081,9 @@ func newConversationsTranscriptCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "transcript <id>",
-		Short: "Render or send a conversation transcript",
+		Use:     "transcript <id>",
+		Aliases: []string{"tr"},
+		Short:   "Render or send a conversation transcript",
 		Long: `Render a conversation transcript to stdout, or send it via email.
 
 When --email is provided, the transcript is sent via Chatwoot and no
@@ -2501,9 +2502,10 @@ func newConversationsWatchCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "watch",
-		Short: "Watch conversations in real-time",
-		Long:  "Poll for new and updated conversations at regular intervals",
+		Use:     "watch",
+		Aliases: []string{"w"},
+		Short:   "Watch conversations in real-time",
+		Long:    "Poll for new and updated conversations at regular intervals",
 		Example: strings.TrimSpace(`
   # Watch all open conversations
   cw conversations watch --status open
@@ -2644,9 +2646,10 @@ func fetchAndDisplayConversations(ctx context.Context, cmd *cobra.Command, clien
 
 func newConversationsBulkCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "bulk",
-		Short: "Bulk operations on conversations",
-		Long:  "Perform bulk operations on multiple conversations at once",
+		Use:     "bulk",
+		Aliases: []string{"bk"},
+		Short:   "Bulk operations on conversations",
+		Long:    "Perform bulk operations on multiple conversations at once",
 	}
 
 	cmd.AddCommand(newConversationsBulkResolveCmd())
@@ -2666,9 +2669,10 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "resolve",
-		Short: "Resolve multiple conversations",
-		Long:  "Mark multiple conversations as resolved at once",
+		Use:     "resolve",
+		Aliases: []string{"res"},
+		Short:   "Resolve multiple conversations",
+		Long:    "Mark multiple conversations as resolved at once",
 		Example: strings.TrimSpace(`
   # Resolve multiple conversations
   cw conversations bulk resolve --ids 1,2,3
@@ -2759,9 +2763,10 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "assign",
-		Short: "Assign multiple conversations",
-		Long:  "Assign multiple conversations to an agent and/or team at once",
+		Use:     "assign",
+		Aliases: []string{"asgn"},
+		Short:   "Assign multiple conversations",
+		Long:    "Assign multiple conversations to an agent and/or team at once",
 		Example: strings.TrimSpace(`
   # Assign conversations to an agent
   cw conversations bulk assign --ids 1,2,3 --agent 5
@@ -3201,8 +3206,9 @@ func newConversationsTriageCmd() *cobra.Command {
 	var explain bool
 
 	cmd := &cobra.Command{
-		Use:   "triage",
-		Short: "Show conversations needing attention, sorted by urgency",
+		Use:     "triage",
+		Aliases: []string{"tri"},
+		Short:   "Show conversations needing attention, sorted by urgency",
 		Long: `Show conversations needing attention, sorted by urgency.
 
 Fetches open and pending conversations with unread messages, sorted by how long

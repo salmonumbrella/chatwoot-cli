@@ -55,8 +55,9 @@ func newConversationsFollowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "follow [conversation-id|url]",
-		Short: "Follow a conversation in real-time",
+		Use:     "follow [conversation-id|url]",
+		Aliases: []string{"fw"},
+		Short:   "Follow a conversation in real-time",
 		Long: strings.TrimSpace(`
 Follow conversations and print new messages as they arrive.
 
@@ -362,6 +363,8 @@ all conversations on the account.
 	flagAlias(cmd.Flags(), "context-messages", "cm")
 	flagAlias(cmd.Flags(), "only-unassigned", "unassigned")
 	flagAlias(cmd.Flags(), "exclude-private", "pub")
+	flagAlias(cmd.Flags(), "tail", "tl")
+	flagAlias(cmd.Flags(), "context", "ctx")
 	return cmd
 }
 

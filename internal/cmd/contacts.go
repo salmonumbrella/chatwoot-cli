@@ -1142,9 +1142,10 @@ func newContactsNotesDeleteCmd() *cobra.Command {
 
 func newContactsBulkCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "bulk",
-		Short: "Bulk operations on contacts",
-		Long:  "Perform bulk operations on multiple contacts at once",
+		Use:     "bulk",
+		Aliases: []string{"bk"},
+		Short:   "Bulk operations on contacts",
+		Long:    "Perform bulk operations on multiple contacts at once",
 	}
 
 	cmd.AddCommand(newContactsBulkAddLabelCmd())
