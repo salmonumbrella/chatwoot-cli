@@ -9,12 +9,16 @@ Chatwoot in your terminal. Manage conversations, contacts, campaigns, help cente
 - **Campaigns** - create and manage SMS and messaging campaigns
 - **Contacts** - create, update, search, filter, merge duplicates, bulk operations, manage labels and notes
 - **Conversations** - list, filter, search, assign, status, priority, labels
+- **Dashboards** - query external dashboard APIs for contact data
 - **Help Center** - manage portals, articles, and categories
 - **Inboxes** - list and view inbox details, member access and roles, create and manage saved filter presets
+- **Mentions** - view @mentions of the current user across conversations
 - **Messages** - send, edit, delete messages and list attachments
 - **Platform APIs** - manage accounts and users (self-hosted/managed)
-- **Public Client APIs** - manage contacts and conversations via inbox identifiers
+- **Public APIs** - unauthenticated widget/client-side operations via inbox identifiers
 - **Profiles** - store multiple accounts/tokens and switch contexts quickly
+- **Raw API** - make direct API calls to any Chatwoot endpoint
+- **Real-time** - follow conversations via WebSocket with filtering, debouncing, and exec hooks
 - **Reports** - audit logs, customer satisfaction surveys, reports with metrics
 - **Teams** - list teams and team members
 - **Webhooks** - manage webhooks
@@ -158,9 +162,14 @@ chatwoot show https://app.chatwoot.com/app/accounts/1/conversations/123
 # One-ID actions (no extra lookups)
 chatwoot cmt 123 "Hello! How can I help?"
 chatwoot n 123 "Internal note" --mention lily
+chatwoot r 123 "Thanks for contacting us!"
 chatwoot x 123 456
 chatwoot ro 123
+chatwoot sn 123 --for 2h
+chatwoot ho 123 --ag lily --reason "Needs billing"
+chatwoot as 123 --ag 5 --team 2
 chatwoot ct 123 -o agent
+chatwoot ref 123                               # Resolve ID → typed reference
 ```
 
 ### Conversations
@@ -205,7 +214,32 @@ chatwoot c transcript 123                      # Render transcript locally
 chatwoot c transcript 123 --public-only        # Exclude private notes
 chatwoot c transcript 123 -l 200               # Limit to most recent messages
 chatwoot c transcript 123 --email user@example.com
+
+# Real-time WebSocket stream
+chatwoot c follow 123                          # Follow a single conversation
+chatwoot c follow 123 --tail 50               # Show last 50 messages before streaming
+chatwoot c follow --all                        # Follow all conversations on the account
+chatwoot c follow --all --events all           # All event types (status changes, assignments, etc.)
+chatwoot c follow 123 --typing                 # Include typing indicators
+chatwoot c follow 123 -o agent --rn            # Agent-friendly output with resolved names
+chatwoot c follow --all --inbox 1 --status open  # Filter by inbox and status
+chatwoot c follow --all --label vip --pri urgent  # Filter by label and priority
+chatwoot c follow --all --assignee 5           # Only events for agent 5's conversations
+chatwoot c follow --all --unassigned           # Only unassigned conversations
+chatwoot c follow --all --pub                  # Exclude private messages
+chatwoot c follow 123 --debounce 2s            # Batch rapid messages (2s window)
+chatwoot c follow 123 --context --cm 20        # Emit snapshot with 20 context messages
+chatwoot c follow 123 --cursor-file .cursor    # Resume from last seen message on restart
+chatwoot c follow 123 --since-id 456           # Skip messages with id <= 456
+chatwoot c follow 123 --since-time 24h         # Skip messages older than 24h
+chatwoot c follow 123 --raw                    # Include raw WebSocket payload
+chatwoot c follow 123 --exec './handler.sh'    # Pipe each event to a command
+chatwoot c follow 123 --exec './handler.sh' --exec-fatal  # Abort on handler failure
 ```
+
+> **Real-time streaming:** `follow` connects directly to Chatwoot's ActionCable WebSocket.
+> No webhook setup required. Reconnects automatically with exponential backoff.
+> In agent mode (`-o agent`), conversation snapshots are emitted automatically on first event.
 
 ### Messages
 
@@ -510,6 +544,134 @@ chatwoot audit-logs ls --user-id 5
 ```bash
 chatwoot pr g                                  # Get your user profile
 chatwoot account g                             # Get account details
+```
+
+### Status
+
+```bash
+chatwoot st                                    # Show config and auth status
+chatwoot st -o json                            # JSON output
+chatwoot st --check                            # Exit code 1 if not authenticated
+```
+
+### Raw API Requests
+
+Make direct API calls to any Chatwoot endpoint (like `gh api` for GitHub):
+
+```bash
+# GET (default)
+chatwoot ap /conversations/123
+
+# POST with fields
+chatwoot ap /conversations -X POST -f inbox_id=1 -f contact_id=5
+
+# PATCH with JSON array
+chatwoot ap /conversations/123 -X PATCH -F 'labels=["bug","urgent"]'
+
+# Inline JSON body
+chatwoot ap /automation_rules/14 -X PATCH -d '{"automation_rule":{"active":true}}'
+
+# Body from file or stdin
+chatwoot ap /contacts -X POST -i body.json
+echo '{"name":"Test"}' | chatwoot ap /contacts -X POST -i -
+
+# Filter response with jq
+chatwoot ap /contacts -o json --jq '.payload[0].name'
+
+# Silent mode (mutations with no output)
+chatwoot ap /conversations/123 -X DELETE -s
+
+# Show response headers
+chatwoot ap /conversations/123 --include
+```
+
+### Snooze
+
+```bash
+chatwoot sn 123 --for 2h                       # Snooze for 2 hours
+chatwoot sn 123 --for 24h                      # Snooze for 1 day
+chatwoot sn 123 --for 2h --note "Waiting for customer reply"
+```
+
+### Handoff (Escalate / Transfer)
+
+Composite command that sends a private note + assigns + sets priority in one step:
+
+```bash
+chatwoot ho 123 --ag 5 --reason "Refund request, needs billing approval"
+chatwoot ho 123 --team billing --reason "Technical issue beyond L1"
+chatwoot ho 123 --ag 5 --team billing --priority urgent --reason "VIP customer, SLA at risk"
+```
+
+### Mentions
+
+```bash
+chatwoot mn ls                                 # List all recent mentions
+chatwoot mn ls -S 24h                          # Mentions from last 24 hours
+chatwoot mn ls -S 7d -l 20                     # Last 7 days, limit 20
+chatwoot mn ls --conversation-id 123           # Mentions in a specific conversation
+```
+
+### Reference Resolver
+
+Normalize IDs, URLs, and typed prefixes into canonical typed IDs for agent workflows:
+
+```bash
+chatwoot ref 123                               # Probe conversation + contact
+chatwoot ref conversation:123                  # Explicit type (no probe)
+chatwoot ref https://app.chatwoot.com/.../123  # Parse from URL
+chatwoot ref 123 --type contact                # Force type
+chatwoot ref 123 --try conversation --try inbox # Custom probe order
+chatwoot ref 123 -E url                        # Emit just the UI URL
+chatwoot ref 123 -E id                         # Emit just the typed ID
+```
+
+### Dashboard
+
+Query external dashboard APIs for contact data (requires configuration via `chatwoot cfg dashboard add`):
+
+```bash
+chatwoot db orders --contact 180712
+chatwoot db orders --conversation 24445        # Auto-resolve contact from conversation
+chatwoot db orders --contact 180712 --page 2 --per-page 20
+```
+
+### Survey
+
+```bash
+chatwoot sv g <conversation-uuid>              # Get survey response for a conversation
+```
+
+### Cache
+
+```bash
+chatwoot ch clear                              # Clear all cached data
+chatwoot ch path                               # Show cache directory and files
+```
+
+### Public API (Unauthenticated)
+
+Widget/client-side API using inbox identifiers instead of account auth:
+
+```bash
+# Inboxes
+chatwoot pub inboxes g <inbox-id>
+
+# Contacts
+chatwoot pub contacts mk <inbox-id> --name "Visitor" --email visitor@example.com
+chatwoot pub contacts g <inbox-id> <contact-id>
+chatwoot pub contacts up <inbox-id> <contact-id> --name "Updated Name"
+
+# Conversations
+chatwoot pub conversations ls <inbox-id> <contact-id>
+chatwoot pub conversations mk <inbox-id> <contact-id>
+chatwoot pub conversations g <inbox-id> <contact-id> 123
+chatwoot pub conversations resolve <inbox-id> <contact-id> 123
+
+# Messages
+chatwoot pub messages ls <inbox-id> <contact-id> 123
+chatwoot pub messages mk <inbox-id> <contact-id> 123 --content "Hello!"
+chatwoot pub messages up <inbox-id> <contact-id> 123 456 --content "Updated"
 ```
 
 ## Output Formats
@@ -819,6 +981,13 @@ Every command has 1-2 letter aliases for fast typing. Use `chatwoot <alias>` ins
 | `csat` | `cs` |
 | `portals` | `po` |
 | `platform` | `pf` |
+| `dashboard` | `dash`, `db` |
+| `mentions` | `mn` |
+| `survey` | `sv` |
+| `cache` | `ch` |
+| `public` | `pub` |
+| `api` | `ap` |
+| `status` | `st` |
 | `schema` | `sc` |
 | `config` | `cfg` |
 | `auth` | `au` |
