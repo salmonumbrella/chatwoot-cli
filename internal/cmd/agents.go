@@ -115,7 +115,7 @@ func newAgentsGetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "email"},
@@ -191,7 +191,7 @@ func newAgentsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Agent name")
 	cmd.Flags().StringVar(&email, "email", "", "Agent email address")
 	cmd.Flags().StringVar(&role, "role", "", "Agent role: agent|admin")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }
@@ -259,7 +259,7 @@ func newAgentsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "New agent name")
 	cmd.Flags().StringVar(&role, "role", "", "New agent role: agent|admin")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd
 }

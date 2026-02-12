@@ -172,7 +172,7 @@ mentioned so you can follow up on requests from teammates.`,
 	}
 
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Filter mentions to a specific conversation")
-	cmd.Flags().StringVar(&since, "since", "", "Filter mentions by time (e.g., 24h, 7d, 1w, yesterday, 2h ago)")
+	cmd.Flags().StringVarP(&since, "since", "S", "", "Filter mentions by time (e.g., 24h, 7d, 1w, yesterday, 2h ago)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of mentions to return")
 
 	return cmd

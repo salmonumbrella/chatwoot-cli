@@ -116,6 +116,7 @@ At least one of --agent or --team must be specified.`,
 
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID, name, or email to assign")
 	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign")
+	flagAlias(cmd.Flags(), "agent", "ag")
 
 	return cmd
 }

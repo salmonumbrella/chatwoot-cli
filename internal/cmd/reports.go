@@ -630,7 +630,7 @@ func newReportingEventsCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	listCmd.Flags().StringVar(&since, "since", "", "Start time (Unix, RFC3339, YYYY-MM-DD, or relative)")
+	listCmd.Flags().StringVarP(&since, "since", "S", "", "Start time (Unix, RFC3339, YYYY-MM-DD, or relative)")
 	listCmd.Flags().StringVar(&until, "until", "", "End time (Unix, RFC3339, YYYY-MM-DD, or relative)")
 	listCmd.Flags().StringVar(&eventType, "type", "", "Event type filter")
 	cmd.AddCommand(listCmd)
