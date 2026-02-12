@@ -292,7 +292,7 @@ func newConversationsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&suggestedActions, "suggested-actions", false, "Include AI-suggested actions in agent output")
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
@@ -407,11 +407,15 @@ func newConversationsCreateCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
 	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Contact ID (required)")
-	cmd.Flags().StringVar(&message, "message", "", "Initial message content")
+	cmd.Flags().StringVarP(&message, "message", "m", "", "Initial message content")
 	cmd.Flags().StringVar(&status, "status", "", "Status (open|resolved|pending|snoozed)")
 	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "contact-id", "cid")
+	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "team-id", "tid")
+	flagAlias(cmd.Flags(), "status", "st")
 
 	return cmd
 }
@@ -542,6 +546,9 @@ func newConversationsMetaCmd() *cobra.Command {
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
+	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "team-id", "tid")
 
 	return cmd
 }
@@ -623,6 +630,9 @@ func newConversationsCountsCmd() *cobra.Command {
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
+	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "team-id", "tid")
 
 	return cmd
 }
@@ -706,6 +716,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&status, "status", "", "New status (open|resolved|pending|snoozed) (required)")
 	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp, RFC3339, or relative)")
+	flagAlias(cmd.Flags(), "status", "st")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed"})
 
 	return cmd
@@ -810,6 +821,7 @@ func newConversationsResolveCmd() *cobra.Command {
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations (for multiple IDs)")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running (for multiple IDs)")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 
 	return cmd
 }
@@ -877,6 +889,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&priority, "priority", "", "New priority (urgent|high|medium|low|none) (required)")
+	flagAlias(cmd.Flags(), "priority", "pri")
 	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
@@ -958,7 +971,8 @@ func newConversationsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&priority, "priority", "", "Priority (urgent|high|medium|low|none)")
 	cmd.Flags().IntVar(&slaPolicyID, "sla-policy-id", 0, "SLA policy ID (Enterprise feature)")
-	cmd.Flags().StringVar(&emit, "emit", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "priority", "pri")
 	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
@@ -1143,6 +1157,8 @@ func newConversationsAssignCmd() *cobra.Command {
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign (deprecated, use --team)")
 	_ = cmd.Flags().MarkHidden("assignee-id")
 	_ = cmd.Flags().MarkHidden("team-id")
+	flagAlias(cmd.Flags(), "agent", "ag")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 
 	return cmd
 }
@@ -1540,6 +1556,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 	}
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
+	flagAlias(cmd.Flags(), "embed-images", "embed")
 
 	return cmd
 }
@@ -1799,6 +1816,7 @@ func newConversationsSearchCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch with --all")
+	flagAlias(cmd.Flags(), "max-pages", "mp")
 
 	return cmd
 }
@@ -2176,6 +2194,7 @@ locally with private notes included by default.`,
 	cmd.Flags().IntVar(&limit, "limit", 0, "Limit the number of messages to include (default: all)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when listing messages")
 	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from the transcript")
+	flagAlias(cmd.Flags(), "max-pages", "mp")
 
 	return cmd
 }
@@ -2377,7 +2396,7 @@ Use --private to show the typing indicator only to other agents (for private not
 	}
 
 	cmd.Flags().BoolVar(&typingOn, "on", false, "Turn typing indicator on (default: off)")
-	cmd.Flags().BoolVar(&isPrivate, "private", false, "Show typing indicator only to agents (for private notes)")
+	cmd.Flags().BoolVarP(&isPrivate, "private", "P", false, "Show typing indicator only to agents (for private notes)")
 
 	return cmd
 }
@@ -2523,6 +2542,8 @@ func newConversationsWatchCmd() *cobra.Command {
 	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
 	cmd.Flags().IntVar(&interval, "interval", 10, "Polling interval in seconds")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum conversations to display")
+	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "inbox-id", "iid")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 
 	return cmd
@@ -2697,6 +2718,7 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -2824,6 +2846,8 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+	flagAlias(cmd.Flags(), "agent", "ag")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -2922,6 +2946,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
@@ -3128,6 +3153,7 @@ operations (status, priority, labels, assignment).`,
 	}
 
 	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Maximum concurrent requests")
+	flagAlias(cmd.Flags(), "concurrency", "cc")
 
 	return cmd
 }

@@ -358,6 +358,9 @@ all conversations on the account.
 	cmd.Flags().StringVar(&execHandler, "exec", "", "Run a command for each emitted JSON/agent event (event JSON on stdin)")
 	cmd.Flags().DurationVar(&execTimeout, "exec-timeout", 30*time.Second, "Timeout per --exec invocation")
 	cmd.Flags().BoolVar(&execFatal, "exec-fatal", false, "Treat --exec failures as fatal (default: log to stderr and continue)")
+	flagAlias(cmd.Flags(), "context-messages", "cm")
+	flagAlias(cmd.Flags(), "only-unassigned", "unassigned")
+	flagAlias(cmd.Flags(), "exclude-private", "pub")
 	return cmd
 }
 
