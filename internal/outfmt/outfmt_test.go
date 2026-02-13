@@ -16,6 +16,7 @@ func TestParse(t *testing.T) {
 		{"", Text, false},
 		{"json", JSON, false},
 		{"jsonl", JSONL, false},
+		{"ndjson", JSONL, false},
 		{"agent", Agent, false},
 		{"invalid", Text, true},
 		{"JSON", Text, true}, // case sensitive

@@ -357,27 +357,30 @@ func flagAlias(fs *pflag.FlagSet, name, alias string) {
 // flagOrAliasChanged returns true if the named flag or any of its
 // hidden aliases was explicitly set by the user.
 func flagOrAliasChanged(cmd *cobra.Command, name string) bool {
-	fs := cmd.Flags()
-	if fs.Changed(name) {
+	if cmd.Flags().Changed(name) {
 		return true
 	}
 	// Also check inherited persistent flags
 	if cmd.InheritedFlags().Changed(name) {
 		return true
 	}
-	// Check hidden aliases registered via flagAlias
-	found := false
-	fs.VisitAll(func(f *pflag.Flag) {
-		if found {
-			return
-		}
-		if ann, ok := f.Annotations["alias-of"]; ok && len(ann) > 0 && ann[0] == name {
-			if fs.Changed(f.Name) {
-				found = true
+
+	aliasChanged := func(fs *pflag.FlagSet) bool {
+		found := false
+		fs.VisitAll(func(f *pflag.Flag) {
+			if found {
+				return
 			}
-		}
-	})
-	return found
+			if ann, ok := f.Annotations["alias-of"]; ok && len(ann) > 0 && ann[0] == name {
+				if fs.Changed(f.Name) {
+					found = true
+				}
+			}
+		})
+		return found
+	}
+
+	return aliasChanged(cmd.Flags()) || aliasChanged(cmd.InheritedFlags())
 }
 
 // validateSlug validates a portal/article/category slug

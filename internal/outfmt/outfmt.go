@@ -30,12 +30,12 @@ func Parse(s string) (Mode, error) {
 		return Text, nil
 	case "json":
 		return JSON, nil
-	case "jsonl":
+	case "jsonl", "ndjson":
 		return JSONL, nil
 	case "agent":
 		return Agent, nil
 	default:
-		return Text, fmt.Errorf("invalid output format: %q (use 'text', 'json', 'jsonl', or 'agent')", s)
+		return Text, fmt.Errorf("invalid output format: %q (use 'text', 'json', 'jsonl', 'ndjson', or 'agent')", s)
 	}
 }
 

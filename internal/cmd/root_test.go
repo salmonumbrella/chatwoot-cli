@@ -3,8 +3,11 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -226,8 +229,13 @@ func TestExecute_GlobalFlags(t *testing.T) {
 		"--dry-run",
 		"--allow-private",
 		"--query",
+		"--query-file",
+		"--items-only",
+		"--results-only",
 		"--fields",
 		"--no-input",
+		"--yes",
+		"--force",
 		"--template",
 		"--utc",
 		"--time-zone",
@@ -272,11 +280,194 @@ func TestExecute_OutputFlagShorthand(t *testing.T) {
 	}
 }
 
+func TestExecute_HelpHidesLongAliasFlags(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"--help"}); err != nil {
+			t.Fatalf("Execute() with --help failed: %v", err)
+		}
+	})
+
+	hiddenAliases := []string{"out", "qr", "qf", "io", "ro", "j"}
+	for _, alias := range hiddenAliases {
+		pattern := regexp.MustCompile(`(^|\s)--` + alias + `(\s|,|=|$)`)
+		if pattern.MatchString(output) {
+			t.Errorf("hidden alias --%s should not appear in help output", alias)
+		}
+	}
+}
+
+func TestExecute_GlobalLongAliasFlagsWork(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"status", "--j"}); err != nil {
+			t.Fatalf("status --j failed: %v", err)
+		}
+	})
+	var jsonPayload map[string]any
+	if err := json.Unmarshal([]byte(output), &jsonPayload); err != nil {
+		t.Fatalf("status --j did not produce JSON output: %v\noutput: %q", err, output)
+	}
+
+	output = captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"status", "--out", "json"}); err != nil {
+			t.Fatalf("status --out json failed: %v", err)
+		}
+	})
+	if err := json.Unmarshal([]byte(output), &jsonPayload); err != nil {
+		t.Fatalf("status --out json did not produce JSON output: %v\noutput: %q", err, output)
+	}
+
+	output = captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"status", "--out", "json", "--qr", ".authenticated"}); err != nil {
+			t.Fatalf("status --qr failed: %v", err)
+		}
+	})
+	got := strings.TrimSpace(output)
+	if got != "true" && got != "false" {
+		t.Fatalf("status --qr expected boolean output, got %q", output)
+	}
+}
+
+func TestExecute_QueryFileFlagsWork(t *testing.T) {
+	queryFile := filepath.Join(t.TempDir(), "query.jq")
+	if err := os.WriteFile(queryFile, []byte(".items | length"), 0o600); err != nil {
+		t.Fatalf("failed to write query file: %v", err)
+	}
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--query-file", queryFile}); err != nil {
+			t.Fatalf("schema list --query-file failed: %v", err)
+		}
+	})
+
+	if !regexp.MustCompile(`^\s*\d+\s*$`).MatchString(output) {
+		t.Fatalf("schema list --query-file expected numeric output, got %q", output)
+	}
+
+	output = captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--qf", queryFile}); err != nil {
+			t.Fatalf("schema list --qf failed: %v", err)
+		}
+	})
+	if !regexp.MustCompile(`^\s*\d+\s*$`).MatchString(output) {
+		t.Fatalf("schema list --qf expected numeric output, got %q", output)
+	}
+}
+
+func TestExecute_QueryFileConflictsWithQuery(t *testing.T) {
+	queryFile := filepath.Join(t.TempDir(), "query.jq")
+	if err := os.WriteFile(queryFile, []byte(".items"), 0o600); err != nil {
+		t.Fatalf("failed to write query file: %v", err)
+	}
+
+	err := Execute(context.Background(), []string{"schema", "list", "--query-file", queryFile, "--query", ".items"})
+	if err == nil {
+		t.Fatal("expected --query-file with --query to fail")
+	}
+	if !strings.Contains(err.Error(), "--query-file cannot be used with --query or --jq") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestExecute_ItemsOnlyAndResultsOnlyFlags(t *testing.T) {
+	itemsOutput := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--items-only"}); err != nil {
+			t.Fatalf("schema list --items-only failed: %v", err)
+		}
+	})
+
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(itemsOutput), &items); err != nil {
+		t.Fatalf("--items-only expected JSON array, got error: %v\noutput: %q", err, itemsOutput)
+	}
+	if len(items) == 0 {
+		t.Fatalf("--items-only returned empty array")
+	}
+
+	resultsOutput := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--results-only"}); err != nil {
+			t.Fatalf("schema list --results-only failed: %v", err)
+		}
+	})
+
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(resultsOutput), &results); err != nil {
+		t.Fatalf("--results-only expected JSON array, got error: %v\noutput: %q", err, resultsOutput)
+	}
+	if len(results) == 0 {
+		t.Fatalf("--results-only returned empty array")
+	}
+}
+
+func TestExecute_ItemsOnlyConflictsWithOutputText(t *testing.T) {
+	err := Execute(context.Background(), []string{"schema", "list", "--items-only", "--output", "text"})
+	if err == nil {
+		t.Fatal("expected --items-only with --output text to fail")
+	}
+	if !strings.Contains(err.Error(), "--items-only/--results-only") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestExecute_ItemsOnlyHiddenAliasesWork(t *testing.T) {
+	for _, alias := range []string{"--io", "--ro"} {
+		output := captureStdout(t, func() {
+			if err := Execute(context.Background(), []string{"schema", "list", alias}); err != nil {
+				t.Fatalf("schema list %s failed: %v", alias, err)
+			}
+		})
+
+		var items []map[string]any
+		if err := json.Unmarshal([]byte(output), &items); err != nil {
+			t.Fatalf("%s expected JSON array, got error: %v\noutput: %q", alias, err, output)
+		}
+		if len(items) == 0 {
+			t.Fatalf("%s returned empty array", alias)
+		}
+	}
+}
+
+func TestExecute_ForceAliasSetsYesAndNoInput(t *testing.T) {
+	if err := Execute(context.Background(), []string{"version", "--force"}); err != nil {
+		t.Fatalf("version --force failed: %v", err)
+	}
+	if !flags.Yes {
+		t.Fatal("expected --force to set --yes alias")
+	}
+	if !flags.NoInput {
+		t.Fatal("expected --force/--yes to enable --no-input")
+	}
+}
+
+func TestExecute_OutputNDJSONAccepted(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"status", "--output", "ndjson", "--query", ".authenticated"}); err != nil {
+			t.Fatalf("status --output ndjson --query failed: %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(output)
+	if got != "true" && got != "false" {
+		t.Fatalf("expected boolean output from ndjson+query, got %q", output)
+	}
+}
+
+func TestExecute_JSONConflictsWithOutAlias(t *testing.T) {
+	err := Execute(context.Background(), []string{"status", "--json", "--out", "text"})
+	if err == nil {
+		t.Fatal("expected conflict error when using --json with --out text")
+	}
+	if !strings.Contains(err.Error(), "--json conflicts with --output text") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestCommandAliases(t *testing.T) {
 	tests := []struct {
 		alias   string
 		wantCmd string
 	}{
+		{"customers", "contacts"},
+		{"conv", "conversations"},
 		{"find", "search"},
 		{"s", "search"},
 		{"reassign", "assign"},
@@ -301,6 +492,8 @@ func TestCommandAliases(t *testing.T) {
 	root.AddCommand(newSnoozeCmd())
 	root.AddCommand(newHandoffCmd())
 	root.AddCommand(newDashboardCmd())
+	root.AddCommand(newContactsCmd())
+	root.AddCommand(newConversationsCmd())
 	root.AddCommand(newVersionCmd())
 	root.SetContext(ctx)
 
