@@ -4,6 +4,7 @@ package outfmt
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -114,5 +115,22 @@ func TestApplyQuery_ArrayFilter(t *testing.T) {
 	}
 	if result != "alice" {
 		t.Errorf("expected 'alice', got %v", result)
+	}
+}
+
+func TestWriteJSONFiltered_RawMessageUnchanged(t *testing.T) {
+	raw := json.RawMessage(`{"it":"literal","items":"canonical"}`)
+	original := append([]byte(nil), raw...)
+
+	var buf bytes.Buffer
+	if err := WriteJSONFiltered(&buf, raw, `.["it"]`); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.TrimSpace(buf.String()) != `"literal"` {
+		t.Fatalf("expected literal lookup result, got %q", buf.String())
+	}
+	if !bytes.Equal(raw, original) {
+		t.Fatalf("raw JSON payload was mutated: got %s want %s", raw, original)
 	}
 }

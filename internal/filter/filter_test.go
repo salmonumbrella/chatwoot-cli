@@ -106,11 +106,110 @@ func TestNormalizeExpression(t *testing.T) {
 		{`select(.x != null)`, `select(.x != null)`},
 		{`.[] | select(.a \!= .b)`, `.[] | select(.a != .b)`},
 		{`select(.x == "test")`, `select(.x == "test")`},
+		{`.it[] | select(.st == "open")`, `.items[] | select(.status == "open")`},
+		{`.["st"] | .st`, `.["st"] | .status`},
+		{`.St | .st`, `.St | .status`},
+		{`.st # .st in comment`, `.status # .st in comment`},
+		{`sl(.mty == 1)`, `select(.message_type == 1)`},
+		{`sl(.ct | ts("x"; "i"))`, `select(.content | test("x"; "i"))`},
+		{`.cu.blk and .cu.mtr`, `.custom_attributes.blacklist and .custom_attributes.membership_tier`},
 	}
 	for _, tt := range tests {
 		got := NormalizeExpression(tt.input)
 		if got != tt.expected {
 			t.Errorf("NormalizeExpression(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestApply_QueryAliases(t *testing.T) {
+	data := map[string]any{
+		"items": []any{
+			map[string]any{"status": "open"},
+			map[string]any{"status": "resolved"},
+		},
+	}
+
+	result, err := Apply(data, `.it[] | select(.st == "open") | .st`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "open" {
+		t.Fatalf("expected open, got %v", result)
+	}
+}
+
+func TestApply_QueryAliases_DoNotRewriteQuotedBracketLiteral(t *testing.T) {
+	data := map[string]any{
+		"it":    "literal",
+		"items": "canonical",
+	}
+
+	result, err := Apply(data, `.["it"]`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "literal" {
+		t.Fatalf("expected literal key lookup to remain unchanged, got %v", result)
+	}
+}
+
+func TestApply_QueryAliases_MessageFields(t *testing.T) {
+	data := map[string]any{
+		"items": []any{
+			map[string]any{
+				"message_type": 1,
+				"sender":       map[string]any{"name": "Ada"},
+			},
+		},
+	}
+
+	result, err := Apply(data, `.it[] | select(.mty == 1) | .sd.n`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "Ada" {
+		t.Fatalf("expected Ada, got %v", result)
+	}
+}
+
+func TestApply_QueryFunctionAliases(t *testing.T) {
+	data := map[string]any{
+		"items": []any{
+			map[string]any{"message_type": 1, "content": "refund pending"},
+			map[string]any{"message_type": 0, "content": "hello"},
+		},
+	}
+
+	result, err := Apply(data, `[.it[] | sl(.mty == 1) | sl(.ct | ts("refund"; "i"))] | length`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != 1 {
+		t.Fatalf("expected 1, got %v", result)
+	}
+}
+
+func TestApply_QueryAliases_CustomAttributes(t *testing.T) {
+	data := map[string]any{
+		"custom_attributes": map[string]any{
+			"blacklist":       true,
+			"membership_tier": "gold",
+		},
+	}
+
+	result, err := Apply(data, `.cu | {blk: .blk, mtr: .mtr}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map result, got %T", result)
+	}
+	if out["blk"] != true {
+		t.Fatalf("expected blk=true, got %v", out["blk"])
+	}
+	if out["mtr"] != "gold" {
+		t.Fatalf("expected mtr=gold, got %v", out["mtr"])
 	}
 }

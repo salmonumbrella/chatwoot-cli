@@ -368,6 +368,97 @@ func TestExecute_QueryFileConflictsWithQuery(t *testing.T) {
 	}
 }
 
+func TestExecute_QueryAliasesAreRewritten(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--output", "json", "--query", ".it | type"}); err != nil {
+			t.Fatalf("schema list --query with aliases failed: %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(output)
+	if got != `"array"` {
+		t.Fatalf("expected alias-rewritten query result \"array\", got %q", got)
+	}
+}
+
+func TestExecute_QueryAliases_DoNotRewriteQuotedBracketKeys(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--output", "json", "--query", `.["it"] | type`}); err != nil {
+			t.Fatalf("schema list quoted bracket query failed: %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(output)
+	if got != `"null"` {
+		t.Fatalf("expected quoted key to remain literal (null), got %q", got)
+	}
+}
+
+func TestExecute_QueryAliases_DoNotRewriteMixedCaseTokens(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--output", "json", "--query", ".It | type"}); err != nil {
+			t.Fatalf("schema list mixed-case query failed: %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(output)
+	if got != `"null"` {
+		t.Fatalf("expected mixed-case token to remain unchanged (null), got %q", got)
+	}
+}
+
+func TestExecute_FieldAliasesAreRewritten(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--output", "json", "--fields", "it"}); err != nil {
+			t.Fatalf("schema list --fields alias failed: %v", err)
+		}
+	})
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v\noutput: %q", err, output)
+	}
+	items, ok := payload["items"].([]any)
+	if !ok {
+		t.Fatalf("expected items key in output, got: %v", payload)
+	}
+	if len(items) == 0 {
+		t.Fatalf("expected non-empty items array in output, got: %v", payload)
+	}
+}
+
+func TestExecute_QueryAliases_MessageTypeAndSenderID(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "show", "message", "--output", "json", "--query", ".properties.mty.type"}); err != nil {
+			t.Fatalf("schema show message --query mty failed: %v", err)
+		}
+	})
+	if strings.TrimSpace(output) != `"string"` {
+		t.Fatalf("expected mty alias to resolve to message_type schema type string, got %q", output)
+	}
+
+	output = captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "show", "message", "--output", "json", "--query", ".properties.sdi.type"}); err != nil {
+			t.Fatalf("schema show message --query sdi failed: %v", err)
+		}
+	})
+	if strings.TrimSpace(output) != `"integer"` {
+		t.Fatalf("expected sdi alias to resolve to sender_id schema type integer, got %q", output)
+	}
+}
+
+func TestExecute_QueryFunctionAliases(t *testing.T) {
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "--output", "json", "--query", `[.it[] | sl(.n | ts("con"; "i"))] | length`}); err != nil {
+			t.Fatalf("schema list function aliases failed: %v", err)
+		}
+	})
+
+	if !regexp.MustCompile(`^\s*\d+\s*$`).MatchString(output) {
+		t.Fatalf("expected numeric output for function-alias query, got %q", output)
+	}
+}
+
 func TestExecute_ItemsOnlyAndResultsOnlyFlags(t *testing.T) {
 	itemsOutput := captureStdout(t, func() {
 		if err := Execute(context.Background(), []string{"schema", "list", "--items-only"}); err != nil {

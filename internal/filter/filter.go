@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/queryalias"
 	"github.com/itchyny/gojq"
 )
 
@@ -13,7 +14,8 @@ import (
 // Zsh escapes ! to \! even in single quotes, breaking operators like !=.
 func NormalizeExpression(expr string) string {
 	// Replace \! with ! (zsh escapes ! due to history expansion)
-	return strings.ReplaceAll(expr, `\!`, `!`)
+	expr = strings.ReplaceAll(expr, `\!`, `!`)
+	return queryalias.Normalize(expr, queryalias.ContextQuery)
 }
 
 // Apply applies a JQ filter expression to the input data

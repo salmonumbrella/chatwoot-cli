@@ -116,7 +116,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	registerFieldSchema(cmd, "contact")
 
 	cmd.Flags().IntVarP(&page, "page", "p", 0, "Page number for pagination")
-	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at); prefix with '-' for desc")
+	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at; aliases: n|e|pn|la); prefix with '-' for desc")
 	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
 
 	return cmd

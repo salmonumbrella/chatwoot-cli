@@ -37,6 +37,39 @@ func TestParseFieldsWithSchemaValidation(t *testing.T) {
 	}
 }
 
+func TestParseFieldsWithSchemaValidation_Aliases(t *testing.T) {
+	cmd := &cobra.Command{}
+	registerFieldSchema(cmd, "conversation")
+
+	fields, err := parseFieldsWithPresets(cmd, "i,st,ii,la,cu.plan")
+	if err != nil {
+		t.Fatalf("expected aliased fields to be valid, got error: %v", err)
+	}
+
+	want := []string{"id", "status", "inbox_id", "last_activity_at", "custom_attributes.plan"}
+	if len(fields) != len(want) {
+		t.Fatalf("unexpected fields length: got %v want %v", fields, want)
+	}
+	for i := range fields {
+		if fields[i] != want[i] {
+			t.Fatalf("unexpected fields: got %v want %v", fields, want)
+		}
+	}
+}
+
+func TestParseFieldsWithSchemaValidation_MixedCaseAliasesNotRewritten(t *testing.T) {
+	cmd := &cobra.Command{}
+	registerFieldSchema(cmd, "conversation")
+
+	_, err := parseFieldsWithPresets(cmd, "St")
+	if err == nil {
+		t.Fatal("expected mixed-case alias to fail schema validation")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown field error, got %v", err)
+	}
+}
+
 func TestSchemaPresetsMergeWithManualPresets(t *testing.T) {
 	cmd := &cobra.Command{}
 	registerFieldSchema(cmd, "contact")

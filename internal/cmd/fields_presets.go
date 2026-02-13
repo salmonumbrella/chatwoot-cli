@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/queryalias"
 	"github.com/chatwoot/chatwoot-cli/internal/schema"
 	"github.com/spf13/cobra"
 )
@@ -117,7 +118,7 @@ func parseFieldsWithPresets(cmd *cobra.Command, input string) ([]string, error) 
 	if trimmed != "" && !strings.Contains(trimmed, ",") {
 		key := strings.ToLower(trimmed)
 		if preset, ok := presets[key]; ok {
-			return preset, nil
+			return normalizeFieldPaths(preset), nil
 		}
 	}
 
@@ -125,6 +126,7 @@ func parseFieldsWithPresets(cmd *cobra.Command, input string) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
+	fields = normalizeFieldPaths(fields)
 
 	schemaName := fieldSchemaForCommand(cmd)
 	if schemaName == "" {
@@ -134,6 +136,17 @@ func parseFieldsWithPresets(cmd *cobra.Command, input string) ([]string, error) 
 		return nil, err
 	}
 	return fields, nil
+}
+
+func normalizeFieldPaths(fields []string) []string {
+	if len(fields) == 0 {
+		return fields
+	}
+	out := make([]string, len(fields))
+	for i, field := range fields {
+		out[i] = queryalias.Normalize(field, queryalias.ContextPath)
+	}
+	return out
 }
 
 func fieldSchemaForCommand(cmd *cobra.Command) string {

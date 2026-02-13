@@ -23,6 +23,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/queryalias"
 	"github.com/chatwoot/chatwoot-cli/internal/resolve"
 	"github.com/chatwoot/chatwoot-cli/internal/urlparse"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -410,6 +411,8 @@ func parseSortOrder(sort, order string) (string, string, error) {
 	if order != "" && order != "asc" && order != "desc" {
 		return "", "", fmt.Errorf("invalid --order value %q: must be asc or desc", order)
 	}
+
+	sort = queryalias.Normalize(sort, queryalias.ContextPath)
 
 	return sort, order, nil
 }

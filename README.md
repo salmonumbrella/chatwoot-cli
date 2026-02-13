@@ -256,6 +256,7 @@ The `--mention` flag:
 cw co ls                                 # List all contacts
 cw co ls --sort name --order asc         # Sort by name ascending
 cw co ls --sort -last_activity_at        # Sort by recent activity
+cw co ls --sort la                       # Same as --sort last_activity_at
 cw co search --query "john"              # Full-text search contacts
 cw co filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@example.com"]}]'  # Structured filter
 cw co g 123                              # Get contact by ID
@@ -786,8 +787,8 @@ All commands support these flags:
 - `--dr` / `--dry-run` - Preview changes without executing mutations
 - `--timeout <duration>` - HTTP request timeout (default: 30s)
 - `--idem <key|auto>` / `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
-- `--query <expr>` / `--jq <expr>` - JQ expression to filter JSON output
-- `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`; supports presets like `minimal`, `default`, `debug` on supported resources)
+- `--query <expr>` / `--jq <expr>` - JQ expression to filter JSON output (supports key aliases in path contexts)
+- `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`; supports presets like `minimal`, `default`, `debug` on supported resources, and key aliases in paths)
 - `-q` / `--quiet` - Suppress non-essential output
 - `--silent` - Suppress non-error output to stderr
 - `--no-input` - Disable interactive prompts
@@ -922,6 +923,7 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 | `--description` | `--desc` | campaigns, labels, platform, portals, teams |
 | `--assignee-type` | `--at` | conversations list |
 | `--unread-only` | `--unread` | conversations list |
+| `--waiting` | `--wt` | conversations list |
 | `--max-pages` | `--mp` | all list commands, conversations, messages |
 | `--concurrency` | `--cc` | contacts bulk, conversations bulk, messages |
 | `--since-last-agent` | `--sla` | messages list |
@@ -940,6 +942,149 @@ Filter JSON output with JQ expressions:
 ```bash
 cw c ls -o json --query '.items[].id'    # Get only conversation IDs
 cw c ls -o json --query '.items[] | select(.status == "open")'  # Filter by status
+```
+
+### JSON Key Aliases (Query/Path Contexts)
+
+To reduce typing, `--query`/`--jq`, `--fields`, and path-style `--sort` values accept lowercase key aliases.
+Aliases rewrite only path tokens (for example `.it[].st`), and do **not** rewrite:
+
+- quoted bracket literals like `.["st"]`
+- mixed-case tokens like `.St`
+- strings/comments inside jq expressions
+
+Long-form keys remain fully supported.
+
+Supported jq function aliases (only when called with parentheses):
+
+| Alias | Canonical function |
+|------|---------------------|
+| `sl` | `select` |
+| `ts` | `test` |
+
+Inventory basis: aliases were selected from a scan of docs/tests plus JSON tags and response maps, ranked by frequency and character savings.
+
+Top key candidates by savings score (`frequency * (len-2)`):
+
+| Key | Score |
+|-----|------:|
+| `account_id` | 400 |
+| `description` | 270 |
+| `last_activity_at` | 252 |
+| `created_at` | 248 |
+| `items` | 231 |
+| `conversation_id` | 195 |
+| `name` | 186 |
+| `custom_attributes` | 165 |
+| `open_conversations` | 160 |
+| `payload` | 155 |
+
+| Alias | Canonical key |
+|------|----------------|
+| `aci` | `account_id` |
+| `act` | `actions` |
+| `ai` | `assignee_id` |
+| `att` | `attachments` |
+| `blk` | `blacklist` |
+| `ca` | `created_at` |
+| `ci` | `contact_id` |
+| `ct` | `content` |
+| `ctc` | `contact` |
+| `ctp` | `content_type` |
+| `cu` | `custom_attributes` |
+| `cv` | `conversation_id` |
+| `cvn` | `conversation` |
+| `del` | `deleted` |
+| `di` | `display_id` |
+| `ds` | `description` |
+| `dt` | `data` |
+| `du` | `data_url` |
+| `e` | `email` |
+| `en` | `enabled` |
+| `er` | `error` |
+| `fc` | `first_contact` |
+| `fs` | `file_size` |
+| `ft` | `file_type` |
+| `hm` | `has_more` |
+| `i` | `id` |
+| `ii` | `inbox_id` |
+| `im` | `item` |
+| `it` | `items` |
+| `kd` | `kind` |
+| `la` | `last_activity_at` |
+| `lac` | `last_activity` |
+| `lb` | `labels` |
+| `mc` | `messages_count` |
+| `mgs` | `messages` |
+| `mi` | `message_id` |
+| `msg` | `message` |
+| `mt` | `meta` |
+| `mtr` | `membership_tier` |
+| `mty` | `message_type` |
+| `n` | `name` |
+| `oc` | `open_conversations` |
+| `pl` | `payload` |
+| `pn` | `phone_number` |
+| `pr` | `priority` |
+| `ps` | `position` |
+| `pv` | `private` |
+| `qe` | `query` |
+| `rs` | `results` |
+| `sd` | `sender` |
+| `sdi` | `sender_id` |
+| `sg` | `slug` |
+| `sm` | `summary` |
+| `snm` | `sender_name` |
+| `st` | `status` |
+| `sty` | `sender_type` |
+| `tcv` | `total_conversations` |
+| `ti` | `team_id` |
+| `tl` | `title` |
+| `tm` | `total_messages` |
+| `tu` | `thumb_url` |
+| `ty` | `type` |
+| `ua` | `updated_at` |
+| `uc` | `unread_count` |
+| `ur` | `url` |
+
+For agent workflows, prefer these aliases in query/path contexts to minimize command length.
+
+Before/after examples:
+
+```bash
+# --query / --jq
+cw c ls -o json --query '.items[] | select(.status == "open") | .id'
+cw c ls -o json --query '.it[] | select(.st == "open") | .i'
+
+# --fields projection
+cw c ls -o json --fields id,status,last_activity_at,custom_attributes.plan
+cw c ls -o json --fields i,st,la,cu.plan
+
+# --sort path
+cw co ls --sort last_activity_at
+cw co ls --sort la
+```
+
+Message-focused shortest forms:
+
+```bash
+# Last N messages with key fields
+cw m ls CONV_ID --jq '.it[-6:] | .[] | {id: .i, content: .ct, sender: .sd.n}'
+
+# Only incoming messages
+cw m ls CONV_ID --jq '[.it[] | sl(.mty == 0)]'
+
+# Only outgoing messages
+cw m ls CONV_ID --jq '[.it[] | sl(.mty == 1)]'
+
+# Filter by content
+cw m ls CONV_ID --jq '[.it[] | sl(.ct != null) | sl(.ct | ts("keyword"; "i"))]'
+```
+
+Literal-key preservation example:
+
+```bash
+cw schema list -o json --query '.["it"]'   # looks up literal key "it" (not alias-rewritten)
 ```
 
 **Fields shorthand & templates**

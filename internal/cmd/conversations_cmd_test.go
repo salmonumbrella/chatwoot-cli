@@ -1510,6 +1510,44 @@ func TestConversationsListWaiting(t *testing.T) {
 	}
 }
 
+func TestConversationsListWaitingAlias(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"meta": {"total_pages": 1},
+				"payload": [
+					{"id": 1, "status": "open", "inbox_id": 1, "last_activity_at": 1700003000},
+					{"id": 2, "status": "open", "inbox_id": 1, "last_activity_at": 1700002000},
+					{"id": 3, "status": "open", "inbox_id": 1, "last_activity_at": 1700001000}
+				]
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--wt", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --wt failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct {
+			ID int `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(result.Items) != 3 {
+		t.Fatalf("expected 3 conversations, got %d", len(result.Items))
+	}
+	if result.Items[0].ID != 3 {
+		t.Errorf("expected conversation 3 (oldest activity) first, got %d", result.Items[0].ID)
+	}
+}
+
 func TestConversationsGetWithMessages(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{

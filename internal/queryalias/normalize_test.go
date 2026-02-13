@@ -1,0 +1,169 @@
+package queryalias
+
+import "testing"
+
+func TestEntriesValidity(t *testing.T) {
+	values := Entries()
+	if len(values) == 0 {
+		t.Fatal("Entries() must not be empty")
+	}
+
+	aliasSeen := make(map[string]struct{}, len(values))
+	canonicalSeen := make(map[string]struct{}, len(values))
+	for _, entry := range values {
+		if entry.Alias == "" || entry.Canonical == "" {
+			t.Fatalf("empty alias entry: %+v", entry)
+		}
+		if len(entry.Alias) > 3 {
+			t.Fatalf("alias %q exceeds 3 characters", entry.Alias)
+		}
+		if entry.Alias == entry.Canonical {
+			t.Fatalf("alias %q must differ from canonical %q", entry.Alias, entry.Canonical)
+		}
+		if _, ok := aliasSeen[entry.Alias]; ok {
+			t.Fatalf("duplicate alias %q", entry.Alias)
+		}
+		aliasSeen[entry.Alias] = struct{}{}
+		if _, ok := canonicalSeen[entry.Canonical]; ok {
+			t.Fatalf("duplicate canonical key %q", entry.Canonical)
+		}
+		canonicalSeen[entry.Canonical] = struct{}{}
+	}
+}
+
+func TestCanonical(t *testing.T) {
+	tests := []struct {
+		alias string
+		want  string
+		ok    bool
+	}{
+		{alias: "st", want: "status", ok: true},
+		{alias: "la", want: "last_activity_at", ok: true},
+		{alias: "sd", want: "sender", ok: true},
+		{alias: "mty", want: "message_type", ok: true},
+		{alias: "blk", want: "blacklist", ok: true},
+		{alias: "mtr", want: "membership_tier", ok: true},
+		{alias: "missing", want: "", ok: false},
+	}
+
+	for _, tt := range tests {
+		got, ok := Canonical(tt.alias)
+		if ok != tt.ok {
+			t.Fatalf("Canonical(%q) ok=%v, want %v", tt.alias, ok, tt.ok)
+		}
+		if got != tt.want {
+			t.Fatalf("Canonical(%q)=%q, want %q", tt.alias, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizePath(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "single alias", in: "st", want: "status"},
+		{name: "nested path", in: "cu.plan", want: "custom_attributes.plan"},
+		{name: "custom attr aliases", in: "cu.blk", want: "custom_attributes.blacklist"},
+		{name: "multiple aliases", in: "ci.la", want: "contact_id.last_activity_at"},
+		{name: "long form unchanged", in: "last_activity_at", want: "last_activity_at"},
+		{name: "mixed case unchanged", in: "St", want: "St"},
+		{name: "unknown unchanged", in: "unknown_key", want: "unknown_key"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Normalize(tt.in, ContextPath)
+			if got != tt.want {
+				t.Fatalf("Normalize(path, %q)=%q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeQuery(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "basic dot paths",
+			in:   `.it[] | select(.st == "open") | .i`,
+			want: `.items[] | select(.status == "open") | .id`,
+		},
+		{
+			name: "nested path aliases",
+			in:   `.it[0].cu.plan`,
+			want: `.items[0].custom_attributes.plan`,
+		},
+		{
+			name: "message aliases with nested sender",
+			in:   `.it[] | select(.mty == 1) | .sd.n`,
+			want: `.items[] | select(.message_type == 1) | .sender.name`,
+		},
+		{
+			name: "custom attribute aliases",
+			in:   `.it[] | sl(.cu.blk == true and .cu.mtr != null) | .i`,
+			want: `.items[] | select(.custom_attributes.blacklist == true and .custom_attributes.membership_tier != null) | .id`,
+		},
+		{
+			name: "function aliases select and test",
+			in:   `.it[] | sl(.mty == 1) | sl(.ct | ts("refund"; "i"))`,
+			want: `.items[] | select(.message_type == 1) | select(.content | test("refund"; "i"))`,
+		},
+		{
+			name: "recursive descent",
+			in:   `..it | .la`,
+			want: `..items | .last_activity_at`,
+		},
+		{
+			name: "quoted bracket key preserved",
+			in:   `.it[0]["st"]`,
+			want: `.items[0]["st"]`,
+		},
+		{
+			name: "mixed case token preserved",
+			in:   `.St | .IT | .st`,
+			want: `.St | .IT | .status`,
+		},
+		{
+			name: "strings and comments preserved",
+			in:   ".st as $x | \"keep .st and #comment\" # .st alias here\n.it",
+			want: ".status as $x | \"keep .st and #comment\" # .st alias here\n.items",
+		},
+		{
+			name: "unknown token unchanged",
+			in:   `.unknown_key | .st`,
+			want: `.unknown_key | .status`,
+		},
+		{
+			name: "quoted keys only",
+			in:   `.["st"] | .["it"]`,
+			want: `.["st"] | .["it"]`,
+		},
+		{
+			name: "variables are not rewritten as function aliases",
+			in:   `.it[] | $sl | .st`,
+			want: `.items[] | $sl | .status`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Normalize(tt.in, ContextQuery)
+			if got != tt.want {
+				t.Fatalf("Normalize(query, %q)=%q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeUnknownContext(t *testing.T) {
+	in := `.st`
+	got := Normalize(in, Context(999))
+	if got != in {
+		t.Fatalf("Normalize with unknown context rewrote input: got %q want %q", got, in)
+	}
+}

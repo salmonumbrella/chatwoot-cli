@@ -340,6 +340,9 @@ func TestParseSortOrder(t *testing.T) {
 		{"sort with asc", "name", "asc", "name", "asc", false},
 		{"sort with desc", "name", "desc", "name", "desc", false},
 		{"prefix desc", "-name", "", "name", "desc", false},
+		{"alias sort", "la", "", "last_activity_at", "", false},
+		{"alias prefix desc", "-la", "", "last_activity_at", "desc", false},
+		{"mixed-case alias not rewritten", "La", "", "La", "", false},
 		{"invalid order", "name", "invalid", "", "", true},
 		{"prefix with order conflict", "-name", "asc", "", "", true},
 	}
