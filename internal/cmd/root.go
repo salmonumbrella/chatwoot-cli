@@ -72,7 +72,7 @@ var flags = rootFlags{
 func defaultOutput() string {
 	value := strings.TrimSpace(os.Getenv("CHATWOOT_OUTPUT"))
 	if value != "" {
-		return value
+		return normalizeOutputFormat(value)
 	}
 	return "text"
 }
