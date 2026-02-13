@@ -35,7 +35,6 @@ var entries = []Entry{
 	{Alias: "ur", Canonical: "url"},
 	{Alias: "sg", Canonical: "slug"},
 	{Alias: "en", Canonical: "enabled"},
-	{Alias: "del", Canonical: "deleted"},
 	{Alias: "act", Canonical: "actions"},
 	{Alias: "it", Canonical: "items"},
 	{Alias: "im", Canonical: "item"},
@@ -330,6 +329,9 @@ func normalizeQuery(expr string) string {
 				continue
 			}
 		default:
+			// Bare tokens (not preceded by '.') are NOT alias-rewritten for path access.
+			// They may be jq keywords (and, or, not, null, as, def, etc.).
+			// Only function aliases (followed by '(') are rewritten here.
 			if isLowerIdentifierStart(ch) {
 				start := i
 				i++

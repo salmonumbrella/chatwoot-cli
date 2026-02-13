@@ -994,7 +994,6 @@ Top key candidates by savings score (`frequency * (len-2)`):
 | `cu` | `custom_attributes` |
 | `cv` | `conversation_id` |
 | `cvn` | `conversation` |
-| `del` | `deleted` |
 | `di` | `display_id` |
 | `ds` | `description` |
 | `dt` | `data` |

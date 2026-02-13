@@ -70,6 +70,7 @@ func TestNormalizePath(t *testing.T) {
 		{name: "long form unchanged", in: "last_activity_at", want: "last_activity_at"},
 		{name: "mixed case unchanged", in: "St", want: "St"},
 		{name: "unknown unchanged", in: "unknown_key", want: "unknown_key"},
+		{name: "empty input", in: "", want: ""},
 	}
 
 	for _, tt := range tests {
@@ -147,6 +148,16 @@ func TestNormalizeQuery(t *testing.T) {
 			name: "variables are not rewritten as function aliases",
 			in:   `.it[] | $sl | .st`,
 			want: `.items[] | $sl | .status`,
+		},
+		{
+			name: "del builtin preserved as bare token",
+			in:   `.payload | del(.temp)`,
+			want: `.payload | del(.temp)`,
+		},
+		{
+			name: "empty input",
+			in:   "",
+			want: "",
 		},
 	}
 
