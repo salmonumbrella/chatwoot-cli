@@ -2900,7 +2900,7 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "add-label",
-		Aliases: []string{"al"},
+		Aliases: []string{"add"},
 		Short:   "Add labels to multiple conversations",
 		Long:    "Add one or more labels to multiple conversations at once",
 		Example: strings.TrimSpace(`

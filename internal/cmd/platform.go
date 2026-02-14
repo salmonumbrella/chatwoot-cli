@@ -467,9 +467,8 @@ func newPlatformUsersLoginCmd(baseURL, token *string) *cobra.Command {
 
 func newPlatformAccountUsersCmd(baseURL, token *string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "account-users",
-		Aliases: []string{"au"},
-		Short:   "Manage account users via platform API",
+		Use:   "account-users",
+		Short: "Manage account users via platform API",
 	}
 
 	cmd.AddCommand(newPlatformAccountUsersListCmd(baseURL, token))

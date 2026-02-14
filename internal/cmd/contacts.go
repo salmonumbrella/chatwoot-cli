@@ -1170,7 +1170,7 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "add-label",
-		Aliases: []string{"al"},
+		Aliases: []string{"add"},
 		Short:   "Add labels to multiple contacts",
 		Long:    "Add one or more labels to multiple contacts at once",
 		Example: strings.TrimSpace(`

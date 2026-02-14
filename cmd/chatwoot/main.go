@@ -2,18 +2,29 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 
 	"github.com/chatwoot/chatwoot-cli/internal/cmd"
 )
 
-func main() {
+var executeCmd = cmd.Execute
+var mapExitCode = cmd.ExitCode
+var terminate = os.Exit
+
+func run(args []string) int {
 	ctx := context.Background()
-	if err := cmd.Execute(ctx, os.Args[1:]); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			os.Exit(exitErr.ExitCode())
+	if err := executeCmd(ctx, args); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return exitErr.ExitCode()
 		}
-		os.Exit(cmd.ExitCode(err))
+		return mapExitCode(err)
 	}
+	return 0
+}
+
+func main() {
+	terminate(run(os.Args[1:]))
 }

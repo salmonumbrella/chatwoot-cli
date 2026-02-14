@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -75,6 +77,140 @@ func TestNoAliasCollisions(t *testing.T) {
 func TestNoFlagShorthandCollisions(t *testing.T) {
 	root := buildFullRootCmd()
 	checkFlagCollisions(t, root, "root")
+}
+
+func TestAliasReuseHasConsistentCommandName(t *testing.T) {
+	root := buildFullRootCmd()
+	usage := aliasUsageByCommandName(root)
+
+	for alias, names := range usage {
+		if len(names) <= 1 {
+			continue
+		}
+		var list []string
+		for name := range names {
+			list = append(list, name)
+		}
+		sort.Strings(list)
+		t.Errorf("alias %q maps to multiple command names: %s", alias, strings.Join(list, ", "))
+	}
+}
+
+func TestPreferredAliasMappings(t *testing.T) {
+	root := buildFullRootCmd()
+	usage := aliasUsageByCommandName(root)
+
+	tests := []struct {
+		alias string
+		name  string
+	}{
+		{alias: "ab", name: "agent-bots"},
+		{alias: "al", name: "audit-logs"},
+		{alias: "as", name: "assign"},
+		{alias: "au", name: "auth"},
+		{alias: "show", name: "open"},
+		{alias: "st", name: "status"},
+		{alias: "add", name: "add-label"},
+		{alias: "bot", name: "agent-bot"},
+		{alias: "sync", name: "sync-templates"},
+	}
+
+	for _, tt := range tests {
+		names, ok := usage[tt.alias]
+		if !ok {
+			t.Fatalf("expected alias %q to exist", tt.alias)
+		}
+		if len(names) != 1 {
+			var list []string
+			for name := range names {
+				list = append(list, name)
+			}
+			sort.Strings(list)
+			t.Fatalf("alias %q maps to %d command names: %s", tt.alias, len(names), strings.Join(list, ", "))
+		}
+		if _, ok := names[tt.name]; !ok {
+			var list []string
+			for name := range names {
+				list = append(list, name)
+			}
+			sort.Strings(list)
+			t.Fatalf("alias %q maps to %s, want %q", tt.alias, strings.Join(list, ", "), tt.name)
+		}
+	}
+}
+
+func TestNestedAliasResolutionAfterRefactor(t *testing.T) {
+	root := buildFullRootCmd()
+
+	tests := []struct {
+		args    []string
+		wantCmd string
+	}{
+		{args: []string{"inboxes", "bot"}, wantCmd: "agent-bot"},
+		{args: []string{"inboxes", "sync"}, wantCmd: "sync-templates"},
+		{args: []string{"contacts", "bulk", "add"}, wantCmd: "add-label"},
+		{args: []string{"conversations", "bulk", "add"}, wantCmd: "add-label"},
+		{args: []string{"co", "bulk", "add"}, wantCmd: "add-label"},
+	}
+
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, "_"), func(t *testing.T) {
+			cmd, _, err := root.Find(tt.args)
+			if err != nil {
+				t.Fatalf("Find(%q) error: %v", tt.args, err)
+			}
+			if cmd.Name() != tt.wantCmd {
+				t.Fatalf("Find(%q) resolved to %q, want %q", tt.args, cmd.Name(), tt.wantCmd)
+			}
+		})
+	}
+}
+
+func TestLegacyNestedAliasesNoLongerWork(t *testing.T) {
+	root := buildFullRootCmd()
+
+	tests := []struct {
+		args      []string
+		forbidden string
+	}{
+		{args: []string{"contacts", "bulk", "al"}, forbidden: "add-label"},
+		{args: []string{"conversations", "bulk", "al"}, forbidden: "add-label"},
+		{args: []string{"inboxes", "ab"}, forbidden: "agent-bot"},
+		{args: []string{"inboxes", "st"}, forbidden: "sync-templates"},
+		{args: []string{"webhooks", "show"}, forbidden: "get"},
+	}
+
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, "_"), func(t *testing.T) {
+			cmd, _, err := root.Find(tt.args)
+			if err != nil {
+				t.Fatalf("Find(%q) error: %v", tt.args, err)
+			}
+			if cmd.Name() == tt.forbidden {
+				t.Fatalf("Find(%q) resolved to %q, old alias should not resolve there", tt.args, cmd.Name())
+			}
+		})
+	}
+}
+
+func aliasUsageByCommandName(cmd *cobra.Command) map[string]map[string]struct{} {
+	usage := map[string]map[string]struct{}{}
+
+	var walk func(current *cobra.Command)
+	walk = func(current *cobra.Command) {
+		for _, child := range current.Commands() {
+			for _, alias := range child.Aliases {
+				if _, ok := usage[alias]; !ok {
+					usage[alias] = map[string]struct{}{}
+				}
+				usage[alias][child.Name()] = struct{}{}
+			}
+			walk(child)
+		}
+	}
+
+	walk(cmd)
+	return usage
 }
 
 func checkFlagCollisions(t *testing.T, cmd *cobra.Command, path string) {

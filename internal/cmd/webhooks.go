@@ -75,7 +75,7 @@ func newWebhooksListCmd() *cobra.Command {
 func newWebhooksGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get <id>",
-		Aliases: []string{"show", "g"},
+		Aliases: []string{"g"},
 		Short:   "Get a webhook by ID",
 		Example: "  cw webhooks get 123",
 		Args:    cobra.ExactArgs(1),

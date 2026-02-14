@@ -444,7 +444,7 @@ func newReportsAgentSummaryCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "agent-summary",
-		Aliases: []string{"agents-summary", "as"},
+		Aliases: []string{"agents-summary"},
 		Short:   "Get summary report grouped by agent",
 		Long: `Get summary report grouped by agent.
 

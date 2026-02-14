@@ -27,3 +27,8 @@ jobs:
 
       - name: Test
         run: go test -v ./...
+
+      - name: Coverage Gate
+        env:
+          COVERAGE_MIN: "79.0"
+        run: ./scripts/check-coverage.sh

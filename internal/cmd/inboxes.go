@@ -424,7 +424,7 @@ func newInboxesDeleteCmd() *cobra.Command {
 func newInboxesAgentBotCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "agent-bot <id>",
-		Aliases: []string{"ab"},
+		Aliases: []string{"bot"},
 		Short:   "Get the agent bot assigned to an inbox",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -778,7 +778,7 @@ func newInboxesCampaignsCmd() *cobra.Command {
 func newInboxesSyncTemplatesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "sync-templates <id>",
-		Aliases: []string{"st"},
+		Aliases: []string{"sync"},
 		Short:   "Sync WhatsApp templates for an inbox",
 		Long:    "Sync WhatsApp message templates from the WhatsApp Business API for this inbox",
 		Args:    cobra.ExactArgs(1),

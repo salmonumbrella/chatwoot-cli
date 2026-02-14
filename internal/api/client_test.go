@@ -998,3 +998,162 @@ func TestPostMultipart(t *testing.T) {
 		})
 	}
 }
+
+func TestSetRetryConfig_UpdatesClientAndCircuitBreaker(t *testing.T) {
+	client := newTestClient("https://example.com", "token", 1)
+	cfg := RetryConfig{
+		MaxRateLimitRetries:     3,
+		Max5xxRetries:           4,
+		RateLimitBaseDelay:      2 * time.Second,
+		ServerErrorRetryDelay:   3 * time.Second,
+		CircuitBreakerThreshold: 11,
+		CircuitBreakerResetTime: 30 * time.Second,
+	}
+
+	client.SetRetryConfig(cfg)
+
+	if client.RetryConfig.CircuitBreakerThreshold != 11 {
+		t.Fatalf("RetryConfig threshold = %d, want 11", client.RetryConfig.CircuitBreakerThreshold)
+	}
+	if client.circuitBreaker == nil {
+		t.Fatal("expected circuitBreaker to be initialized")
+	}
+	if client.circuitBreaker.threshold != 11 {
+		t.Fatalf("circuitBreaker threshold = %d, want 11", client.circuitBreaker.threshold)
+	}
+	if client.circuitBreaker.resetTime != 30*time.Second {
+		t.Fatalf("circuitBreaker resetTime = %s, want 30s", client.circuitBreaker.resetTime)
+	}
+}
+
+func TestSetRetryConfig_WhenCircuitBreakerIsNil(t *testing.T) {
+	client := newTestClient("https://example.com", "token", 1)
+	client.circuitBreaker = nil
+
+	cfg := client.RetryConfig
+	cfg.CircuitBreakerThreshold = 9
+	client.SetRetryConfig(cfg)
+
+	if client.RetryConfig.CircuitBreakerThreshold != 9 {
+		t.Fatalf("RetryConfig threshold = %d, want 9", client.RetryConfig.CircuitBreakerThreshold)
+	}
+}
+
+func TestDoRaw(t *testing.T) {
+	tests := []struct {
+		name        string
+		method      string
+		path        string
+		statusCode  int
+		body        string
+		expectError bool
+	}{
+		{
+			name:        "success",
+			method:      http.MethodPost,
+			path:        "conversations",
+			statusCode:  http.StatusCreated,
+			body:        `{"ok":true}`,
+			expectError: false,
+		},
+		{
+			name:        "api error",
+			method:      http.MethodGet,
+			path:        "/conversations/404",
+			statusCode:  http.StatusNotFound,
+			body:        `{"error":"not found"}`,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "token", 1)
+			respBody, headers, statusCode, err := client.DoRaw(context.Background(), tt.method, tt.path, map[string]any{"x": 1})
+
+			if tt.expectError && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if statusCode != tt.statusCode {
+				t.Fatalf("status = %d, want %d", statusCode, tt.statusCode)
+			}
+			if string(respBody) != tt.body {
+				t.Fatalf("body = %q, want %q", string(respBody), tt.body)
+			}
+			if headers == nil {
+				t.Fatal("expected non-nil headers")
+			}
+		})
+	}
+}
+
+func TestDoRaw_InvalidBodyMarshaling(t *testing.T) {
+	client := newTestClient("https://example.com", "token", 1)
+	_, _, _, err := client.DoRaw(context.Background(), http.MethodPost, "/test", map[string]any{"bad": make(chan int)})
+	if err == nil {
+		t.Fatal("expected marshaling error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to marshal request body") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPostMultipart_InvalidJSONResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("not-json"))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "token", 1)
+	var result map[string]any
+	err := client.PostMultipart(context.Background(), "/test", map[string]string{"a": "b"}, map[string][]byte{"f.txt": []byte("x")}, &result)
+	if err == nil {
+		t.Fatal("expected JSON decode error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unexpected API response format") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRequestIDFromHeader(t *testing.T) {
+	if got := requestIDFromHeader(nil); got != "" {
+		t.Fatalf("requestIDFromHeader(nil) = %q, want empty", got)
+	}
+
+	h1 := http.Header{}
+	h1.Set("X-Request-Id", "req-lower")
+	if got := requestIDFromHeader(h1); got != "req-lower" {
+		t.Fatalf("requestIDFromHeader(X-Request-Id) = %q", got)
+	}
+
+	h2 := http.Header{}
+	h2.Set("X-Request-ID", "req-upper")
+	if got := requestIDFromHeader(h2); got != "req-upper" {
+		t.Fatalf("requestIDFromHeader(X-Request-ID) = %q", got)
+	}
+
+	h3 := http.Header{}
+	if got := requestIDFromHeader(h3); got != "" {
+		t.Fatalf("requestIDFromHeader(empty) = %q, want empty", got)
+	}
+}
+
+func TestPlatformPathAndPublicPath_WithoutLeadingSlash(t *testing.T) {
+	client := newTestClient("https://example.com", "token", 1)
+	if got := client.platformPath("users"); got != "https://example.com/platform/api/v1/users" {
+		t.Fatalf("platformPath without slash = %q", got)
+	}
+	if got := client.publicPath("inboxes/abc123/messages"); got != "https://example.com/public/api/v1/inboxes/abc123/messages" {
+		t.Fatalf("publicPath without slash = %q", got)
+	}
+}

@@ -488,3 +488,66 @@ func TestBulkCreateAgents(t *testing.T) {
 		})
 	}
 }
+
+func TestFindAgentByNameOrEmail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		_, _ = w.Write([]byte(`[
+			{"id": 1, "name": "Alice Johnson", "email": "alice@example.com", "role": "agent"},
+			{"id": 2, "name": "Alice Cooper", "email": "alice.cooper@example.com", "role": "agent"},
+			{"id": 3, "name": "Bob Smith", "email": "bob@example.com", "role": "administrator"}
+		]`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server.URL, "test-token", 1)
+
+	t.Run("exact email match", func(t *testing.T) {
+		agent, err := client.Agents().Find(context.Background(), "alice@example.com")
+		if err != nil {
+			t.Fatalf("Find exact email error: %v", err)
+		}
+		if agent.ID != 1 {
+			t.Fatalf("Find exact email ID = %d, want 1", agent.ID)
+		}
+	})
+
+	t.Run("single prefix match", func(t *testing.T) {
+		agent, err := client.Agents().Find(context.Background(), "bob")
+		if err != nil {
+			t.Fatalf("Find prefix error: %v", err)
+		}
+		if agent.ID != 3 {
+			t.Fatalf("Find prefix ID = %d, want 3", agent.ID)
+		}
+	})
+
+	t.Run("no matches", func(t *testing.T) {
+		_, err := client.Agents().Find(context.Background(), "nobody")
+		if err == nil {
+			t.Fatal("expected not-found error, got nil")
+		}
+		if apiErr, ok := err.(*APIError); !ok || apiErr.StatusCode != 404 {
+			t.Fatalf("expected APIError 404, got %T (%v)", err, err)
+		}
+	})
+
+	t.Run("ambiguous matches", func(t *testing.T) {
+		_, err := client.Agents().Find(context.Background(), "alice")
+		if err == nil {
+			t.Fatal("expected ambiguous error, got nil")
+		}
+		apiErr, ok := err.(*APIError)
+		if !ok {
+			t.Fatalf("expected APIError, got %T (%v)", err, err)
+		}
+		if apiErr.StatusCode != 400 {
+			t.Fatalf("ambiguous status code = %d, want 400", apiErr.StatusCode)
+		}
+		if apiErr.Body == "" {
+			t.Fatal("expected ambiguous error body to include suggestions")
+		}
+	})
+}
