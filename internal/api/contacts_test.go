@@ -296,6 +296,134 @@ func TestUpdateContact(t *testing.T) {
 	}
 }
 
+func TestUpdateContactWithOpts(t *testing.T) {
+	tests := []struct {
+		name         string
+		opts         UpdateContactOpts
+		validateBody func(*testing.T, map[string]any)
+	}{
+		{
+			name: "company and country",
+			opts: UpdateContactOpts{
+				Company: "Acme Corp",
+				Country: "Canada",
+			},
+			validateBody: func(t *testing.T, body map[string]any) {
+				additional, ok := body["additional_attributes"].(map[string]any)
+				if !ok {
+					t.Fatal("expected additional_attributes in request body")
+				}
+				if additional["company_name"] != "Acme Corp" {
+					t.Errorf("expected company_name 'Acme Corp', got %v", additional["company_name"])
+				}
+				if additional["country"] != "Canada" {
+					t.Errorf("expected country 'Canada', got %v", additional["country"])
+				}
+			},
+		},
+		{
+			name: "custom attributes",
+			opts: UpdateContactOpts{
+				CustomAttributes: map[string]any{
+					"plan":   "enterprise",
+					"region": "APAC",
+				},
+			},
+			validateBody: func(t *testing.T, body map[string]any) {
+				customAttrs, ok := body["custom_attributes"].(map[string]any)
+				if !ok {
+					t.Fatal("expected custom_attributes in request body")
+				}
+				if customAttrs["plan"] != "enterprise" {
+					t.Errorf("expected plan 'enterprise', got %v", customAttrs["plan"])
+				}
+				if customAttrs["region"] != "APAC" {
+					t.Errorf("expected region 'APAC', got %v", customAttrs["region"])
+				}
+			},
+		},
+		{
+			name: "social profiles",
+			opts: UpdateContactOpts{
+				SocialProfiles: map[string]string{
+					"twitter":  "https://twitter.com/acme",
+					"linkedin": "https://linkedin.com/company/acme",
+				},
+			},
+			validateBody: func(t *testing.T, body map[string]any) {
+				additional, ok := body["additional_attributes"].(map[string]any)
+				if !ok {
+					t.Fatal("expected additional_attributes in request body")
+				}
+				socialProfiles, ok := additional["social_profiles"].(map[string]any)
+				if !ok {
+					t.Fatal("expected social_profiles in additional_attributes")
+				}
+				if socialProfiles["twitter"] != "https://twitter.com/acme" {
+					t.Errorf("expected twitter URL, got %v", socialProfiles["twitter"])
+				}
+				if socialProfiles["linkedin"] != "https://linkedin.com/company/acme" {
+					t.Errorf("expected linkedin URL, got %v", socialProfiles["linkedin"])
+				}
+			},
+		},
+		{
+			name: "mixed name company and custom attr",
+			opts: UpdateContactOpts{
+				Name:    "Alice Smith",
+				Company: "Acme Corp",
+				CustomAttributes: map[string]any{
+					"tier": "gold",
+				},
+			},
+			validateBody: func(t *testing.T, body map[string]any) {
+				if body["name"] != "Alice Smith" {
+					t.Errorf("expected name 'Alice Smith', got %v", body["name"])
+				}
+				additional, ok := body["additional_attributes"].(map[string]any)
+				if !ok {
+					t.Fatal("expected additional_attributes in request body")
+				}
+				if additional["company_name"] != "Acme Corp" {
+					t.Errorf("expected company_name 'Acme Corp', got %v", additional["company_name"])
+				}
+				customAttrs, ok := body["custom_attributes"].(map[string]any)
+				if !ok {
+					t.Fatal("expected custom_attributes in request body")
+				}
+				if customAttrs["tier"] != "gold" {
+					t.Errorf("expected tier 'gold', got %v", customAttrs["tier"])
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPatch {
+					t.Errorf("Expected PATCH, got %s", r.Method)
+				}
+				if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+					t.Errorf("Failed to decode request body: %v", err)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"payload": {"id": 123, "name": "Test", "created_at": 1700000000}}`))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 1)
+			_, err := client.Contacts().UpdateWithOpts(context.Background(), 123, tt.opts)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			tt.validateBody(t, capturedBody)
+		})
+	}
+}
+
 func TestDeleteContact(t *testing.T) {
 	tests := []struct {
 		name        string

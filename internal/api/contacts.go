@@ -119,6 +119,64 @@ func updateContact(ctx context.Context, r Requester, id int, name, email, phone 
 	return &result.Payload, nil
 }
 
+// UpdateContactOpts defines options for updating a contact with extended fields.
+type UpdateContactOpts struct {
+	Name             string
+	Email            string
+	Phone            string
+	Company          string
+	Country          string
+	CountryCode      string
+	CustomAttributes map[string]any
+	SocialProfiles   map[string]string
+}
+
+// UpdateWithOpts updates a contact using extended options including company,
+// country, custom attributes, and social profiles.
+func (s ContactsService) UpdateWithOpts(ctx context.Context, id int, opts UpdateContactOpts) (*Contact, error) {
+	return updateContactWithOpts(ctx, s, id, opts)
+}
+
+func updateContactWithOpts(ctx context.Context, r Requester, id int, opts UpdateContactOpts) (*Contact, error) {
+	body := map[string]any{}
+	if opts.Name != "" {
+		body["name"] = opts.Name
+	}
+	if opts.Email != "" {
+		body["email"] = opts.Email
+	}
+	if opts.Phone != "" {
+		body["phone_number"] = opts.Phone
+	}
+	if len(opts.CustomAttributes) > 0 {
+		body["custom_attributes"] = opts.CustomAttributes
+	}
+
+	additionalAttrs := map[string]any{}
+	if opts.Company != "" {
+		additionalAttrs["company_name"] = opts.Company
+	}
+	if opts.Country != "" {
+		additionalAttrs["country"] = opts.Country
+	}
+	if opts.CountryCode != "" {
+		additionalAttrs["country_code"] = opts.CountryCode
+	}
+	if len(opts.SocialProfiles) > 0 {
+		additionalAttrs["social_profiles"] = opts.SocialProfiles
+	}
+	if len(additionalAttrs) > 0 {
+		body["additional_attributes"] = additionalAttrs
+	}
+
+	var result ContactResponse
+	path := fmt.Sprintf("/contacts/%d", id)
+	if err := r.do(ctx, http.MethodPatch, r.accountPath(path), body, &result); err != nil {
+		return nil, err
+	}
+	return &result.Payload, nil
+}
+
 // Delete deletes a contact.
 func (s ContactsService) Delete(ctx context.Context, id int) error {
 	return deleteContact(ctx, s, id)
