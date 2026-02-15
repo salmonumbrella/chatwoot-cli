@@ -437,19 +437,26 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 
 func newContactsUpdateCmd() *cobra.Command {
 	var (
-		name  string
-		email string
-		phone string
-		emit  string
+		name        string
+		email       string
+		phone       string
+		company     string
+		country     string
+		customAttrs []string
+		social      []string
+		emit        string
 	)
 
 	cmd := &cobra.Command{
 		Use:     "update <identifier>",
 		Aliases: []string{"up"},
 		Short:   "Update a contact",
-		Long: `Update a contact's name, email, and/or phone number.
+		Long: `Update a contact's name, email, phone, company, country, custom attributes, and/or social profiles.
 
-Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolve the contact.`,
+Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolve the contact.
+
+Custom attributes are set via repeatable --custom-attr/-A flags with key=value format.
+Social profiles are set via repeatable --social/-S flags with platform=url format.`,
 		Example: `  # Update by ID
   cw contacts update 123 --name "Updated Name"
 
@@ -457,12 +464,21 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
   cw contacts update john@example.com --name "John Smith"
 
   # Update by phone number (if searchable)
-  cw contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"`,
+  cw contacts update +16042091231 --name "Wenqi Qu" --email "quwenqi@example.com"
+
+  # Set company and country
+  cw contacts update 123 --company "Acme Corp" --country "Canada"
+
+  # Set custom attributes
+  cw contacts update 123 -A plan=enterprise -A region=APAC
+
+  # Set social profiles
+  cw contacts update 123 -S twitter=https://twitter.com/acme -S linkedin=https://linkedin.com/company/acme`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 
-			if name == "" && email == "" && phone == "" {
-				return fmt.Errorf("at least one of --name, --email, or --phone must be provided")
+			if name == "" && email == "" && phone == "" && company == "" && country == "" && len(customAttrs) == 0 && len(social) == 0 {
+				return fmt.Errorf("at least one of --name, --email, --phone, --company, --country, --custom-attr, or --social must be provided")
 			}
 
 			// Validate input lengths
@@ -484,6 +500,26 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 				return err
 			}
 
+			// Parse custom attributes
+			customAttrMap := make(map[string]any)
+			for _, attr := range customAttrs {
+				key, value, found := strings.Cut(attr, "=")
+				if !found {
+					return fmt.Errorf("invalid custom-attr format %q, expected key=value", attr)
+				}
+				customAttrMap[key] = value
+			}
+
+			// Parse social profiles
+			socialMap := make(map[string]string)
+			for _, s := range social {
+				platform, url, found := strings.Cut(s, "=")
+				if !found {
+					return fmt.Errorf("invalid social format %q, expected platform=url", s)
+				}
+				socialMap[platform] = url
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -495,7 +531,21 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 				return err
 			}
 
-			contact, err := client.Contacts().Update(ctx, id, name, email, phone)
+			opts := api.UpdateContactOpts{
+				Name:    name,
+				Email:   email,
+				Phone:   phone,
+				Company: company,
+				Country: country,
+			}
+			if len(customAttrMap) > 0 {
+				opts.CustomAttributes = customAttrMap
+			}
+			if len(socialMap) > 0 {
+				opts.SocialProfiles = socialMap
+			}
+
+			contact, err := client.Contacts().UpdateWithOpts(ctx, id, opts)
 			if err != nil {
 				return fmt.Errorf("failed to update contact %d: %w", id, err)
 			}
@@ -526,6 +576,10 @@ Accepts numeric ID, Chatwoot URL, email address, name, or phone number to resolv
 	cmd.Flags().StringVarP(&name, "name", "n", "", "New contact name")
 	cmd.Flags().StringVarP(&email, "email", "e", "", "New contact email address")
 	cmd.Flags().StringVar(&phone, "phone", "", "New contact phone number")
+	cmd.Flags().StringVarP(&company, "company", "C", "", "Company name")
+	cmd.Flags().StringVarP(&country, "country", "K", "", "Country name (e.g. Taiwan, Canada)")
+	cmd.Flags().StringSliceVarP(&customAttrs, "custom-attr", "A", nil, "Custom attribute key=value (repeatable)")
+	cmd.Flags().StringSliceVarP(&social, "social", "S", nil, "Social profile platform=url (repeatable)")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 
 	return cmd

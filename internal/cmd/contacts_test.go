@@ -236,6 +236,112 @@ func TestContactsUpdateCommand_ByEmail(t *testing.T) {
 	}
 }
 
+func TestContactsUpdateCommand_WithCompanyAndCountry(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/contacts/123", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"payload": {"id": 123, "name": "Test", "created_at": 1700000000}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "update", "123", "--company", "Acme Corp", "--country", "Canada"})
+		if err != nil {
+			t.Errorf("contacts update with company/country failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "123") {
+		t.Errorf("output missing contact ID: %s", output)
+	}
+
+	additional, ok := receivedBody["additional_attributes"].(map[string]any)
+	if !ok {
+		t.Fatal("expected additional_attributes in request body")
+	}
+	if additional["company_name"] != "Acme Corp" {
+		t.Errorf("expected company_name 'Acme Corp', got %v", additional["company_name"])
+	}
+	if additional["country"] != "Canada" {
+		t.Errorf("expected country 'Canada', got %v", additional["country"])
+	}
+}
+
+func TestContactsUpdateCommand_WithCustomAttr(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/contacts/123", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"payload": {"id": 123, "name": "Test", "created_at": 1700000000}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "update", "123", "-A", "plan=enterprise", "-A", "region=APAC"})
+		if err != nil {
+			t.Errorf("contacts update with custom-attr failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "123") {
+		t.Errorf("output missing contact ID: %s", output)
+	}
+
+	customAttrs, ok := receivedBody["custom_attributes"].(map[string]any)
+	if !ok {
+		t.Fatal("expected custom_attributes in request body")
+	}
+	if customAttrs["plan"] != "enterprise" {
+		t.Errorf("expected plan 'enterprise', got %v", customAttrs["plan"])
+	}
+	if customAttrs["region"] != "APAC" {
+		t.Errorf("expected region 'APAC', got %v", customAttrs["region"])
+	}
+}
+
+func TestContactsUpdateCommand_WithSocial(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/contacts/123", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"payload": {"id": 123, "name": "Test", "created_at": 1700000000}}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "update", "123", "-S", "twitter=https://twitter.com/acme", "-S", "linkedin=https://linkedin.com/company/acme"})
+		if err != nil {
+			t.Errorf("contacts update with social failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "123") {
+		t.Errorf("output missing contact ID: %s", output)
+	}
+
+	additional, ok := receivedBody["additional_attributes"].(map[string]any)
+	if !ok {
+		t.Fatal("expected additional_attributes in request body")
+	}
+	socialProfiles, ok := additional["social_profiles"].(map[string]any)
+	if !ok {
+		t.Fatal("expected social_profiles in additional_attributes")
+	}
+	if socialProfiles["twitter"] != "https://twitter.com/acme" {
+		t.Errorf("expected twitter URL, got %v", socialProfiles["twitter"])
+	}
+	if socialProfiles["linkedin"] != "https://linkedin.com/company/acme" {
+		t.Errorf("expected linkedin URL, got %v", socialProfiles["linkedin"])
+	}
+}
+
 func TestContactsUpdateCommand_NoFlags(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 
