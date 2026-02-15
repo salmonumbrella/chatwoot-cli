@@ -22,6 +22,8 @@ Thumbs.db
 /docs/
 CLAUDE.md
 PLAN-*.md
+plan.md
+ALIASES_SHORTCODES_AUDIT.md
 BATCH-*.md
 CODE_REVIEW_*.md
 *test-results*.md
