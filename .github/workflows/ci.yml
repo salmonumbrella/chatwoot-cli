@@ -26,9 +26,10 @@ jobs:
         run: go build -v ./...
 
       - name: Test
-        run: go test -v ./...
+        run: go test -v -race ./... -coverprofile=/tmp/chatwoot-cover-ci.out
 
       - name: Coverage Gate
         env:
           COVERAGE_MIN: "79.0"
+          COVERAGE_PROFILE: /tmp/chatwoot-cover-ci.out
         run: ./scripts/check-coverage.sh

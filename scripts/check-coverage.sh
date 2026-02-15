@@ -4,8 +4,10 @@ set -euo pipefail
 threshold="${COVERAGE_MIN:-79.0}"
 profile="${COVERAGE_PROFILE:-/tmp/chatwoot-cover-ci.out}"
 
-printf 'Running tests with coverage profile %s\n' "$profile"
-go test ./... -coverprofile="$profile" >/dev/null
+if [[ ! -f "$profile" ]]; then
+	printf 'Running tests with coverage profile %s\n' "$profile"
+	go test ./... -coverprofile="$profile"
+fi
 
 total_raw="$(go tool cover -func="$profile" | awk '/^total:/{print $3}')"
 total="${total_raw%%%}"
