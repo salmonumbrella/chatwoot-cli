@@ -106,17 +106,25 @@ func createConversation(ctx context.Context, r Requester, req CreateConversation
 }
 
 // Filter filters conversations based on custom query payload.
-func (s ConversationsService) Filter(ctx context.Context, payload map[string]any) (*ConversationList, error) {
-	return filterConversations(ctx, s, payload)
+func (s ConversationsService) Filter(ctx context.Context, payload map[string]any, page int) (*ConversationList, error) {
+	return filterConversations(ctx, s, payload, page)
 }
 
-func filterConversations(ctx context.Context, r Requester, payload map[string]any) (*ConversationList, error) {
+func filterConversations(ctx context.Context, r Requester, payload map[string]any, page int) (*ConversationList, error) {
 	var raw struct {
 		Meta    PaginationMeta `json:"meta"`
 		Payload []Conversation `json:"payload"`
 	}
-	if err := r.do(ctx, http.MethodPost, r.accountPath("/conversations/filter"), payload, &raw); err != nil {
+	path := r.accountPath("/conversations/filter")
+	if page > 0 {
+		path += fmt.Sprintf("?page=%d", page)
+	}
+	if err := r.do(ctx, http.MethodPost, path, payload, &raw); err != nil {
 		return nil, err
+	}
+	payload2 := raw.Payload
+	if payload2 == nil {
+		payload2 = []Conversation{}
 	}
 	// Convert to ConversationList format for consistency
 	return &ConversationList{
@@ -125,7 +133,7 @@ func filterConversations(ctx context.Context, r Requester, payload map[string]an
 			Payload []Conversation `json:"payload"`
 		}{
 			Meta:    raw.Meta,
-			Payload: raw.Payload,
+			Payload: payload2,
 		},
 	}, nil
 }

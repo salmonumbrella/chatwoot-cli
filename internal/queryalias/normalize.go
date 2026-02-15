@@ -276,6 +276,7 @@ func normalizeQuery(expr string) string {
 	inString := false
 	escaped := false
 	inComment := false
+	braceDepth := 0
 
 	for i := 0; i < len(expr); {
 		ch := expr[i]
@@ -315,6 +316,16 @@ func normalizeQuery(expr string) string {
 			inComment = true
 			out.WriteByte(ch)
 			i++
+		case '{':
+			braceDepth++
+			out.WriteByte(ch)
+			i++
+		case '}':
+			if braceDepth > 0 {
+				braceDepth--
+			}
+			out.WriteByte(ch)
+			i++
 		case '.':
 			out.WriteByte(ch)
 			i++
@@ -331,7 +342,8 @@ func normalizeQuery(expr string) string {
 		default:
 			// Bare tokens (not preceded by '.') are NOT alias-rewritten for path access.
 			// They may be jq keywords (and, or, not, null, as, def, etc.).
-			// Only function aliases (followed by '(') are rewritten here.
+			// Only function aliases (followed by '(') and jq object construction
+			// shorthands (inside { }, not followed by ':') are rewritten here.
 			if isLowerIdentifierStart(ch) {
 				start := i
 				i++
@@ -341,6 +353,8 @@ func normalizeQuery(expr string) string {
 				token := expr[start:i]
 				if shouldRewriteFunctionAlias(expr, start, i) {
 					out.WriteString(canonicalizeFunctionToken(token))
+				} else if braceDepth > 0 && isJqShorthandKey(expr, i) {
+					out.WriteString(canonicalizeToken(token))
 				} else {
 					out.WriteString(token)
 				}
@@ -377,4 +391,22 @@ func shouldRewriteFunctionAlias(expr string, start, end int) bool {
 		}
 	}
 	return false
+}
+
+// isJqShorthandKey checks if a bare token at position end in expr is used as a jq
+// object construction shorthand (i.e., {foo} not {foo: bar}).
+// Returns true if the next non-whitespace character is , or } (not :).
+func isJqShorthandKey(expr string, end int) bool {
+	for j := end; j < len(expr); j++ {
+		switch expr[j] {
+		case ' ', '\t', '\n', '\r':
+			continue
+		case ',', '}':
+			return true
+		default:
+			return false
+		}
+	}
+	// End of expression inside braces — treat as shorthand.
+	return true
 }

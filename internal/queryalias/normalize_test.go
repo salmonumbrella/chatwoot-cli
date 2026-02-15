@@ -155,6 +155,46 @@ func TestNormalizeQuery(t *testing.T) {
 			want: `.payload | del(.temp)`,
 		},
 		{
+			name: "shorthand single key",
+			in:   `{i}`,
+			want: `{id}`,
+		},
+		{
+			name: "shorthand multiple keys",
+			in:   `{i, n}`,
+			want: `{id, name}`,
+		},
+		{
+			name: "shorthand mixed with dot path",
+			in:   `{i, s: .st}`,
+			want: `{id, s: .status}`,
+		},
+		{
+			name: "shorthand in pipeline",
+			in:   `.it[] | {i, st, ct}`,
+			want: `.items[] | {id, status, content}`,
+		},
+		{
+			name: "key-value pair key not rewritten",
+			in:   `{i: .st}`,
+			want: `{i: .status}`,
+		},
+		{
+			name: "key-value pair string value",
+			in:   `{n: "hello"}`,
+			want: `{n: "hello"}`,
+		},
+		{
+			name: "shorthand nested braces",
+			in:   `{a: {i}}`,
+			want: `{a: {id}}`,
+		},
+		{
+			name: "shorthand unknown token unchanged",
+			in:   `{foo}`,
+			want: `{foo}`,
+		},
+		{
 			name: "empty input",
 			in:   "",
 			want: "",

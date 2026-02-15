@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -2227,5 +2228,99 @@ func TestConversationsTriage_JSON(t *testing.T) {
 	}
 	if result.Items[1].ContactName != "Alice Customer" {
 		t.Errorf("expected second contact name 'Alice Customer', got %q", result.Items[1].ContactName)
+	}
+}
+
+func TestExpandFilterPayload(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "shortcode keys and values expand",
+			input:    `{"payload":[{"ak":"st","fo":"eq","v":["open"]}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]}`,
+		},
+		{
+			name:     "bare array gets wrapped and expanded",
+			input:    `[{"ak":"ii","fo":"ne","v":[48]}]`,
+			expected: `{"payload":[{"attribute_key":"inbox_id","filter_operator":"not_equal_to","values":[48]}]}`,
+		},
+		{
+			name:     "query_operator uppercased",
+			input:    `{"payload":[{"ak":"st","fo":"eq","v":["open"],"qo":"and"}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"],"query_operator":"AND"}]}`,
+		},
+		{
+			name:     "already uppercase query_operator preserved",
+			input:    `{"payload":[{"ak":"st","fo":"eq","v":["open"],"qo":"OR"}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"],"query_operator":"OR"}]}`,
+		},
+		{
+			name:     "unknown shortcodes passed through",
+			input:    `{"payload":[{"ak":"custom_field","fo":"zz","v":["x"],"extra":"y"}]}`,
+			expected: `{"payload":[{"attribute_key":"custom_field","filter_operator":"zz","values":["x"],"extra":"y"}]}`,
+		},
+		{
+			name:     "full keys not double-expanded",
+			input:    `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]}`,
+		},
+		{
+			name:     "pl shortcode expands to payload",
+			input:    `{"pl":[{"ak":"st","fo":"eq","v":["open"]}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]}`,
+		},
+		{
+			name:     "multiple conditions",
+			input:    `{"payload":[{"ak":"st","fo":"eq","v":["open"],"qo":"and"},{"ak":"ii","fo":"eq","v":[15,20,28]}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"],"query_operator":"AND"},{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[15,20,28]}]}`,
+		},
+		{
+			name:     "all attribute shortcodes",
+			input:    `{"payload":[{"ak":"ai","fo":"eq","v":[1]},{"ak":"ti","fo":"eq","v":[2]},{"ak":"pr","fo":"eq","v":["urgent"]},{"ak":"lb","fo":"co","v":["vip"]}]}`,
+			expected: `{"payload":[{"attribute_key":"assignee_id","filter_operator":"equal_to","values":[1]},{"attribute_key":"team_id","filter_operator":"equal_to","values":[2]},{"attribute_key":"priority","filter_operator":"equal_to","values":["urgent"]},{"attribute_key":"label_list","filter_operator":"contains","values":["vip"]}]}`,
+		},
+		{
+			name:     "all operator shortcodes",
+			input:    `{"payload":[{"ak":"st","fo":"co","v":["a"]},{"ak":"st","fo":"nc","v":["b"]},{"ak":"st","fo":"ip","v":[]},{"ak":"st","fo":"np","v":[]}]}`,
+			expected: `{"payload":[{"attribute_key":"status","filter_operator":"contains","values":["a"]},{"attribute_key":"status","filter_operator":"does_not_contain","values":["b"]},{"attribute_key":"status","filter_operator":"is_present","values":[]},{"attribute_key":"status","filter_operator":"is_not_present","values":[]}]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input map[string]any
+			raw := tt.input
+
+			// Simulate the same bare-array wrapping that the command does
+			if err := json.Unmarshal([]byte(raw), &input); err != nil {
+				var arr []any
+				if arrErr := json.Unmarshal([]byte(raw), &arr); arrErr != nil {
+					t.Fatalf("invalid test input JSON: %v", err)
+				}
+				input = map[string]any{"payload": arr}
+			}
+
+			result := expandFilterPayload(input)
+
+			var expected map[string]any
+			if err := json.Unmarshal([]byte(tt.expected), &expected); err != nil {
+				t.Fatalf("invalid expected JSON: %v", err)
+			}
+
+			// Marshal and re-unmarshal both to normalize number types (float64)
+			resultJSON, _ := json.Marshal(result)
+			expectedJSON, _ := json.Marshal(expected)
+
+			var resultNorm, expectedNorm any
+			_ = json.Unmarshal(resultJSON, &resultNorm)
+			_ = json.Unmarshal(expectedJSON, &expectedNorm)
+
+			if !reflect.DeepEqual(resultNorm, expectedNorm) {
+				t.Errorf("expandFilterPayload mismatch\n  got:  %s\n  want: %s", resultJSON, expectedJSON)
+			}
+		})
 	}
 }

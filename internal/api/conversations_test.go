@@ -1049,6 +1049,21 @@ func TestFilterConversations(t *testing.T) {
 			},
 		},
 		{
+			name:         "null payload returns empty slice",
+			payload:      map[string]any{},
+			statusCode:   http.StatusOK,
+			responseBody: `{"meta": {"current_page": 1, "total_count": 0}, "payload": null}`,
+			expectError:  false,
+			validateFunc: func(t *testing.T, result *ConversationList) {
+				if result.Data.Payload == nil {
+					t.Error("Expected non-nil payload slice, got nil")
+				}
+				if len(result.Data.Payload) != 0 {
+					t.Errorf("Expected 0 conversations, got %d", len(result.Data.Payload))
+				}
+			},
+		},
+		{
 			name:         "server error",
 			payload:      map[string]any{},
 			statusCode:   http.StatusInternalServerError,
@@ -1074,7 +1089,7 @@ func TestFilterConversations(t *testing.T) {
 			defer server.Close()
 
 			client := newTestClient(server.URL, "test-token", 1)
-			result, err := client.Conversations().Filter(context.Background(), tt.payload)
+			result, err := client.Conversations().Filter(context.Background(), tt.payload, 0)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got nil")

@@ -421,8 +421,104 @@ func newConversationsCreateCmd() *cobra.Command {
 	return cmd
 }
 
+// filterPayloadShortcodes maps short keys to their full Chatwoot filter API equivalents.
+var filterPayloadShortcodes = map[string]string{
+	"ak": "attribute_key",
+	"fo": "filter_operator",
+	"v":  "values",
+	"qo": "query_operator",
+}
+
+// filterOperatorShortcodes maps short operator names to their full equivalents.
+var filterOperatorShortcodes = map[string]string{
+	"eq": "equal_to",
+	"ne": "not_equal_to",
+	"co": "contains",
+	"nc": "does_not_contain",
+	"ip": "is_present",
+	"np": "is_not_present",
+}
+
+// filterAttributeShortcodes maps short attribute names to their full equivalents.
+var filterAttributeShortcodes = map[string]string{
+	"st": "status",
+	"ii": "inbox_id",
+	"ai": "assignee_id",
+	"ti": "team_id",
+	"pr": "priority",
+	"lb": "label_list",
+}
+
+// expandFilterPayload expands shortcode keys and values in a filter payload.
+// It looks for the "payload" (or "pl") key containing an array of filter conditions,
+// and expands shortcodes in each condition's keys and values.
+func expandFilterPayload(payload map[string]any) map[string]any {
+	// Resolve "pl" shortcode for the top-level key
+	if arr, ok := payload["pl"]; ok {
+		if _, exists := payload["payload"]; !exists {
+			payload["payload"] = arr
+			delete(payload, "pl")
+		}
+	}
+
+	arr, ok := payload["payload"].([]any)
+	if !ok {
+		return payload
+	}
+
+	for i, item := range arr {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		arr[i] = expandFilterCondition(obj)
+	}
+	payload["payload"] = arr
+	return payload
+}
+
+// expandFilterCondition expands shortcode keys and values in a single filter condition.
+func expandFilterCondition(cond map[string]any) map[string]any {
+	expanded := make(map[string]any, len(cond))
+	for k, v := range cond {
+		fullKey := k
+		if fk, ok := filterPayloadShortcodes[k]; ok {
+			// Only expand if the full key doesn't already exist
+			if _, exists := cond[fk]; !exists {
+				fullKey = fk
+			}
+		}
+
+		switch fullKey {
+		case "attribute_key":
+			if s, ok := v.(string); ok {
+				if expanded, ok := filterAttributeShortcodes[s]; ok {
+					v = expanded
+				}
+			}
+		case "filter_operator":
+			if s, ok := v.(string); ok {
+				if expanded, ok := filterOperatorShortcodes[s]; ok {
+					v = expanded
+				}
+			}
+		case "query_operator":
+			if s, ok := v.(string); ok {
+				v = strings.ToUpper(s)
+			}
+		}
+
+		expanded[fullKey] = v
+	}
+	return expanded
+}
+
 func newConversationsFilterCmd() *cobra.Command {
 	var payloadStr string
+	var page int
+	var all bool
+	var maxPages int
+	var folderID int
 
 	cmd := &cobra.Command{
 		Use:     "filter",
@@ -431,27 +527,58 @@ func newConversationsFilterCmd() *cobra.Command {
 		Long: `Filter conversations using the Chatwoot filter API.
 
 The payload follows the Chatwoot filter API format with an array of filter conditions.
+Accepts a full object, a bare array (auto-wrapped), or stdin via --payload -.
+Use --folder to load a saved custom filter by ID.
+
+Shortcodes are supported for terser filter queries:
+  Keys:       ak → attribute_key, fo → filter_operator, v → values, qo → query_operator
+  Operators:  eq → equal_to, ne → not_equal_to, co → contains, nc → does_not_contain,
+              ip → is_present, np → is_not_present
+  Attributes: st → status, ii → inbox_id, ai → assignee_id, ti → team_id,
+              pr → priority, lb → label_list
+
 See: https://developers.chatwoot.com/api-reference/conversations/conversations-filter`,
 		Example: strings.TrimSpace(`
   # Filter by multiple statuses (open OR pending OR snoozed)
   cw conversations filter --payload '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open","pending","snoozed"]}]}'
 
+  # Same filter using shortcodes
+  cw c f --pl '[{"ak":"st","fo":"eq","v":["open","pending","snoozed"]}]'
+
   # Filter by inbox
   cw conversations filter --payload '{"payload":[{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[1]}]}'
 
-  # Combine filters with AND
-  cw conversations filter --payload '{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"],"query_operator":"AND"},{"attribute_key":"inbox_id","filter_operator":"equal_to","values":[1]}]}'
+  # Same filter using shortcodes
+  cw c f --pl '[{"ak":"ii","fo":"eq","v":[1]}]'
+
+  # Combine filters with AND (shortcodes)
+  cw c f --pl '[{"ak":"st","fo":"eq","v":["open"],"qo":"and"},{"ak":"ii","fo":"eq","v":[1]}]'
+
+  # Payload as bare array (auto-wrapped)
+  cw conversations filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'
+
+  # Payload from stdin
+  echo '{"payload":[...]}' | cw conversations filter --payload -
+
+  # Use a saved custom filter/folder
+  cw conversations filter --folder 1
+  cw conversations filter --folder 1 --all
+
+  # Filter with pagination
+  cw conversations filter --payload '...' --page 2
+
+  # Fetch all pages
+  cw conversations filter --payload '...' --all
 
   # Filter operators: equal_to, not_equal_to, contains, does_not_contain
+  # Shortcodes:       eq,       ne,           co,       nc
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
-			if payloadStr == "" {
-				return fmt.Errorf("--payload is required")
+			if folderID > 0 && payloadStr != "" {
+				return fmt.Errorf("cannot use both --folder and --payload")
 			}
-
-			var payload map[string]any
-			if err := json.Unmarshal([]byte(payloadStr), &payload); err != nil {
-				return fmt.Errorf("invalid JSON payload: %w", err)
+			if folderID == 0 && payloadStr == "" {
+				return fmt.Errorf("--payload or --folder is required")
 			}
 
 			client, err := getClient()
@@ -459,7 +586,39 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 				return err
 			}
 
-			result, err := client.Conversations().Filter(cmdContext(cmd), payload)
+			var payload map[string]any
+			if folderID > 0 {
+				filter, ferr := client.CustomFilters().Get(cmdContext(cmd), folderID)
+				if ferr != nil {
+					return fmt.Errorf("failed to get custom filter %d: %w", folderID, ferr)
+				}
+				payload = filter.Query
+			} else {
+				if payloadStr == "-" {
+					data, rerr := io.ReadAll(os.Stdin)
+					if rerr != nil {
+						return fmt.Errorf("failed to read payload from stdin: %w", rerr)
+					}
+					payloadStr = string(data)
+				}
+
+				if err = json.Unmarshal([]byte(payloadStr), &payload); err != nil {
+					// Try parsing as array and wrapping
+					var arr []any
+					if arrErr := json.Unmarshal([]byte(payloadStr), &arr); arrErr != nil {
+						return fmt.Errorf("invalid JSON payload: %w", err)
+					}
+					payload = map[string]any{"payload": arr}
+				}
+			}
+
+			payload = expandFilterPayload(payload)
+
+			if all {
+				return filterAllConversations(cmd, client, payload, maxPages)
+			}
+
+			result, err := client.Conversations().Filter(cmdContext(cmd), payload, page)
 			if err != nil {
 				return fmt.Errorf("failed to filter conversations: %w", err)
 			}
@@ -467,29 +626,102 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 			if isAgent(cmd) {
 				summaries := agentfmt.ConversationSummaries(result.Data.Payload)
 				summaries = resolveConversationSummaries(cmdContext(cmd), client, summaries)
-				payload := agentfmt.ListEnvelope{
+				envelope := agentfmt.ListEnvelope{
 					Kind:  agentfmt.KindFromCommandPath(cmd.CommandPath()),
 					Items: summaries,
 					Meta: map[string]any{
 						"total_items": len(summaries),
+						"page":        page,
+						"meta":        result.Data.Meta,
 					},
 				}
-				return printJSON(cmd, payload)
+				return printJSON(cmd, envelope)
 			}
 			if isJSON(cmd) {
 				return printJSON(cmd, result.Data.Payload)
 			}
 
 			printConversationsTable(cmd.OutOrStdout(), result.Data.Payload)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nPage %d (%d conversations)\n", page, len(result.Data.Payload))
 
 			return nil
 		}),
 	}
 
-	cmd.Flags().StringVar(&payloadStr, "payload", "", "JSON payload for filtering (required)")
+	cmd.Flags().StringVar(&payloadStr, "payload", "", "JSON payload for filtering (object, array, or - for stdin)")
+	cmd.Flags().IntVar(&folderID, "folder", 0, "Custom filter/folder ID to use as filter query")
+	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Fetch all pages")
+	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch with --all")
 	flagAlias(cmd.Flags(), "payload", "pl")
+	flagAlias(cmd.Flags(), "folder", "view")
+	flagAlias(cmd.Flags(), "max-pages", "mp")
 
 	return cmd
+}
+
+func filterAllConversations(cmd *cobra.Command, client *api.Client, payload map[string]any, maxPages int) error {
+	var allConversations []api.Conversation
+	currentPage := 1
+	pagesFetched := 0
+
+	for {
+		if pagesFetched >= maxPages {
+			return fmt.Errorf("safety limit reached: fetched %d pages (%d conversations). Use --max-pages to increase", maxPages, len(allConversations))
+		}
+
+		if currentPage > 1 {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Fetching page %d...\n", currentPage) //nolint:errcheck
+		}
+
+		result, err := client.Conversations().Filter(cmdContext(cmd), payload, currentPage)
+		if err != nil {
+			return fmt.Errorf("failed to filter conversations: %w", err)
+		}
+
+		conversations := result.Data.Payload
+		totalPages := int(result.Data.Meta.TotalPages)
+
+		if len(conversations) == 0 {
+			break
+		}
+
+		allConversations = append(allConversations, conversations...)
+		pagesFetched++
+
+		if totalPages > 0 && currentPage >= totalPages {
+			break
+		}
+
+		currentPage++
+	}
+
+	if isAgent(cmd) {
+		summaries := agentfmt.ConversationSummaries(allConversations)
+		summaries = resolveConversationSummaries(cmdContext(cmd), client, summaries)
+		envelope := agentfmt.ListEnvelope{
+			Kind:  agentfmt.KindFromCommandPath(cmd.CommandPath()),
+			Items: summaries,
+			Meta: map[string]any{
+				"pages_fetched": pagesFetched,
+				"total_items":   len(allConversations),
+				"all":           true,
+			},
+		}
+		return printJSON(cmd, envelope)
+	}
+	if isJSON(cmd) {
+		return printJSON(cmd, allConversations)
+	}
+
+	if len(allConversations) == 0 {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No conversations found matching your filter")
+		return nil
+	}
+
+	printConversationsTable(cmd.OutOrStdout(), allConversations)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d conversations (%d pages)\n", len(allConversations), pagesFetched)
+	return nil
 }
 
 func newConversationsMetaCmd() *cobra.Command {
