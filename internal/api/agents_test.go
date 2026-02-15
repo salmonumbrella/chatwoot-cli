@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -319,9 +320,9 @@ func TestUpdateAgent(t *testing.T) {
 					t.Errorf("Expected PATCH, got %s", r.Method)
 				}
 
-				expectedPath := "/api/v1/accounts/1/agents/" + string(rune(tt.agentID+'0'))
+				expectedPath := fmt.Sprintf("/api/v1/accounts/1/agents/%d", tt.agentID)
 				if r.URL.Path != expectedPath {
-					t.Logf("Note: Path is %s (agent ID %d)", r.URL.Path, tt.agentID)
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
 				}
 
 				w.Header().Set("Content-Type", "application/json")
