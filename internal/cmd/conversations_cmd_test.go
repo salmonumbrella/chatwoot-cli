@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -355,14 +356,14 @@ func TestConversationsUnmuteCommand(t *testing.T) {
 }
 
 func TestConversationsBulkResolve(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
 		})
 
@@ -377,8 +378,8 @@ func TestConversationsBulkResolve(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Resolved 2 conversations") {
@@ -387,14 +388,14 @@ func TestConversationsBulkResolve(t *testing.T) {
 }
 
 func TestConversationsBulkResolve_AcceptsURLs(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
 		})
 
@@ -413,8 +414,8 @@ func TestConversationsBulkResolve_AcceptsURLs(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 	if !strings.Contains(output, "Resolved 2 conversations") {
 		t.Errorf("unexpected output: %s", output)
@@ -422,14 +423,14 @@ func TestConversationsBulkResolve_AcceptsURLs(t *testing.T) {
 }
 
 func TestConversationsBulkResolve_IdsFromStdin(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
 		})
 
@@ -457,8 +458,8 @@ func TestConversationsBulkResolve_IdsFromStdin(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 	if !strings.Contains(output, "Resolved 2 conversations") {
 		t.Errorf("unexpected output: %s", output)
@@ -466,14 +467,14 @@ func TestConversationsBulkResolve_IdsFromStdin(t *testing.T) {
 }
 
 func TestConversationsBulkAssign(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		})
 
@@ -488,8 +489,8 @@ func TestConversationsBulkAssign(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Assigned 2 conversations") {
@@ -498,17 +499,17 @@ func TestConversationsBulkAssign(t *testing.T) {
 }
 
 func TestConversationsBulkAssign_AgentByName(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/agents", jsonResponse(200, `[
 			{"id": 5, "name": "Agent", "email": "agent@example.com", "role": "agent"}
 		]`)).
 		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		})
 
@@ -523,8 +524,8 @@ func TestConversationsBulkAssign_AgentByName(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 	if !strings.Contains(output, "Assigned 2 conversations") {
 		t.Errorf("unexpected output: %s", output)
@@ -532,14 +533,14 @@ func TestConversationsBulkAssign_AgentByName(t *testing.T) {
 }
 
 func TestConversationsBulkAddLabel(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"payload": ["urgent", "new-label"]}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"payload": ["new-label"]}`)(w, r)
 		})
 
@@ -554,8 +555,8 @@ func TestConversationsBulkAddLabel(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Added labels to 2 conversations") {
@@ -564,10 +565,10 @@ func TestConversationsBulkAddLabel(t *testing.T) {
 }
 
 func TestConversationsBulkAddLabel_LabelsFromStdin(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"payload": ["urgent", "new-label"]}`)(w, r)
 		})
 
@@ -595,8 +596,8 @@ func TestConversationsBulkAddLabel_LabelsFromStdin(t *testing.T) {
 		}
 	})
 
-	if callCount != 1 {
-		t.Errorf("expected 1 API call, got %d", callCount)
+	if callCount.Load() != 1 {
+		t.Errorf("expected 1 API call, got %d", callCount.Load())
 	}
 	if !strings.Contains(output, "Added labels to 1 conversations") {
 		t.Errorf("unexpected output: %s", output)
@@ -696,18 +697,18 @@ func TestConversationsBulkAssign_RequiresAgentOrTeam(t *testing.T) {
 }
 
 func TestConversationsResolveMultiple(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/3/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 3, "current_status": "resolved"}}`)(w, r)
 		})
 
@@ -723,8 +724,8 @@ func TestConversationsResolveMultiple(t *testing.T) {
 		}
 	})
 
-	if callCount != 3 {
-		t.Errorf("expected 3 API calls, got %d", callCount)
+	if callCount.Load() != 3 {
+		t.Errorf("expected 3 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Resolved 3 conversations") {
@@ -733,14 +734,14 @@ func TestConversationsResolveMultiple(t *testing.T) {
 }
 
 func TestConversationsResolveMultiple_CommaSeparated(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 1, "current_status": "resolved"}}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/toggle_status", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"meta": {}, "payload": {"success": true, "conversation_id": 2, "current_status": "resolved"}}`)(w, r)
 		})
 
@@ -756,8 +757,8 @@ func TestConversationsResolveMultiple_CommaSeparated(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Resolved 2 conversations") {
@@ -789,18 +790,18 @@ func TestConversationsResolveSingle(t *testing.T) {
 }
 
 func TestConversationsAssignMultiple(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/3/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 5, "name": "Agent"}`)(w, r)
 		})
 
@@ -816,8 +817,8 @@ func TestConversationsAssignMultiple(t *testing.T) {
 		}
 	})
 
-	if callCount != 3 {
-		t.Errorf("expected 3 API calls, got %d", callCount)
+	if callCount.Load() != 3 {
+		t.Errorf("expected 3 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Assigned 3 conversations") {
@@ -826,14 +827,14 @@ func TestConversationsAssignMultiple(t *testing.T) {
 }
 
 func TestConversationsAssignMultiple_CommaSeparated(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/1/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 2, "name": "Team"}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/conversations/2/assignments", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"id": 2, "name": "Team"}`)(w, r)
 		})
 
@@ -849,8 +850,8 @@ func TestConversationsAssignMultiple_CommaSeparated(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Assigned 2 conversations") {

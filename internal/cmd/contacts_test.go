@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -387,14 +388,14 @@ func TestContactsConversationsCommand_AgentResolveNames(t *testing.T) {
 }
 
 func TestContactsBulkAddLabel(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/contacts/1/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/contacts/2/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
 		})
 
@@ -407,8 +408,8 @@ func TestContactsBulkAddLabel(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 
 	if !strings.Contains(output, "Added labels to 2 contacts") {
@@ -417,14 +418,14 @@ func TestContactsBulkAddLabel(t *testing.T) {
 }
 
 func TestContactsBulkAddLabel_IdsFromStdin(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/contacts/1/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/contacts/2/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
 		})
 
@@ -450,8 +451,8 @@ func TestContactsBulkAddLabel_IdsFromStdin(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 	if !strings.Contains(output, "Added labels to 2 contacts") {
 		t.Errorf("unexpected output: %s", output)
@@ -459,14 +460,14 @@ func TestContactsBulkAddLabel_IdsFromStdin(t *testing.T) {
 }
 
 func TestContactsBulkAddLabel_LabelsFromStdin(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/contacts/1/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
 		}).
 		On("POST", "/api/v1/accounts/1/contacts/2/labels", func(w http.ResponseWriter, r *http.Request) {
-			callCount++
+			callCount.Add(1)
 			jsonResponse(200, `{"labels": ["vip"]}`)(w, r)
 		})
 
@@ -492,8 +493,8 @@ func TestContactsBulkAddLabel_LabelsFromStdin(t *testing.T) {
 		}
 	})
 
-	if callCount != 2 {
-		t.Errorf("expected 2 API calls, got %d", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount.Load())
 	}
 	if !strings.Contains(output, "Added labels to 2 contacts") {
 		t.Errorf("unexpected output: %s", output)
