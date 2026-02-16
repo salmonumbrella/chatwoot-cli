@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ func newDashboardCmd() *cobra.Command {
 	var noResolve bool
 	var noResolveWarning bool
 	var resolveWarning string
+	var compact bool
 
 	cmd := &cobra.Command{
 		Use:     "dashboard <name>",
@@ -72,6 +74,7 @@ Run 'cw config dashboard list' to see available dashboards.`,
 
 			cfg, err := config.GetDashboard(dashboardName)
 			if err != nil {
+				// Try prefix and subsequence matching before giving up.
 				dashboards, listErr := config.ListDashboards()
 				if listErr == nil && len(dashboards) > 0 {
 					names := make([]string, 0, len(dashboards))
@@ -79,9 +82,41 @@ Run 'cw config dashboard list' to see available dashboards.`,
 						names = append(names, name)
 					}
 					sort.Strings(names)
-					return fmt.Errorf("dashboard %q not found. Available: %s", dashboardName, strings.Join(names, ", "))
+
+					// Prefix match: find all dashboard names that start with input.
+					lower := strings.ToLower(dashboardName)
+					var matches []string
+					for _, name := range names {
+						if strings.HasPrefix(strings.ToLower(name), lower) {
+							matches = append(matches, name)
+						}
+					}
+
+					// Subsequence fallback: if no prefix match, check if input
+					// characters appear in order within the name (e.g. "ods" matches
+					// "orders" because o-d-s appears as a subsequence of o-r-d-e-r-s).
+					if len(matches) == 0 {
+						for _, name := range names {
+							if isSubsequence(lower, strings.ToLower(name)) {
+								matches = append(matches, name)
+							}
+						}
+					}
+
+					switch len(matches) {
+					case 1:
+						cfg, err = config.GetDashboard(matches[0])
+						if err != nil {
+							return fmt.Errorf("dashboard %q not found", matches[0])
+						}
+					case 0:
+						return fmt.Errorf("dashboard %q not found. Available: %s", dashboardName, strings.Join(names, ", "))
+					default:
+						return fmt.Errorf("ambiguous dashboard %q: matches %s", dashboardName, strings.Join(matches, ", "))
+					}
+				} else {
+					return fmt.Errorf("dashboard %q not found. Run 'cw config dashboard add --help' to configure one", dashboardName)
 				}
-				return fmt.Errorf("dashboard %q not found. Run 'cw config dashboard add --help' to configure one", dashboardName)
 			}
 
 			client := api.NewDashboardClient(cfg.Endpoint, cfg.AuthToken)
@@ -98,6 +133,17 @@ Run 'cw config dashboard list' to see available dashboards.`,
 				if resolveWarning != "" {
 					addDashboardWarning(result, resolveWarning)
 				}
+				if compact {
+					compacted := compactDashboardResult(result)
+					// Preserve _warnings from the original result.
+					if w, ok := result["_warnings"]; ok {
+						compacted["_warnings"] = w
+					}
+					result = compacted
+				}
+				if isAgent(cmd) {
+					return printJSON(cmd, dashboardAgentEnvelope(cmd, result))
+				}
 				return printJSON(cmd, result)
 			}
 
@@ -111,9 +157,13 @@ Run 'cw config dashboard list' to see available dashboards.`,
 	cmd.Flags().IntVar(&perPage, "per-page", 100, "Results per page")
 	cmd.Flags().BoolVar(&noResolve, "no-resolve", false, "Do not resolve --contact as a conversation ID")
 	cmd.Flags().BoolVar(&noResolveWarning, "no-resolve-warning", false, "Suppress auto-resolve warning")
-	flagAlias(cmd.Flags(), "conversation", "conv")
+	cmd.Flags().BoolVarP(&compact, "compact", "c", false, "Return only essential fields in JSON/agent output")
+	flagAlias(cmd.Flags(), "conversation", "cv")
 	flagAlias(cmd.Flags(), "per-page", "pp")
 	flagAlias(cmd.Flags(), "contact", "ct")
+	flagAlias(cmd.Flags(), "page", "pg")
+	flagAlias(cmd.Flags(), "compact", "brief")
+	flagAlias(cmd.Flags(), "compact", "summary")
 
 	return cmd
 }
@@ -211,6 +261,33 @@ func renderDashboardResult(cmd *cobra.Command, displayName string, result map[st
 	return nil
 }
 
+// dashboardAgentEnvelope restructures the dashboard result into a ListEnvelope
+// so that .it (alias for .items) works in jq expressions, consistent with
+// other list commands. Without this, agent mode wraps the result in a
+// DataEnvelope where items is nested under .data, breaking shortcodes.
+func dashboardAgentEnvelope(cmd *cobra.Command, result map[string]any) agentfmt.ListEnvelope {
+	kind := agentfmt.KindFromCommandPath(cmd.CommandPath())
+
+	items := result["items"]
+	if items == nil {
+		items = []any{}
+	}
+
+	meta := make(map[string]any)
+	for k, v := range result {
+		if k == "items" {
+			continue
+		}
+		meta[k] = v
+	}
+
+	return agentfmt.ListEnvelope{
+		Kind:  kind,
+		Items: items,
+		Meta:  meta,
+	}
+}
+
 func addDashboardWarning(result map[string]any, warning string) {
 	if result == nil || warning == "" {
 		return
@@ -226,6 +303,80 @@ func addDashboardWarning(result map[string]any, warning string) {
 		}
 	}
 	result["_warnings"] = []string{warning}
+}
+
+// compactDashboardResult transforms a full dashboard API response into a
+// compact summary with only essential fields. The result structure is:
+//
+//	{
+//	  "tier": "Gold",                    // from customer_info.membership_tier_name
+//	  "items": [                         // from items
+//	    {
+//	      "number": "ORD-001",
+//	      "date": "2026-01-15",          // shopline_created_at truncated to date
+//	      "total": 1500,                 // order_total
+//	      "status": "completed",         // order_status
+//	      "payment": "paid",             // payment_status
+//	      "delivery": "delivered",       // delivery_status
+//	      "items": 3                     // total_items_count
+//	    }
+//	  ],
+//	  "pagination": { ... }              // preserved as-is
+//	}
+func compactDashboardResult(result map[string]any) map[string]any {
+	out := make(map[string]any)
+
+	// Extract membership tier from customer_info.
+	if ci, ok := result["customer_info"].(map[string]any); ok {
+		if tier, ok := ci["membership_tier_name"].(string); ok && tier != "" {
+			out["tier"] = tier
+		}
+	}
+
+	// Transform items into compact order summaries.
+	items, _ := result["items"].([]any)
+	orders := make([]any, 0, len(items))
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		order := make(map[string]any)
+		if v, ok := item["number"]; ok {
+			order["number"] = v
+		}
+		if v, ok := item["shopline_created_at"].(string); ok {
+			if len(v) >= 10 {
+				order["date"] = v[:10]
+			} else {
+				order["date"] = v
+			}
+		}
+		if v, ok := item["order_total"]; ok {
+			order["total"] = v
+		}
+		if v, ok := item["order_status"]; ok {
+			order["status"] = v
+		}
+		if v, ok := item["payment_status"]; ok {
+			order["payment"] = v
+		}
+		if v, ok := item["delivery_status"]; ok {
+			order["delivery"] = v
+		}
+		if v, ok := item["total_items_count"]; ok {
+			order["items"] = v
+		}
+		orders = append(orders, order)
+	}
+	out["items"] = orders
+
+	// Preserve pagination.
+	if pagination, ok := result["pagination"]; ok {
+		out["pagination"] = pagination
+	}
+
+	return out
 }
 
 func renderCustomerInfo(out interface{ Write([]byte) (int, error) }, info map[string]any) {
@@ -352,4 +503,24 @@ func renderPagination(out interface{ Write([]byte) (int, error) }, pagination ma
 		}
 		_, _ = fmt.Fprintln(out)
 	}
+}
+
+// isSubsequence returns true if every character in needle appears in haystack
+// in order, though not necessarily consecutively. For example, isSubsequence("ods",
+// "orders") is true because o, d, s appear in that order within orders.
+func isSubsequence(needle, haystack string) bool {
+	needleRunes := []rune(needle)
+	if len(needleRunes) == 0 {
+		return true
+	}
+	ni := 0
+	for _, ch := range haystack {
+		if needleRunes[ni] == ch {
+			ni++
+			if ni == len(needleRunes) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -157,7 +157,7 @@ func newConversationsListCmd() *cobra.Command {
 	})
 	registerFieldSchema(cmd, "conversation")
 
-	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID or name")
+	cmd.Flags().StringVarP(&inboxID, "inbox-id", "I", "", "Filter by inbox ID or name")
 	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&assigneeType, "assignee-type", "", "Filter by assignee type (me|assigned|unassigned)")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")

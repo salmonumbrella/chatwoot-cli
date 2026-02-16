@@ -394,7 +394,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			pageSize = defaultLimit
 		}
 		cmd.Flags().BoolVarP(&all, "all", "a", false, "Fetch all pages")
-		cmd.Flags().IntVar(&maxPages, "max-pages", defaultMaxPages, "Maximum number of pages to fetch when using --all")
+		cmd.Flags().IntVarP(&maxPages, "max-pages", "M", defaultMaxPages, "Maximum number of pages to fetch when using --all")
 		flagAlias(cmd.Flags(), "max-pages", "mp")
 	} else {
 		page = 1

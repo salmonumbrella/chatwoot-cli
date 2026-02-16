@@ -87,6 +87,12 @@ var entries = []Entry{
 	{Alias: "ctc", Canonical: "contact"},
 	{Alias: "ps", Canonical: "position"},
 	{Alias: "aci", Canonical: "account_id"},
+	{Alias: "ot", Canonical: "order_total"},
+	{Alias: "os", Canonical: "order_status"},
+	{Alias: "tp", Canonical: "total_pages"},
+	{Alias: "cp", Canonical: "current_page"},
+	{Alias: "pp", Canonical: "per_page"},
+	{Alias: "tc", Canonical: "total_count"},
 }
 
 var aliasToCanonical = buildAliasToCanonical(entries)

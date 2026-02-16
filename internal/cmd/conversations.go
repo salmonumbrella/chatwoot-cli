@@ -406,8 +406,8 @@ func newConversationsCreateCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
-	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Contact ID (required)")
+	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Inbox ID (required)")
+	cmd.Flags().IntVarP(&contactID, "contact-id", "C", 0, "Contact ID (required)")
 	cmd.Flags().StringVarP(&message, "message", "m", "", "Initial message content")
 	cmd.Flags().StringVarP(&status, "status", "s", "", "Status (open|resolved|pending|snoozed)")
 	cmd.Flags().IntVar(&assigneeID, "assignee-id", 0, "Agent ID to assign")
@@ -652,7 +652,7 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 	cmd.Flags().IntVar(&folderID, "folder", 0, "Custom filter/folder ID to use as filter query")
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Fetch all pages")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch with --all")
+	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch with --all")
 	flagAlias(cmd.Flags(), "payload", "pl")
 	flagAlias(cmd.Flags(), "folder", "view")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
@@ -781,7 +781,7 @@ func newConversationsMetaCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
-	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
+	cmd.Flags().StringVarP(&inboxID, "inbox-id", "I", "", "Filter by inbox ID")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
@@ -870,7 +870,7 @@ func newConversationsCountsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
-	cmd.Flags().StringVar(&inboxID, "inbox-id", "", "Filter by inbox ID")
+	cmd.Flags().StringVarP(&inboxID, "inbox-id", "I", "", "Filter by inbox ID")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
 	cmd.Flags().StringVar(&labels, "labels", "", "Filter by labels (comma-separated)")
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search query")
@@ -2067,7 +2067,7 @@ func newConversationsSearchCmd() *cobra.Command {
 
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch with --all")
+	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch with --all")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
 
 	return cmd
@@ -2445,7 +2445,7 @@ locally with private notes included by default.`,
 
 	cmd.Flags().StringVar(&email, "email", "", "Email address to send transcript to")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Limit the number of messages to include (default: all)")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 100, "Maximum pages to fetch when listing messages")
+	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch when listing messages")
 	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from the transcript")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
 	flagAlias(cmd.Flags(), "public-only", "pub")
@@ -2801,7 +2801,7 @@ func newConversationsWatchCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&status, "status", "s", "open", "Filter by status: open, resolved, pending, snoozed, all")
-	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Filter by inbox ID")
+	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Filter by inbox ID")
 	cmd.Flags().IntVar(&interval, "interval", 10, "Polling interval in seconds")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum conversations to display")
 	flagAlias(cmd.Flags(), "status", "st")
