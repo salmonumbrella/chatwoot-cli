@@ -56,6 +56,11 @@ type ListConfig[T any] struct {
 	AfterOutput func(cmd *cobra.Command, summary ListSummary) error
 	// AgentTransform overrides agent-mode item transformation.
 	AgentTransform func(ctx context.Context, client *api.Client, items []T) (any, error)
+	// JSONTransform overrides JSON-mode item transformation.
+	JSONTransform func(ctx context.Context, client *api.Client, items []T) (any, error)
+	// ForceJSON allows command-specific flags to force JSON output semantics.
+	// This is evaluated after flags are parsed and before rendering.
+	ForceJSON func(cmd *cobra.Command) bool
 }
 
 func writeJSONLItem(w io.Writer, item any, query, tmpl string) error {
@@ -131,24 +136,30 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				pageSize = defaultLimit
 			}
 
-			client, err := getClient(cmd.Context())
+			ctx := cmd.Context()
+			mode := outfmt.ModeFromContext(ctx)
+			if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) && mode == outfmt.Text {
+				ctx = outfmt.WithMode(ctx, outfmt.JSON)
+				mode = outfmt.JSON
+			}
+
+			client, err := getClient(ctx)
 			if err != nil {
 				return err
 			}
 
-			ioStreams := iocontext.GetIO(cmd.Context())
-			f := outfmt.NewFormatter(cmd.Context(), ioStreams.Out, ioStreams.ErrOut)
-			mode := outfmt.ModeFromContext(cmd.Context())
+			ioStreams := iocontext.GetIO(ctx)
+			f := outfmt.NewFormatter(ctx, ioStreams.Out, ioStreams.ErrOut)
 
 			if cfg.DisablePagination || !all {
-				result, err := cfg.Fetch(cmd.Context(), client, page, pageSize)
+				result, err := cfg.Fetch(ctx, client, page, pageSize)
 				if err != nil {
 					return err
 				}
 
 				if mode == outfmt.JSONL {
-					query := outfmt.GetQuery(cmd.Context())
-					tmpl := outfmt.GetTemplate(cmd.Context())
+					query := outfmt.GetQuery(ctx)
+					tmpl := outfmt.GetTemplate(ctx)
 					for _, item := range result.Items {
 						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl); err != nil {
 							return err
@@ -182,7 +193,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					if mode == outfmt.Agent {
 						payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
 						if cfg.AgentTransform != nil {
-							agentItems, err := cfg.AgentTransform(cmd.Context(), client, items)
+							agentItems, err := cfg.AgentTransform(ctx, client, items)
 							if err != nil {
 								return err
 							}
@@ -190,6 +201,18 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						} else {
 							payload["items"] = agentfmt.TransformListItems(items)
 						}
+					} else if cfg.JSONTransform != nil {
+						jsonItems, err := cfg.JSONTransform(ctx, client, items)
+						if err != nil {
+							return err
+						}
+						payload["items"] = jsonItems
+					}
+					// When ForceJSON is active (e.g. --light), strip pagination
+					// envelope to match the minimal output of printRawJSON.
+					if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) {
+						delete(payload, "has_more")
+						delete(payload, "meta")
 					}
 					return f.Output(payload)
 				}
@@ -229,8 +252,8 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			}
 
 			if mode == outfmt.JSONL {
-				query := outfmt.GetQuery(cmd.Context())
-				tmpl := outfmt.GetTemplate(cmd.Context())
+				query := outfmt.GetQuery(ctx)
+				tmpl := outfmt.GetTemplate(ctx)
 				currentPage := page
 				pagesFetched := 0
 				totalItems := 0
@@ -240,7 +263,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, totalItems)
 					}
 
-					result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
+					result, err := cfg.Fetch(ctx, client, currentPage, pageSize)
 					if err != nil {
 						return err
 					}
@@ -279,7 +302,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						_, _ = fmt.Fprintf(ioStreams.ErrOut, "Fetching page %d...\n", currentPage) //nolint:errcheck
 					}
 
-					result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
+					result, err := cfg.Fetch(ctx, client, currentPage, pageSize)
 					if err != nil {
 						return err
 					}
@@ -336,7 +359,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, len(allItems))
 				}
 
-				result, err := cfg.Fetch(cmd.Context(), client, currentPage, pageSize)
+				result, err := cfg.Fetch(ctx, client, currentPage, pageSize)
 				if err != nil {
 					return err
 				}
@@ -373,7 +396,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			if mode == outfmt.Agent {
 				payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
 				if cfg.AgentTransform != nil {
-					agentItems, err := cfg.AgentTransform(cmd.Context(), client, allItems)
+					agentItems, err := cfg.AgentTransform(ctx, client, allItems)
 					if err != nil {
 						return err
 					}
@@ -381,6 +404,18 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				} else {
 					payload["items"] = agentfmt.TransformListItems(allItems)
 				}
+			} else if cfg.JSONTransform != nil {
+				jsonItems, err := cfg.JSONTransform(ctx, client, allItems)
+				if err != nil {
+					return err
+				}
+				payload["items"] = jsonItems
+			}
+			// When ForceJSON is active (e.g. --light), strip pagination
+			// envelope to match the minimal output of printRawJSON.
+			if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) {
+				delete(payload, "has_more")
+				delete(payload, "meta")
 			}
 			return f.Output(payload)
 		}),

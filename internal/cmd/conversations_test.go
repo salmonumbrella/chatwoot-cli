@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -897,6 +898,106 @@ func TestConversationsSearchCommand_Execute_JSON(t *testing.T) {
 
 	if !strings.Contains(output, `"id"`) {
 		t.Errorf("JSON output missing id: %s", output)
+	}
+}
+
+func TestConversationsSearchCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{
+						"id": 123,
+						"inbox_id": 48,
+						"status": "open",
+						"unread_count": 1,
+						"last_activity_at": 1700000000,
+						"meta": {"sender": {"id": 456, "name": "Jane"}},
+						"last_non_activity_message": {"content": "Refund please"},
+						"custom_attributes": {"debug": true}
+					}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "search", "refund", "--li"})
+		if err != nil {
+			t.Fatalf("conversations search --li failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			ID          int    `json:"id"`
+			Status      string `json:"status"`
+			InboxID     int    `json:"inbox_id"`
+			LastMessage string `json:"last_message"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light search output: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Status != "open" || payload.Items[0].InboxID != 48 {
+		t.Fatalf("unexpected payload: %#v", payload.Items[0])
+	}
+	if payload.Items[0].LastMessage != "Refund please" {
+		t.Fatalf("expected last message, got %q", payload.Items[0].LastMessage)
+	}
+	if strings.Contains(output, `"custom_attributes"`) {
+		t.Fatal("light output should not include custom_attributes")
+	}
+}
+
+func TestConversationsSearchCommand_LightAll(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/search", func(w http.ResponseWriter, r *http.Request) {
+			page := r.URL.Query().Get("page")
+			w.Header().Set("Content-Type", "application/json")
+			if page == "" || page == "1" {
+				_, _ = w.Write([]byte(`{
+					"data": {
+						"payload": [
+							{"id": 1, "status": "open", "inbox_id": 48, "last_activity_at": 1700000000, "meta": {"sender": {"id": 10, "name": "Jane"}}}
+						],
+						"meta": {"count": 2, "total_pages": 2}
+					}
+				}`))
+			} else {
+				_, _ = w.Write([]byte(`{
+					"data": {
+						"payload": [
+							{"id": 2, "status": "resolved", "inbox_id": 48, "last_activity_at": 1700000100, "meta": {"sender": {"id": 20, "name": "Bob"}}}
+						],
+						"meta": {"count": 2, "total_pages": 2}
+					}
+				}`))
+			}
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "search", "refund", "--light", "--all"})
+		if err != nil {
+			t.Fatalf("search --light --all failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 2 {
+		t.Fatalf("expected 2 conversations from 2 pages, got %d", len(payload.Items))
 	}
 }
 

@@ -237,6 +237,7 @@ cw c follow 123 --exec './handler.sh' --exec-fatal  # Abort on handler failure
 cw m ls 123                              # List messages in conversation
 cw m ls 123 -a                           # List all messages (paginated)
 cw m ls 123 -l 500                       # List up to 500 messages
+cw m ls 123 --li                         # Light: minimal message payload for quick lookup
 cw m ls 123 -o agent --rn                # Agent output with resolved names
 cw m cr 123 -c "Hello!"                  # Send a message
 cw m up 123 456 -c "Updated text"        # Update message 456
@@ -275,8 +276,8 @@ cw co filter --payload '[{"attribute_key":"email","filter_operator":"contains","
 cw co g 123                              # Get contact by ID
 cw co show 123                           # Get contact (alias for get)
 cw co g +16042091231                     # Lookup contact by phone number
-cw co g 123 --li                         # Light: minimal payload + Shopline IDs + active conversations
-cw co ls --li                            # Light list: compact contacts with Shopline IDs
+cw co g 123 --li                         # Light: minimal contact payload + active conversations
+cw co ls --li                            # Light list: compact contacts
 cw co cr -n "John Doe" -e "john@example.com"  # Create a contact
 cw co up 123 --phone "+1234567890"       # Update phone number
 cw co up john@example.com -n "John Smith"  # Update by email lookup
@@ -285,6 +286,7 @@ cw co del 123                            # Delete a contact
 cw co merge 123 456                      # Merge 456 into 123 (456 deleted)
 cw co merge 123 456 -y                   # Merge without confirmation
 cw co conversations 123                  # List conversations for contact
+cw co conversations 123 --li             # Light: minimal conversation payloads for contact lookups
 cw co contactable-inboxes 123            # List inboxes contact can reach
 cw co create-inbox 123 --iid 1 --source-id "+15551234567"  # Associate contact with inbox
 cw co labels 123                         # List labels on contact
@@ -681,6 +683,7 @@ Tip: `--query` and `--template` apply per line in JSONL mode.
 ```bash
 cw c ls --st open -o json | \
   jq '.items[] | {id, contact: .contact.name, messages: .messages_count}'  # Extract triage summary
+cw c ls --st open --li                   # Light: minimal conversation payload for triage
 cw c assign 123 --ag 5                   # Assign to agent
 cw c toggle-priority 123 --pri high      # Set high priority
 ```
@@ -758,13 +761,16 @@ cw c ls -a --mp 50                       # Limit pagination depth to 50 pages
 **Filter** uses Chatwoot's filter API for structured queries:
 ```bash
 cw c filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]'  # Filter conversations
+cw c filter --payload '[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]' --li  # Light filter results
 cw co filter --payload '[{"attribute_key":"email","filter_operator":"contains","values":["@vip.com"]}]'  # Filter contacts
 ```
 
 **Search** performs full-text search:
 ```bash
 cw c search --query "refund request"     # Search conversations
+cw c search "refund request" --li        # Light conversation search payload
 cw co search --query "john smith"        # Search contacts
+cw s "john smith" --li                   # Light global search payload
 ```
 
 ## Common Workflows

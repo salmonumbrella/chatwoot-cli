@@ -71,6 +71,112 @@ func TestConversationsListCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsListCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{
+						"id": 321,
+						"inbox_id": 48,
+						"status": "open",
+						"unread_count": 2,
+						"messages_count": 7,
+						"last_activity_at": 1700005000,
+						"contact_id": 123,
+						"meta": {"sender": {"id": 123, "name": "Jane Doe", "email": "jane@example.com"}},
+						"custom_attributes": {"tier": "gold"},
+						"last_non_activity_message": {"content": "  Need refund status  "}
+					}
+				],
+				"meta": {"total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--li"})
+		if err != nil {
+			t.Fatalf("conversations list --li failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			ID          int    `json:"id"`
+			Status      string `json:"status"`
+			InboxID     int    `json:"inbox_id"`
+			UnreadCount int    `json:"unread_count"`
+			LastMessage string `json:"last_message"`
+			Contact     struct {
+				ID   *int    `json:"id"`
+				Name *string `json:"name"`
+			} `json:"contact"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(payload.Items))
+	}
+	item := payload.Items[0]
+	if item.ID != 321 || item.Status != "open" || item.InboxID != 48 {
+		t.Fatalf("unexpected light item: %#v", item)
+	}
+	if item.LastMessage != "Need refund status" {
+		t.Fatalf("expected trimmed last_message, got %q", item.LastMessage)
+	}
+	if item.Contact.ID == nil || *item.Contact.ID != 123 {
+		t.Fatalf("expected contact id 123, got %#v", item.Contact.ID)
+	}
+	if item.Contact.Name == nil || *item.Contact.Name != "Jane Doe" {
+		t.Fatalf("expected contact name Jane Doe, got %#v", item.Contact.Name)
+	}
+	if strings.Contains(output, `"custom_attributes"`) {
+		t.Fatal("light output should not include custom_attributes")
+	}
+	if strings.Contains(output, `"jane@example.com"`) {
+		t.Fatal("light output should not include sender email")
+	}
+}
+
+func TestConversationsListCommand_LightNoEnvelope(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{
+						"id": 1,
+						"inbox_id": 48,
+						"status": "open",
+						"unread_count": 0,
+						"last_activity_at": 1700000000,
+						"meta": {"sender": {"id": 10, "name": "Alice"}}
+					}
+				],
+				"meta": {"total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--light"})
+		if err != nil {
+			t.Fatalf("conversations list --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"has_more"`) {
+		t.Fatal("light output should not include has_more")
+	}
+	if strings.Contains(output, `"meta"`) {
+		t.Fatal("light output should not include meta envelope")
+	}
+}
+
 func TestConversationsGetCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
@@ -916,6 +1022,105 @@ func TestConversationsFilterCommand(t *testing.T) {
 
 	if !strings.Contains(output, "ID") {
 		t.Errorf("Expected ID header in output, got: %s", output)
+	}
+}
+
+func TestConversationsFilterCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/filter", jsonResponse(200, `{
+			"payload": [
+				{
+					"id": 1,
+					"inbox_id": 1,
+					"status": "open",
+					"unread_count": 5,
+					"last_activity_at": 1700000000,
+					"meta": {"sender": {"id": 10, "name": "Alice"}},
+					"last_non_activity_message": {"content": "Still waiting"}
+				}
+			],
+			"meta": {"count": 1}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"conversations", "filter",
+			"--payload", `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]}`,
+			"--light",
+		})
+		if err != nil {
+			t.Fatalf("conversations filter --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse filter light output: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
+	}
+	if payload.Items[0]["status"] != "open" {
+		t.Fatalf("expected status open, got %#v", payload.Items[0]["status"])
+	}
+	if payload.Items[0]["last_message"] != "Still waiting" {
+		t.Fatalf("expected last_message, got %#v", payload.Items[0]["last_message"])
+	}
+	if strings.Contains(output, `"meta"`) {
+		t.Fatal("light output should not include full meta object")
+	}
+}
+
+func TestConversationsFilterCommand_LightAll(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/filter", func(w http.ResponseWriter, r *http.Request) {
+			page := r.URL.Query().Get("page")
+			w.Header().Set("Content-Type", "application/json")
+			if page == "" || page == "1" {
+				_, _ = w.Write([]byte(`{
+					"payload": [
+						{"id": 1, "status": "open", "inbox_id": 1, "last_activity_at": 1700000000, "meta": {"sender": {"id": 10, "name": "Alice"}}}
+					],
+					"meta": {"count": 2, "total_pages": 2}
+				}`))
+			} else {
+				_, _ = w.Write([]byte(`{
+					"payload": [
+						{"id": 2, "status": "resolved", "inbox_id": 2, "last_activity_at": 1700000100, "meta": {"sender": {"id": 20, "name": "Bob"}}}
+					],
+					"meta": {"count": 2, "total_pages": 2}
+				}`))
+			}
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"conversations", "filter",
+			"--payload", `{"payload":[{"attribute_key":"status","filter_operator":"equal_to","values":["open"]}]}`,
+			"--light", "--all",
+		})
+		if err != nil {
+			t.Fatalf("filter --light --all failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 2 {
+		t.Fatalf("expected 2 conversations from 2 pages, got %d", len(payload.Items))
+	}
+	if payload.Items[0]["status"] != "open" || payload.Items[1]["status"] != "resolved" {
+		t.Fatalf("unexpected items: %#v", payload.Items)
 	}
 }
 

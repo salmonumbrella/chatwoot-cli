@@ -83,6 +83,70 @@ func TestMessagesListCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestMessagesListCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+				{"id": 2, "content": "Agent reply", "message_type": 1, "private": false, "created_at": 1704067300, "attachments": [{"file_type":"image"}]},
+				{"id": 3, "content": "Internal note", "message_type": 1, "private": true, "created_at": 1704067400},
+				{"id": 4, "content": "Assigned conversation", "message_type": 2, "private": false, "created_at": 1704067500}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"messages", "list", "123", "--li"})
+		if err != nil {
+			t.Fatalf("messages list --li failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			ID          int      `json:"id"`
+			MessageType int      `json:"message_type"`
+			Private     bool     `json:"private"`
+			Content     string   `json:"content"`
+			Attachments []string `json:"attachments"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light messages output: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 3 {
+		t.Fatalf("expected 3 non-activity messages, got %d", len(payload.Items))
+	}
+	if payload.Items[0].MessageType != 0 || payload.Items[1].MessageType != 1 {
+		t.Fatalf("unexpected message types: %#v", payload.Items)
+	}
+	if payload.Items[1].Attachments[0] != "image" {
+		t.Fatalf("expected attachment type image, got %#v", payload.Items[1].Attachments)
+	}
+	if !payload.Items[2].Private {
+		t.Fatal("expected private note to keep private=true")
+	}
+	if strings.Contains(output, `"content_type"`) {
+		t.Fatal("light output should not include content_type")
+	}
+	if strings.Contains(output, `"conversation_id"`) {
+		t.Fatal("light output should not include conversation_id")
+	}
+}
+
+func TestMessagesListCommand_LightTranscriptConflict(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"messages", "list", "123", "--light", "--transcript"})
+	if err == nil {
+		t.Fatal("expected conflict error")
+	}
+	if !strings.Contains(err.Error(), "--light cannot be combined with --transcript") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestMessagesListCommand_AgentResolveNames(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{

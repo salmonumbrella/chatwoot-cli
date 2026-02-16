@@ -34,6 +34,7 @@ func newConversationsListCmd() *cobra.Command {
 	var unreadOnly bool
 	var since string
 	var waiting bool
+	var light bool
 
 	cfg := ListConfig[api.Conversation]{
 		Use:               "list",
@@ -63,8 +64,20 @@ func newConversationsListCmd() *cobra.Command {
   cw conversations list --status open --all
 `),
 		AgentTransform: func(ctx context.Context, client *api.Client, items []api.Conversation) (any, error) {
+			if light {
+				return buildLightConversationLookups(items), nil
+			}
 			summaries := agentfmt.ConversationSummaries(items)
 			return resolveConversationSummaries(ctx, client, summaries), nil
+		},
+		JSONTransform: func(_ context.Context, _ *api.Client, items []api.Conversation) (any, error) {
+			if !light {
+				return items, nil
+			}
+			return buildLightConversationLookups(items), nil
+		},
+		ForceJSON: func(_ *cobra.Command) bool {
+			return light
 		},
 		Fetch: func(ctx context.Context, client *api.Client, page, _ int) (ListResult[api.Conversation], error) {
 			// Normalize status prefix (e.g. "o" → "open").
@@ -166,12 +179,14 @@ func newConversationsListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&unreadOnly, "unread-only", false, "Only show conversations with unread messages")
 	cmd.Flags().StringVarP(&since, "since", "S", "", "Filter by last activity (e.g., yesterday, 2h ago, 2026-01-30)")
 	cmd.Flags().BoolVar(&waiting, "waiting", false, "Sort by customer wait time (longest first)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
 	flagAlias(cmd.Flags(), "status", "st")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
 	flagAlias(cmd.Flags(), "assignee-type", "at")
 	flagAlias(cmd.Flags(), "team-id", "tid")
 	flagAlias(cmd.Flags(), "unread-only", "unread")
 	flagAlias(cmd.Flags(), "waiting", "wt")
+	flagAlias(cmd.Flags(), "light", "li")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 

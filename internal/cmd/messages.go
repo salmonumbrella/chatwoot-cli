@@ -44,6 +44,7 @@ func newMessagesListCmd() *cobra.Command {
 	var limit int
 	var transcript bool
 	var sinceLastAgent bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "list <conversation-id>",
@@ -79,6 +80,9 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 
 			if cmd.Flags().Changed("limit") && limit < 1 {
 				return fmt.Errorf("--limit must be at least 1")
+			}
+			if light && transcript {
+				return fmt.Errorf("--light cannot be combined with --transcript")
 			}
 
 			client, err := getClient()
@@ -119,6 +123,9 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 			}
 
 			totalMessages := len(messages)
+			if light {
+				return printRawJSON(cmd, buildLightMessageLookups(messages))
+			}
 
 			if transcript {
 				conv, err := client.Conversations().Get(cmdContext(cmd), conversationID)
@@ -225,6 +232,8 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 	flagAlias(cmd.Flags(), "transcript", "tr")
 	cmd.Flags().BoolVar(&sinceLastAgent, "since-last-agent", false, "Only show messages since the last agent reply")
 	flagAlias(cmd.Flags(), "since-last-agent", "sla")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal message payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

@@ -493,6 +493,57 @@ func TestContactsConversationsCommand_AgentResolveNames(t *testing.T) {
 	}
 }
 
+func TestContactsConversationsCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{
+					"id": 1,
+					"status": "open",
+					"inbox_id": 48,
+					"unread_count": 2,
+					"last_activity_at": 1700001000,
+					"meta": {"sender": {"id": 123, "name": "Welgrow"}},
+					"last_non_activity_message": {"content": "Order update?"},
+					"custom_attributes": {"debug": true}
+				}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "conversations", "123", "--light"})
+		if err != nil {
+			t.Fatalf("contacts conversations --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			ID          int    `json:"id"`
+			Status      string `json:"status"`
+			InboxID     int    `json:"inbox_id"`
+			LastMessage string `json:"last_message"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Status != "open" || payload.Items[0].InboxID != 48 {
+		t.Fatalf("unexpected conversation payload: %#v", payload.Items[0])
+	}
+	if payload.Items[0].LastMessage != "Order update?" {
+		t.Fatalf("expected last message, got %q", payload.Items[0].LastMessage)
+	}
+	if strings.Contains(output, `"custom_attributes"`) {
+		t.Fatal("light output should not include custom_attributes")
+	}
+}
+
 func TestContactsBulkAddLabel(t *testing.T) {
 	var callCount atomic.Int32
 	handler := newRouteHandler().

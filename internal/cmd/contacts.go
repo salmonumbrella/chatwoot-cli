@@ -821,7 +821,9 @@ Available query operators: and, or`,
 }
 
 func newContactsConversationsCmd() *cobra.Command {
-	return &cobra.Command{
+	var light bool
+
+	cmd := &cobra.Command{
 		Use:     "conversations <identifier>",
 		Aliases: []string{"cv"},
 		Short:   "Get contact conversations",
@@ -852,6 +854,9 @@ Accepts contact ID, email address, phone number, or name to search for the conta
 			conversations, err := client.Contacts().Conversations(ctx, id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversations for contact %d: %w", id, err)
+			}
+			if light {
+				return printRawJSON(cmd, buildLightConversationLookups(conversations))
 			}
 
 			if isAgent(cmd) {
@@ -887,6 +892,11 @@ Accepts contact ID, email address, phone number, or name to search for the conta
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
+
+	return cmd
 }
 
 func newContactsLabelsCmd() *cobra.Command {

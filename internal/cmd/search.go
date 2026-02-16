@@ -66,6 +66,7 @@ func newSearchCmd() *cobra.Command {
 		includeSnippet bool
 		best           bool
 		emit           string
+		light          bool
 	)
 
 	cmd := &cobra.Command{
@@ -722,6 +723,10 @@ of relevant resources with a single query.`,
 				return nil
 			}
 
+			if light {
+				return printRawJSON(cmd, buildLightSearchPayload(results))
+			}
+
 			if isAgent(cmd) {
 				type agentSearchResult struct {
 					Type           string                        `json:"type"`
@@ -827,6 +832,8 @@ of relevant resources with a single query.`,
 	cmd.Flags().BoolVar(&best, "best", false, "Auto-select the best result (no interactive prompt)")
 	flagAlias(cmd.Flags(), "best", "b")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Output format with --best: json (default), id, or url")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal search payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

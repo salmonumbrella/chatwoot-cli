@@ -520,6 +520,7 @@ func newConversationsFilterCmd() *cobra.Command {
 	var all bool
 	var maxPages int
 	var folderID int
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "filter",
@@ -616,12 +617,15 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 			payload = expandFilterPayload(payload)
 
 			if all {
-				return filterAllConversations(cmd, client, payload, maxPages)
+				return filterAllConversations(cmd, client, payload, maxPages, light)
 			}
 
 			result, err := client.Conversations().Filter(cmdContext(cmd), payload, page)
 			if err != nil {
 				return fmt.Errorf("failed to filter conversations: %w", err)
+			}
+			if light {
+				return printRawJSON(cmd, buildLightConversationLookups(result.Data.Payload))
 			}
 
 			if isAgent(cmd) {
@@ -654,14 +658,16 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Fetch all pages")
 	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch with --all")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
 	flagAlias(cmd.Flags(), "payload", "pl")
 	flagAlias(cmd.Flags(), "folder", "view")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
 
-func filterAllConversations(cmd *cobra.Command, client *api.Client, payload map[string]any, maxPages int) error {
+func filterAllConversations(cmd *cobra.Command, client *api.Client, payload map[string]any, maxPages int, light bool) error {
 	var allConversations []api.Conversation
 	currentPage := 1
 	pagesFetched := 0
@@ -695,6 +701,10 @@ func filterAllConversations(cmd *cobra.Command, client *api.Client, payload map[
 		}
 
 		currentPage++
+	}
+
+	if light {
+		return printRawJSON(cmd, buildLightConversationLookups(allConversations))
 	}
 
 	if isAgent(cmd) {
@@ -2005,6 +2015,7 @@ func newConversationsSearchCmd() *cobra.Command {
 	var page int
 	var all bool
 	var maxPages int
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "search <query>",
@@ -2037,7 +2048,7 @@ func newConversationsSearchCmd() *cobra.Command {
 			}
 
 			if all {
-				return searchAllConversations(cmd, client, query, maxPages)
+				return searchAllConversations(cmd, client, query, maxPages, light)
 			}
 
 			result, err := client.Conversations().Search(cmdContext(cmd), query, page)
@@ -2046,6 +2057,9 @@ func newConversationsSearchCmd() *cobra.Command {
 			}
 
 			conversations := result.Data.Payload
+			if light {
+				return printRawJSON(cmd, buildLightConversationLookups(conversations))
+			}
 
 			if isAgent(cmd) {
 				summaries := agentfmt.ConversationSummaries(conversations)
@@ -2080,12 +2094,14 @@ func newConversationsSearchCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages")
 	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch with --all")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
 
-func searchAllConversations(cmd *cobra.Command, client *api.Client, query string, maxPages int) error {
+func searchAllConversations(cmd *cobra.Command, client *api.Client, query string, maxPages int, light bool) error {
 	var allConversations []api.Conversation
 	currentPage := 1
 	pagesFetched := 0
@@ -2119,6 +2135,10 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 		}
 
 		currentPage++
+	}
+
+	if light {
+		return printRawJSON(cmd, buildLightConversationLookups(allConversations))
 	}
 
 	if isAgent(cmd) {

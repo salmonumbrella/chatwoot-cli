@@ -121,6 +121,71 @@ func TestSearchCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestSearchCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com", "last_activity_at": 1700000100}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 48, "last_activity_at": 1700000200, "meta": {"sender": {"name": "John Doe"}}}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--light"})
+		if err != nil {
+			t.Fatalf("search --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Query   string `json:"query"`
+		Results []struct {
+			Type   string `json:"type"`
+			ID     int    `json:"id"`
+			Status string `json:"status"`
+			Inbox  int    `json:"inbox_id"`
+		} `json:"results"`
+		Summary map[string]int `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light search output: %v\noutput: %s", err, output)
+	}
+	if payload.Query != "john" {
+		t.Fatalf("expected query john, got %q", payload.Query)
+	}
+	if len(payload.Results) != 2 {
+		t.Fatalf("expected 2 light results, got %d", len(payload.Results))
+	}
+	// Most recent result should be the conversation (last_activity_at 1700000200).
+	if payload.Results[0].Type != "conversation" || payload.Results[0].ID != 100 {
+		t.Fatalf("expected first result conversation #100, got %#v", payload.Results[0])
+	}
+	if payload.Summary["contacts"] != 1 || payload.Summary["conversations"] != 1 {
+		t.Fatalf("unexpected summary: %#v", payload.Summary)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(output), &raw); err != nil {
+		t.Fatalf("failed to parse raw payload: %v", err)
+	}
+	if _, ok := raw["contacts"]; ok {
+		t.Fatal("light payload should not include full contacts array")
+	}
+	if _, ok := raw["conversations"]; ok {
+		t.Fatal("light payload should not include full conversations array")
+	}
+}
+
 func TestSearchCommand_Best_EmitID(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
