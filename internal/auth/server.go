@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"html/template"
 	"net"
@@ -312,6 +313,10 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 
 // openBrowser opens the URL in the default browser
 func openBrowser(url string) error {
+	if shouldSkipAutoBrowserOpen() {
+		return nil
+	}
+
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
@@ -326,4 +331,19 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+func shouldSkipAutoBrowserOpen() bool {
+	// Always skip browser launch when running under `go test`.
+	if flag.Lookup("test.v") != nil {
+		return true
+	}
+
+	// Explicit opt-outs for automation/CI environments.
+	noBrowser := strings.TrimSpace(strings.ToLower(os.Getenv("CHATWOOT_NO_BROWSER")))
+	if noBrowser == "1" || noBrowser == "true" || noBrowser == "yes" {
+		return true
+	}
+
+	return os.Getenv("CHATWOOT_TESTING") == "1"
 }

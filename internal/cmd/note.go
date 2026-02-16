@@ -165,9 +165,14 @@ This is a convenience shortcut for:
 			}
 
 			if isAgent(cmd) {
+				// In agent mode, omit the full Message object to keep
+				// mutation output compact (~9 lines vs ~22 lines).
+				// Use -o json to get the full message.
+				agentResult := result
+				agentResult.Message = nil
 				return printJSON(cmd, agentfmt.ItemEnvelope{
 					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
-					Item: result,
+					Item: agentResult,
 				})
 			}
 			if isJSON(cmd) {
