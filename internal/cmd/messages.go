@@ -44,6 +44,7 @@ func newMessagesListCmd() *cobra.Command {
 	var limit int
 	var transcript bool
 	var sinceLastAgent bool
+	var keyword string
 	var light bool
 
 	cmd := &cobra.Command{
@@ -69,6 +70,9 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
   # Get last 6 messages (most recent) - messages are oldest-first in the array
   cw messages list 123 --json | jq '.items[-6:]'
 
+  # Filter messages by keyword (case-insensitive)
+  cw messages list 123 --keyword refund
+
   # Use conversation URL from browser
   cw messages list https://app.chatwoot.com/app/accounts/1/conversations/123`,
 		Args: cobra.ExactArgs(1),
@@ -80,6 +84,10 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 
 			if cmd.Flags().Changed("limit") && limit < 1 {
 				return fmt.Errorf("--limit must be at least 1")
+			}
+			keyword = strings.TrimSpace(keyword)
+			if cmd.Flags().Changed("keyword") && keyword == "" {
+				return fmt.Errorf("--keyword must be non-empty")
 			}
 			if light && transcript {
 				return fmt.Errorf("--light cannot be combined with --transcript")
@@ -120,6 +128,16 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 					messages = nil
 				}
 				// If no agent message found (lastAgentIdx == -1), keep all messages
+			}
+			if keyword != "" {
+				needle := strings.ToLower(keyword)
+				filtered := make([]api.Message, 0, len(messages))
+				for _, msg := range messages {
+					if strings.Contains(strings.ToLower(msg.Content), needle) {
+						filtered = append(filtered, msg)
+					}
+				}
+				messages = filtered
 			}
 
 			totalMessages := len(messages)
@@ -232,6 +250,8 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 	flagAlias(cmd.Flags(), "transcript", "tr")
 	cmd.Flags().BoolVar(&sinceLastAgent, "since-last-agent", false, "Only show messages since the last agent reply")
 	flagAlias(cmd.Flags(), "since-last-agent", "sla")
+	cmd.Flags().StringVar(&keyword, "keyword", "", "Filter messages by keyword in content (case-insensitive)")
+	flagAlias(cmd.Flags(), "keyword", "kw")
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal message payload for lookup")
 	flagAlias(cmd.Flags(), "light", "li")
 

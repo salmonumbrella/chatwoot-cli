@@ -254,6 +254,43 @@ func TestMessagesListCommand_InvalidLimit(t *testing.T) {
 	}
 }
 
+func TestMessagesListCommand_KeywordAlias(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Shipping update", "message_type": 0, "private": false, "created_at": 1704067200},
+				{"id": 2, "content": "Refund approved", "message_type": 1, "private": false, "created_at": 1704067300},
+				{"id": 3, "content": "Order received", "message_type": 0, "private": false, "created_at": 1704067400}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"messages", "list", "123", "--kw", "refund", "-o", "json"}); err != nil {
+			t.Fatalf("messages list --kw failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 filtered message, got %d", len(items))
+	}
+	if items[0]["id"] != float64(2) {
+		t.Fatalf("expected message id 2, got %v", items[0]["id"])
+	}
+}
+
+func TestMessagesListCommand_InvalidKeyword(t *testing.T) {
+	err := Execute(context.Background(), []string{"messages", "list", "123", "--keyword", "   "})
+	if err == nil {
+		t.Fatal("expected error for empty keyword")
+	}
+	if !strings.Contains(err.Error(), "--keyword must be non-empty") {
+		t.Fatalf("expected keyword validation error, got: %v", err)
+	}
+}
+
 func TestMessagesListCommand_InvalidID(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
 	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
