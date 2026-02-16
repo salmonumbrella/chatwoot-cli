@@ -340,13 +340,11 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.QueryFile, "query-file", "", "Read JQ expression from file ('-' for stdin)")
 	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "Alias for --query")
 	root.PersistentFlags().BoolVar(&flags.ItemsOnly, "items-only", false, "Output only the items/results array when present (JSON output)")
-	root.PersistentFlags().BoolVar(&flags.ItemsOnly, "results-only", false, "Alias for --items-only")
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Fields to select in JSON output (CSV/whitespace/JSON array, or @- / @path; path aliases supported) (shorthand for --query)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
 	root.PersistentFlags().BoolVarP(&flags.Yes, "yes", "y", false, "Skip confirmation prompts")
-	root.PersistentFlags().BoolVar(&flags.Yes, "force", false, "Alias for --yes")
 	root.PersistentFlags().StringVar(&flags.Template, "template", "", "Go template string (or @path) to render JSON output")
 	root.PersistentFlags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "HTTP request timeout (e.g., 30s, 2m)")
 	root.PersistentFlags().BoolVar(&flags.Wait, "wait", false, "Wait for asynchronous operations to complete")
@@ -374,7 +372,8 @@ func Execute(ctx context.Context, args []string) error {
 	flagAlias(root.PersistentFlags(), "query", "qr")
 	flagAlias(root.PersistentFlags(), "query-file", "qf")
 	flagAlias(root.PersistentFlags(), "items-only", "io")
-	flagAlias(root.PersistentFlags(), "results-only", "ro")
+	flagAlias(root.PersistentFlags(), "items-only", "results-only")
+	flagAlias(root.PersistentFlags(), "items-only", "ro")
 
 	// Add subcommands
 	root.AddCommand(newAuthCmd())

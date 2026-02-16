@@ -231,11 +231,9 @@ func TestExecute_GlobalFlags(t *testing.T) {
 		"--query",
 		"--query-file",
 		"--items-only",
-		"--results-only",
 		"--fields",
 		"--no-input",
 		"--yes",
-		"--force",
 		"--template",
 		"--utc",
 		"--time-zone",
@@ -514,18 +512,6 @@ func TestExecute_ItemsOnlyHiddenAliasesWork(t *testing.T) {
 		if len(items) == 0 {
 			t.Fatalf("%s returned empty array", alias)
 		}
-	}
-}
-
-func TestExecute_ForceAliasSetsYesAndNoInput(t *testing.T) {
-	if err := Execute(context.Background(), []string{"version", "--force"}); err != nil {
-		t.Fatalf("version --force failed: %v", err)
-	}
-	if !flags.Yes {
-		t.Fatal("expected --force to set --yes alias")
-	}
-	if !flags.NoInput {
-		t.Fatal("expected --force/--yes to enable --no-input")
 	}
 }
 

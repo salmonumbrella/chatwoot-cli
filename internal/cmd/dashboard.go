@@ -306,11 +306,20 @@ func addDashboardWarning(result map[string]any, warning string) {
 }
 
 // compactDashboardResult transforms a full dashboard API response into a
-// compact summary with only essential fields. The result structure is:
+// compact summary with only essential fields.
+//
+// NOTE: This transformation is specific to Shopline order dashboards. The field
+// mapping (shopline_created_at → date, order_total → total, etc.) assumes
+// Shopline's data structure. For non-Shopline dashboards, --compact will produce
+// items with only the fields that happen to match (e.g., "number" is generic).
+// If additional dashboard integrations are added, consider making the compact
+// field mapping configurable per dashboard.
+//
+// Result structure:
 //
 //	{
 //	  "tier": "Gold",                    // from customer_info.membership_tier_name
-//	  "items": [                         // from items
+//	  "items": [
 //	    {
 //	      "number": "ORD-001",
 //	      "date": "2026-01-15",          // shopline_created_at truncated to date
