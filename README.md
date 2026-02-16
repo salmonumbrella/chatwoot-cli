@@ -787,9 +787,9 @@ All commands support these flags:
 - `--dr` / `--dry-run` - Preview changes without executing mutations
 - `--timeout <duration>` - HTTP request timeout (default: 30s)
 - `--idem <key|auto>` / `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
-- `--query <expr>` / `--jq <expr>` - JQ expression to filter JSON output (supports key aliases in path contexts)
+- `-q <expr>` / `--query <expr>` / `--jq <expr>` - JQ expression to filter JSON output (supports key aliases in path contexts)
 - `--fields <a,b,c>` - Select fields in JSON output (shorthand for `--query`; supports presets like `minimal`, `default`, `debug` on supported resources, and key aliases in paths)
-- `-q` / `--quiet` - Suppress non-essential output
+- `-Q` / `--quiet` - Suppress non-essential output
 - `--silent` - Suppress non-error output to stderr
 - `--no-input` - Disable interactive prompts
 - `-y` / `--yes` - Assume yes for confirmations (desire path alias for `--force`)
