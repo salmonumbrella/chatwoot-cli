@@ -17,6 +17,7 @@ Thumbs.db
 
 # Tools
 .tools/
+.plan/
 
 # Local development (not for public repo)
 /docs/
