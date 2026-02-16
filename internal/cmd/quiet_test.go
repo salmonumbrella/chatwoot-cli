@@ -36,9 +36,9 @@ func TestQuietFlagExists(t *testing.T) {
 		t.Error("--quiet persistent flag not found in help output")
 	}
 
-	// The help output should show "-q" shorthand
-	if !strings.Contains(output, "-q") {
-		t.Error("-q shorthand not found in help output")
+	// The help output should show "-Q" shorthand for --quiet
+	if !strings.Contains(output, "-Q, --quiet") {
+		t.Error("-Q shorthand not found in help output for --quiet")
 	}
 
 	// The help output should show "--silent"
@@ -101,4 +101,34 @@ func TestPrintIfNotQuiet(t *testing.T) {
 
 	// Restore original flags
 	flags = origFlags
+}
+
+func TestFlagShorthands(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	ctx := context.Background()
+	err := Execute(ctx, []string{"--help"})
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Fatalf("Execute() with --help failed: %v", err)
+	}
+
+	// -q should map to --query, not --quiet
+	if !strings.Contains(output, "-q, --query") {
+		t.Error("-q should be shorthand for --query")
+	}
+
+	// -Q should map to --quiet
+	if !strings.Contains(output, "-Q, --quiet") {
+		t.Error("-Q should be shorthand for --quiet")
+	}
 }
