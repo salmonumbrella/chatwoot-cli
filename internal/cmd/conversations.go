@@ -320,13 +320,13 @@ func newConversationsCreateCmd() *cobra.Command {
 		Long:    "Create a new conversation in an inbox",
 		Example: strings.TrimSpace(`
   # Create a conversation
-  cw conversations create --inbox-id 1 --contact-id 123
+  cw c mk -I 1 -C 123
 
   # Create a conversation with an initial message
-  cw conversations create --inbox-id 1 --contact-id 123 --message "Hello!"
+  cw c mk -I 1 -C 123 -m "Hello!"
 
   # Create a conversation with status and assignment
-  cw conversations create --inbox-id 1 --contact-id 123 --status open --assignee-id 5 --team-id 2
+  cw c mk -I 1 -C 123 -s open --aid 5 --tid 2
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if inboxID == 0 {
@@ -415,6 +415,7 @@ func newConversationsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 	flagAlias(cmd.Flags(), "contact-id", "cid")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "assignee-id", "aid")
 	flagAlias(cmd.Flags(), "team-id", "tid")
 	flagAlias(cmd.Flags(), "status", "st")
 
