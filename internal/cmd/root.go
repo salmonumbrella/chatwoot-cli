@@ -346,7 +346,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "Alias for --query")
 	root.PersistentFlags().BoolVar(&flags.ItemsOnly, "items-only", false, "Output only the items/results array when present (JSON output)")
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Fields to select in JSON output (CSV/whitespace/JSON array, or @- / @path; path aliases supported) (shorthand for --query)")
-	root.PersistentFlags().BoolVar(&flags.Compact, "compact", false, "Compact JSON output (no indentation)")
+	root.PersistentFlags().BoolVar(&flags.Compact, "compact-json", false, "Compact JSON output (no indentation)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "Q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
@@ -380,6 +380,7 @@ func Execute(ctx context.Context, args []string) error {
 	flagAlias(root.PersistentFlags(), "items-only", "io")
 	flagAlias(root.PersistentFlags(), "items-only", "results-only")
 	flagAlias(root.PersistentFlags(), "items-only", "ro")
+	flagAlias(root.PersistentFlags(), "compact-json", "cj")
 
 	// Add subcommands
 	root.AddCommand(newAuthCmd())
@@ -544,6 +545,25 @@ func extractFlag(s string) string {
 	return strings.TrimRight(rest[:end], ".,;:!?\"'")
 }
 
+// extensionAliases maps short names to canonical extension names.
+// When `cw <alias>` doesn't match a built-in command, the CLI tries
+// to exec `cw-<alias>` first, then `cw-<canonical>`.
+var extensionAliases = map[string]string{
+	"vi": "view-images",
+}
+
+func extensionExecCandidates(name string) []string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil
+	}
+	candidates := []string{name}
+	if canonical, ok := extensionAliases[name]; ok && canonical != "" && canonical != name {
+		candidates = append(candidates, canonical)
+	}
+	return candidates
+}
+
 func tryExecExtension(args []string) (bool, error) {
 	if len(args) == 0 {
 		return false, nil
@@ -552,16 +572,19 @@ func tryExecExtension(args []string) (bool, error) {
 	if strings.HasPrefix(name, "-") {
 		return false, nil
 	}
-	bin := "cw-" + name
-	path, err := exec.LookPath(bin)
-	if err != nil {
-		return false, nil
+	for _, candidate := range extensionExecCandidates(name) {
+		bin := "cw-" + candidate
+		path, err := exec.LookPath(bin)
+		if err != nil {
+			continue
+		}
+		cmd := exec.Command(path, args[1:]...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return true, cmd.Run()
 	}
-	cmd := exec.Command(path, args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return true, cmd.Run()
+	return false, nil
 }
 
 func findHelpJSONTarget(root *cobra.Command, args []string) (*cobra.Command, bool) {

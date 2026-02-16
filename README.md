@@ -145,6 +145,19 @@ Executables on your PATH named `cw-<name>` can be invoked as:
 cw <name> [args...]
 ```
 
+Extension shortcuts are also supported where configured:
+
+```bash
+cw view-images [args...]
+cw vi [args...]                         # alias for cw-view-images
+```
+
+If you invoke extension executables directly, a shell-level alias works too:
+
+```bash
+ln -sf "$(command -v cw-view-images)" ~/.local/bin/cw-vi
+```
+
 ### Shortcuts (Agent-Friendly)
 
 Convenience commands designed for agent workflows:
@@ -262,6 +275,8 @@ cw co filter --payload '[{"attribute_key":"email","filter_operator":"contains","
 cw co g 123                              # Get contact by ID
 cw co show 123                           # Get contact (alias for get)
 cw co g +16042091231                     # Lookup contact by phone number
+cw co g 123 --li                         # Light: minimal payload + Shopline IDs + active conversations
+cw co ls --li                            # Light list: compact contacts with Shopline IDs
 cw co cr -n "John Doe" -e "john@example.com"  # Create a contact
 cw co up 123 --phone "+1234567890"       # Update phone number
 cw co up john@example.com -n "John Smith"  # Update by email lookup
@@ -542,9 +557,12 @@ cw ref 123 -E id                         # Emit just the typed ID
 Query external dashboard APIs for contact data (requires configuration via `cw cfg dashboard add`):
 
 ```bash
-cw dash orders --contact 180712            # Query orders for contact
-cw dash orders --conversation 24445        # Auto-resolve contact from conversation
-cw dash orders --contact 180712 --page 2 --per-page 20  # Paginate results
+cw dh ods --ct 180712                     # Short form: dashboard alias + fuzzy name + contact alias
+cw dh ods --cv 24445                      # Resolve contact from conversation alias
+cw dh ods --ct 180712 --pg 2 --pp 20      # Paginate with short aliases
+cw dh ods --ct 180712 -o json -q '[.it[-3:] | .[] | {n: .number, ot}]'
+# `ods` must uniquely match a configured dashboard (e.g., "orders"). `ord` also works.
+# Full forms still work: `cw dash orders --contact ...`
 ```
 
 ### Survey
@@ -818,55 +836,73 @@ Frequently used global flags have short aliases:
 | `--resolve-names` | `--rn` |
 | `--time-zone` | `--tz` |
 | `--help-json` | `--hj` |
+| `--json` | `--j` (also `-j`) |
 | `--idempotency-key` | `--idem` |
 | `--max-rate-limit-retries` | `--max-rl` |
 | `--rate-limit-delay` | `--rld` |
 | `--server-error-delay` | `--sed` |
+| `--output` | `--out` |
+| `--query` | `--qr` |
+| `--query-file` | `--qf` |
+| `--items-only` | `--io`, `--results-only`, `--ro` |
+| `--compact-json` | `--cj` |
 
 ## Command Aliases
 
-Every command has 1-2 letter aliases for fast typing. Use `cw <alias>` instead of the full command name:
+Most commands provide short aliases for fast typing. Use `cw <alias>` instead of the full command name:
 
 | Command | Aliases |
 |---------|---------|
-| `conversations` | `conv`, `c` |
-| `messages` | `msg`, `m` |
-| `contacts` | `co` |
-| `search` | `s` |
-| `reply` | `r` |
-| `note` | `n` |
-| `comment` | `cmt` |
-| `close` | `resolve`, `x` |
-| `reopen` | `ro` |
-| `assign` | `as` |
-| `ctx` | `ct` |
-| `open` | `get`, `show`, `o` |
-| `agents` | `a` |
-| `teams` | `t` |
-| `labels` | `l` |
-| `inboxes` | `in` |
-| `campaigns` | `camp`, `cm` |
-| `webhooks` | `wh` |
-| `reports` | `rp` |
-| `snooze` | `sn` |
-| `handoff` | `ho` |
-| `mentions` | `mn` |
-| `csat` | `cs` |
-| `portals` | `po` |
-| `platform` | `pf` |
-| `dashboard` | `dash` |
-| `survey` | `sv` |
-| `cache` | `ch` |
-| `public` | `pub` |
+| `account` | `acc`, `ac` |
+| `agent-bots` | `bots`, `ab` |
+| `agents` | `agent`, `a` |
 | `api` | `ap` |
-| `status` | `st` |
-| `schema` | `sc` |
-| `config` | `cfg` |
+| `assign` | `reassign`, `as` |
+| `audit-logs` | `audit`, `al` |
 | `auth` | `au` |
+| `automation-rules` | `automation`, `rules`, `ar` |
+| `cache` | `ch` |
+| `campaigns` | `campaign`, `camp`, `cm` |
+| `canned-responses` | `cr`, `canned` |
+| `client` | `cl` |
+| `close` | `close-conversation`, `resolve-conversation`, `resolve`, `x` |
+| `comment` | `cmt` |
+| `completions` | `-` |
+| `config` | `cfg` |
+| `contacts` | `contact`, `customers`, `co` |
+| `conversations` | `conv`, `c` |
+| `csat` | `satisfaction`, `cs` |
+| `ctx` | `context`, `ct` |
+| `custom-attributes` | `attrs`, `ca` |
+| `custom-filters` | `filters`, `cf` |
+| `dashboard` | `dash`, `dh` |
+| `handoff` | `escalate`, `transfer`, `ho` |
+| `inbox-members` | `inbox_members`, `im` |
+| `inboxes` | `inbox`, `in` |
+| `integrations` | `integration`, `int`, `ig` |
+| `labels` | `label`, `l` |
+| `mentions` | `mn` |
+| `messages` | `message`, `msg`, `m` |
+| `note` | `internal-note`, `n` |
+| `open` | `get`, `show`, `o` |
+| `platform` | `pf` |
+| `portals` | `portal`, `po` |
 | `profile` | `pr` |
+| `public` | `pub` |
+| `ref` | `-` |
+| `reopen` | `open-conversation`, `ro` |
+| `reply` | `respond`, `r` |
+| `reports` | `report`, `rpt`, `rp` |
+| `schema` | `sc` |
+| `search` | `find`, `s` |
+| `snooze` | `pause`, `defer`, `sn` |
+| `status` | `st` |
+| `survey` | `sv` |
+| `teams` | `team`, `t` |
 | `version` | `v` |
+| `webhooks` | `webhook`, `wh` |
 
-Subcommands also have aliases (e.g., `list` -> `ls`, `get` -> `g`, `create` -> `cr`, `update` -> `up`, `delete` -> `del`).
+Subcommands also have aliases (e.g., `list` -> `ls`, `get` -> `g`, `create` -> `mk`/`cr`, `update` -> `up`, `delete` -> `rm`/`del`).
 
 ### Examples
 
@@ -897,6 +933,7 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 | Flag | Alias | Available on |
 |------|-------|-------------|
 | `--content` | `-c` | messages create/update, comment, note, reply |
+| `--compact` | `-c` | dashboard (compact field selection, distinct from `--compact-json`) |
 | `--name` | `-n` | contacts create/update, campaigns, inboxes, platform |
 | `--email` | `-e` | contacts create/update |
 | `--limit` | `-l` | messages list, search, all list commands |
@@ -917,8 +954,13 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 | `--status` | `--st` | conversations list/create/update |
 | `--inbox-id` | `--iid` | conversations, campaigns, contacts, csat, integrations |
 | `--contact-id` | `--cid` | conversations create, integrations, reply |
+| `--contact` | `--ct` | dashboard |
+| `--conversation` | `--cv` | dashboard |
 | `--team-id` | `--tid` | conversations list/create |
 | `--priority` | `--pri` | conversations, comment, note, reply |
+| `--page` | `--pg` | dashboard |
+| `--per-page` | `--pp` | dashboard |
+| `--compact` | `--brief`, `--summary` | dashboard |
 | `--agent` | `--ag` | assign, conversations, handoff |
 | `--description` | `--desc` | campaigns, labels, platform, portals, teams |
 | `--assignee-type` | `--at` | conversations list |

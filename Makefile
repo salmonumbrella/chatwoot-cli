@@ -1,4 +1,4 @@
-.PHONY: build clean fmt lint test install setup
+.PHONY: build clean fmt lint test install setup check-readme-aliases
 
 BINARY_NAME=cw
 BUILD_DIR=./bin
@@ -21,6 +21,9 @@ lint:
 
 test:
 	go test ./...
+
+check-readme-aliases:
+	./scripts/check-readme-aliases.sh
 
 install:
 	go build -ldflags="-s -w" -trimpath -o $(shell go env GOPATH)/bin/$(BINARY_NAME) ./cmd/chatwoot

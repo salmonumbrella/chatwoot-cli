@@ -156,6 +156,33 @@ func TestExtractFlag(t *testing.T) {
 	}
 }
 
+func TestExtensionExecCandidates(t *testing.T) {
+	tests := []struct {
+		name string
+		want []string
+	}{
+		{name: "view-images", want: []string{"view-images"}},
+		{name: "vi", want: []string{"vi", "view-images"}},
+		{name: "unknown", want: []string{"unknown"}},
+		{name: "", want: nil},
+		{name: "   ", want: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extensionExecCandidates(tt.name)
+			if len(got) != len(tt.want) {
+				t.Fatalf("extensionExecCandidates(%q) len=%d, want %d (%v)", tt.name, len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("extensionExecCandidates(%q)[%d]=%q, want %q", tt.name, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestExecute_SubcommandsExist(t *testing.T) {
 	// Verify essential subcommands exist by checking help output
 	oldStdout := os.Stdout
@@ -555,6 +582,7 @@ func TestCommandAliases(t *testing.T) {
 		{"escalate", "handoff"},
 		{"transfer", "handoff"},
 		{"dash", "dashboard"},
+		{"dh", "dashboard"},
 		{"v", "version"},
 	}
 
