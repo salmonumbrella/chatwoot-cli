@@ -1047,7 +1047,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (required)")
+	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Inbox ID (required)")
 	cmd.Flags().StringVar(&sourceID, "source-id", "", "Channel-specific source identifier")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
 
@@ -1414,8 +1414,9 @@ func newContactsMergeCmd() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "merge <keep-id> <delete-id>",
-		Short: "Merge two contacts",
+		Use:     "merge <keep-id> <delete-id>",
+		Aliases: []string{"mg"},
+		Short:   "Merge two contacts",
 		Long: `Merge two contacts into one.
 
 The first argument (keep-id) is the contact that SURVIVES and receives all data.
@@ -1524,7 +1525,7 @@ This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
 		}),
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt (required for --output json)")
+	cmd.Flags().BoolVarP(&force, "force", "F", false, "Skip confirmation prompt (required for --output json)")
 
 	return cmd
 }
