@@ -1561,3 +1561,115 @@ func TestContactsMergeDryRun_JSON(t *testing.T) {
 		t.Errorf("JSON output missing 'target' field: %s", output)
 	}
 }
+
+func TestContactsGetLight(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/136014", jsonResponse(200, `{
+			"payload": {
+				"id": 136014,
+				"name": "Jane Doe",
+				"email": "jane@example.com",
+				"phone_number": "+886912345678",
+				"custom_attributes": {"tier": "gold"},
+				"created_at": 1700000000
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/136014/conversations", jsonResponse(200, `{
+			"payload": [
+				{
+					"id": 8821,
+					"status": "open",
+					"inbox_id": 3,
+					"last_non_activity_message": {"content": "When will my order arrive?"}
+				},
+				{
+					"id": 9999,
+					"status": "resolved",
+					"inbox_id": 3,
+					"last_non_activity_message": {"content": "Old resolved message"}
+				}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "get", "136014", "--light"})
+		if err != nil {
+			t.Fatalf("contacts get --light failed: %v", err)
+		}
+	})
+
+	// Should contain light fields with short keys
+	if !strings.Contains(output, `"nm"`) {
+		t.Error("expected short key 'nm' in output")
+	}
+	// Should have conversation with last message
+	if !strings.Contains(output, `"When will my order arrive?"`) {
+		t.Error("expected last message in output")
+	}
+	// Should NOT contain resolved conversation
+	if strings.Contains(output, `"Old resolved message"`) {
+		t.Error("should not include resolved conversations")
+	}
+	// Should NOT contain custom_attributes (stripped in light mode)
+	if strings.Contains(output, `"custom_attributes"`) {
+		t.Error("should not contain custom_attributes in light mode")
+	}
+	if strings.Contains(output, `"tier"`) {
+		t.Error("should not contain custom attribute values in light mode")
+	}
+}
+
+func TestContactsListLight(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts", jsonResponse(200, `{
+			"payload": [
+				{
+					"id": 136014,
+					"name": "Jane Doe",
+					"email": "jane@example.com",
+					"phone_number": "+886912345678",
+					"custom_attributes": {"tier": "gold"},
+					"created_at": 1700000000
+				},
+				{
+					"id": 42,
+					"name": "Bob",
+					"email": "",
+					"phone_number": "+886998765432",
+					"custom_attributes": {},
+					"created_at": 1700000001
+				}
+			],
+			"meta": {"count": 2}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "list", "--light"})
+		if err != nil {
+			t.Fatalf("contacts list --light failed: %v", err)
+		}
+	})
+
+	// Should be a JSON array
+	if !strings.HasPrefix(strings.TrimSpace(output), "[") {
+		t.Error("expected JSON array output")
+	}
+	if !strings.Contains(output, `"nm"`) {
+		t.Error("expected short key 'nm'")
+	}
+	// Should NOT have conversations (too expensive for list)
+	if strings.Contains(output, `"convs"`) {
+		t.Error("should not include convs in list mode")
+	}
+	// Should NOT have full field names or custom attributes
+	if strings.Contains(output, `"created_at"`) {
+		t.Error("should not contain created_at in light mode")
+	}
+	if strings.Contains(output, `"custom_attributes"`) {
+		t.Error("should not contain custom_attributes in light mode")
+	}
+}

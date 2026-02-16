@@ -86,6 +86,22 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return fmt.Errorf("failed to list contacts: %w", err)
 			}
 
+			light, _ := cmd.Flags().GetBool("light")
+			if light {
+				var lightContacts []lightContact
+				for i := range contacts.Payload {
+					lightContacts = append(lightContacts, buildLightContact(&contacts.Payload[i]))
+				}
+				if lightContacts == nil {
+					lightContacts = []lightContact{}
+				}
+				raw, err := json.Marshal(lightContacts)
+				if err != nil {
+					return err
+				}
+				return printJSON(cmd, json.RawMessage(raw))
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, contacts.Payload)
 			}
@@ -118,6 +134,8 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	cmd.Flags().IntVarP(&page, "page", "p", 0, "Page number for pagination")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at; aliases: n|e|pn|la); prefix with '-' for desc")
 	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
+	cmd.Flags().Bool("light", false, "Return minimal contact payload")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
@@ -173,6 +191,29 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 	contact, err := client.Contacts().Get(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get contact %d: %w", id, err)
+	}
+
+	// Light mode: minimal payload with open/pending conversations
+	light, _ := cmd.Flags().GetBool("light")
+	if light {
+		lc := buildLightContact(contact)
+
+		// Fetch open/pending conversations with last message
+		convs, err := client.Contacts().Conversations(ctx, id)
+		if err == nil {
+			for _, conv := range convs {
+				if conv.Status != "open" && conv.Status != "pending" {
+					continue
+				}
+				lastMsg := extractLastNonActivityMessage(conv)
+				lc.Convs = append(lc.Convs, buildLightContactConversation(conv, lastMsg))
+			}
+		}
+		if lc.Convs == nil {
+			lc.Convs = []lightContactConv{}
+		}
+
+		return printJSON(cmd, lc)
 	}
 
 	if mode == "json" && !isAgent(cmd) {
@@ -266,6 +307,8 @@ Use 'cw contacts show <id>' as an alias for this command.`,
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 	cmd.Flags().StringP("emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 	flagAlias(cmd.Flags(), "with-open-conversations", "woc")
+	cmd.Flags().Bool("light", false, "Return minimal contact payload with active conversations")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
@@ -301,6 +344,8 @@ This is an alias for 'cw contacts get <id>'.`,
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 	cmd.Flags().StringP("emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 	flagAlias(cmd.Flags(), "with-open-conversations", "woc")
+	cmd.Flags().Bool("light", false, "Return minimal contact payload with active conversations")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

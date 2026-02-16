@@ -110,24 +110,30 @@ func (fs FlexString) String() string {
 
 // Conversation represents a Chatwoot conversation
 type Conversation struct {
-	ID                  int            `json:"id"`
-	AccountID           int            `json:"account_id"`
-	InboxID             int            `json:"inbox_id"`
-	Status              string         `json:"status"`
-	Priority            *string        `json:"priority,omitempty"`
-	AssigneeID          *int           `json:"assignee_id,omitempty"`
-	TeamID              *int           `json:"team_id,omitempty"`
-	ContactID           int            `json:"contact_id,omitempty"`
-	DisplayID           *int           `json:"display_id,omitempty"`
-	Muted               bool           `json:"muted"`
-	Unread              int            `json:"unread_count"`
-	MessagesCount       int            `json:"messages_count,omitempty"`
-	FirstReplyCreatedAt *int64         `json:"first_reply_created_at,omitempty"`
-	CreatedAt           int64          `json:"created_at"`
-	LastActivityAt      int64          `json:"last_activity_at,omitempty"`
-	Labels              []string       `json:"labels,omitempty"`
-	Meta                map[string]any `json:"meta,omitempty"`
-	CustomAttributes    map[string]any `json:"custom_attributes,omitempty"`
+	ID                     int                     `json:"id"`
+	AccountID              int                     `json:"account_id"`
+	InboxID                int                     `json:"inbox_id"`
+	Status                 string                  `json:"status"`
+	Priority               *string                 `json:"priority,omitempty"`
+	AssigneeID             *int                    `json:"assignee_id,omitempty"`
+	TeamID                 *int                    `json:"team_id,omitempty"`
+	ContactID              int                     `json:"contact_id,omitempty"`
+	DisplayID              *int                    `json:"display_id,omitempty"`
+	Muted                  bool                    `json:"muted"`
+	Unread                 int                     `json:"unread_count"`
+	MessagesCount          int                     `json:"messages_count,omitempty"`
+	FirstReplyCreatedAt    *int64                  `json:"first_reply_created_at,omitempty"`
+	CreatedAt              int64                   `json:"created_at"`
+	LastActivityAt         int64                   `json:"last_activity_at,omitempty"`
+	Labels                 []string                `json:"labels,omitempty"`
+	Meta                   map[string]any          `json:"meta,omitempty"`
+	CustomAttributes       map[string]any          `json:"custom_attributes,omitempty"`
+	LastNonActivityMessage *LastNonActivityMessage `json:"last_non_activity_message,omitempty"`
+}
+
+// LastNonActivityMessage is the most recent non-activity message in a conversation.
+type LastNonActivityMessage struct {
+	Content string `json:"content"`
 }
 
 // CreatedAtTime returns CreatedAt as time.Time
