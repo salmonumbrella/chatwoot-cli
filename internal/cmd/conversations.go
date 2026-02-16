@@ -1665,6 +1665,7 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 
 func newConversationsContextCmd() *cobra.Command {
 	var embedImages bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:   "context <id>",
@@ -1683,6 +1684,9 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
   # Get context with embedded images (for AI vision)
   cw conversations context 123 --embed-images
 
+  # Get lightweight context (id/status/inbox/contact/messages only)
+  cw conversations context 123 --light --compact-json
+
   # Pipe to AI for draft response
   cw conversations context 123 --embed-images --output json | ai-tool
 `),
@@ -1698,9 +1702,14 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 				return err
 			}
 
-			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, embedImages)
+			requestEmbeddedImages := embedImages && !light
+			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, requestEmbeddedImages)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation context: %w", err)
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightConversationContext(id, ctx))
 			}
 
 			if isAgent(cmd) {
@@ -1807,8 +1816,10 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 	}
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal context payload (id, st, inbox, contact, msgs)")
 	flagAlias(cmd.Flags(), "embed-images", "embed")
 	flagAlias(cmd.Flags(), "embed-images", "em")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

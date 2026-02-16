@@ -410,6 +410,86 @@ func TestConversationsContextCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsContextCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 456,
+			"status": "open",
+			"inbox_id": 48
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "  Hello  ", "message_type": 0, "private": false},
+				{"id": 2, "content": "Sure", "message_type": 1, "private": false},
+				{"id": 3, "content": "Agent assigned", "message_type": 2, "private": false},
+				{"id": 4, "content": "Template", "message_type": 3, "private": false}
+			]
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {
+				"id": 456,
+				"name": "TuTu",
+				"email": "",
+				"phone_number": "+15550001111"
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "context", "123", "--light"})
+		if err != nil {
+			t.Fatalf("conversations context --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ID      int    `json:"id"`
+		St      string `json:"st"`
+		Inbox   int    `json:"inbox"`
+		Contact struct {
+			ID    *int    `json:"id"`
+			Name  *string `json:"name"`
+			Email *string `json:"email"`
+			Phone *string `json:"phone"`
+		} `json:"contact"`
+		Msgs []string `json:"msgs"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if payload.ID != 123 {
+		t.Fatalf("expected id=123, got %d", payload.ID)
+	}
+	if payload.St != "open" {
+		t.Fatalf("expected st=open, got %q", payload.St)
+	}
+	if payload.Inbox != 48 {
+		t.Fatalf("expected inbox=48, got %d", payload.Inbox)
+	}
+	if payload.Contact.ID == nil || *payload.Contact.ID != 456 {
+		t.Fatalf("expected contact.id=456, got %#v", payload.Contact.ID)
+	}
+	if payload.Contact.Name == nil || *payload.Contact.Name != "TuTu" {
+		t.Fatalf("expected contact.name=TuTu, got %#v", payload.Contact.Name)
+	}
+	if payload.Contact.Email != nil {
+		t.Fatalf("expected contact.email=null for empty string, got %#v", payload.Contact.Email)
+	}
+	if payload.Contact.Phone == nil || *payload.Contact.Phone != "+15550001111" {
+		t.Fatalf("expected contact.phone to be set, got %#v", payload.Contact.Phone)
+	}
+
+	if len(payload.Msgs) != 2 {
+		t.Fatalf("expected 2 non-activity messages, got %d (%#v)", len(payload.Msgs), payload.Msgs)
+	}
+	if payload.Msgs[0] != "Hello" || payload.Msgs[1] != "Sure" {
+		t.Fatalf("unexpected msgs payload: %#v", payload.Msgs)
+	}
+}
+
 func TestConversationsContextCommand_Agent(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{

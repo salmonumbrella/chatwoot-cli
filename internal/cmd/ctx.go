@@ -10,6 +10,7 @@ import (
 
 func newCtxCmd() *cobra.Command {
 	var embedImages bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "ctx <conversation-id|url>",
@@ -27,6 +28,9 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 
   # Embed images for vision models
   cw ctx 123 --embed-images --output json
+
+  # Lightweight context (minimal JSON for triage)
+  cw ctx 123 --li --cj
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -40,9 +44,14 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 				return err
 			}
 
-			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, embedImages)
+			requestEmbeddedImages := embedImages && !light
+			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, requestEmbeddedImages)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation context: %w", err)
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightConversationContext(id, ctx))
 			}
 
 			if isAgent(cmd) {
@@ -114,8 +123,10 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 	}
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal context payload (id, st, inbox, contact, msgs)")
 	flagAlias(cmd.Flags(), "embed-images", "embed")
 	flagAlias(cmd.Flags(), "embed-images", "em")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

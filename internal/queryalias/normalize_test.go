@@ -38,6 +38,9 @@ func TestCanonical(t *testing.T) {
 		ok    bool
 	}{
 		{alias: "st", want: "status", ok: true},
+		{alias: "cst", want: "st", ok: true},
+		{alias: "ib", want: "inbox", ok: true},
+		{alias: "mg", want: "msgs", ok: true},
 		{alias: "la", want: "last_activity_at", ok: true},
 		{alias: "sd", want: "sender", ok: true},
 		{alias: "mty", want: "message_type", ok: true},
@@ -68,6 +71,9 @@ func TestNormalizePath(t *testing.T) {
 		want string
 	}{
 		{name: "single alias", in: "st", want: "status"},
+		{name: "light status alias", in: "cst", want: "st"},
+		{name: "light inbox alias", in: "ib", want: "inbox"},
+		{name: "light messages alias", in: "mg", want: "msgs"},
 		{name: "nested path", in: "cu.plan", want: "custom_attributes.plan"},
 		{name: "custom attr aliases", in: "cu.blk", want: "custom_attributes.blacklist"},
 		{name: "multiple aliases", in: "ci.la", want: "contact_id.last_activity_at"},
@@ -181,6 +187,11 @@ func TestNormalizeQuery(t *testing.T) {
 			name: "shorthand in pipeline",
 			in:   `.it[] | {i, st, ct}`,
 			want: `.items[] | {id, status, content}`,
+		},
+		{
+			name: "light payload aliases",
+			in:   `{i, cst, ib, ctc, ls: .mg[-1]}`,
+			want: `{id, st, inbox, contact, ls: .msgs[-1]}`,
 		},
 		{
 			name: "key-value pair key not rewritten",
