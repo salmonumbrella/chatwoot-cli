@@ -190,6 +190,39 @@ func TestApply_QueryFunctionAliases(t *testing.T) {
 	}
 }
 
+func TestApplyFromJSON_EmptyExpression(t *testing.T) {
+	jsonData := []byte(`{"name": "test", "id": 42}`)
+	result, err := ApplyFromJSON(jsonData, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m, ok := result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", result)
+	}
+	if m["name"] != "test" {
+		t.Errorf("expected name=test, got %v", m["name"])
+	}
+}
+
+func TestApplyFromJSON_WithExpression(t *testing.T) {
+	jsonData := []byte(`{"name": "test", "id": 42}`)
+	result, err := ApplyFromJSON(jsonData, ".name")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "test" {
+		t.Errorf("expected 'test', got %v", result)
+	}
+}
+
+func TestApplyFromJSON_InvalidJSON(t *testing.T) {
+	_, err := ApplyFromJSON([]byte(`{invalid}`), ".name")
+	if err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
 func TestApply_QueryAliases_CustomAttributes(t *testing.T) {
 	data := map[string]any{
 		"custom_attributes": map[string]any{

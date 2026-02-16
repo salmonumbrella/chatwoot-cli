@@ -72,18 +72,9 @@ func ApplyToJSON(jsonData []byte, expression string) ([]byte, error) {
 // ApplyFromJSON applies a JQ filter to JSON bytes and returns the result as a Go value.
 // Unlike ApplyToJSON, this returns the unmarshaled value for the caller to format.
 func ApplyFromJSON(jsonData []byte, expression string) (interface{}, error) {
-	if expression == "" {
-		var data interface{}
-		if err := json.Unmarshal(jsonData, &data); err != nil {
-			return nil, fmt.Errorf("invalid JSON: %w", err)
-		}
-		return data, nil
-	}
-
 	var data interface{}
 	if err := json.Unmarshal(jsonData, &data); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
-
 	return Apply(data, expression)
 }

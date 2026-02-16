@@ -26,7 +26,7 @@ func TestGetQuery_EmptyByDefault(t *testing.T) {
 func TestWriteJSONFiltered_EmptyQuery(t *testing.T) {
 	var buf bytes.Buffer
 	data := map[string]string{"name": "test"}
-	err := WriteJSONFiltered(&buf, data, "")
+	err := WriteJSONFiltered(&buf, data, "", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestWriteJSONFiltered_EmptyQuery(t *testing.T) {
 func TestWriteJSONFiltered_WithQuery(t *testing.T) {
 	var buf bytes.Buffer
 	data := map[string]string{"name": "test", "id": "123"}
-	err := WriteJSONFiltered(&buf, data, ".name")
+	err := WriteJSONFiltered(&buf, data, ".name", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestWriteJSONFiltered_WithQuery(t *testing.T) {
 func TestWriteJSONFiltered_InvalidQuery(t *testing.T) {
 	var buf bytes.Buffer
 	data := map[string]string{"name": "test"}
-	err := WriteJSONFiltered(&buf, data, "invalid[[[")
+	err := WriteJSONFiltered(&buf, data, "invalid[[[", false)
 	if err == nil {
 		t.Error("expected error for invalid query")
 	}
@@ -60,7 +60,7 @@ func TestWriteJSONFiltered_InvalidQuery(t *testing.T) {
 func TestWriteJSONFiltered_WrapsSlice(t *testing.T) {
 	var buf bytes.Buffer
 	data := []string{"a", "b"}
-	err := WriteJSONFiltered(&buf, data, "")
+	err := WriteJSONFiltered(&buf, data, "", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,12 +118,68 @@ func TestApplyQuery_ArrayFilter(t *testing.T) {
 	}
 }
 
+func TestWriteJSONFiltered_Compact(t *testing.T) {
+	var buf bytes.Buffer
+	data := map[string]any{"name": "test", "nested": map[string]int{"a": 1}}
+	err := WriteJSONFiltered(&buf, data, "", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := strings.TrimSpace(buf.String())
+	if strings.Contains(out, "\n") {
+		t.Errorf("compact output should be a single line, got: %s", out)
+	}
+	if !strings.Contains(out, `"name":"test"`) {
+		t.Errorf("expected compact JSON, got: %s", out)
+	}
+}
+
+func TestWriteJSONFiltered_CompactWithQuery(t *testing.T) {
+	var buf bytes.Buffer
+	data := map[string]any{"name": "test", "items": []int{1, 2, 3}}
+	err := WriteJSONFiltered(&buf, data, "{n: .name, it: .items}", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := strings.TrimSpace(buf.String())
+	if strings.Contains(out, "\n") {
+		t.Errorf("compact output should be a single line, got: %s", out)
+	}
+}
+
+func TestWriteJSONFiltered_NotCompactByDefault(t *testing.T) {
+	var buf bytes.Buffer
+	data := map[string]any{"name": "test", "nested": map[string]int{"a": 1}}
+	err := WriteJSONFiltered(&buf, data, "", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "\n  ") {
+		t.Errorf("default output should be indented, got: %s", out)
+	}
+}
+
+func TestWithCompact(t *testing.T) {
+	ctx := WithCompact(context.Background(), true)
+	if !IsCompact(ctx) {
+		t.Error("IsCompact should return true after WithCompact(true)")
+	}
+}
+
+func TestIsCompact_FalseByDefault(t *testing.T) {
+	ctx := context.Background()
+	if IsCompact(ctx) {
+		t.Error("IsCompact should return false by default")
+	}
+}
+
 func TestWriteJSONFiltered_RawMessageUnchanged(t *testing.T) {
 	raw := json.RawMessage(`{"it":"literal","items":"canonical"}`)
 	original := append([]byte(nil), raw...)
 
 	var buf bytes.Buffer
-	if err := WriteJSONFiltered(&buf, raw, `.["it"]`); err != nil {
+	if err := WriteJSONFiltered(&buf, raw, `.["it"]`, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

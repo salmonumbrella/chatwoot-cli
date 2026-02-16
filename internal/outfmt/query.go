@@ -26,11 +26,10 @@ func GetQuery(ctx context.Context) string {
 
 // WriteJSONFiltered writes JSON with optional JQ filtering.
 // Uses pretty-printed output by default; pass compact=true for single-line output.
-func WriteJSONFiltered(w io.Writer, v any, query string, compact ...bool) error {
-	isCompact := len(compact) > 0 && compact[0]
+func WriteJSONFiltered(w io.Writer, v any, query string, compact bool) error {
 	v = normalizeJSONOutput(v)
 	if query == "" {
-		return WriteJSONMaybeCompact(w, v, isCompact)
+		return WriteJSONMaybeCompact(w, v, compact)
 	}
 
 	// Marshal to JSON, apply filter, then re-marshal with desired formatting.
@@ -44,7 +43,7 @@ func WriteJSONFiltered(w io.Writer, v any, query string, compact ...bool) error 
 		return err
 	}
 
-	return WriteJSONMaybeCompact(w, result, isCompact)
+	return WriteJSONMaybeCompact(w, result, compact)
 }
 
 // ApplyQuery applies a JQ query to structured data and returns the filtered value.
