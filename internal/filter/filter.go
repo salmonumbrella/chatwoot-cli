@@ -50,7 +50,7 @@ func Apply(data interface{}, expression string) (interface{}, error) {
 	return results, nil
 }
 
-// ApplyToJSON applies filter to JSON bytes and returns filtered JSON bytes
+// ApplyToJSON applies filter to JSON bytes and returns filtered JSON bytes (pretty-printed).
 func ApplyToJSON(jsonData []byte, expression string) ([]byte, error) {
 	if expression == "" {
 		return jsonData, nil
@@ -67,4 +67,23 @@ func ApplyToJSON(jsonData []byte, expression string) ([]byte, error) {
 	}
 
 	return json.MarshalIndent(result, "", "  ")
+}
+
+// ApplyFromJSON applies a JQ filter to JSON bytes and returns the result as a Go value.
+// Unlike ApplyToJSON, this returns the unmarshaled value for the caller to format.
+func ApplyFromJSON(jsonData []byte, expression string) (interface{}, error) {
+	if expression == "" {
+		var data interface{}
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		return data, nil
+	}
+
+	var data interface{}
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	return Apply(data, expression)
 }

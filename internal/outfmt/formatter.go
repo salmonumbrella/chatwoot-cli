@@ -36,7 +36,7 @@ func (f *Formatter) Output(data any) error {
 			}
 			return WriteTemplate(f.out, filtered, tmpl)
 		}
-		return WriteJSONFiltered(f.out, data, query)
+		return WriteJSONFiltered(f.out, data, query, IsCompact(f.ctx))
 	}
 	return nil
 }

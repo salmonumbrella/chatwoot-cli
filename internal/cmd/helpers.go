@@ -73,6 +73,7 @@ func newTabWriterFromCmd(cmd *cobra.Command) *tabwriter.Writer {
 func printJSON(cmd *cobra.Command, v any) error {
 	ioStreams := iocontext.GetIO(cmd.Context())
 	query := outfmt.GetQuery(cmd.Context())
+	compact := outfmt.IsCompact(cmd.Context())
 	if outfmt.IsAgent(cmd.Context()) {
 		if payload, ok := v.(agentfmt.Payload); ok {
 			v = payload.AgentPayload()
@@ -90,7 +91,7 @@ func printJSON(cmd *cobra.Command, v any) error {
 		}
 		return outfmt.WriteTemplate(ioStreams.Out, filtered, tmpl)
 	}
-	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query)
+	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query, compact)
 }
 
 func decorateAgentURLs(v any) any {
@@ -154,6 +155,7 @@ func decorateAgentURLs(v any) any {
 func printRawJSON(cmd *cobra.Command, v any) error {
 	ioStreams := iocontext.GetIO(cmd.Context())
 	query := outfmt.GetQuery(cmd.Context())
+	compact := outfmt.IsCompact(cmd.Context())
 	if tmpl := outfmt.GetTemplate(cmd.Context()); tmpl != "" {
 		filtered, err := outfmt.ApplyQuery(v, query)
 		if err != nil {
@@ -161,7 +163,7 @@ func printRawJSON(cmd *cobra.Command, v any) error {
 		}
 		return outfmt.WriteTemplate(ioStreams.Out, filtered, tmpl)
 	}
-	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query)
+	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query, compact)
 }
 
 // isJSON checks if the command context wants JSON output

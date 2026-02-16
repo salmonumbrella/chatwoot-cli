@@ -22,6 +22,7 @@ const (
 )
 
 type contextKey struct{}
+type compactKey struct{}
 
 // Parse parses an output mode string
 func Parse(s string) (Mode, error) {
@@ -68,10 +69,32 @@ func IsAgent(ctx context.Context) bool {
 	return ModeFromContext(ctx) == Agent
 }
 
+// WithCompact adds the compact flag to the context
+func WithCompact(ctx context.Context, compact bool) context.Context {
+	return context.WithValue(ctx, compactKey{}, compact)
+}
+
+// IsCompact returns true if compact output mode is set in the context
+func IsCompact(ctx context.Context) bool {
+	if c, ok := ctx.Value(compactKey{}).(bool); ok {
+		return c
+	}
+	return false
+}
+
 // WriteJSON writes a value as pretty-printed JSON
 func WriteJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
+// WriteJSONMaybeCompact writes JSON, using compact format if compact is true.
+func WriteJSONMaybeCompact(w io.Writer, v any, compact bool) error {
+	enc := json.NewEncoder(w)
+	if !compact {
+		enc.SetIndent("", "  ")
+	}
 	return enc.Encode(v)
 }
 

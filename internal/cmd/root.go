@@ -53,6 +53,8 @@ type rootFlags struct {
 	CircuitBreakerThreshold int
 	CircuitBreakerResetTime time.Duration
 
+	Compact bool
+
 	MaxRateLimitRetriesSet     bool
 	Max5xxRetriesSet           bool
 	RateLimitDelaySet          bool
@@ -229,6 +231,9 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			ctx = outfmt.WithMode(ctx, mode)
 
+			// Set up compact output
+			ctx = outfmt.WithCompact(ctx, flags.Compact)
+
 			// Set up IO streams (allow silent/quiet to suppress stderr)
 			ioStreams := iocontext.DefaultIO()
 			if flags.Silent || flags.Quiet {
@@ -341,6 +346,7 @@ func Execute(ctx context.Context, args []string) error {
 	root.PersistentFlags().StringVar(&flags.JQ, "jq", "", "Alias for --query")
 	root.PersistentFlags().BoolVar(&flags.ItemsOnly, "items-only", false, "Output only the items/results array when present (JSON output)")
 	root.PersistentFlags().StringVar(&flags.Fields, "fields", "", "Fields to select in JSON output (CSV/whitespace/JSON array, or @- / @path; path aliases supported) (shorthand for --query)")
+	root.PersistentFlags().BoolVar(&flags.Compact, "compact", false, "Compact JSON output (no indentation)")
 	root.PersistentFlags().BoolVarP(&flags.Quiet, "quiet", "Q", false, "Suppress non-essential output")
 	root.PersistentFlags().BoolVar(&flags.Silent, "silent", false, "Suppress non-error output to stderr")
 	root.PersistentFlags().BoolVar(&flags.NoInput, "no-input", false, "Disable interactive prompts")
