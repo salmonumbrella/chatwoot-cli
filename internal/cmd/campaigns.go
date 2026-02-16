@@ -301,7 +301,7 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 	cmd.Flags().StringVar(&description, "description", "", "Campaign description")
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVarP(&message, "message", "m", "", "Campaign message (required)")
-	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID for the campaign (required)")
+	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Inbox ID for the campaign (required)")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
 	cmd.Flags().IntVar(&senderID, "sender-id", 0, "Sender ID (agent)")
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "", "Scheduled time (relative, RFC3339, or YYYY-MM-DD)")

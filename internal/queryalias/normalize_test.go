@@ -43,6 +43,10 @@ func TestCanonical(t *testing.T) {
 		{alias: "mty", want: "message_type", ok: true},
 		{alias: "blk", want: "blacklist", ok: true},
 		{alias: "mtr", want: "membership_tier", ok: true},
+		{alias: "tp", want: "total_pages", ok: true},
+		{alias: "cp", want: "current_page", ok: true},
+		{alias: "pp", want: "per_page", ok: true},
+		{alias: "tc", want: "total_count", ok: true},
 		{alias: "missing", want: "", ok: false},
 	}
 
@@ -67,6 +71,10 @@ func TestNormalizePath(t *testing.T) {
 		{name: "nested path", in: "cu.plan", want: "custom_attributes.plan"},
 		{name: "custom attr aliases", in: "cu.blk", want: "custom_attributes.blacklist"},
 		{name: "multiple aliases", in: "ci.la", want: "contact_id.last_activity_at"},
+		{name: "meta sender id", in: "mt.sd.i", want: "meta.sender.id"},
+		{name: "meta sender name", in: "mt.sd.n", want: "meta.sender.name"},
+		{name: "pagination total pages", in: "mt.tp", want: "meta.total_pages"},
+		{name: "pagination current page", in: "mt.cp", want: "meta.current_page"},
 		{name: "long form unchanged", in: "last_activity_at", want: "last_activity_at"},
 		{name: "mixed case unchanged", in: "St", want: "St"},
 		{name: "unknown unchanged", in: "unknown_key", want: "unknown_key"},
@@ -193,6 +201,16 @@ func TestNormalizeQuery(t *testing.T) {
 			name: "shorthand unknown token unchanged",
 			in:   `{foo}`,
 			want: `{foo}`,
+		},
+		{
+			name: "meta sender id and name",
+			in:   `.mt.sd.i, .mt.sd.n`,
+			want: `.meta.sender.id, .meta.sender.name`,
+		},
+		{
+			name: "pagination metadata",
+			in:   `.mt.tp, .mt.cp, .mt.pp, .mt.tc`,
+			want: `.meta.total_pages, .meta.current_page, .meta.per_page, .meta.total_count`,
 		},
 		{
 			name: "empty input",

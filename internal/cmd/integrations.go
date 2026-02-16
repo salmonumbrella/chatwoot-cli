@@ -138,7 +138,7 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&appID, "app-id", "", "App ID (required)")
-	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Inbox ID (optional)")
+	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Inbox ID (optional)")
 	cmd.Flags().StringVar(&settingsJSON, "settings", "", "Settings as JSON string")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
 
@@ -315,7 +315,7 @@ func newShopifyOrdersCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Contact ID to get orders for")
+	cmd.Flags().IntVarP(&contactID, "contact-id", "C", 0, "Contact ID to get orders for")
 	flagAlias(cmd.Flags(), "contact-id", "cid")
 
 	return cmd

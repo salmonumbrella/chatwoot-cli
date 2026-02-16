@@ -154,7 +154,7 @@ If multiple open conversations exist for the contact, disambiguation is required
 
 	cmd.Flags().StringVarP(&content, "content", "c", "", "Message content (required)")
 	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after replying")
-	cmd.Flags().IntVar(&contactID, "contact-id", 0, "Skip search, use specific contact ID")
+	cmd.Flags().IntVarP(&contactID, "contact-id", "C", 0, "Skip search, use specific contact ID")
 	flagAlias(cmd.Flags(), "contact-id", "cid")
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Skip all lookups, reply to specific conversation")
 	flagAlias(cmd.Flags(), "conversation-id", "cvid")
