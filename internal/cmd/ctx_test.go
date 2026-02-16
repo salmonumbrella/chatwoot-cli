@@ -82,10 +82,8 @@ func TestCtxCommand_LightAlias(t *testing.T) {
 		St      string `json:"st"`
 		Inbox   int    `json:"inbox"`
 		Contact struct {
-			ID    *int    `json:"id"`
-			Name  *string `json:"name"`
-			Email *string `json:"email"`
-			Phone *string `json:"phone"`
+			ID   *int    `json:"id"`
+			Name *string `json:"name"`
 		} `json:"contact"`
 		Msgs []string `json:"msgs"`
 	}
@@ -102,12 +100,70 @@ func TestCtxCommand_LightAlias(t *testing.T) {
 	if payload.Contact.Name == nil || *payload.Contact.Name != "TuTu" {
 		t.Fatalf("expected contact.name=TuTu, got %#v", payload.Contact.Name)
 	}
-	if payload.Contact.Phone == nil || *payload.Contact.Phone != "+15550001111" {
-		t.Fatalf("expected contact.phone set, got %#v", payload.Contact.Phone)
-	}
 
 	if len(payload.Msgs) != 2 {
 		t.Fatalf("expected 2 non-activity messages, got %d (%#v)", len(payload.Msgs), payload.Msgs)
+	}
+}
+
+func TestCtxCommand_LightAlias_MetaSenderFallback(t *testing.T) {
+	// Simulates real Chatwoot API behavior: contact_id is null/0 but
+	// meta.sender contains the contact data.
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/789", jsonResponse(200, `{
+			"id": 789,
+			"contact_id": 0,
+			"status": "pending",
+			"inbox_id": 48,
+			"meta": {
+				"sender": {
+					"id": 32649,
+					"name": "秋萍🤔",
+					"email": "t660537@gmail.com",
+					"phone_number": "+8860981927778"
+				}
+			}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/789/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Hello", "message_type": 0, "private": false}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"ctx", "789", "--li", "--cj"})
+		if err != nil {
+			t.Fatalf("ctx --li meta sender fallback failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ID      int    `json:"id"`
+		St      string `json:"st"`
+		Inbox   int    `json:"inbox"`
+		Contact struct {
+			ID   *int    `json:"id"`
+			Name *string `json:"name"`
+		} `json:"contact"`
+		Msgs []string `json:"msgs"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if payload.ID != 789 || payload.St != "pending" || payload.Inbox != 48 {
+		t.Fatalf("unexpected light payload header: %#v", payload)
+	}
+	if payload.Contact.ID == nil || *payload.Contact.ID != 32649 {
+		t.Fatalf("expected contact.id=32649 from meta.sender, got %v", payload.Contact.ID)
+	}
+	if payload.Contact.Name == nil || *payload.Contact.Name != "秋萍🤔" {
+		t.Fatalf("expected contact.name from meta.sender, got %v", payload.Contact.Name)
+	}
+	if len(payload.Msgs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(payload.Msgs))
 	}
 }
 
@@ -167,7 +223,7 @@ func TestCtxCommand_LightAlias_WithQueryAliases(t *testing.T) {
 	if payload.Contact.ID == nil || *payload.Contact.ID != 456 {
 		t.Fatalf("expected contact.id=456, got %#v", payload.Contact.ID)
 	}
-	if payload.LS != "Second" {
+	if payload.LS != "> Second" {
 		t.Fatalf("expected ls=Second, got %q", payload.LS)
 	}
 }

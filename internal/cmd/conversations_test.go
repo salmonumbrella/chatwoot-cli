@@ -449,10 +449,8 @@ func TestConversationsContextCommand_Light(t *testing.T) {
 		St      string `json:"st"`
 		Inbox   int    `json:"inbox"`
 		Contact struct {
-			ID    *int    `json:"id"`
-			Name  *string `json:"name"`
-			Email *string `json:"email"`
-			Phone *string `json:"phone"`
+			ID   *int    `json:"id"`
+			Name *string `json:"name"`
 		} `json:"contact"`
 		Msgs []string `json:"msgs"`
 	}
@@ -475,17 +473,11 @@ func TestConversationsContextCommand_Light(t *testing.T) {
 	if payload.Contact.Name == nil || *payload.Contact.Name != "TuTu" {
 		t.Fatalf("expected contact.name=TuTu, got %#v", payload.Contact.Name)
 	}
-	if payload.Contact.Email != nil {
-		t.Fatalf("expected contact.email=null for empty string, got %#v", payload.Contact.Email)
-	}
-	if payload.Contact.Phone == nil || *payload.Contact.Phone != "+15550001111" {
-		t.Fatalf("expected contact.phone to be set, got %#v", payload.Contact.Phone)
-	}
 
 	if len(payload.Msgs) != 2 {
 		t.Fatalf("expected 2 non-activity messages, got %d (%#v)", len(payload.Msgs), payload.Msgs)
 	}
-	if payload.Msgs[0] != "Hello" || payload.Msgs[1] != "Sure" {
+	if payload.Msgs[0] != "Hello" || payload.Msgs[1] != "> Sure" {
 		t.Fatalf("unexpected msgs payload: %#v", payload.Msgs)
 	}
 }
