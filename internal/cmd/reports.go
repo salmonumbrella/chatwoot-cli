@@ -20,14 +20,17 @@ func newReportsCmd() *cobra.Command {
 		Long: `View reports and analytics from the Chatwoot API.
 
 Available report types:
-  summary      - Get summary statistics (conversations, messages, response times)
-  data         - Get time-series report data for a specific metric
-  live         - Get real-time conversation metrics (open/unattended/unassigned)
-  agents       - Get live agent conversation metrics
-  agent-summary - Get summary report grouped by agent
-  inboxes      - Get summary report grouped by inbox
-  teams        - Get summary report grouped by team
-  channels     - Get conversation statistics grouped by channel type
+  summary            - Get summary statistics (conversations, messages, response times)
+  data               - Get time-series report data for a specific metric
+  live               - Get real-time conversation metrics (open/unattended/unassigned)
+  agents             - Get live agent conversation metrics
+  agent-summary      - Get summary report grouped by agent
+  inboxes            - Get summary report grouped by inbox
+  teams              - Get summary report grouped by team
+  channels           - Get conversation statistics grouped by channel type
+  inbox-label-matrix - Conversation counts grouped by inbox and label
+  response-time      - First response time distribution by channel
+  outgoing-messages  - Outgoing message counts (by agent/team/inbox/label)
 
 Date parameters use Unix timestamps. Use --from and --to flags with dates like
 "2024-01-01" or relative expressions like "yesterday"; values are converted
@@ -43,6 +46,9 @@ to timestamps automatically.`,
 	cmd.AddCommand(newReportsTeamsCmd())
 	cmd.AddCommand(newReportsChannelsCmd())
 	cmd.AddCommand(newReportingEventsCmd())
+	cmd.AddCommand(newReportsInboxLabelMatrixCmd())
+	cmd.AddCommand(newReportsResponseTimeCmd())
+	cmd.AddCommand(newReportsOutgoingMessagesCmd())
 
 	return cmd
 }
@@ -554,6 +560,219 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+
+	return cmd
+}
+
+func newReportsInboxLabelMatrixCmd() *cobra.Command {
+	var from, to string
+	var inboxIDs, labelIDs []int
+
+	cmd := &cobra.Command{
+		Use:     "inbox-label-matrix",
+		Aliases: []string{"ilm"},
+		Short:   "Get conversation counts by inbox and label",
+		Long: `Get conversation counts grouped by inbox and label in a matrix format.
+
+Useful for understanding which labels are most common across different inboxes.`,
+		Example: `  cw reports inbox-label-matrix --from 2024-01-01 --to 2024-01-31
+  cw reports inbox-label-matrix --from 7d --to today --inbox-ids 1,2 --label-ids 3,4`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			if from == "" {
+				return fmt.Errorf("--from is required (format: YYYY-MM-DD)")
+			}
+			if to == "" {
+				return fmt.Errorf("--to is required (format: YYYY-MM-DD)")
+			}
+
+			sinceTS, err := parseDate(from)
+			if err != nil {
+				return err
+			}
+			untilTS, err := parseDate(to)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			entries, err := client.Reports().InboxLabelMatrix(cmdContext(cmd), sinceTS, untilTS, inboxIDs, labelIDs)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, entries)
+			}
+
+			if len(entries) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No inbox-label matrix data found")
+				return nil
+			}
+
+			w := newTabWriterFromCmd(cmd)
+			_, _ = fmt.Fprintln(w, "INBOX_ID\tLABEL_ID\tCOUNT")
+			for _, e := range entries {
+				_, _ = fmt.Fprintf(w, "%d\t%d\t%d\n", e.InboxID, e.LabelID, e.Count)
+			}
+			_ = w.Flush()
+			return nil
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().IntSliceVar(&inboxIDs, "inbox-ids", nil, "Filter by inbox IDs (comma-separated)")
+	cmd.Flags().IntSliceVar(&labelIDs, "label-ids", nil, "Filter by label IDs (comma-separated)")
+
+	return cmd
+}
+
+func newReportsResponseTimeCmd() *cobra.Command {
+	var from, to string
+
+	cmd := &cobra.Command{
+		Use:     "response-time",
+		Aliases: []string{"frt"},
+		Short:   "Get first response time distribution by channel",
+		Long: `Get conversation counts grouped by channel type and first response time buckets.
+
+Time buckets: 0-1h, 1-4h, 4-8h, 8-24h, 24h+`,
+		Example: `  cw reports response-time --from 2024-01-01 --to 2024-01-31
+  cw reports response-time --from 7d --to today -o json`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			if from == "" {
+				return fmt.Errorf("--from is required (format: YYYY-MM-DD)")
+			}
+			if to == "" {
+				return fmt.Errorf("--to is required (format: YYYY-MM-DD)")
+			}
+
+			sinceTS, err := parseDate(from)
+			if err != nil {
+				return err
+			}
+			untilTS, err := parseDate(to)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			dist, err := client.Reports().FirstResponseTimeDistribution(cmdContext(cmd), sinceTS, untilTS)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, dist)
+			}
+
+			if len(dist) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No response time distribution data found")
+				return nil
+			}
+
+			bucketOrder := []string{"0-1h", "1-4h", "4-8h", "8-24h", "24h+"}
+
+			channels := make([]string, 0, len(dist))
+			for ch := range dist {
+				channels = append(channels, ch)
+			}
+			sort.Strings(channels)
+
+			w := newTabWriterFromCmd(cmd)
+			_, _ = fmt.Fprintln(w, "CHANNEL\t0-1h\t1-4h\t4-8h\t8-24h\t24h+")
+			for _, ch := range channels {
+				buckets := dist[ch]
+				_, _ = fmt.Fprintf(w, "%s", ch)
+				for _, b := range bucketOrder {
+					_, _ = fmt.Fprintf(w, "\t%d", buckets[b])
+				}
+				_, _ = fmt.Fprintln(w)
+			}
+			_ = w.Flush()
+			return nil
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
+
+	return cmd
+}
+
+func newReportsOutgoingMessagesCmd() *cobra.Command {
+	var from, to, groupBy string
+
+	cmd := &cobra.Command{
+		Use:     "outgoing-messages",
+		Aliases: []string{"om"},
+		Short:   "Get outgoing message counts",
+		Long: `Get outgoing message counts, optionally grouped by agent, team, inbox, or label.
+
+Group by options:
+  agent  - Group by agent
+  team   - Group by team
+  inbox  - Group by inbox
+  label  - Group by label`,
+		Example: `  cw reports outgoing-messages --from 2024-01-01 --to 2024-01-31
+  cw reports outgoing-messages --from 7d --to today --group-by agent`,
+		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			if from == "" {
+				return fmt.Errorf("--from is required (format: YYYY-MM-DD)")
+			}
+			if to == "" {
+				return fmt.Errorf("--to is required (format: YYYY-MM-DD)")
+			}
+
+			sinceTS, err := parseDate(from)
+			if err != nil {
+				return err
+			}
+			untilTS, err := parseDate(to)
+			if err != nil {
+				return err
+			}
+
+			client, err := getClient()
+			if err != nil {
+				return err
+			}
+
+			entries, err := client.Reports().OutgoingMessagesCount(cmdContext(cmd), sinceTS, untilTS, groupBy)
+			if err != nil {
+				return err
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, entries)
+			}
+
+			if len(entries) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No outgoing messages data found")
+				return nil
+			}
+
+			w := newTabWriterFromCmd(cmd)
+			_, _ = fmt.Fprintln(w, "ID\tCOUNT")
+			for _, e := range entries {
+				_, _ = fmt.Fprintf(w, "%d\t%d\n", e.ID, e.Count)
+			}
+			_ = w.Flush()
+			return nil
+		}),
+	}
+
+	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
+	cmd.Flags().StringVar(&groupBy, "group-by", "", "Group by: agent, team, inbox, or label")
 
 	return cmd
 }

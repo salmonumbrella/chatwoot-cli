@@ -845,6 +845,98 @@ func TestListReportingEvents(t *testing.T) {
 	}
 }
 
+func TestInboxLabelMatrix(t *testing.T) {
+	tests := []struct {
+		name         string
+		since        string
+		until        string
+		inboxIDs     []int
+		labelIDs     []int
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateURL  func(*testing.T, string)
+	}{
+		{
+			name:       "basic matrix",
+			since:      "1609459200",
+			until:      "1609545600",
+			statusCode: http.StatusOK,
+			responseBody: `[
+				{"inbox_id": 1, "label_id": 2, "count": 15},
+				{"inbox_id": 1, "label_id": 3, "count": 8}
+			]`,
+			validateURL: func(t *testing.T, url string) {
+				if !strings.Contains(url, "since=1609459200") {
+					t.Error("URL should contain since param")
+				}
+				if !strings.Contains(url, "until=1609545600") {
+					t.Error("URL should contain until param")
+				}
+			},
+		},
+		{
+			name:         "with inbox and label filters",
+			since:        "1609459200",
+			until:        "1609545600",
+			inboxIDs:     []int{1, 2},
+			labelIDs:     []int{3},
+			statusCode:   http.StatusOK,
+			responseBody: `[{"inbox_id": 1, "label_id": 3, "count": 5}]`,
+			validateURL: func(t *testing.T, url string) {
+				if !strings.Contains(url, "inbox_ids") {
+					t.Error("URL should contain inbox_ids param")
+				}
+				if !strings.Contains(url, "label_ids") {
+					t.Error("URL should contain label_ids param")
+				}
+			},
+		},
+		{
+			name:         "server error",
+			since:        "1609459200",
+			until:        "1609545600",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: `{"error": "server error"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedURL string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedURL = r.URL.String()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 123)
+			result, err := client.Reports().InboxLabelMatrix(context.Background(), tt.since, tt.until, tt.inboxIDs, tt.labelIDs)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if result == nil {
+				t.Error("expected result but got nil")
+				return
+			}
+			if tt.validateURL != nil {
+				tt.validateURL(t, capturedURL)
+			}
+		})
+	}
+}
+
 func TestGetConversationReportingEvents(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -916,6 +1008,162 @@ func TestGetConversationReportingEvents(t *testing.T) {
 
 			if !tt.expectError && len(result) != tt.expectCount {
 				t.Errorf("Expected %d events, got %d", tt.expectCount, len(result))
+			}
+		})
+	}
+}
+
+func TestOutgoingMessagesCount(t *testing.T) {
+	tests := []struct {
+		name         string
+		since        string
+		until        string
+		groupBy      string
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateURL  func(*testing.T, string)
+	}{
+		{
+			name:       "group by agent",
+			since:      "1609459200",
+			until:      "1609545600",
+			groupBy:    "agent",
+			statusCode: http.StatusOK,
+			responseBody: `[
+				{"id": 1, "count": 42},
+				{"id": 2, "count": 35}
+			]`,
+			validateURL: func(t *testing.T, url string) {
+				if !strings.Contains(url, "group_by=agent") {
+					t.Error("URL should contain group_by=agent")
+				}
+			},
+		},
+		{
+			name:         "no group_by",
+			since:        "1609459200",
+			until:        "1609545600",
+			statusCode:   http.StatusOK,
+			responseBody: `[{"id": 0, "count": 100}]`,
+			validateURL: func(t *testing.T, url string) {
+				if strings.Contains(url, "group_by") {
+					t.Error("URL should not contain group_by when empty")
+				}
+			},
+		},
+		{
+			name:         "server error",
+			since:        "1609459200",
+			until:        "1609545600",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: `{"error": "server error"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedURL string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedURL = r.URL.String()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 123)
+			result, err := client.Reports().OutgoingMessagesCount(context.Background(), tt.since, tt.until, tt.groupBy)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if result == nil {
+				t.Error("expected result but got nil")
+			}
+			if tt.validateURL != nil {
+				tt.validateURL(t, capturedURL)
+			}
+		})
+	}
+}
+
+func TestFirstResponseTimeDistribution(t *testing.T) {
+	tests := []struct {
+		name         string
+		since        string
+		until        string
+		statusCode   int
+		responseBody string
+		expectError  bool
+		validateURL  func(*testing.T, string)
+	}{
+		{
+			name:       "basic distribution",
+			since:      "1609459200",
+			until:      "1609545600",
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"Channel::WebWidget": {"0-1h": 10, "1-4h": 5, "4-8h": 2, "8-24h": 1, "24h+": 0},
+				"Channel::Email": {"0-1h": 3, "1-4h": 8, "4-8h": 4, "8-24h": 6, "24h+": 2}
+			}`,
+			validateURL: func(t *testing.T, url string) {
+				if !strings.Contains(url, "since=1609459200") {
+					t.Error("URL should contain since param")
+				}
+				if !strings.Contains(url, "until=1609545600") {
+					t.Error("URL should contain until param")
+				}
+			},
+		},
+		{
+			name:         "server error",
+			since:        "1609459200",
+			until:        "1609545600",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: `{"error": "server error"}`,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedURL string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedURL = r.URL.String()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server.URL, "test-token", 123)
+			result, err := client.Reports().FirstResponseTimeDistribution(context.Background(), tt.since, tt.until)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if result == nil {
+				t.Error("expected result but got nil")
+				return
+			}
+			if tt.validateURL != nil {
+				tt.validateURL(t, capturedURL)
 			}
 		})
 	}

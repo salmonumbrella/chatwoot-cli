@@ -253,3 +253,70 @@ func (s ReportsService) ConversationEvents(ctx context.Context, conversationID i
 	}
 	return result, nil
 }
+
+// InboxLabelMatrixEntry represents a single cell in the inbox-label matrix report.
+type InboxLabelMatrixEntry struct {
+	InboxID int `json:"inbox_id"`
+	LabelID int `json:"label_id"`
+	Count   int `json:"count"`
+}
+
+// InboxLabelMatrix gets conversation counts grouped by inbox and label.
+func (s ReportsService) InboxLabelMatrix(ctx context.Context, since, until string, inboxIDs, labelIDs []int) ([]InboxLabelMatrixEntry, error) {
+	params := url.Values{}
+	params.Set("since", since)
+	params.Set("until", until)
+	for _, id := range inboxIDs {
+		params.Add("inbox_ids[]", strconv.Itoa(id))
+	}
+	for _, id := range labelIDs {
+		params.Add("label_ids[]", strconv.Itoa(id))
+	}
+
+	reqURL := s.v2ReportPath("/reports/inbox_label_matrix?" + params.Encode())
+
+	var result []InboxLabelMatrixEntry
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// FirstResponseTimeDistribution gets conversation counts grouped by channel type and response time buckets.
+func (s ReportsService) FirstResponseTimeDistribution(ctx context.Context, since, until string) (map[string]map[string]int, error) {
+	params := url.Values{}
+	params.Set("since", since)
+	params.Set("until", until)
+
+	reqURL := s.v2ReportPath("/reports/first_response_time_distribution?" + params.Encode())
+
+	var result map[string]map[string]int
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// OutgoingMessagesEntry represents an outgoing messages count entry.
+type OutgoingMessagesEntry struct {
+	ID    int `json:"id"`
+	Count int `json:"count"`
+}
+
+// OutgoingMessagesCount gets outgoing message counts grouped by agent, team, inbox, or label.
+func (s ReportsService) OutgoingMessagesCount(ctx context.Context, since, until, groupBy string) ([]OutgoingMessagesEntry, error) {
+	params := url.Values{}
+	params.Set("since", since)
+	params.Set("until", until)
+	if groupBy != "" {
+		params.Set("group_by", groupBy)
+	}
+
+	reqURL := s.v2ReportPath("/reports/outgoing_messages_count?" + params.Encode())
+
+	var result []OutgoingMessagesEntry
+	if err := s.do(ctx, http.MethodGet, reqURL, nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}

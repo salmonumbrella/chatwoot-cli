@@ -1038,3 +1038,237 @@ func TestReportsCommand_APIError(t *testing.T) {
 		t.Error("expected error for API failure")
 	}
 }
+
+func TestReportsInboxLabelMatrixCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/inbox_label_matrix", jsonResponse(200, `[
+			{"inbox_id": 1, "label_id": 2, "count": 15},
+			{"inbox_id": 1, "label_id": 3, "count": 8},
+			{"inbox_id": 2, "label_id": 2, "count": 22}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "inbox-label-matrix",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "15") {
+		t.Errorf("output missing count 15: %s", output)
+	}
+	if !strings.Contains(output, "22") {
+		t.Errorf("output missing count 22: %s", output)
+	}
+}
+
+func TestReportsInboxLabelMatrixCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/inbox_label_matrix", jsonResponse(200, `[
+			{"inbox_id": 1, "label_id": 2, "count": 15}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "inbox-label-matrix",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+			"-o", "json",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	entries := decodeItems(t, output)
+	if len(entries) != 1 {
+		t.Errorf("expected 1 entry, got %d", len(entries))
+	}
+}
+
+func TestReportsInboxLabelMatrixCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/inbox_label_matrix", jsonResponse(200, `[]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "inbox-label-matrix",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "No inbox-label matrix data found") {
+		t.Errorf("expected empty message, got: %s", output)
+	}
+}
+
+func TestReportsResponseTimeDistributionCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/first_response_time_distribution", jsonResponse(200, `{
+			"Channel::WebWidget": {"0-1h": 10, "1-4h": 5, "4-8h": 2, "8-24h": 1, "24h+": 0},
+			"Channel::Email": {"0-1h": 3, "1-4h": 8, "4-8h": 4, "8-24h": 6, "24h+": 2}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "response-time",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Channel::WebWidget") {
+		t.Errorf("output missing channel type: %s", output)
+	}
+	if !strings.Contains(output, "0-1h") {
+		t.Errorf("output missing time bucket: %s", output)
+	}
+}
+
+func TestReportsResponseTimeDistributionCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/first_response_time_distribution", jsonResponse(200, `{
+			"Channel::WebWidget": {"0-1h": 10}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "response-time",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+			"-o", "json",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+}
+
+func TestReportsResponseTimeDistributionCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/first_response_time_distribution", jsonResponse(200, `{}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "response-time",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "No response time distribution data found") {
+		t.Errorf("expected empty message, got: %s", output)
+	}
+}
+
+func TestReportsOutgoingMessagesCommand(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/outgoing_messages_count", jsonResponse(200, `[
+			{"id": 1, "count": 42},
+			{"id": 2, "count": 35}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "outgoing-messages",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+			"--group-by", "agent",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "42") {
+		t.Errorf("output missing count 42: %s", output)
+	}
+}
+
+func TestReportsOutgoingMessagesCommand_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/outgoing_messages_count", jsonResponse(200, `[
+			{"id": 1, "count": 42}
+		]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "outgoing-messages",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+			"-o", "json",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	// printJSON wraps arrays in {"items": [...]} envelope
+	var envelope struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &envelope); err != nil {
+		// Try raw array as fallback
+		var entries []map[string]any
+		if err2 := json.Unmarshal([]byte(output), &entries); err2 != nil {
+			t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+		}
+	}
+}
+
+func TestReportsOutgoingMessagesCommand_Empty(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v2/accounts/1/reports/outgoing_messages_count", jsonResponse(200, `[]`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"reports", "outgoing-messages",
+			"--from", "2024-01-01",
+			"--to", "2024-01-31",
+		})
+		if err != nil {
+			t.Errorf("command failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "No outgoing messages data found") {
+		t.Errorf("expected empty message, got: %s", output)
+	}
+}

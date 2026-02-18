@@ -13,15 +13,16 @@ import (
 
 // StatusInfo holds configuration and authentication status information
 type StatusInfo struct {
-	Authenticated bool   `json:"authenticated"`
-	BaseURL       string `json:"base_url,omitempty"`
-	AccountID     int    `json:"account_id,omitempty"`
-	TokenPreview  string `json:"token_preview,omitempty"`
-	Profile       string `json:"profile,omitempty"`
-	CLIVersion    string `json:"cli_version"`
-	GoVersion     string `json:"go_version"`
-	Platform      string `json:"platform"`
-	ConfigSource  string `json:"config_source,omitempty"`
+	Authenticated   bool   `json:"authenticated"`
+	BaseURL         string `json:"base_url,omitempty"`
+	AccountID       int    `json:"account_id,omitempty"`
+	TokenPreview    string `json:"token_preview,omitempty"`
+	Profile         string `json:"profile,omitempty"`
+	CLIVersion      string `json:"cli_version"`
+	GoVersion       string `json:"go_version"`
+	Platform        string `json:"platform"`
+	ConfigSource    string `json:"config_source,omitempty"`
+	ServerReachable *bool  `json:"server_reachable,omitempty"`
 }
 
 // getConfigSource determines where credentials are loaded from
@@ -39,6 +40,7 @@ func getConfigSource() string {
 
 func newStatusCmd() *cobra.Command {
 	var checkOnly bool
+	var ping bool
 
 	cmd := &cobra.Command{
 		Use:     "status",
@@ -81,6 +83,14 @@ before making API calls.`,
 				}
 			}
 
+			if ping && info.Authenticated {
+				client, clientErr := getClient()
+				if clientErr == nil {
+					ok, _ := client.HealthCheck(cmdContext(cmd))
+					info.ServerReachable = &ok
+				}
+			}
+
 			// If --check flag is set, just exit with appropriate code
 			if checkOnly {
 				if !info.Authenticated {
@@ -114,6 +124,13 @@ before making API calls.`,
 				if info.Profile != "" {
 					_, _ = fmt.Fprintf(w, "Profile:\t%s\n", info.Profile)
 				}
+				if info.ServerReachable != nil {
+					if *info.ServerReachable {
+						_, _ = fmt.Fprintf(w, "Server:\t%s\n", green("reachable"))
+					} else {
+						_, _ = fmt.Fprintf(w, "Server:\t%s\n", red("unreachable"))
+					}
+				}
 			} else {
 				_, _ = fmt.Fprintf(w, "Authenticated:\t%s\n", red("no"))
 				_, _ = fmt.Fprintf(w, "Hint:\tRun 'cw auth login' to authenticate\n")
@@ -129,6 +146,7 @@ before making API calls.`,
 	}
 
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Exit with code 1 if not authenticated")
+	cmd.Flags().BoolVar(&ping, "ping", false, "Check if the Chatwoot server is reachable")
 
 	return cmd
 }

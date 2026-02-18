@@ -377,6 +377,7 @@ type PaginationMeta struct {
 	PerPage     FlexInt `json:"per_page,omitempty"`
 	TotalPages  FlexInt `json:"total_pages,omitempty"`
 	TotalCount  FlexInt `json:"total_count,omitempty"`
+	HasMore     *bool   `json:"has_more,omitempty"`
 }
 
 // PortalListResponse wraps the portals list response

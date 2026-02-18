@@ -548,3 +548,19 @@ type APIError struct {
 func (e *APIError) Error() string {
 	return fmt.Sprintf("API error (status %d): %s", e.StatusCode, e.Body)
 }
+
+// HealthCheck checks if the Chatwoot server is reachable via GET /health.
+// Returns true if the server responds with 200, false otherwise.
+func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
+	reqURL := c.BaseURL + "/health"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return false, err
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode == http.StatusOK, nil
+}

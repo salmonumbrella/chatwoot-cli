@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -237,4 +238,44 @@ func TestGetConfigSource(t *testing.T) {
 			t.Errorf("expected 'keychain', got: %s", source)
 		}
 	})
+}
+
+func TestStatusWithPing(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/health", jsonResponse(http.StatusOK, `{"status":"woot"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"status", "--ping"})
+		if err != nil {
+			t.Errorf("status --ping failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "reachable") {
+		t.Errorf("expected 'reachable' in output, got: %s", output)
+	}
+}
+
+func TestStatusWithPing_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/health", jsonResponse(http.StatusOK, `{"status":"woot"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"status", "--ping", "-o", "json"})
+		if err != nil {
+			t.Errorf("status --ping JSON failed: %v", err)
+		}
+	})
+
+	var info map[string]any
+	if err := json.Unmarshal([]byte(output), &info); err != nil {
+		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if info["server_reachable"] != true {
+		t.Errorf("expected server_reachable true, got %v", info["server_reachable"])
+	}
 }
