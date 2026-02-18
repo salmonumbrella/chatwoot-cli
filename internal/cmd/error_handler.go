@@ -39,17 +39,17 @@ func HandleError(err error) string {
 		msg.WriteString("  - Check if the Chatwoot server is healthy\n")
 
 	case errors.As(err, &authErr):
-		msg.WriteString(fmt.Sprintf("Authentication failed: %s\n\n", authErr.Reason))
+		fmt.Fprintf(&msg, "Authentication failed: %s\n\n", authErr.Reason)
 		msg.WriteString("Suggestions:\n")
 		msg.WriteString("  - Run: cw auth login\n")
 		msg.WriteString("  - Verify your API token is valid\n")
 		msg.WriteString("  - Check if your account has the required permissions\n")
 
 	case errors.As(err, &apiErr):
-		msg.WriteString(fmt.Sprintf("API error (HTTP %d): %s\n\n", apiErr.StatusCode, apiErr.Body))
+		fmt.Fprintf(&msg, "API error (HTTP %d): %s\n\n", apiErr.StatusCode, apiErr.Body)
 		msg.WriteString(suggestionsForStatusCode(apiErr.StatusCode, apiErr.Body))
 		if apiErr.RequestID != "" {
-			msg.WriteString(fmt.Sprintf("\nRequest ID: %s\n", apiErr.RequestID))
+			fmt.Fprintf(&msg, "\nRequest ID: %s\n", apiErr.RequestID)
 		}
 
 	case strings.Contains(err.Error(), "connection refused"):
@@ -74,7 +74,7 @@ func HandleError(err error) string {
 		msg.WriteString("  - Ensure you're using https:// correctly\n")
 
 	default:
-		msg.WriteString(fmt.Sprintf("Error: %s\n", err.Error()))
+		fmt.Fprintf(&msg, "Error: %s\n", err.Error())
 	}
 
 	return msg.String()
