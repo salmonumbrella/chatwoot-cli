@@ -732,6 +732,14 @@ Group by options:
 				return fmt.Errorf("--to is required (format: YYYY-MM-DD)")
 			}
 
+			if groupBy != "" {
+				var err error
+				groupBy, err = normalizeEnum("group-by", groupBy, []string{"agent", "team", "inbox", "label"})
+				if err != nil {
+					return err
+				}
+			}
+
 			sinceTS, err := parseDate(from)
 			if err != nil {
 				return err

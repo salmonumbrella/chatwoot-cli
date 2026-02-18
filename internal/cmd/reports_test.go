@@ -1238,16 +1238,9 @@ func TestReportsOutgoingMessagesCommand_JSON(t *testing.T) {
 		}
 	})
 
-	// printJSON wraps arrays in {"items": [...]} envelope
-	var envelope struct {
-		Items []map[string]any `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(output), &envelope); err != nil {
-		// Try raw array as fallback
-		var entries []map[string]any
-		if err2 := json.Unmarshal([]byte(output), &entries); err2 != nil {
-			t.Errorf("output is not valid JSON: %v, output: %s", err, output)
-		}
+	items := decodeItems(t, output)
+	if len(items) != 1 {
+		t.Errorf("expected 1 entry, got %d", len(items))
 	}
 }
 
