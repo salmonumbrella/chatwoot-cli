@@ -68,18 +68,18 @@ Triage & filtering:
   cw c f --pl '[{"ak":"st","fo":"eq","v":["open"]}]'  Inline filter (shortcodes)
 
 Search:
-  cw s "query"                 Global (contacts + conversations)
-  cw s "query" -t ct           Contacts only
+  cw s "query" --li            Global search (light payload, saves tokens)
+  cw s "query" -t ct --li      Contacts only
   cw s "query" -t cv           Conversations only
   cw s "query" -t s            Message senders
   cw s "query" --best -E id    Auto-pick best result, emit ID
 
 Contact lookup:
-  cw co g 123                  By ID
+  cw co g 123 --li             By ID (light payload)
   cw co g john@example.com     By email
   cw co g +16042091231         By phone
   cw co g "John Smith"         By name (fuzzy match)
-  cw co cv CONTACT             Contact's conversations
+  cw co cv CONTACT --li        Contact's conversations (light)
 
 Contact management:
   cw co up ID -n "name" -e "email"  Update fields
@@ -108,11 +108,6 @@ Creating:
   cw c mk -I 48 -C 123 -m "text"  New conversation
   cw m mk CONV -c "text"          New message (prefer cmt/n shortcuts)
 
-Raw API (use dedicated commands when available):
-  cw api "endpoint"               GET request
-  cw api "endpoint" -X POST -b '{"key":"val"}'  POST with inline JSON
-  cw api "endpoint" -X PUT -i -   PUT from stdin
-
 Output formats:
   -o agent      Agent-friendly (default): compact, resolved names
   -o json / -j  Full JSON: {items: [...], meta: {...}}
@@ -132,6 +127,7 @@ Common flags:
   -a / --all    Fetch all pages
   -R            Resolve after action (on cmt, n, r)
   -C CONTACT    Contact ID
+  --li          Light mode: minimal payload (on c ls, co g, m ls, s, ct)
   --dry-run     Preview without executing
   -y / --yes    Skip confirmations
 
