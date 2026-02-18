@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
-	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -12,38 +9,24 @@ import (
 )
 
 func TestQuietFlagExists(t *testing.T) {
-	// Verify --quiet flag exists by checking help output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	// Verify quiet-related flags appear in the embedded help text
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"--help"}); err != nil {
+			t.Fatalf("Execute() with --help failed: %v", err)
+		}
+	})
 
-	ctx := context.Background()
-	err := Execute(ctx, []string{"--help"})
-
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-
-	if err != nil {
-		t.Fatalf("Execute() with --help failed: %v", err)
+	// The embedded help text documents -Q as the quiet shorthand
+	if !strings.Contains(output, "-Q") {
+		t.Error("-Q quiet shorthand not found in help output")
 	}
 
-	// The help output should show "--quiet"
-	if !strings.Contains(output, "--quiet") {
-		t.Error("--quiet persistent flag not found in help output")
-	}
-
-	// The help output should show "-Q" shorthand for --quiet
-	if !strings.Contains(output, "-Q, --quiet") {
-		t.Error("-Q shorthand not found in help output for --quiet")
-	}
-
-	// The help output should show "--silent"
-	if !strings.Contains(output, "--silent") {
-		t.Error("--silent persistent flag not found in help output")
+	// Verify the quiet flag actually works (functional test)
+	quietOutput := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"version", "--quiet"})
+	})
+	if quietOutput != "" {
+		t.Errorf("--quiet should suppress text output, got %q", quietOutput)
 	}
 }
 
@@ -104,31 +87,25 @@ func TestPrintIfNotQuiet(t *testing.T) {
 }
 
 func TestFlagShorthands(t *testing.T) {
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	// Verify -Q and -q shorthands work functionally
+	// (the root help is now static embedded text, so we test actual behaviour)
 
-	ctx := context.Background()
-	err := Execute(ctx, []string{"--help"})
-
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-
-	if err != nil {
-		t.Fatalf("Execute() with --help failed: %v", err)
+	// -Q should suppress output (quiet)
+	quietOutput := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"version", "-Q"})
+	})
+	if quietOutput != "" {
+		t.Errorf("-Q should suppress text output, got %q", quietOutput)
 	}
 
-	// -q should map to --query, not --quiet
-	if !strings.Contains(output, "-q, --query") {
-		t.Error("-q should be shorthand for --query")
-	}
-
-	// -Q should map to --quiet
-	if !strings.Contains(output, "-Q, --quiet") {
-		t.Error("-Q should be shorthand for --quiet")
+	// -q should work as --query (e.g., on schema list)
+	queryOutput := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"schema", "list", "-q", ".items | length"}); err != nil {
+			t.Fatalf("-q as --query failed: %v", err)
+		}
+	})
+	queryOutput = strings.TrimSpace(queryOutput)
+	if queryOutput == "" {
+		t.Error("-q as --query returned empty output")
 	}
 }

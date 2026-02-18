@@ -16,7 +16,6 @@ import (
 )
 
 func TestExecute_Help(t *testing.T) {
-	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -39,13 +38,27 @@ func TestExecute_Help(t *testing.T) {
 		t.Error("Help output is empty")
 	}
 
-	// Should contain key sections
-	if !strings.Contains(output, "Available Commands") {
-		t.Error("Help output missing 'Available Commands'")
+	// Should contain key sections from the embedded help.txt
+	for _, want := range []string{
+		"cw - CLI for Chatwoot",
+		"Aliases (resource",
+		"Aliases (shortcut",
+		"Reading conversations:",
+		"Exit codes:",
+		"Environment:",
+	} {
+		if !strings.Contains(output, want) {
+			t.Errorf("Help output missing %q", want)
+		}
 	}
+}
 
-	if !strings.Contains(output, "cw") {
-		t.Error("Help output missing 'cw' command name")
+func TestExecute_SubcommandHelpUsesCobra(t *testing.T) {
+	output := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"conversations", "--help"})
+	})
+	if !strings.Contains(output, "Available Commands") {
+		t.Error("Subcommand --help should show Cobra 'Available Commands' section")
 	}
 }
 
@@ -146,6 +159,7 @@ func TestExtractFlag(t *testing.T) {
 	}{
 		{`unknown flag: --staus`, "--staus"},
 		{`flag provided but not defined: --pririty`, "--pririty"},
+		{`unknown shorthand flag: 'a' in -a`, "-a"},
 		{`no flag here`, ""},
 	}
 	for _, tt := range tests {
@@ -185,27 +199,14 @@ func TestExtensionExecCandidates(t *testing.T) {
 
 func TestExecute_SubcommandsExist(t *testing.T) {
 	// Verify essential subcommands exist by checking help output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"--help"}); err != nil {
+			t.Fatalf("Execute() with --help failed: %v", err)
+		}
+	})
 
-	ctx := context.Background()
-	err := Execute(ctx, []string{"--help"})
-
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-
-	if err != nil {
-		t.Fatalf("Execute() with --help failed: %v", err)
-	}
-
-	// Verify essential subcommands exist in help output
+	// Verify essential resource aliases appear in the embedded help text
 	subcommands := []string{
-		"auth",
 		"conversations",
 		"contacts",
 		"inboxes",
@@ -213,11 +214,11 @@ func TestExecute_SubcommandsExist(t *testing.T) {
 		"agents",
 		"teams",
 		"labels",
-		"webhooks",
-		"version",
-		"config",
 		"campaigns",
 		"reports",
+		"search",
+		"integrations",
+		"mentions",
 	}
 
 	for _, name := range subcommands {
@@ -228,53 +229,31 @@ func TestExecute_SubcommandsExist(t *testing.T) {
 }
 
 func TestExecute_GlobalFlags(t *testing.T) {
-	// Verify global flags exist by checking help output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	// Verify key flags/options appear in the embedded help text
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"--help"}); err != nil {
+			t.Fatalf("Execute() with --help failed: %v", err)
+		}
+	})
 
-	ctx := context.Background()
-	err := Execute(ctx, []string{"--help"})
-
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-
-	if err != nil {
-		t.Fatalf("Execute() with --help failed: %v", err)
-	}
-
-	// Verify global flags exist in help output
-	flags := []string{
-		"--output",
-		"--json",
-		"--debug",
-		"--color",
-		"--dry-run",
-		"--allow-private",
-		"--query",
-		"--query-file",
-		"--items-only",
+	// Verify flags/sections documented in the embedded help.txt
+	flagSnippets := []string{
+		"--jq",
 		"--fields",
-		"--no-input",
-		"--yes",
 		"--template",
-		"--utc",
-		"--time-zone",
-		"--max-rate-limit-retries",
-		"--max-5xx-retries",
-		"--rate-limit-delay",
-		"--server-error-delay",
-		"--circuit-breaker-threshold",
-		"--circuit-breaker-reset-time",
+		"--items-only",
+		"--dry-run",
+		"--yes",
+		"--cj",
+		"--help-json",
+		"-o agent",
+		"-o json",
+		"-Q",
 	}
 
-	for _, flagName := range flags {
-		if !strings.Contains(output, flagName) {
-			t.Errorf("Missing global flag in help: %s", flagName)
+	for _, snippet := range flagSnippets {
+		if !strings.Contains(output, snippet) {
+			t.Errorf("Missing flag/option in help: %s", snippet)
 		}
 	}
 }

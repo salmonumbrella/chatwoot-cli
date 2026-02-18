@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -133,6 +134,9 @@ func loadQueryFile(path string) (string, error) {
 	return query, nil
 }
 
+//go:embed help.txt
+var helpText string
+
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
 	// Reset flags to defaults for each execution (important for tests)
@@ -155,39 +159,6 @@ func Execute(ctx context.Context, args []string) error {
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: false,
 		},
-		Example: strings.TrimSpace(`
-  # Authenticate via browser
-  cw auth login
-
-  # List open conversations
-  cw conversations list --status open
-
-  # Send a message
-  cw messages create 123 --content "Hello, how can I help?"
-
-  # List contacts
-  cw contacts list
-
-  # Search for a contact
-  cw contacts search --query "John"
-
-  # Get a specific contact
-  cw contacts get 123
-  cw contacts show 123  # alias for 'get'
-
-  # Get all conversations for a contact
-  cw contacts conversations 123
-
-  # JSON output for scripting
-  cw conversations list --output json
-
-  # JSON with jq - list commands return an object with an "items" array
-  cw contacts list --output json | jq '.items[0]'
-  cw contacts search --query "test" --output json | jq '.items[] | {id, name}'
-
-  # Generate shell completions
-  cw completion zsh > "${fpath[1]}/_cw"
-`),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
@@ -333,6 +304,14 @@ func Execute(ctx context.Context, args []string) error {
 
 	root.SetContext(ctx)
 	root.SetArgs(args)
+	defaultHelp := root.HelpFunc()
+	root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		if cmd.Name() == root.Name() && !cmd.HasParent() {
+			fmt.Print(helpText)
+			return
+		}
+		defaultHelp(cmd, args)
+	})
 	root.PersistentFlags().StringVarP(&flags.Output, "output", "o", flags.Output, "Output format: text|json|jsonl|ndjson|agent (env CHATWOOT_OUTPUT)")
 	root.PersistentFlags().BoolVarP(&flags.JSON, "json", "j", false, "Shorthand for --output json")
 	root.PersistentFlags().BoolVar(&flags.HelpJSON, "help-json", false, "Output command help as JSON (for agent discovery)")
@@ -483,8 +462,8 @@ func enhanceUnknownError(err error, root *cobra.Command, targetCmd *cobra.Comman
 		}
 	}
 
-	// Unknown flag: "unknown flag: --foo" or "flag provided but not defined: --foo"
-	if strings.Contains(msg, "unknown flag") || strings.Contains(msg, "flag provided but not defined") {
+	// Unknown flag: "--foo", shorthand "-f", or similarly malformed flag usage.
+	if strings.Contains(msg, "unknown flag") || strings.Contains(msg, "flag provided but not defined") || strings.Contains(msg, "unknown shorthand flag") {
 		unknown := extractFlag(msg)
 		if unknown != "" {
 			// Collect flags from the target command (not root) so subcommand
@@ -498,6 +477,13 @@ func enhanceUnknownError(err error, root *cobra.Command, targetCmd *cobra.Comman
 						seen[name] = true
 						flagNames = append(flagNames, name)
 					}
+					if f.Shorthand != "" {
+						short := "-" + f.Shorthand
+						if !seen[short] {
+							seen[short] = true
+							flagNames = append(flagNames, short)
+						}
+					}
 				})
 			}
 			if targetCmd != nil {
@@ -507,9 +493,16 @@ func enhanceUnknownError(err error, root *cobra.Command, targetCmd *cobra.Comman
 				addFlags(root.Flags())
 				addFlags(root.PersistentFlags())
 			}
-			if suggestion := suggestFlag(unknown, flagNames); suggestion != "" {
-				return fmt.Sprintf("%s\n\nDid you mean %q?", msg, suggestion)
+			helpCmd := "cw --help"
+			if targetCmd != nil {
+				if commandPath := strings.TrimSpace(targetCmd.CommandPath()); commandPath != "" {
+					helpCmd = commandPath + " --help"
+				}
 			}
+			if suggestion := suggestFlag(unknown, flagNames); suggestion != "" {
+				return fmt.Sprintf("%s\n\nDid you mean %q?\nRun %q to see supported flags.", msg, suggestion, helpCmd)
+			}
+			return fmt.Sprintf("%s\n\nRun %q to see supported flags.", msg, helpCmd)
 		}
 	}
 
@@ -534,6 +527,21 @@ func extractFlag(s string) string {
 	// Look for --something pattern
 	idx := strings.Index(s, "--")
 	if idx < 0 {
+		// Fallback for shorthand errors like:
+		// "unknown shorthand flag: 'a' in -a"
+		idx = strings.LastIndex(s, " -")
+		if idx < 0 {
+			return ""
+		}
+		rest := strings.TrimSpace(s[idx+1:])
+		end := strings.IndexByte(rest, ' ')
+		if end >= 0 {
+			rest = rest[:end]
+		}
+		rest = strings.TrimRight(rest, ".,;:!?\"'")
+		if strings.HasPrefix(rest, "-") && len(rest) > 1 {
+			return rest
+		}
 		return ""
 	}
 	rest := s[idx:]
