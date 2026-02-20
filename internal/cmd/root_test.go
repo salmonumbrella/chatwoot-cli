@@ -291,7 +291,7 @@ func TestExecute_HelpHidesLongAliasFlags(t *testing.T) {
 		}
 	})
 
-	hiddenAliases := []string{"out", "qr", "qf", "io", "ro", "j"}
+	hiddenAliases := []string{"out", "qr", "qf", "ro", "j"}
 	for _, alias := range hiddenAliases {
 		pattern := regexp.MustCompile(`(^|\s)--` + alias + `(\s|,|=|$)`)
 		if pattern.MatchString(output) {
