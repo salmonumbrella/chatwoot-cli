@@ -191,7 +191,7 @@ func newLabelsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&color, "color", "", "Label color (hex, e.g., #FF0000)")
 	cmd.Flags().BoolVar(&showOnSidebar, "show-on-sidebar", false, "Show label on sidebar")
 	flagAlias(cmd.Flags(), "title", "ttl")
-	flagAlias(cmd.Flags(), "color", "clr")
+	flagAlias(cmd.Flags(), "color", "hex")
 	flagAlias(cmd.Flags(), "show-on-sidebar", "sos")
 
 	return cmd
@@ -271,7 +271,7 @@ func newLabelsUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&color, "color", "", "Label color (hex)")
 	cmd.Flags().BoolVar(&showOnSidebar, "show-on-sidebar", false, "Show label on sidebar")
 	flagAlias(cmd.Flags(), "title", "ttl")
-	flagAlias(cmd.Flags(), "color", "clr")
+	flagAlias(cmd.Flags(), "color", "hex")
 	flagAlias(cmd.Flags(), "show-on-sidebar", "sos")
 
 	return cmd

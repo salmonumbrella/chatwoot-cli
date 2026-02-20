@@ -113,6 +113,48 @@ func TestFlagAlias(t *testing.T) {
 		}
 	})
 
+	t.Run("alias forwards SliceValue interface", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		var vals []string
+		fs.StringArrayVar(&vals, "labels", nil, "")
+		flagAlias(fs, "labels", "lb")
+
+		alias := fs.Lookup("lb")
+		sv, ok := alias.Value.(pflag.SliceValue)
+		if !ok {
+			t.Fatal("alias of StringArray should implement SliceValue")
+		}
+		if err := sv.Append("vip"); err != nil {
+			t.Fatal(err)
+		}
+		if err := sv.Append("urgent"); err != nil {
+			t.Fatal(err)
+		}
+		got := sv.GetSlice()
+		if len(got) != 2 || got[0] != "vip" || got[1] != "urgent" {
+			t.Errorf("expected [vip urgent], got %v", got)
+		}
+		if err := sv.Replace([]string{"new"}); err != nil {
+			t.Fatal(err)
+		}
+		got = sv.GetSlice()
+		if len(got) != 1 || got[0] != "new" {
+			t.Errorf("expected [new], got %v", got)
+		}
+	})
+
+	t.Run("alias of non-slice does not implement SliceValue", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		var val string
+		fs.StringVar(&val, "name", "", "")
+		flagAlias(fs, "name", "nm")
+
+		alias := fs.Lookup("nm")
+		if _, ok := alias.Value.(pflag.SliceValue); ok {
+			t.Error("alias of String should not implement SliceValue")
+		}
+	})
+
 	t.Run("panics on missing flag", func(t *testing.T) {
 		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
 		defer func() {

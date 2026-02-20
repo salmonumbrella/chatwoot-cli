@@ -356,6 +356,18 @@ func (v *aliasBridgeValue) Set(s string) error {
 	return nil
 }
 
+// aliasBridgeSliceValue extends aliasBridgeValue to also forward the
+// pflag.SliceValue interface (Append, Replace, GetSlice) when the
+// underlying Value supports it.
+type aliasBridgeSliceValue struct {
+	aliasBridgeValue
+	slice pflag.SliceValue
+}
+
+func (v *aliasBridgeSliceValue) Append(s string) error     { return v.slice.Append(s) }
+func (v *aliasBridgeSliceValue) Replace(ss []string) error { return v.slice.Replace(ss) }
+func (v *aliasBridgeSliceValue) GetSlice() []string        { return v.slice.GetSlice() }
+
 func flagAlias(fs *pflag.FlagSet, name, alias string) {
 	f := fs.Lookup(name)
 	if f == nil {
@@ -366,7 +378,12 @@ func flagAlias(fs *pflag.FlagSet, name, alias string) {
 	a.Shorthand = ""
 	a.Usage = ""
 	a.Hidden = true
-	a.Value = &aliasBridgeValue{Value: f.Value, canonical: f}
+	bridge := &aliasBridgeValue{Value: f.Value, canonical: f}
+	if sv, ok := f.Value.(pflag.SliceValue); ok {
+		a.Value = &aliasBridgeSliceValue{aliasBridgeValue: *bridge, slice: sv}
+	} else {
+		a.Value = bridge
+	}
 	// Deep-copy annotations so we don't mutate the original flag's map,
 	// and strip the "required" annotation — the alias should never be
 	// independently required (the canonical flag enforces that).

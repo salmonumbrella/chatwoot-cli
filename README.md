@@ -852,6 +852,19 @@ Frequently used global flags have short aliases:
 | `--query-file` | `--qf` |
 | `--items-only` | `--io`, `--results-only`, `--ro` |
 | `--compact-json` | `--cj` |
+| `--color` | `--clr` |
+| `--debug` | `--dbg` |
+| `--fields` | `--fi` |
+| `--silent` | `--sil` |
+| `--no-input` | `--ni` |
+| `--template` | `--tpl` |
+| `--timeout` | `--to` |
+| `--wait` | `--wai` |
+| `--utc` | `--ut` |
+| `--max-5xx-retries` | `--m5x` |
+| `--allow-private` | `--ap` |
+| `--circuit-breaker-threshold` | `--cbt` |
+| `--circuit-breaker-reset-time` | `--cbr` |
 
 ## Command Aliases
 
