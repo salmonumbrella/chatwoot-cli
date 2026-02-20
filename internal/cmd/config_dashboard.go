@@ -77,6 +77,9 @@ func newDashboardAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Display name for the dashboard (defaults to dashboard-name)")
 	_ = cmd.MarkFlagRequired("endpoint")
 	_ = cmd.MarkFlagRequired("auth-token")
+	flagAlias(cmd.Flags(), "endpoint", "ep")
+	flagAlias(cmd.Flags(), "auth-token", "at")
+	flagAlias(cmd.Flags(), "name", "nm")
 
 	return cmd
 }

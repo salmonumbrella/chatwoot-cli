@@ -443,6 +443,9 @@ func newMessagesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&messageType, "type", "outgoing", "Message type: outgoing|incoming")
 	cmd.Flags().StringArrayVar(&attachments, "attachment", nil, "File path to attach (can be repeated)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated). Requires --private")
+	flagAlias(cmd.Flags(), "type", "ty")
+	flagAlias(cmd.Flags(), "attachment", "att")
+	flagAlias(cmd.Flags(), "mention", "mt")
 
 	return cmd
 }
@@ -634,6 +637,7 @@ Requires an AI integration to be configured in your Chatwoot instance.`,
 	}
 
 	cmd.Flags().StringVar(&lang, "lang", "", "Target language code (e.g., es, fr, de, ja)")
+	flagAlias(cmd.Flags(), "lang", "lg")
 
 	return cmd
 }

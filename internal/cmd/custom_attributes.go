@@ -87,6 +87,7 @@ func newCustomAttributesListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&model, "model", "", "Filter by model: contact or conversation")
+	flagAlias(cmd.Flags(), "model", "mo")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "attribute_display_name", "attribute_key"},
@@ -199,6 +200,10 @@ func newCustomAttributesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&key, "key", "", "Unique key for the attribute (auto-generated from name if not provided)")
 	cmd.Flags().StringVar(&model, "model", "", "Model: contact or conversation")
 	cmd.Flags().StringVar(&attrType, "type", "", "Type: text, number, date, list, link, or checkbox")
+	flagAlias(cmd.Flags(), "model", "mo")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "key", "ky")
+	flagAlias(cmd.Flags(), "type", "ty")
 
 	return cmd
 }
@@ -241,6 +246,7 @@ func newCustomAttributesUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Display name for the attribute")
+	flagAlias(cmd.Flags(), "name", "nm")
 
 	return cmd
 }

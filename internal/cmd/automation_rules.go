@@ -169,6 +169,10 @@ func newAutomationRulesCreateCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("event-name")
 	_ = cmd.MarkFlagRequired("conditions")
 	_ = cmd.MarkFlagRequired("actions")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "event-name", "ev")
+	flagAlias(cmd.Flags(), "conditions", "cnd")
+	flagAlias(cmd.Flags(), "actions", "act")
 
 	return cmd
 }
@@ -243,6 +247,10 @@ func newAutomationRulesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&conditions, "conditions", "", "Conditions as JSON array")
 	cmd.Flags().StringVar(&actions, "actions", "", "Actions as JSON array")
 	cmd.Flags().StringVar(&active, "active", "", "Enable or disable the rule (true/false)")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "conditions", "cnd")
+	flagAlias(cmd.Flags(), "actions", "act")
+	flagAlias(cmd.Flags(), "active", "on")
 
 	return cmd
 }

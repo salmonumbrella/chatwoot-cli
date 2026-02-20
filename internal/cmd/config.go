@@ -143,6 +143,7 @@ func newProfilesShowCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Profile name (defaults to current)")
+	flagAlias(cmd.Flags(), "name", "nm")
 
 	return cmd
 }

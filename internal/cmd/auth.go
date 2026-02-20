@@ -129,6 +129,12 @@ Optional:
 	cmd.Flags().StringVar(&profile, "profile", "default", "Profile name to save credentials under")
 	cmd.Flags().StringVar(&platform, "platform-token", "", "Platform API token (optional)")
 	cmd.Flags().Lookup("browser").NoOptDefVal = "true"
+	flagAlias(cmd.Flags(), "url", "ur")
+	flagAlias(cmd.Flags(), "token", "tk")
+	flagAlias(cmd.Flags(), "account-id", "aid")
+	flagAlias(cmd.Flags(), "browser", "br")
+	flagAlias(cmd.Flags(), "profile", "pf")
+	flagAlias(cmd.Flags(), "platform-token", "pt")
 
 	return cmd
 }
@@ -342,6 +348,7 @@ func newAuthLogoutCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&profile, "profile", "", "Profile name to remove (defaults to current)")
+	flagAlias(cmd.Flags(), "profile", "pf")
 
 	return cmd
 }

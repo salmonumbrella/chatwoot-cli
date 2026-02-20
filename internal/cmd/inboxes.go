@@ -247,6 +247,21 @@ func newInboxesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
 	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "channel-type", "chn")
+	flagAlias(cmd.Flags(), "greeting-enabled", "ge")
+	flagAlias(cmd.Flags(), "greeting-message", "gm")
+	flagAlias(cmd.Flags(), "enable-email-collect", "eec")
+	flagAlias(cmd.Flags(), "csat-survey-enabled", "cse")
+	flagAlias(cmd.Flags(), "enable-auto-assignment", "eaa")
+	flagAlias(cmd.Flags(), "auto-assignment-config", "aac")
+	flagAlias(cmd.Flags(), "working-hours-enabled", "whe")
+	flagAlias(cmd.Flags(), "timezone", "tz")
+	flagAlias(cmd.Flags(), "allow-messages-after-resolved", "mar")
+	flagAlias(cmd.Flags(), "lock-to-single-conversation", "ltsc")
+	flagAlias(cmd.Flags(), "portal-id", "pid")
+	flagAlias(cmd.Flags(), "sender-name-type", "snt")
+	flagAlias(cmd.Flags(), "out-of-office-message", "oom")
+	flagAlias(cmd.Flags(), "out-of-office-enabled", "ooe")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("channel-type")
 
@@ -379,6 +394,20 @@ func newInboxesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&outOfOfficeMessage, "out-of-office-message", "", "Out of office message")
 	cmd.Flags().BoolVar(&outOfOfficeEnabled, "out-of-office-enabled", false, "Enable out of office message")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "greeting-enabled", "ge")
+	flagAlias(cmd.Flags(), "greeting-message", "gm")
+	flagAlias(cmd.Flags(), "enable-email-collect", "eec")
+	flagAlias(cmd.Flags(), "csat-survey-enabled", "cse")
+	flagAlias(cmd.Flags(), "enable-auto-assignment", "eaa")
+	flagAlias(cmd.Flags(), "auto-assignment-config", "aac")
+	flagAlias(cmd.Flags(), "working-hours-enabled", "whe")
+	flagAlias(cmd.Flags(), "timezone", "tz")
+	flagAlias(cmd.Flags(), "allow-messages-after-resolved", "mar")
+	flagAlias(cmd.Flags(), "lock-to-single-conversation", "ltsc")
+	flagAlias(cmd.Flags(), "portal-id", "pid")
+	flagAlias(cmd.Flags(), "sender-name-type", "snt")
+	flagAlias(cmd.Flags(), "out-of-office-message", "oom")
+	flagAlias(cmd.Flags(), "out-of-office-enabled", "ooe")
 
 	return cmd
 }
@@ -508,6 +537,7 @@ func newInboxesSetAgentBotCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&botID, "bot-id", 0, "Agent bot ID (required)")
+	flagAlias(cmd.Flags(), "bot-id", "bid")
 	_ = cmd.MarkFlagRequired("bot-id")
 
 	return cmd
@@ -603,6 +633,8 @@ When called with an inbox ID, shows detailed triage info for that specific inbox
 
 	cmd.Flags().StringVar(&status, "status", "open", "Filter by status (open, pending, resolved, snoozed, all)")
 	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum number of conversations to return")
+	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "limit", "lt")
 
 	return cmd
 }
@@ -1161,6 +1193,7 @@ func newInboxesCSATTemplateSetCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&question, "question", "", "Survey question (required)")
 	cmd.Flags().StringVarP(&message, "message", "m", "", "Survey message (required)")
+	flagAlias(cmd.Flags(), "question", "qu")
 	_ = cmd.MarkFlagRequired("question")
 	_ = cmd.MarkFlagRequired("message")
 

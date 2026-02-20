@@ -112,6 +112,7 @@ This is a convenience shortcut for:
 	}
 
 	cmd.Flags().StringVar(&forDuration, "for", "", "Snooze duration (e.g., 2h, 30m, 24h)")
+	flagAlias(cmd.Flags(), "for", "fr")
 	cmd.Flags().StringVar(&note, "note", "", "Add a private note before snoozing")
 	_ = cmd.MarkFlagRequired("for")
 	flagAlias(cmd.Flags(), "note", "nt")

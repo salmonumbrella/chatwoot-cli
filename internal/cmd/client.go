@@ -106,6 +106,11 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 	cmd.Flags().StringVar(&identifierHash, "identifier-hash", "", "Contact identifier hash")
 	cmd.Flags().StringVar(&avatarURL, "avatar-url", "", "Contact avatar URL")
 	cmd.Flags().StringVar(&customAttributes, "custom-attributes", "", "Custom attributes JSON")
+	flagAlias(cmd.Flags(), "identifier", "idn")
+	flagAlias(cmd.Flags(), "email", "em")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "phone", "ph")
+	flagAlias(cmd.Flags(), "avatar-url", "av")
 
 	return cmd
 }

@@ -293,6 +293,11 @@ func newConversationsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints in agent output")
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "with-messages", "wm")
+	flagAlias(cmd.Flags(), "context", "ctx")
+	flagAlias(cmd.Flags(), "message-limit", "ml")
+	flagAlias(cmd.Flags(), "suggested-actions", "sa")
+	flagAlias(cmd.Flags(), "explain", "exp")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
@@ -799,6 +804,8 @@ func newConversationsMetaCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "status", "st")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
 	flagAlias(cmd.Flags(), "team-id", "tid")
+	flagAlias(cmd.Flags(), "labels", "lb")
+	flagAlias(cmd.Flags(), "search", "sq")
 
 	return cmd
 }
@@ -888,6 +895,8 @@ func newConversationsCountsCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "status", "st")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
 	flagAlias(cmd.Flags(), "team-id", "tid")
+	flagAlias(cmd.Flags(), "labels", "lb")
+	flagAlias(cmd.Flags(), "search", "sq")
 
 	return cmd
 }
@@ -973,6 +982,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&status, "status", "s", "", "New status (open|resolved|pending|snoozed) (required)")
 	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp, RFC3339, or relative)")
 	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "snoozed-until", "su")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed"})
 
 	return cmd
@@ -1078,6 +1088,8 @@ func newConversationsResolveCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running (for multiple IDs)")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 
 	return cmd
 }
@@ -1230,6 +1242,7 @@ func newConversationsUpdateCmd() *cobra.Command {
 	cmd.Flags().IntVar(&slaPolicyID, "sla-policy-id", 0, "SLA policy ID (Enterprise feature)")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
 	flagAlias(cmd.Flags(), "priority", "pri")
+	flagAlias(cmd.Flags(), "sla-policy-id", "sla")
 	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
@@ -1417,6 +1430,8 @@ func newConversationsAssignCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "agent", "ag")
 	flagAlias(cmd.Flags(), "team", "tm")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 
 	return cmd
 }
@@ -1525,6 +1540,7 @@ func newConversationsLabelsAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&labelsStr, "labels", "", "Labels (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "labels", "lb")
 
 	return cmd
 }
@@ -1607,6 +1623,7 @@ func newConversationsLabelsRemoveCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&labelsStr, "labels", "", "Labels to remove (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "labels", "lb")
 
 	return cmd
 }
@@ -1669,6 +1686,7 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringArrayVar(&setAttrs, "set", nil, "Set custom attribute (key=value)")
+	flagAlias(cmd.Flags(), "set", "kv")
 
 	return cmd
 }
@@ -3017,6 +3035,9 @@ func newConversationsBulkResolveCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "ids", "id")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -3148,6 +3169,9 @@ func newConversationsBulkAssignCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "agent", "ag")
 	flagAlias(cmd.Flags(), "team", "tm")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "ids", "id")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 	_ = cmd.MarkFlagRequired("ids")
 
 	return cmd
@@ -3248,6 +3272,10 @@ func newConversationsBulkAddLabelCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "ids", "id")
+	flagAlias(cmd.Flags(), "labels", "lb")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 

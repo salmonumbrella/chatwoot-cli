@@ -171,6 +171,7 @@ func newTeamsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Team description")
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "name", "nm")
 
 	return cmd
 }
@@ -220,6 +221,7 @@ func newTeamsUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Team description")
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "name", "nm")
 
 	return cmd
 }
@@ -342,6 +344,7 @@ func newTeamsMembersAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "user-ids", "uids")
 
 	return cmd
 }
@@ -392,6 +395,7 @@ func newTeamsMembersRemoveCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "user-ids", "uids")
 
 	return cmd
 }

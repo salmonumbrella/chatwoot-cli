@@ -180,6 +180,10 @@ Report types:
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&id, "id", "", "ID of agent/inbox/label/team (required for non-account types)")
+	flagAlias(cmd.Flags(), "type", "ty")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "id", "rid")
 
 	return cmd
 }
@@ -271,6 +275,11 @@ Report types:
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&id, "id", "", "ID of agent/inbox/label/team (required for non-account types)")
+	flagAlias(cmd.Flags(), "metric", "mt")
+	flagAlias(cmd.Flags(), "type", "ty")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "id", "rid")
 
 	return cmd
 }
@@ -350,6 +359,7 @@ func newReportsAgentsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userID, "user-id", "", "Filter by specific user ID")
+	flagAlias(cmd.Flags(), "user-id", "uid")
 	return cmd
 }
 
@@ -413,6 +423,9 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "business-hours", "bh")
 
 	return cmd
 }
@@ -480,6 +493,9 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "business-hours", "bh")
 
 	return cmd
 }
@@ -520,6 +536,9 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "business-hours", "bh")
 
 	return cmd
 }
@@ -560,6 +579,9 @@ Date parameters use YYYY-MM-DD or relative expressions and are converted to Unix
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Restrict to business hours")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "business-hours", "bh")
 
 	return cmd
 }
@@ -627,6 +649,8 @@ Useful for understanding which labels are most common across different inboxes.`
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().IntSliceVar(&inboxIDs, "inbox-ids", nil, "Filter by inbox IDs (comma-separated)")
 	cmd.Flags().IntSliceVar(&labelIDs, "label-ids", nil, "Filter by label IDs (comma-separated)")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
 
 	return cmd
 }
@@ -704,6 +728,8 @@ Time buckets: 0-1h, 1-4h, 4-8h, 8-24h, 24h+`,
 
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
 
 	return cmd
 }
@@ -781,6 +807,9 @@ Group by options:
 	cmd.Flags().StringVar(&from, "from", "", "Start date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative) (required)")
 	cmd.Flags().StringVar(&groupBy, "group-by", "", "Group by: agent, team, inbox, or label")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "group-by", "gb")
 
 	return cmd
 }
@@ -860,6 +889,8 @@ func newReportingEventsCmd() *cobra.Command {
 	listCmd.Flags().StringVarP(&since, "since", "S", "", "Start time (Unix, RFC3339, YYYY-MM-DD, or relative)")
 	listCmd.Flags().StringVar(&until, "until", "", "End time (Unix, RFC3339, YYYY-MM-DD, or relative)")
 	listCmd.Flags().StringVar(&eventType, "type", "", "Event type filter")
+	flagAlias(listCmd.Flags(), "type", "ty")
+	flagAlias(listCmd.Flags(), "until", "unl")
 	cmd.AddCommand(listCmd)
 
 	// Conversation events

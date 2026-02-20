@@ -21,6 +21,8 @@ func newPlatformCmd() *cobra.Command {
 
 	cmd.PersistentFlags().StringVar(&baseURL, "base-url", "", "Override Chatwoot base URL")
 	cmd.PersistentFlags().StringVar(&token, "token", "", "Platform API token (overrides env/config)")
+	flagAlias(cmd.PersistentFlags(), "base-url", "bu")
+	flagAlias(cmd.PersistentFlags(), "token", "tk")
 
 	cmd.AddCommand(newPlatformAccountsCmd(&baseURL, &token))
 	cmd.AddCommand(newPlatformUsersCmd(&baseURL, &token))
@@ -112,6 +114,12 @@ func newPlatformAccountsCreateCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().StringVar(&status, "status", "", "Account status")
 	cmd.Flags().StringVar(&customAttributes, "custom-attributes", "", "Custom attributes JSON")
 	cmd.Flags().StringVar(&limits, "limits", "", "Limits JSON")
+	flagAlias(cmd.Flags(), "locale", "lc")
+	flagAlias(cmd.Flags(), "domain", "dom")
+	flagAlias(cmd.Flags(), "support-email", "se")
+	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "custom-attributes", "ca")
+	flagAlias(cmd.Flags(), "limits", "lim")
 
 	return cmd
 }
@@ -229,6 +237,9 @@ func newPlatformAccountsUpdateCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().StringVar(&locale, "locale", "", "Account locale")
 	cmd.Flags().StringVar(&domain, "domain", "", "Account domain")
 	cmd.Flags().StringVar(&status, "status", "", "Account status")
+	flagAlias(cmd.Flags(), "locale", "lc")
+	flagAlias(cmd.Flags(), "domain", "dom")
+	flagAlias(cmd.Flags(), "status", "st")
 
 	return cmd
 }
@@ -303,6 +314,10 @@ func newPlatformUsersCreateCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().StringVar(&email, "email", "", "User email (required)")
 	cmd.Flags().StringVar(&password, "password", "", "User password (required)")
 	cmd.Flags().StringVar(&customAttributes, "custom-attributes", "", "Custom attributes JSON")
+	flagAlias(cmd.Flags(), "display-name", "dn")
+	flagAlias(cmd.Flags(), "email", "em")
+	flagAlias(cmd.Flags(), "custom-attributes", "ca")
+	flagAlias(cmd.Flags(), "password", "pw")
 
 	return cmd
 }
@@ -400,6 +415,10 @@ func newPlatformUsersUpdateCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().StringVar(&email, "email", "", "User email")
 	cmd.Flags().StringVar(&password, "password", "", "User password")
 	cmd.Flags().StringVar(&customAttributes, "custom-attributes", "", "Custom attributes JSON")
+	flagAlias(cmd.Flags(), "display-name", "dn")
+	flagAlias(cmd.Flags(), "email", "em")
+	flagAlias(cmd.Flags(), "custom-attributes", "ca")
+	flagAlias(cmd.Flags(), "password", "pw")
 
 	return cmd
 }
@@ -560,6 +579,8 @@ func newPlatformAccountUsersCreateCmd(baseURL, token *string) *cobra.Command {
 
 	cmd.Flags().IntVar(&userID, "user-id", 0, "User ID (required)")
 	cmd.Flags().StringVar(&role, "role", "", "Role (required)")
+	flagAlias(cmd.Flags(), "user-id", "uid")
+	flagAlias(cmd.Flags(), "role", "rl")
 
 	return cmd
 }
@@ -599,6 +620,7 @@ func newPlatformAccountUsersDeleteCmd(baseURL, token *string) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&userID, "user-id", 0, "User ID (required)")
+	flagAlias(cmd.Flags(), "user-id", "uid")
 
 	return cmd
 }
@@ -734,6 +756,7 @@ func newPlatformAgentBotsCreateCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Agent bot description")
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Webhook URL for bot events")
+	flagAlias(cmd.Flags(), "outgoing-url", "ou")
 
 	return cmd
 }
@@ -787,6 +810,7 @@ func newPlatformAgentBotsUpdateCmd(baseURL, token *string) *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Agent bot description")
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Webhook URL for bot events")
+	flagAlias(cmd.Flags(), "outgoing-url", "ou")
 
 	return cmd
 }

@@ -86,6 +86,7 @@ func newCustomFiltersListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by type: conversation or contact")
+	flagAlias(cmd.Flags(), "type", "ty")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "filter_type"},
@@ -190,6 +191,9 @@ func newCustomFiltersCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Name for the filter")
 	cmd.Flags().StringVar(&filterType, "type", "", "Type: conversation or contact")
 	cmd.Flags().StringVar(&queryJSON, "query", "", "Filter query as JSON")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "type", "ty")
+	flagAlias(cmd.Flags(), "query", "sq")
 
 	return cmd
 }
@@ -243,6 +247,8 @@ func newCustomFiltersUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Name for the filter")
 	cmd.Flags().StringVar(&queryJSON, "query", "", "Filter query as JSON")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "query", "sq")
 
 	return cmd
 }

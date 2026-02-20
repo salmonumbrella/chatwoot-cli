@@ -76,6 +76,7 @@ func newAuditLogsListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	flagAlias(cmd.Flags(), "page", "pg")
 
 	return cmd
 }

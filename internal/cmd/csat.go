@@ -121,6 +121,10 @@ func newCSATListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&rating, "rating", "", "Filter by ratings (comma-separated, e.g., 1,2)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
+	flagAlias(cmd.Flags(), "rating", "rt")
+	flagAlias(cmd.Flags(), "page", "pg")
 
 	return cmd
 }
@@ -308,6 +312,8 @@ func newCSATSummaryCmd() *cobra.Command {
 	cmd.Flags().StringVar(&to, "to", "", "End date (YYYY-MM-DD or relative)")
 	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Filter by inbox ID")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "from", "fr")
+	flagAlias(cmd.Flags(), "to", "t2")
 
 	return cmd
 }

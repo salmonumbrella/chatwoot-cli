@@ -155,6 +155,8 @@ func newAgentBotsCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Outgoing webhook URL (required)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("outgoing-url")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "outgoing-url", "ou")
 
 	return cmd
 }
@@ -204,6 +206,8 @@ func newAgentBotsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Bot name")
 	cmd.Flags().StringVar(&outgoingURL, "outgoing-url", "", "Outgoing webhook URL")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "outgoing-url", "ou")
 
 	return cmd
 }

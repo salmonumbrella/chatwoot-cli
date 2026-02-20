@@ -179,6 +179,8 @@ func newPortalsCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Portal name (required)")
 	cmd.Flags().StringVar(&slug, "slug", "", "Portal slug (required)")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "slug", "sl")
 
 	return cmd
 }
@@ -244,6 +246,8 @@ func newPortalsUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Portal name")
 	cmd.Flags().StringVar(&slug, "slug", "", "Portal slug")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "slug", "sl")
 
 	return cmd
 }
@@ -544,6 +548,7 @@ func newPortalsArticlesSearchCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&includeBody, "include-body", false, "Include article body content in output")
+	flagAlias(cmd.Flags(), "include-body", "ib")
 	return cmd
 }
 
@@ -672,6 +677,11 @@ func newPortalsArticlesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&slug, "slug", "", "URL slug")
 	cmd.Flags().IntVar(&categoryID, "category-id", 0, "Category ID")
 	cmd.Flags().IntVar(&status, "status", 0, "Status: 0=draft, 1=published, 2=archived")
+	flagAlias(cmd.Flags(), "title", "ttl")
+	flagAlias(cmd.Flags(), "content", "ct")
+	flagAlias(cmd.Flags(), "slug", "sl")
+	flagAlias(cmd.Flags(), "status", "st")
+	flagAlias(cmd.Flags(), "category-id", "cid")
 
 	return cmd
 }
@@ -756,6 +766,10 @@ func newPortalsArticlesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&content, "content", "", "Article content")
 	cmd.Flags().StringVar(&slug, "slug", "", "URL slug")
 	cmd.Flags().IntVar(&status, "status", -1, "Status: 0=draft, 1=published, 2=archived")
+	flagAlias(cmd.Flags(), "title", "ttl")
+	flagAlias(cmd.Flags(), "content", "ct")
+	flagAlias(cmd.Flags(), "slug", "sl")
+	flagAlias(cmd.Flags(), "status", "st")
 
 	return cmd
 }
@@ -849,6 +863,7 @@ func newPortalsArticlesReorderCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&articleIDs, "article-ids", "", "Article IDs in desired order (CSV, whitespace, JSON array; or @- / @path) (required)")
 	_ = cmd.MarkFlagRequired("article-ids")
+	flagAlias(cmd.Flags(), "article-ids", "aids")
 
 	return cmd
 }
@@ -1025,6 +1040,10 @@ func newPortalsCategoriesCreateCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().IntVar(&position, "position", 0, "Sort position")
 	cmd.Flags().StringVar(&locale, "locale", "", "Locale (e.g., en)")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "slug", "sl")
+	flagAlias(cmd.Flags(), "position", "pos")
+	flagAlias(cmd.Flags(), "locale", "lc")
 
 	return cmd
 }
@@ -1099,6 +1118,8 @@ func newPortalsCategoriesUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Category description")
 	flagAlias(cmd.Flags(), "description", "desc")
 	cmd.Flags().IntVar(&position, "position", 0, "Sort position")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "position", "pos")
 
 	return cmd
 }

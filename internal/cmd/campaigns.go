@@ -74,6 +74,7 @@ func newCampaignsListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&page, "page", 0, "Page number for pagination")
+	flagAlias(cmd.Flags(), "page", "pg")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "title", "campaign_status"},
@@ -310,6 +311,12 @@ The --scheduled-at flag accepts relative time or RFC3339 format, e.g.:
 	cmd.Flags().BoolVar(&enabled, "enabled", true, "Enable the campaign")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Trigger only during business hours")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "title", "ttl")
+	flagAlias(cmd.Flags(), "sender-id", "sid")
+	flagAlias(cmd.Flags(), "scheduled-at", "sch")
+	flagAlias(cmd.Flags(), "audience", "aud")
+	flagAlias(cmd.Flags(), "enabled", "en")
+	flagAlias(cmd.Flags(), "business-hours", "bh")
 
 	_ = cmd.MarkFlagRequired("title")
 	_ = cmd.MarkFlagRequired("message")
@@ -436,6 +443,12 @@ The --audience flag accepts JSON array of audience targets (mutually exclusive w
 	cmd.Flags().BoolVar(&enabled, "enabled", false, "Enable/disable campaign")
 	cmd.Flags().BoolVar(&businessHours, "business-hours", false, "Trigger only during business hours")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "title", "ttl")
+	flagAlias(cmd.Flags(), "sender-id", "sid")
+	flagAlias(cmd.Flags(), "scheduled-at", "sch")
+	flagAlias(cmd.Flags(), "audience", "aud")
+	flagAlias(cmd.Flags(), "enabled", "en")
+	flagAlias(cmd.Flags(), "business-hours", "bh")
 
 	return cmd
 }
@@ -502,6 +515,7 @@ func newCampaignsDeleteCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	flagAlias(cmd.Flags(), "force", "fc")
 
 	return cmd
 }

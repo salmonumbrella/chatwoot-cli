@@ -175,6 +175,7 @@ func newCannedResponsesSearchCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&query, "query", "", "Search query (required)")
 	_ = cmd.MarkFlagRequired("query")
+	flagAlias(cmd.Flags(), "query", "sq")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "short_code"},
@@ -226,6 +227,8 @@ func newCannedResponsesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&content, "content", "", "Content of the canned response (required)")
 	_ = cmd.MarkFlagRequired("short-code")
 	_ = cmd.MarkFlagRequired("content")
+	flagAlias(cmd.Flags(), "short-code", "sc")
+	flagAlias(cmd.Flags(), "content", "ct")
 
 	return cmd
 }
@@ -285,6 +288,8 @@ func newCannedResponsesUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&shortCode, "short-code", "", "Short code for the canned response")
 	cmd.Flags().StringVar(&content, "content", "", "Content of the canned response")
+	flagAlias(cmd.Flags(), "short-code", "sc")
+	flagAlias(cmd.Flags(), "content", "ct")
 
 	return cmd
 }

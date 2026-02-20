@@ -152,6 +152,7 @@ For example, "/conversations/123" becomes:
 	cmd.Flags().StringVarP(&jsonBody, "body", "d", "", "Request body as inline JSON string")
 	cmd.Flags().BoolVarP(&silent, "silent", "s", false, "Suppress output")
 	cmd.Flags().BoolVar(&includeHeaders, "include", false, "Include response headers in output")
+	flagAlias(cmd.Flags(), "include", "inc")
 
 	return cmd
 }

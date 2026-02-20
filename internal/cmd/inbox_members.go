@@ -109,6 +109,7 @@ func newInboxMembersAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "user-ids", "uids")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd
@@ -151,6 +152,7 @@ func newInboxMembersRemoveCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "user-ids", "uids")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd
@@ -194,6 +196,7 @@ func newInboxMembersUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userIDsStr, "user-ids", "", "User IDs to set as members (CSV, whitespace, JSON array; or @- / @path) (required)")
+	flagAlias(cmd.Flags(), "user-ids", "uids")
 	_ = cmd.MarkFlagRequired("user-ids")
 
 	return cmd

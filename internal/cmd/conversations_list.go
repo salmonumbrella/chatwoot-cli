@@ -187,6 +187,7 @@ func newConversationsListCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "unread-only", "unread")
 	flagAlias(cmd.Flags(), "waiting", "wt")
 	flagAlias(cmd.Flags(), "light", "li")
+	flagAlias(cmd.Flags(), "search", "sq")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed", "all"})
 	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 

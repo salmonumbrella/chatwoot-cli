@@ -136,6 +136,8 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
 	cmd.Flags().Bool("light", false, "Return minimal contact payload")
 	flagAlias(cmd.Flags(), "light", "li")
+	flagAlias(cmd.Flags(), "sort", "so")
+	flagAlias(cmd.Flags(), "order", "ord")
 
 	return cmd
 }
@@ -476,6 +478,7 @@ When using --json flag, reads JSON from stdin. CLI flags override JSON values.`,
 	cmd.Flags().StringVar(&phone, "phone", "", "Contact phone number")
 	cmd.Flags().BoolVar(&fromStdin, "json", false, "Read contact data from stdin as JSON")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "phone", "ph")
 
 	return cmd
 }
@@ -626,6 +629,7 @@ Social profiles are set via repeatable --social/-S flags with platform=url forma
 	cmd.Flags().StringSliceVarP(&customAttrs, "custom-attr", "A", nil, "Custom attribute key=value (repeatable)")
 	cmd.Flags().StringSliceVarP(&social, "social", "S", nil, "Social profile platform=url (repeatable)")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "phone", "ph")
 
 	return cmd
 }
@@ -987,6 +991,7 @@ func newContactsLabelsAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&labels, "labels", "", "Labels (CSV, whitespace, JSON array; or @- / @path)")
+	flagAlias(cmd.Flags(), "labels", "lb")
 
 	return cmd
 }
@@ -1105,6 +1110,7 @@ func newContactsCreateInboxCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Inbox ID (required)")
 	cmd.Flags().StringVar(&sourceID, "source-id", "", "Channel-specific source identifier")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "source-id", "sid")
 
 	return cmd
 }
@@ -1210,6 +1216,7 @@ func newContactsNotesAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "Note content (required)")
+	flagAlias(cmd.Flags(), "content", "ct")
 
 	return cmd
 }
@@ -1349,6 +1356,10 @@ func newContactsBulkAddLabelCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "ids", "id")
+	flagAlias(cmd.Flags(), "labels", "lb")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 
@@ -1459,6 +1470,10 @@ labels, and updates the contact with the remaining labels.`,
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
 	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
+	flagAlias(cmd.Flags(), "ids", "id")
+	flagAlias(cmd.Flags(), "labels", "lb")
+	flagAlias(cmd.Flags(), "progress", "prg")
+	flagAlias(cmd.Flags(), "no-progress", "npr")
 	_ = cmd.MarkFlagRequired("ids")
 	_ = cmd.MarkFlagRequired("labels")
 

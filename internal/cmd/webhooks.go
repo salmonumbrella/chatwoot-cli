@@ -213,6 +213,7 @@ Available subscription events:
 	cmd.Flags().StringVar(&url, "url", "", "Webhook URL (required)")
 	cmd.Flags().StringArrayVar(&subscriptions, "subscriptions", nil, "Subscription events (repeatable, or CSV/whitespace/JSON array, or @- / @path) (required)")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "url", "wu")
 
 	return cmd
 }
@@ -312,6 +313,7 @@ Available subscription events:
 	cmd.Flags().StringVar(&url, "url", "", "New webhook URL")
 	cmd.Flags().StringArrayVar(&subscriptions, "subscriptions", nil, "Subscription events (repeatable, or CSV/whitespace/JSON array, or @- / @path)")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	flagAlias(cmd.Flags(), "url", "wu")
 
 	return cmd
 }

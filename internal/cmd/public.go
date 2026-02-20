@@ -158,6 +158,10 @@ func newPublicContactsCreateCmd(baseURL *string) *cobra.Command {
 	cmd.Flags().StringVar(&email, "email", "", "Contact email")
 	cmd.Flags().StringVar(&phone, "phone", "", "Contact phone number")
 	cmd.Flags().StringVar(&identifier, "identifier", "", "Contact identifier")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "email", "em")
+	flagAlias(cmd.Flags(), "phone", "ph")
+	flagAlias(cmd.Flags(), "identifier", "idn")
 
 	return cmd
 }
@@ -256,6 +260,9 @@ func newPublicContactsUpdateCmd(baseURL *string) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "New contact name")
 	cmd.Flags().StringVar(&email, "email", "", "New contact email")
 	cmd.Flags().StringVar(&phone, "phone", "", "New contact phone number")
+	flagAlias(cmd.Flags(), "name", "nm")
+	flagAlias(cmd.Flags(), "email", "em")
+	flagAlias(cmd.Flags(), "phone", "ph")
 
 	return cmd
 }
@@ -559,6 +566,8 @@ func newPublicMessagesCreateCmd(baseURL *string) *cobra.Command {
 
 	cmd.Flags().StringVar(&content, "content", "", "Message content (required)")
 	cmd.Flags().StringVar(&echoID, "echo-id", "", "Echo ID for message deduplication")
+	flagAlias(cmd.Flags(), "content", "ct")
+	flagAlias(cmd.Flags(), "echo-id", "eid")
 
 	return cmd
 }
@@ -608,6 +617,7 @@ func newPublicMessagesUpdateCmd(baseURL *string) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&content, "content", "", "New message content (required)")
+	flagAlias(cmd.Flags(), "content", "ct")
 
 	return cmd
 }

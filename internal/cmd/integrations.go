@@ -141,6 +141,8 @@ func newIntegrationsHookCreateCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&inboxID, "inbox-id", "I", 0, "Inbox ID (optional)")
 	cmd.Flags().StringVar(&settingsJSON, "settings", "", "Settings as JSON string")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "app-id", "aid")
+	flagAlias(cmd.Flags(), "settings", "cfg")
 
 	return cmd
 }
@@ -187,6 +189,7 @@ func newIntegrationsHookUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&settingsJSON, "settings", "", "Settings as JSON string")
+	flagAlias(cmd.Flags(), "settings", "cfg")
 
 	return cmd
 }
@@ -269,6 +272,8 @@ func newShopifyAuthCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&shopDomain, "shop", "", "Shopify store domain (e.g., mystore.myshopify.com)")
 	cmd.Flags().StringVar(&code, "code", "", "OAuth authorization code")
+	flagAlias(cmd.Flags(), "shop", "sh")
+	flagAlias(cmd.Flags(), "code", "cd")
 
 	return cmd
 }
