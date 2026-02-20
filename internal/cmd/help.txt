@@ -5,7 +5,11 @@ IMPORTANT: Always use the shortest alias. Full names waste tokens.
 Aliases (resource → short):
   conversations=c  contacts=co  messages=m  inboxes=in  agents=a
   teams=t  labels=l  campaigns=cm  reports=rp  integrations=ig
-  search=s  mentions=mn  custom-filters=cf
+  search=s  mentions=mn  custom-filters=cf  custom-attributes=ca
+  canned-responses=cr  webhooks=wh  automation-rules=ar  agent-bots=ab
+  portals=po  csat=cs  audit-logs=al  account=ac  inbox-members=im
+  platform=pf  public=pub  survey=sv  schema=sc  client=cl  api=ap
+  cache=ch  auth=au  config=cfg  dashboard=dh  version=v
 
 Aliases (shortcut → short):
   comment=cmt  note=n  close=x  reopen=ro  assign=as  handoff=ho
@@ -34,7 +38,7 @@ Replying:
   cw cmt CONV "text"           Public reply (customer-visible)
   cw cmt CONV "text" -R        Reply and resolve in one step
   cw n CONV "text"             Private note (internal only)
-  cw n CONV --mention NAME "t" Note with @mention
+  cw n CONV --mt NAME "t"      Note with @mention
   cw r "contact-name" -c "text"  Find contact by name/email, send reply
 
 Disposition:
@@ -42,28 +46,28 @@ Disposition:
   cw x 123 456 789             Resolve multiple
   cw ro CONV                   Reopen
   cw sn CONV --for 2h          Snooze for duration
-  cw sn CONV --for 24h --note "reason"  Snooze with explanation
+  cw sn CONV --for 24h --nt "reason"    Snooze with explanation
   cw c ts CONV -s p            Set pending (waiting on customer)
-  cw c tp CONV --priority u    Set priority (u=urgent h=high m=medium l=low)
+  cw c tp CONV --pri u         Set priority (u=urgent h=high m=medium l=low)
 
 Assignment & escalation:
-  cw as CONV --agent 5         Assign to agent (ID or name)
-  cw as CONV --team 2          Assign to team
-  cw ho CONV --agent NAME --reason "..."  Escalate (note + assign + priority)
+  cw as CONV --ag 5            Assign to agent (ID or name)
+  cw as CONV --tm 2            Assign to team
+  cw ho CONV --ag NAME --rs "..."  Escalate (note + assign + priority)
 
 Listing conversations:
   cw c ls -s o                 Open conversations
   cw c ls -s o -I 48           Filter by inbox
-  cw c ls -s o --waiting       Longest-waiting customer first
-  cw c ls -s o --unread-only   Unread only
+  cw c ls -s o --wt            Longest-waiting customer first
+  cw c ls -s o --unread        Unread only
   cw c ls -S "2h ago"          Activity since time
   cw c ls -s o -a -M 50        All pages (max 50)
 
 Triage & filtering:
   cw c tri                     Triage queue (urgency-sorted)
-  cw c tri --inbox 48          Triage specific inbox
-  cw c f --folder 1            Saved custom view (sidebar folder)
-  cw c f --folder 1 --all      All pages of saved view
+  cw c tri --ib 48             Triage specific inbox
+  cw c f --view 1              Saved custom view (sidebar folder)
+  cw c f --view 1 --all        All pages of saved view
   cw c q "query"               Full-text message search
   cw c f --pl '[{"ak":"st","fo":"eq","v":["open"]}]'  Inline filter (shortcodes)
 
@@ -86,7 +90,7 @@ Contact management:
   cw co up ID -A "key=value"        Set custom attribute
   cw co up ID -C "company" -K "country"  Set company/country
   cw co mg KEEP DELETE -F           Merge (keep first, delete second)
-  cw co bk al --ids 1,2,3 -L vip   Bulk add labels
+  cw co bk al --id 1,2,3 -L vip    Bulk add labels
 
 Orders & dashboards:
   cw dh ods --cv CONV -c       Orders from conversation (compact)
@@ -94,15 +98,15 @@ Orders & dashboards:
 
 Real-time:
   cw c fw CONV                 Follow conversation (WebSocket)
-  cw c fw -A --inbox 48        Follow all in inbox
+  cw c fw -A --ib 48           Follow all in inbox
   cw c fw -A --ua              New inquiries only (unassigned)
-  cw c fw CONV --tail 0 -o jsonl | head -1  Wait for next message
+  cw c fw CONV --tl 0 -o jsonl | head -1    Wait for next message
   cw c w -s o                  Poll open conversations
 
 Bulk operations:
-  cw c bk res --ids 123,456    Bulk resolve
-  cw c bk asgn --ids 1,2 --agent 5  Bulk assign
-  cw co bk al --ids 1,2 -L vip  Bulk label contacts
+  cw c bk res --id 123,456     Bulk resolve
+  cw c bk asgn --id 1,2 --ag 5  Bulk assign
+  cw co bk al --id 1,2 -L vip   Bulk label contacts
 
 Creating:
   cw c mk -I 48 -C 123 -m "text"  New conversation
@@ -115,9 +119,9 @@ Output formats:
   -o text       Human-readable tabulated text
   --cj          Compact JSON (no indentation, single line)
   --jq EXPR     Built-in JQ filter (preferred over piping to jq)
-  --fields F    Field selection: minimal, default, debug, or CSV
-  --template T  Go template string (or @path)
-  --items-only  Output only items/results array
+  --fi F        Field selection: minimal, default, debug, or CSV
+  --tpl T       Go template string (or @path)
+  --io          Output only items/results array
   -Q            Quiet: suppress non-essential output
 
 Common flags:
@@ -128,8 +132,15 @@ Common flags:
   -R            Resolve after action (on cmt, n, r)
   -C CONTACT    Contact ID
   --li          Light mode: minimal payload (on c ls, co g, m ls, s, ct)
-  --dry-run     Preview without executing
+  --dr          Preview without executing
   -y / --yes    Skip confirmations
+
+Flag aliases (long → short):
+  --agent=ag  --team=tm  --priority=pri  --ids=id  --folder=view
+  --mention=mt  --reason=rs  --note=nt  --inbox=ib  --limit=lt
+  --waiting=wt  --unread-only=unread  --tail=tl  --dry-run=dr
+  --fields=fi  --template=tpl  --items-only=io  --label=lb
+  --search=sq  --light=li  --explain=exp  --debug=dbg
 
 Exit codes:
   0  Success
