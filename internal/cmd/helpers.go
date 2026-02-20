@@ -340,6 +340,22 @@ func setMapIfChanged(cmd *cobra.Command, flag, key string, params map[string]any
 // flagAlias registers a hidden alias for an existing flag.
 // Both flags share the same underlying Value, so setting either one sets both.
 // The alias is annotated so flagOrAliasChanged() can detect it.
+// aliasBridgeValue wraps a pflag.Value so that Set() on the alias also
+// marks the canonical flag as Changed.  This lets aliases satisfy Cobra's
+// MarkFlagRequired check transparently.
+type aliasBridgeValue struct {
+	pflag.Value
+	canonical *pflag.Flag
+}
+
+func (v *aliasBridgeValue) Set(s string) error {
+	if err := v.Value.Set(s); err != nil {
+		return err
+	}
+	v.canonical.Changed = true
+	return nil
+}
+
 func flagAlias(fs *pflag.FlagSet, name, alias string) {
 	f := fs.Lookup(name)
 	if f == nil {
@@ -350,10 +366,18 @@ func flagAlias(fs *pflag.FlagSet, name, alias string) {
 	a.Shorthand = ""
 	a.Usage = ""
 	a.Hidden = true
-	if a.Annotations == nil {
-		a.Annotations = map[string][]string{}
+	a.Value = &aliasBridgeValue{Value: f.Value, canonical: f}
+	// Deep-copy annotations so we don't mutate the original flag's map,
+	// and strip the "required" annotation — the alias should never be
+	// independently required (the canonical flag enforces that).
+	newAnn := map[string][]string{"alias-of": {name}}
+	for k, v := range f.Annotations {
+		if k == cobra.BashCompOneRequiredFlag {
+			continue
+		}
+		newAnn[k] = v
 	}
-	a.Annotations["alias-of"] = []string{name}
+	a.Annotations = newAnn
 	fs.AddFlag(&a)
 }
 

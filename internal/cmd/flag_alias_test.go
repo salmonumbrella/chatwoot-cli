@@ -73,6 +73,46 @@ func TestFlagAlias(t *testing.T) {
 		}
 	})
 
+	t.Run("alias does not inherit required annotation", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		var val string
+		fs.StringVar(&val, "name", "", "")
+		// Simulate MarkFlagRequired by adding the annotation
+		f := fs.Lookup("name")
+		f.Annotations = map[string][]string{
+			cobra.BashCompOneRequiredFlag: {"true"},
+		}
+		flagAlias(fs, "name", "nm")
+
+		alias := fs.Lookup("nm")
+		if _, ok := alias.Annotations[cobra.BashCompOneRequiredFlag]; ok {
+			t.Error("alias should not have required annotation")
+		}
+		// Verify original still has it
+		orig := fs.Lookup("name")
+		if _, ok := orig.Annotations[cobra.BashCompOneRequiredFlag]; !ok {
+			t.Error("original should still have required annotation")
+		}
+	})
+
+	t.Run("alias bridges Changed to canonical flag", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		var val string
+		fs.StringVar(&val, "query", "", "")
+		flagAlias(fs, "query", "sq")
+
+		if err := fs.Parse([]string{"--sq", "hello"}); err != nil {
+			t.Fatal(err)
+		}
+		if val != "hello" {
+			t.Errorf("expected val=hello, got %q", val)
+		}
+		// The canonical flag should be marked Changed
+		if !fs.Lookup("query").Changed {
+			t.Error("canonical flag should be Changed when alias is used")
+		}
+	})
+
 	t.Run("panics on missing flag", func(t *testing.T) {
 		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
 		defer func() {
