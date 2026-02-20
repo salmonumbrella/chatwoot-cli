@@ -244,6 +244,43 @@ func TestMessagesListCommand_Limit(t *testing.T) {
 	}
 }
 
+func TestMessagesListCommand_AllShorthand(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/accounts/1/conversations/123/messages" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		switch r.URL.Query().Get("before") {
+		case "":
+			_, _ = w.Write([]byte(`{
+				"payload": [
+					{"id": 2, "content": "Newest", "message_type": 0, "private": false, "created_at": 1704067200},
+					{"id": 1, "content": "Older", "message_type": 0, "private": false, "created_at": 1704067100}
+				]
+			}`))
+		default:
+			_, _ = w.Write([]byte(`{"payload": []}`))
+		}
+	})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"messages", "list", "123", "-a", "-o", "json"}); err != nil {
+			t.Fatalf("messages list -a failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 2 {
+		t.Fatalf("expected 2 messages with -a, got %d", len(items))
+	}
+}
+
 func TestMessagesListCommand_InvalidLimit(t *testing.T) {
 	err := Execute(context.Background(), []string{"messages", "list", "123", "--limit", "0"})
 	if err == nil {

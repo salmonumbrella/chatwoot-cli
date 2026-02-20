@@ -242,7 +242,7 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 	})
 	registerFieldSchema(cmd, "message")
 
-	cmd.Flags().BoolVar(&all, "all", false, "Fetch all messages (paginated)")
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Fetch all messages (paginated)")
 	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch when using --all or --limit")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
 	cmd.Flags().IntVarP(&limit, "limit", "l", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")

@@ -371,7 +371,7 @@ all conversations on the account.
 	flagAlias(cmd.Flags(), "debounce", "db")
 	flagAlias(cmd.Flags(), "cursor-file", "cf")
 	flagAlias(cmd.Flags(), "since-id", "sid")
-	flagAlias(cmd.Flags(), "since-time", "since")
+	flagAlias(cmd.Flags(), "since-time", "sc")
 	flagAlias(cmd.Flags(), "max-batch", "mb")
 	flagAlias(cmd.Flags(), "inbox", "ib")
 	flagAlias(cmd.Flags(), "label", "lb")

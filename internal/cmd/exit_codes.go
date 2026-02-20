@@ -114,6 +114,7 @@ func isUsageError(err error) bool {
 	indicators := []string{
 		"unknown command",
 		"unknown flag",
+		"unknown shorthand flag",
 		"flag needs an argument",
 		"flag provided but not defined",
 		"requires at least",

@@ -23,6 +23,7 @@ func TestExitCodeMapping(t *testing.T) {
 		{"rate limited", &api.RateLimitError{RetryAfter: time.Second}, exitRateLimited},
 		{"server", &api.APIError{StatusCode: 500, Body: "oops"}, exitServer},
 		{"usage", errors.New("unknown command \"nope\""), exitUsage},
+		{"usage shorthand", errors.New("unknown shorthand flag: 'a' in -a"), exitUsage},
 		{"network", errors.New("dial tcp: connection refused"), exitNetwork},
 		{"generic", errors.New("boom"), exitGeneric},
 	}
