@@ -140,6 +140,8 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			mode := outfmt.ModeFromContext(ctx)
 			if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) && mode == outfmt.Text {
 				ctx = outfmt.WithMode(ctx, outfmt.JSON)
+				ctx = outfmt.WithLight(ctx, true)
+				cmd.SetContext(ctx)
 				mode = outfmt.JSON
 			}
 
