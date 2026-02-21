@@ -693,3 +693,32 @@ func TestNormalizeEnumAmbiguous(t *testing.T) {
 		t.Error("expected ambiguity error for 'al' matching alpha and also")
 	}
 }
+
+func TestValidateExclusiveStatus(t *testing.T) {
+	tests := []struct {
+		name    string
+		resolve bool
+		pending bool
+		snooze  string
+		wantErr bool
+	}{
+		{"none set", false, false, "", false},
+		{"resolve only", true, false, "", false},
+		{"pending only", false, true, "", false},
+		{"snooze only", false, false, "2h", false},
+		{"resolve+pending", true, true, "", true},
+		{"resolve+snooze", true, false, "2h", true},
+		{"pending+snooze", false, true, "2h", true},
+		{"all three", true, true, "2h", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateExclusiveStatus(tt.resolve, tt.pending, tt.snooze)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateExclusiveStatus(%v, %v, %q) error = %v, wantErr %v",
+					tt.resolve, tt.pending, tt.snooze, err, tt.wantErr)
+			}
+		})
+	}
+}
