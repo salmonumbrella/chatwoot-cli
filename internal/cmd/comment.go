@@ -160,7 +160,7 @@ This is a convenience shortcut for:
 				}
 				_, err = client.Conversations().ToggleStatus(ctx, conversationID, "snoozed", snoozedUntil.Unix())
 				if err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: message sent but failed to snooze: %v\n", err)
+					return fmt.Errorf("message sent (ID: %d) but failed to snooze conversation: %w", message.ID, err)
 				}
 			}
 

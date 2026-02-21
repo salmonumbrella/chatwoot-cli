@@ -112,6 +112,24 @@ func TestCommentCommand_Pending(t *testing.T) {
 	}
 }
 
+func TestCommentCommand_SnoozeFailureReturnsError(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 55, "conversation_id": 123, "content": "text", "message_type": 1, "private": false}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(500, `{"error": "server error"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"comment", "123", "text", "--snooze-for", "2h", "-o", "json"})
+		if err == nil {
+			t.Fatal("expected error when snooze fails, got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to snooze") {
+			t.Fatalf("expected snooze failure error, got: %v", err)
+		}
+	})
+}
+
 func TestCommentCommand_ResolveAndPendingExclusive(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 57, "conversation_id": 123, "content": "conflict", "message_type": 1, "private": false}`))
