@@ -99,7 +99,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				if err != nil {
 					return err
 				}
-				return printJSON(cmd, json.RawMessage(raw))
+				return printRawJSON(cmd, json.RawMessage(raw))
 			}
 
 			if isJSON(cmd) {
@@ -215,7 +215,7 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 			lc.Convs = []lightContactConv{}
 		}
 
-		return printJSON(cmd, lc)
+		return printRawJSON(cmd, lc)
 	}
 
 	if mode == "json" && !isAgent(cmd) {

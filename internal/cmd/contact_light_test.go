@@ -30,6 +30,106 @@ func TestBuildLightContact(t *testing.T) {
 	}
 }
 
+func TestBuildLightContact_WithCustomAttributes(t *testing.T) {
+	contact := &api.Contact{
+		ID:          136014,
+		Name:        "Jane",
+		Email:       "jane@example.com",
+		PhoneNumber: "+886912345678",
+		CustomAttributes: map[string]any{
+			"membership_tier":          "🥈 Silver",
+			"6167311875566d0016e3aea2": "https://admin.shoplineapp.com/admin/amyscanadashop/users/629c430dc7e798000957af45",
+			"633e52851a4eb80025fcf3c9": "https://admin.shoplineapp.com/admin/panpanlive/users/abc123def456",
+			"68468d58ef183a000827457d": "https://admin.shoplineapp.com/admin/themomentshop/users/deadbeef1234",
+		},
+	}
+
+	result := buildLightContact(contact)
+
+	if result.Tier == nil || *result.Tier != "🥈 Silver" {
+		t.Errorf("expected tier '🥈 Silver', got %v", result.Tier)
+	}
+	if result.Amy == nil || *result.Amy != "629c430dc7e798000957af45" {
+		t.Errorf("expected Amy Shop ID '629c430dc7e798000957af45', got %v", result.Amy)
+	}
+	if result.PP == nil || *result.PP != "abc123def456" {
+		t.Errorf("expected Panpan ID 'abc123def456', got %v", result.PP)
+	}
+	if result.TM == nil || *result.TM != "deadbeef1234" {
+		t.Errorf("expected The Moment ID 'deadbeef1234', got %v", result.TM)
+	}
+}
+
+func TestBuildLightContact_NoCustomAttributes(t *testing.T) {
+	contact := &api.Contact{
+		ID:   42,
+		Name: "Bob",
+	}
+
+	result := buildLightContact(contact)
+
+	if result.Tier != nil {
+		t.Errorf("expected nil tier, got %v", result.Tier)
+	}
+	if result.Amy != nil {
+		t.Errorf("expected nil amy, got %v", result.Amy)
+	}
+	if result.PP != nil {
+		t.Errorf("expected nil pp, got %v", result.PP)
+	}
+	if result.TM != nil {
+		t.Errorf("expected nil tm, got %v", result.TM)
+	}
+}
+
+func TestExtractShoplineID(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    any
+		expected *string
+	}{
+		{
+			name:     "full admin URL",
+			value:    "https://admin.shoplineapp.com/admin/amyscanadashop/users/629c430dc7e798000957af45",
+			expected: strPtr("629c430dc7e798000957af45"),
+		},
+		{
+			name:     "bare ID (no slash)",
+			value:    "629c430dc7e798000957af45",
+			expected: strPtr("629c430dc7e798000957af45"),
+		},
+		{
+			name:     "empty string",
+			value:    "",
+			expected: nil,
+		},
+		{
+			name:     "missing key",
+			value:    nil,
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ca := map[string]any{}
+			if tt.value != nil {
+				ca["key"] = tt.value
+			}
+			got := extractShoplineID(ca, "key")
+			if tt.expected == nil {
+				if got != nil {
+					t.Errorf("expected nil, got %v", *got)
+				}
+			} else {
+				if got == nil || *got != *tt.expected {
+					t.Errorf("expected %v, got %v", *tt.expected, got)
+				}
+			}
+		})
+	}
+}
+
 func TestBuildLightContactEmptyFields(t *testing.T) {
 	contact := &api.Contact{
 		ID:   42,
