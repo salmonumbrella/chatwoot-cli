@@ -130,8 +130,9 @@ Common flags:
   -I INBOX      Inbox ID or name
   -M MAX_PAGES  Max pages to fetch
   -a / --all    Fetch all pages
-  -R            Resolve after action (on cmt, n, r)
-  -p            Set pending after action (on cmt, n, r)
+  -R            Resolve after action (on cmt, n, r)  ⎫
+  -p            Set pending after action (on cmt, n, r)  ⎬ mutually exclusive
+  --snooze-for  Snooze after action (on cmt, n, r)  ⎭
   -C CONTACT    Contact ID
   --li          Light mode: minimal payload (on c ls, co g, m ls, s, ct)
   --dr          Preview without executing
