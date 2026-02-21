@@ -223,6 +223,18 @@ func TestApplyFromJSON_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestApplyWith_CustomNormalizer(t *testing.T) {
+	data := map[string]any{"st": "o", "status": "open"}
+	// Identity normalizer — no changes, acts like ApplyLiteral
+	result, err := applyWith(data, ".st", func(s string) string { return s })
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "o" {
+		t.Fatalf("expected 'o', got %v", result)
+	}
+}
+
 func TestApply_QueryAliases_CustomAttributes(t *testing.T) {
 	data := map[string]any{
 		"custom_attributes": map[string]any{

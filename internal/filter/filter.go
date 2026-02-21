@@ -18,13 +18,13 @@ func NormalizeExpression(expr string) string {
 	return queryalias.Normalize(expr, queryalias.ContextQuery)
 }
 
-// Apply applies a JQ filter expression to the input data
-func Apply(data interface{}, expression string) (interface{}, error) {
+// applyWith is the shared core: normalize the expression, parse, and run jq.
+func applyWith(data interface{}, expression string, normalize func(string) string) (interface{}, error) {
 	if expression == "" {
 		return data, nil
 	}
 
-	expression = NormalizeExpression(expression)
+	expression = normalize(expression)
 	query, err := gojq.Parse(expression)
 	if err != nil {
 		return nil, fmt.Errorf("invalid filter expression: %w", err)
@@ -50,8 +50,13 @@ func Apply(data interface{}, expression string) (interface{}, error) {
 	return results, nil
 }
 
-// ApplyToJSON applies filter to JSON bytes and returns filtered JSON bytes (pretty-printed).
-func ApplyToJSON(jsonData []byte, expression string) ([]byte, error) {
+// Apply applies a JQ filter expression to the input data
+func Apply(data interface{}, expression string) (interface{}, error) {
+	return applyWith(data, expression, NormalizeExpression)
+}
+
+// applyToJSONWith is the shared JSON wrapper: unmarshal, apply, marshal.
+func applyToJSONWith(jsonData []byte, expression string, apply func(interface{}, string) (interface{}, error)) ([]byte, error) {
 	if expression == "" {
 		return jsonData, nil
 	}
@@ -61,12 +66,17 @@ func ApplyToJSON(jsonData []byte, expression string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	result, err := Apply(data, expression)
+	result, err := apply(data, expression)
 	if err != nil {
 		return nil, err
 	}
 
 	return json.MarshalIndent(result, "", "  ")
+}
+
+// ApplyToJSON applies filter to JSON bytes and returns filtered JSON bytes (pretty-printed).
+func ApplyToJSON(jsonData []byte, expression string) ([]byte, error) {
+	return applyToJSONWith(jsonData, expression, Apply)
 }
 
 // ApplyFromJSON applies a JQ filter to JSON bytes and returns the result as a Go value.
@@ -88,34 +98,7 @@ func fixShellEscapes(expr string) string {
 // Only fixes shell escapes (\! → !). Use for light mode where JSON keys
 // are intentionally short and collide with query aliases.
 func ApplyLiteral(data interface{}, expression string) (interface{}, error) {
-	if expression == "" {
-		return data, nil
-	}
-
-	expression = fixShellEscapes(expression)
-	query, err := gojq.Parse(expression)
-	if err != nil {
-		return nil, fmt.Errorf("invalid filter expression: %w", err)
-	}
-
-	iter := query.Run(data)
-
-	var results []interface{}
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if err, ok := v.(error); ok {
-			return nil, fmt.Errorf("filter error: %w", err)
-		}
-		results = append(results, v)
-	}
-
-	if len(results) == 1 {
-		return results[0], nil
-	}
-	return results, nil
+	return applyWith(data, expression, fixShellEscapes)
 }
 
 // ApplyFromJSONLiteral applies a JQ filter to JSON bytes without alias normalization.
@@ -129,19 +112,5 @@ func ApplyFromJSONLiteral(jsonData []byte, expression string) (interface{}, erro
 
 // ApplyToJSONLiteral applies a literal filter to JSON bytes and returns filtered JSON bytes.
 func ApplyToJSONLiteral(jsonData []byte, expression string) ([]byte, error) {
-	if expression == "" {
-		return jsonData, nil
-	}
-
-	var data interface{}
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return nil, fmt.Errorf("invalid JSON: %w", err)
-	}
-
-	result, err := ApplyLiteral(data, expression)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.MarshalIndent(result, "", "  ")
+	return applyToJSONWith(jsonData, expression, ApplyLiteral)
 }
