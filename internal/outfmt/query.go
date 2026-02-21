@@ -69,3 +69,48 @@ func ApplyQuery(v any, query string) (any, error) {
 	}
 	return out, nil
 }
+
+// WriteJSONFilteredLiteral writes JSON with JQ filtering but without alias normalization.
+// Use for light mode output where JSON keys are intentionally short.
+func WriteJSONFilteredLiteral(w io.Writer, v any, query string, compact bool) error {
+	v = normalizeJSONOutput(v)
+	if query == "" {
+		return WriteJSONMaybeCompact(w, v, compact)
+	}
+
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	result, err := filter.ApplyFromJSONLiteral(data, query)
+	if err != nil {
+		return err
+	}
+
+	return WriteJSONMaybeCompact(w, result, compact)
+}
+
+// ApplyQueryLiteral applies a JQ query without alias normalization.
+func ApplyQueryLiteral(v any, query string) (any, error) {
+	v = normalizeJSONOutput(v)
+	if query == "" {
+		return v, nil
+	}
+
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered, err := filter.ApplyToJSONLiteral(data, query)
+	if err != nil {
+		return nil, err
+	}
+
+	var out any
+	if err := json.Unmarshal(filtered, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
