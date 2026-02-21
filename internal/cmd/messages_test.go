@@ -984,3 +984,28 @@ func TestMessagesListSinceLastAgent_TextOutput(t *testing.T) {
 		t.Errorf("did not expect 'Agent reply' in output, got: %s", output)
 	}
 }
+
+func TestMessagesBatchSend_InvalidConcurrency(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte(`[{"conversation_id":123,"content":"hello"}]`))
+		_ = w.Close()
+	}()
+
+	err = Execute(context.Background(), []string{"messages", "batch-send", "--concurrency", "0"})
+	if err == nil {
+		t.Fatal("expected error for invalid --concurrency")
+	}
+	if !strings.Contains(err.Error(), "--concurrency must be greater than 0") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

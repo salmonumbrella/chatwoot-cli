@@ -756,6 +756,9 @@ Messages are sent concurrently for efficiency.`,
 			if len(items) == 0 {
 				return fmt.Errorf("no messages to send")
 			}
+			if concurrency <= 0 {
+				return fmt.Errorf("--concurrency must be greater than 0")
+			}
 
 			// Validate items
 			for i, item := range items {

@@ -711,6 +711,31 @@ func TestConversationsBulkAddLabel_LabelsFromStdin(t *testing.T) {
 	}
 }
 
+func TestConversationsBatchUpdate_InvalidConcurrency(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte(`[{"id":123,"status":"resolved"}]`))
+		_ = w.Close()
+	}()
+
+	err = Execute(context.Background(), []string{"conversations", "bulk", "batch-update", "--concurrency", "0"})
+	if err == nil {
+		t.Fatal("expected error for invalid --concurrency")
+	}
+	if !strings.Contains(err.Error(), "--concurrency must be greater than 0") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestConversationsSearchCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/search", jsonResponse(200, `{
@@ -2433,6 +2458,95 @@ func TestConversationsTriage_JSON(t *testing.T) {
 	}
 	if result.Items[1].ContactName != "Alice Customer" {
 		t.Errorf("expected second contact name 'Alice Customer', got %q", result.Items[1].ContactName)
+	}
+}
+
+func TestConversationsTriage_IncludesPendingStatus(t *testing.T) {
+	now := time.Now().Unix()
+	var openCalls atomic.Int32
+	var pendingCalls atomic.Int32
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Query().Get("status") {
+			case "open":
+				openCalls.Add(1)
+				jsonResponse(200, `{
+					"data": {
+						"payload": [
+							{"id": 1, "inbox_id": 10, "status": "open", "unread_count": 1, "last_activity_at": `+strconv.FormatInt(now-300, 10)+`, "meta": {"sender": {"name": "Open Customer"}}}
+						],
+						"meta": {"total_pages": 1}
+					}
+				}`)(w, r)
+			case "pending":
+				pendingCalls.Add(1)
+				jsonResponse(200, `{
+					"data": {
+						"payload": [
+							{"id": 2, "inbox_id": 20, "status": "pending", "unread_count": 1, "last_activity_at": `+strconv.FormatInt(now-600, 10)+`, "meta": {"sender": {"name": "Pending Customer"}}}
+						],
+						"meta": {"total_pages": 1}
+					}
+				}`)(w, r)
+			default:
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":0}}}`)(w, r)
+			}
+		}).
+		On("GET", "/api/v1/accounts/1/conversations/1/messages", jsonResponse(200, `{"payload":[{"id":101,"content":"Open message","message_type":0}]}`)).
+		On("GET", "/api/v1/accounts/1/conversations/2/messages", jsonResponse(200, `{"payload":[{"id":201,"content":"Pending message","message_type":0}]}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "triage", "--output", "json"})
+		if err != nil {
+			t.Fatalf("conversations triage failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct {
+			ID     int    `json:"id"`
+			Status string `json:"status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to decode triage output: %v\noutput: %s", err, output)
+	}
+
+	if openCalls.Load() == 0 {
+		t.Fatal("expected open conversations query to be called")
+	}
+	if pendingCalls.Load() == 0 {
+		t.Fatal("expected pending conversations query to be called")
+	}
+
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 triage items, got %d", len(result.Items))
+	}
+
+	statuses := map[int]string{}
+	for _, item := range result.Items {
+		statuses[item.ID] = item.Status
+	}
+	if statuses[1] != "open" {
+		t.Fatalf("expected conversation 1 status=open, got %q", statuses[1])
+	}
+	if statuses[2] != "pending" {
+		t.Fatalf("expected conversation 2 status=pending, got %q", statuses[2])
+	}
+}
+
+func TestConversationsWatch_InvalidInterval(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"conversations", "watch", "--interval", "0"})
+	if err == nil {
+		t.Fatal("expected error for invalid interval")
+	}
+	if !strings.Contains(err.Error(), "--interval must be greater than 0") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
