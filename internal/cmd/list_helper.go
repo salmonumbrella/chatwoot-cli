@@ -61,6 +61,11 @@ type ListConfig[T any] struct {
 	// ForceJSON allows command-specific flags to force JSON output semantics.
 	// This is evaluated after flags are parsed and before rendering.
 	ForceJSON func(cmd *cobra.Command) bool
+	// StripPagination removes has_more/meta from JSON/agent output payloads.
+	StripPagination bool
+	// ForceJSONUnwrapItems outputs the raw items array/object instead of an
+	// {"items": ...} envelope when ForceJSON is active.
+	ForceJSONUnwrapItems bool
 }
 
 func writeJSONLItem(w io.Writer, item any, query, tmpl string, light bool) error {
@@ -200,11 +205,13 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						"total_items":   len(items),
 						"all":           false,
 					}
-					addRateLimitMeta(meta, client)
 					payload := map[string]interface{}{
-						"items":    items,
-						"has_more": result.HasMore,
-						"meta":     meta,
+						"items": items,
+					}
+					if !cfg.StripPagination {
+						addRateLimitMeta(meta, client)
+						payload["has_more"] = result.HasMore
+						payload["meta"] = meta
 					}
 					if mode == outfmt.Agent {
 						payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
@@ -224,11 +231,20 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						}
 						payload["items"] = jsonItems
 					}
-					// When ForceJSON is active (e.g. --light), strip pagination
-					// envelope to match the minimal output of printRawJSON.
+					// When ForceJSON is active (e.g. --light), optionally strip
+					// pagination metadata and/or unwrap items for raw JSON output.
 					if forceJSON {
-						delete(payload, "has_more")
-						delete(payload, "meta")
+						if !cfg.StripPagination {
+							delete(payload, "has_more")
+							delete(payload, "meta")
+						}
+					}
+					if cfg.ForceJSONUnwrapItems && (forceJSON || outfmt.IsLight(ctx)) {
+						raw, err := json.Marshal(payload["items"])
+						if err != nil {
+							return err
+						}
+						return f.Output(json.RawMessage(raw))
 					}
 					return f.Output(payload)
 				}
@@ -404,11 +420,13 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				"total_items":   len(allItems),
 				"all":           true,
 			}
-			addRateLimitMeta(meta, client)
 			payload := map[string]interface{}{
-				"items":    allItems,
-				"has_more": false,
-				"meta":     meta,
+				"items": allItems,
+			}
+			if !cfg.StripPagination {
+				addRateLimitMeta(meta, client)
+				payload["has_more"] = false
+				payload["meta"] = meta
 			}
 			if mode == outfmt.Agent {
 				payload["kind"] = agentfmt.KindFromCommandPath(cmd.CommandPath())
@@ -428,11 +446,20 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				}
 				payload["items"] = jsonItems
 			}
-			// When ForceJSON is active (e.g. --light), strip pagination
-			// envelope to match the minimal output of printRawJSON.
+			// When ForceJSON is active (e.g. --light), optionally strip
+			// pagination metadata and/or unwrap items for raw JSON output.
 			if forceJSON {
-				delete(payload, "has_more")
-				delete(payload, "meta")
+				if !cfg.StripPagination {
+					delete(payload, "has_more")
+					delete(payload, "meta")
+				}
+			}
+			if cfg.ForceJSONUnwrapItems && (forceJSON || outfmt.IsLight(ctx)) {
+				raw, err := json.Marshal(payload["items"])
+				if err != nil {
+					return err
+				}
+				return f.Output(json.RawMessage(raw))
 			}
 			return f.Output(payload)
 		}),

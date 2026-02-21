@@ -242,6 +242,11 @@ func TestAuthLoginCommand_ValidationErrors(t *testing.T) {
 			wantError: "--url is required",
 		},
 		{
+			name:      "missing url flag with --no-browser",
+			args:      []string{"auth", "login", "--no-browser", "--token", "test", "--account-id", "1"},
+			wantError: "--url is required",
+		},
+		{
 			name:      "missing token flag",
 			args:      []string{"auth", "login", "--browser=false", "--url", "https://example.com", "--account-id", "1"},
 			wantError: "--token is required",
@@ -376,11 +381,28 @@ func TestAuthLoginCmd(t *testing.T) {
 	cmd := newAuthLoginCmd()
 
 	// Check that required flags exist
-	requiredFlags := []string{"url", "token", "account-id", "browser", "profile", "platform-token"}
+	requiredFlags := []string{"url", "token", "account-id", "browser", "no-browser", "profile", "platform-token"}
 	for _, flag := range requiredFlags {
 		if cmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag %q not found", flag)
 		}
+	}
+}
+
+func TestAuthLoginCommand_BrowserFlagConflict(t *testing.T) {
+	err := Execute(context.Background(), []string{
+		"auth", "login",
+		"--browser=true",
+		"--no-browser=true",
+		"--url", "https://example.com",
+		"--token", "test",
+		"--account-id", "1",
+	})
+	if err == nil {
+		t.Fatal("expected conflict error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--browser and --no-browser conflict") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

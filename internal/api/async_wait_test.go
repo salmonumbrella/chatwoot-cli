@@ -71,6 +71,11 @@ func TestResolveAsyncURL_AbsoluteURL(t *testing.T) {
 			location: "https://EXAMPLE.COM/status/456",
 			want:     "https://EXAMPLE.COM/status/456",
 		},
+		{
+			name:     "same host with explicit default https port",
+			location: "https://example.com:443/status/789",
+			want:     "https://example.com:443/status/789",
+		},
 	}
 
 	for _, tt := range tests {
@@ -192,9 +197,21 @@ func TestSameHost(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "with vs without port",
+			name: "with vs without default https port",
 			a:    "https://example.com/path",
 			b:    "https://example.com:443/other",
+			want: true,
+		},
+		{
+			name: "with vs without default http port",
+			a:    "http://example.com/path",
+			b:    "http://example.com:80/other",
+			want: true,
+		},
+		{
+			name: "with vs without non-default port",
+			a:    "https://example.com/path",
+			b:    "https://example.com:8443/other",
 			want: false,
 		},
 	}

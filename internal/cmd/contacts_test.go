@@ -1707,7 +1707,7 @@ func TestContactsListLight(t *testing.T) {
 
 	// Should be a JSON array
 	if !strings.HasPrefix(strings.TrimSpace(output), "[") {
-		t.Error("expected JSON array output")
+		t.Errorf("expected JSON array output, got: %s", output)
 	}
 	if !strings.Contains(output, `"nm"`) {
 		t.Error("expected short key 'nm'")

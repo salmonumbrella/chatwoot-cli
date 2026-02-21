@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
-	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -47,14 +45,13 @@ func newContactsCmd() *cobra.Command {
 }
 
 func newContactsListCmd() *cobra.Command {
-	var page int
 	var sort string
 	var order string
 
-	cmd := &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"ls"},
-		Short:   "List all contacts",
+	cfg := ListConfig[api.Contact]{
+		Use:             "list",
+		Short:           "List all contacts",
+		StripPagination: true,
 		Long: `List all contacts in your Chatwoot account.
 
 JSON output returns an object with an "items" array for easy jq processing.`,
@@ -67,64 +64,54 @@ JSON output returns an object with an "items" array for easy jq processing.`,
   # JSON output - returns an object with an "items" array
   cw contacts list --output json | jq '.items[0]'
   cw contacts list --output json | jq '.items[] | {id, name, email}'`,
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
+		DisableLimit: true,
+		Fetch: func(ctx context.Context, client *api.Client, page, _ int) (ListResult[api.Contact], error) {
 			sortField, sortOrder, err := parseSortOrder(sort, order)
 			if err != nil {
-				return err
+				return ListResult[api.Contact]{}, err
 			}
 
-			contacts, err := client.Contacts().List(cmdContext(cmd), api.ListContactsParams{
+			contacts, err := client.Contacts().List(ctx, api.ListContactsParams{
 				Page:  page,
 				Sort:  sortField,
 				Order: sortOrder,
 			})
 			if err != nil {
-				return fmt.Errorf("failed to list contacts: %w", err)
+				return ListResult[api.Contact]{}, fmt.Errorf("failed to list contacts: %w", err)
 			}
 
-			light, _ := cmd.Flags().GetBool("light")
-			if light {
-				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
-				var lightContacts []lightContact
-				for i := range contacts.Payload {
-					lightContacts = append(lightContacts, buildLightContact(&contacts.Payload[i]))
-				}
-				if lightContacts == nil {
-					lightContacts = []lightContact{}
-				}
-				raw, err := json.Marshal(lightContacts)
-				if err != nil {
-					return err
-				}
-				return printRawJSON(cmd, json.RawMessage(raw))
+			return ListResult[api.Contact]{
+				Items:   contacts.Payload,
+				HasMore: contactsMetaHasMore(contacts.Meta),
+			}, nil
+		},
+		Headers: []string{"ID", "NAME", "EMAIL", "PHONE", "CREATED"},
+		RowFunc: func(contact api.Contact) []string {
+			return []string{
+				fmt.Sprintf("%d", contact.ID),
+				displayContactName(contact.Name),
+				strings.TrimSpace(contact.Email),
+				strings.TrimSpace(contact.PhoneNumber),
+				formatTimestampShort(contact.CreatedAtTime()),
 			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, contacts.Payload)
+		},
+		JSONTransform: func(ctx context.Context, _ *api.Client, items []api.Contact) (any, error) {
+			if !outfmt.IsLight(ctx) {
+				return items, nil
 			}
-
-			w := newTabWriterFromCmd(cmd)
-			defer func() { _ = w.Flush() }()
-
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tEMAIL\tPHONE\tCREATED")
-			for _, contact := range contacts.Payload {
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-					contact.ID,
-					displayContactName(contact.Name),
-					strings.TrimSpace(contact.Email),
-					strings.TrimSpace(contact.PhoneNumber),
-					formatTimestampShort(contact.CreatedAtTime()),
-				)
-			}
-
-			return nil
-		}),
+			return buildLightContacts(items), nil
+		},
+		ForceJSON: func(cmd *cobra.Command) bool {
+			enabled, _ := cmd.Flags().GetBool("light")
+			return enabled
+		},
+		ForceJSONUnwrapItems: true,
 	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) {
+		return getClient()
+	})
+	cmd.Aliases = []string{"ls"}
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "email"},
@@ -133,13 +120,15 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	})
 	registerFieldSchema(cmd, "contact")
 
-	cmd.Flags().IntVarP(&page, "page", "p", 0, "Page number for pagination")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at; aliases: n|e|pn|la); prefix with '-' for desc")
 	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
 	cmd.Flags().Bool("light", false, "Return minimal contact payload")
 	flagAlias(cmd.Flags(), "light", "li")
 	flagAlias(cmd.Flags(), "sort", "so")
 	flagAlias(cmd.Flags(), "order", "ord")
+	_ = cmd.Flags().MarkHidden("limit")
+	_ = cmd.Flags().MarkHidden("all")
+	_ = cmd.Flags().MarkHidden("max-pages")
 
 	return cmd
 }
@@ -1118,689 +1107,14 @@ func newContactsCreateInboxCmd() *cobra.Command {
 	return cmd
 }
 
-func newContactsNotesCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "notes <contact-id>",
-		Short: "List contact notes",
-		Long:  "List all notes for a specific contact",
-		Example: strings.TrimSpace(`
-  # List notes for a contact
-  cw contacts notes 123
-
-  # JSON output
-  cw contacts notes 123 -o json
-`),
-		Args: cobra.ExactArgs(1),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := parseIDOrURL(args[0], "contact")
-			if err != nil {
-				return err
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			notes, err := client.Contacts().Notes(cmdContext(cmd), id)
-			if err != nil {
-				return fmt.Errorf("failed to get notes for contact %d: %w", id, err)
-			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, notes)
-			}
-
-			if len(notes) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No notes found")
-				return nil
-			}
-
-			w := newTabWriterFromCmd(cmd)
-			_, _ = fmt.Fprintln(w, "ID\tCREATED\tAUTHOR\tCONTENT")
-			for _, note := range notes {
-				author := ""
-				if note.User != nil {
-					author = note.User.Email
-				}
-				content := note.Content
-				if len(content) > 50 {
-					content = content[:47] + "..."
-				}
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", note.ID, note.CreatedAt, author, content)
-			}
-			_ = w.Flush()
-
-			return nil
-		}),
+func contactsMetaHasMore(meta api.PaginationMeta) bool {
+	if meta.HasMore != nil {
+		return *meta.HasMore
 	}
-}
-
-func newContactsNotesAddCmd() *cobra.Command {
-	var content string
-
-	cmd := &cobra.Command{
-		Use:     "notes-add <contact-id>",
-		Aliases: []string{"na"},
-		Short:   "Add note to contact",
-		Long:    "Add a new note to a contact",
-		Example: strings.TrimSpace(`
-  # Add a note to a contact
-  cw contacts notes-add 123 --content "VIP customer, handle with care"
-`),
-		Args: cobra.ExactArgs(1),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			id, err := parseIDOrURL(args[0], "contact")
-			if err != nil {
-				return err
-			}
-
-			if content == "" {
-				return fmt.Errorf("--content is required")
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			note, err := client.Contacts().CreateNote(cmdContext(cmd), id, content)
-			if err != nil {
-				return fmt.Errorf("failed to add note to contact %d: %w", id, err)
-			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, note)
-			}
-
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added note #%d to contact %d\n", note.ID, id)
-			return nil
-		}),
+	if int(meta.TotalPages) > 0 && int(meta.CurrentPage) > 0 {
+		return int(meta.CurrentPage) < int(meta.TotalPages)
 	}
-
-	cmd.Flags().StringVar(&content, "content", "", "Note content (required)")
-	flagAlias(cmd.Flags(), "content", "ct")
-
-	return cmd
-}
-
-func newContactsNotesDeleteCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "notes-delete <contact-id> <note-id>",
-		Aliases: []string{"nd"},
-		Short:   "Delete contact note",
-		Long:    "Delete a note from a contact",
-		Example: strings.TrimSpace(`
-  # Delete a note from a contact
-  cw contacts notes-delete 123 456
-`),
-		Args: cobra.ExactArgs(2),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			contactID, err := parseIDOrURL(args[0], "contact")
-			if err != nil {
-				return err
-			}
-
-			noteID, err := parsePositiveIntArg(args[1], "note ID")
-			if err != nil {
-				return err
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			if err := client.Contacts().DeleteNote(cmdContext(cmd), contactID, noteID); err != nil {
-				return fmt.Errorf("failed to delete note %d from contact %d: %w", noteID, contactID, err)
-			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, map[string]any{"deleted": true, "id": noteID, "contact_id": contactID})
-			}
-			printAction(cmd, "Deleted", "contact note", noteID, fmt.Sprintf("contact %d", contactID))
-			return nil
-		}),
-	}
-}
-
-func newContactsBulkCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "bulk",
-		Aliases: []string{"bk"},
-		Short:   "Bulk operations on contacts",
-		Long:    "Perform bulk operations on multiple contacts at once",
-	}
-
-	cmd.AddCommand(newContactsBulkAddLabelCmd())
-	cmd.AddCommand(newContactsBulkRemoveLabelCmd())
-
-	return cmd
-}
-
-func newContactsBulkAddLabelCmd() *cobra.Command {
-	var (
-		contactIDs  string
-		labels      string
-		concurrency int
-		progress    bool
-		noProgress  bool
-	)
-
-	cmd := &cobra.Command{
-		Use:     "add-label",
-		Aliases: []string{"add"},
-		Short:   "Add labels to multiple contacts",
-		Long:    "Add one or more labels to multiple contacts at once",
-		Example: strings.TrimSpace(`
-  # Add a single label to multiple contacts
-  cw contacts bulk add-label --ids 1,2,3 --labels important
-
-  # Add multiple labels to multiple contacts
-  cw contacts bulk add-label --ids 1,2,3 --labels important,vip
-
-  # Control concurrency (default: 5)
-  cw contacts bulk add-label --ids 1,2,3 --labels vip --concurrency 10
-`),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseResourceIDListFlag(contactIDs, "contact")
-			if err != nil {
-				return fmt.Errorf("invalid contact IDs: %w", err)
-			}
-
-			labelList, err := ParseStringListFlag(labels)
-			if err != nil {
-				return fmt.Errorf("invalid labels: %w", err)
-			}
-			if len(labelList) == 0 {
-				return fmt.Errorf("no valid labels provided")
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			ctx := cmdContext(cmd)
-
-			results := runBulkOperation(
-				ctx,
-				ids,
-				int64(concurrency),
-				bulkProgressEnabled(cmd, progress, noProgress),
-				cmd.ErrOrStderr(),
-				func(ctx context.Context, id int) (any, error) {
-					_, err := client.Contacts().AddLabels(ctx, id, labelList)
-					if err != nil {
-						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to add labels to contact %d: %v\n", id, err)
-						return nil, err
-					}
-					return nil, nil
-				},
-			)
-
-			successCount, failCount := countResults(results)
-
-			if isJSON(cmd) {
-				return printJSON(cmd, map[string]any{
-					"success_count": successCount,
-					"fail_count":    failCount,
-				})
-			}
-
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added labels to %d contacts (%d failed)\n", successCount, failCount)
-			return nil
-		}),
-	}
-
-	cmd.Flags().StringVar(&contactIDs, "ids", "", "Contact IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Labels to add (CSV, whitespace, JSON array; or @- / @path) (required)")
-	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
-	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
-	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
-	flagAlias(cmd.Flags(), "concurrency", "cc")
-	flagAlias(cmd.Flags(), "ids", "id")
-	flagAlias(cmd.Flags(), "labels", "lb")
-	flagAlias(cmd.Flags(), "progress", "prg")
-	flagAlias(cmd.Flags(), "no-progress", "npr")
-	_ = cmd.MarkFlagRequired("ids")
-	_ = cmd.MarkFlagRequired("labels")
-
-	return cmd
-}
-
-func newContactsBulkRemoveLabelCmd() *cobra.Command {
-	var (
-		contactIDs  string
-		labels      string
-		concurrency int
-		progress    bool
-		noProgress  bool
-	)
-
-	cmd := &cobra.Command{
-		Use:     "remove-label",
-		Aliases: []string{"rl"},
-		Short:   "Remove labels from multiple contacts",
-		Long: `Remove one or more labels from multiple contacts at once.
-
-For each contact, this command fetches current labels, removes the specified
-labels, and updates the contact with the remaining labels.`,
-		Example: strings.TrimSpace(`
-  # Remove a single label from multiple contacts
-  cw contacts bulk remove-label --ids 1,2,3 --labels spam
-
-  # Remove multiple labels from multiple contacts
-  cw contacts bulk remove-label --ids 1,2,3 --labels spam,inactive
-
-  # Control concurrency (default: 5)
-  cw contacts bulk remove-label --ids 1,2,3 --labels spam --concurrency 10
-`),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			ids, err := ParseResourceIDListFlag(contactIDs, "contact")
-			if err != nil {
-				return fmt.Errorf("invalid contact IDs: %w", err)
-			}
-
-			labelsToRemove := make(map[string]bool)
-			labelList, err := ParseStringListFlag(labels)
-			if err != nil {
-				return fmt.Errorf("invalid labels: %w", err)
-			}
-			for _, l := range labelList {
-				labelsToRemove[l] = true
-			}
-			if len(labelsToRemove) == 0 {
-				return fmt.Errorf("no valid labels provided")
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			ctx := cmdContext(cmd)
-
-			results := runBulkOperation(
-				ctx,
-				ids,
-				int64(concurrency),
-				bulkProgressEnabled(cmd, progress, noProgress),
-				cmd.ErrOrStderr(),
-				func(ctx context.Context, id int) (any, error) {
-					// Get current labels
-					currentLabels, err := client.Contacts().Labels(ctx, id)
-					if err != nil {
-						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to get labels for contact %d: %v\n", id, err)
-						return nil, err
-					}
-
-					// Filter out labels to remove
-					var remainingLabels []string
-					for _, label := range currentLabels {
-						if !labelsToRemove[label] {
-							remainingLabels = append(remainingLabels, label)
-						}
-					}
-
-					// Update with remaining labels (API replaces all labels)
-					_, err = client.Contacts().AddLabels(ctx, id, remainingLabels)
-					if err != nil {
-						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Failed to update labels for contact %d: %v\n", id, err)
-						return nil, err
-					}
-					return nil, nil
-				},
-			)
-
-			successCount, failCount := countResults(results)
-
-			if isJSON(cmd) {
-				return printJSON(cmd, map[string]any{
-					"success_count": successCount,
-					"fail_count":    failCount,
-				})
-			}
-
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed labels from %d contacts (%d failed)\n", successCount, failCount)
-			return nil
-		}),
-	}
-
-	cmd.Flags().StringVar(&contactIDs, "ids", "", "Contact IDs (CSV, whitespace, JSON array; or @- / @path) (required)")
-	cmd.Flags().StringVar(&labels, "labels", "", "Labels to remove (CSV, whitespace, JSON array; or @- / @path) (required)")
-	cmd.Flags().IntVar(&concurrency, "concurrency", DefaultConcurrency, "Max concurrent operations")
-	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress while running")
-	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress output")
-	flagAlias(cmd.Flags(), "concurrency", "cc")
-	flagAlias(cmd.Flags(), "ids", "id")
-	flagAlias(cmd.Flags(), "labels", "lb")
-	flagAlias(cmd.Flags(), "progress", "prg")
-	flagAlias(cmd.Flags(), "no-progress", "npr")
-	_ = cmd.MarkFlagRequired("ids")
-	_ = cmd.MarkFlagRequired("labels")
-
-	return cmd
-}
-
-func newContactsMergeCmd() *cobra.Command {
-	var force bool
-
-	cmd := &cobra.Command{
-		Use:     "merge <keep-id> <delete-id>",
-		Aliases: []string{"mg"},
-		Short:   "Merge two contacts",
-		Long: `Merge two contacts into one.
-
-The first argument (keep-id) is the contact that SURVIVES and receives all data.
-The second argument (delete-id) is the contact that gets PERMANENTLY DELETED.
-
-All conversations, messages, notes, and other data from the deleted contact
-will be transferred to the surviving contact.
-
-This operation is IRREVERSIBLE. The deleted contact cannot be recovered.`,
-		Example: `  # Merge contact 456 INTO contact 123 (456 gets deleted, 123 keeps all data)
-  cw contacts merge 123 456
-
-  # Preview the merge without executing
-  cw contacts merge 123 456 --dry-run
-
-  # Skip confirmation (for scripting)
-  cw contacts merge 123 456 --force
-
-  # JSON output (requires --force)
-  cw contacts merge 123 456 --force --output json`,
-		Args: cobra.ExactArgs(2),
-		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			keepID, err := parsePositiveIntArg(args[0], "keep-id")
-			if err != nil {
-				return err
-			}
-
-			deleteID, err := parsePositiveIntArg(args[1], "delete-id")
-			if err != nil {
-				return err
-			}
-
-			if keepID == deleteID {
-				return fmt.Errorf("cannot merge contact with itself: both IDs are %d", keepID)
-			}
-
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
-			ctx := cmdContext(cmd)
-
-			// Handle dry-run mode - preview merge without executing
-			if dryrun.IsEnabled(ctx) {
-				return printMergeDryRun(cmd, client, keepID, deleteID)
-			}
-
-			if err := requireForceForJSON(cmd, force); err != nil {
-				return err
-			}
-
-			// If not forced, fetch both contacts and prompt for confirmation
-			if !force {
-				// Fetch keep contact
-				keepContact, err := client.Contacts().Get(ctx, keepID)
-				if err != nil {
-					return fmt.Errorf("failed to get keep contact %d: %w", keepID, err)
-				}
-
-				// Fetch delete contact
-				deleteContact, err := client.Contacts().Get(ctx, deleteID)
-				if err != nil {
-					return fmt.Errorf("failed to get delete contact %d: %w", deleteID, err)
-				}
-
-				// Display merge preview
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), bold("MERGE CONTACTS"))
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s #%d %s\n", green("KEEP (base):    "), keepContact.ID, formatContactSummary(keepContact))
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s #%d %s\n", red("DELETE (mergee):"), deleteContact.ID, formatContactSummary(deleteContact))
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "The contact #%d will be %s.\n", deleteID, red("PERMANENTLY DELETED"))
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "All conversations, messages, and notes will be transferred to #%d.\n", keepID)
-				_, _ = fmt.Fprintln(cmd.OutOrStdout())
-				ok, err := confirmAction(cmd, confirmOptions{
-					Prompt:              yellow("Type 'merge' to confirm: "),
-					Expected:            "merge",
-					CancelMessage:       "Merge cancelled.",
-					Force:               force,
-					RequireForceForJSON: true,
-				})
-				if err != nil {
-					return err
-				}
-				if !ok {
-					return nil
-				}
-			}
-
-			// Perform the merge
-			mergedContact, err := client.Contacts().Merge(ctx, keepID, deleteID)
-			if err != nil {
-				return fmt.Errorf("failed to merge contacts: %w", err)
-			}
-
-			if isJSON(cmd) {
-				return printJSON(cmd, mergedContact)
-			}
-
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Successfully merged contact #%d into #%d\n", deleteID, keepID)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Contact #%d has been deleted. Contact #%d now contains all data.\n", deleteID, keepID)
-
-			return nil
-		}),
-	}
-
-	cmd.Flags().BoolVarP(&force, "force", "F", false, "Skip confirmation prompt (required for --output json)")
-
-	return cmd
-}
-
-// formatContactSummary formats a contact for display in the merge confirmation
-func formatContactSummary(c *api.Contact) string {
-	var parts []string
-
-	if c.Name != "" {
-		parts = append(parts, fmt.Sprintf("%q", c.Name))
-	}
-	if c.Email != "" {
-		parts = append(parts, fmt.Sprintf("<%s>", c.Email))
-	}
-	if c.PhoneNumber != "" {
-		parts = append(parts, c.PhoneNumber)
-	}
-	if c.Identifier != "" {
-		parts = append(parts, fmt.Sprintf("[id:%s]", c.Identifier))
-	}
-
-	if len(parts) == 0 {
-		return "(no details)"
-	}
-
-	summary := strings.Join(parts, " ")
-
-	// Add last activity if available
-	if c.LastActivityAt != nil && *c.LastActivityAt > 0 {
-		lastActivity := time.Unix(*c.LastActivityAt, 0)
-		summary += fmt.Sprintf(" (last active: %s)", formatDate(lastActivity))
-	}
-
-	return summary
-}
-
-// printMergeDryRun displays a preview of the merge operation without executing it
-func printMergeDryRun(cmd *cobra.Command, client *api.Client, keepID, deleteID int) error {
-	ctx := cmdContext(cmd)
-	out := cmd.OutOrStdout()
-
-	// Fetch both contacts
-	targetContact, err := client.Contacts().Get(ctx, keepID)
-	if err != nil {
-		return fmt.Errorf("failed to get target contact %d: %w", keepID, err)
-	}
-
-	sourceContact, err := client.Contacts().Get(ctx, deleteID)
-	if err != nil {
-		return fmt.Errorf("failed to get source contact %d: %w", deleteID, err)
-	}
-
-	// Fetch conversations for both contacts
-	targetConvs, err := client.Contacts().Conversations(ctx, keepID)
-	if err != nil {
-		return fmt.Errorf("failed to get conversations for target contact %d: %w", keepID, err)
-	}
-
-	sourceConvs, err := client.Contacts().Conversations(ctx, deleteID)
-	if err != nil {
-		return fmt.Errorf("failed to get conversations for source contact %d: %w", deleteID, err)
-	}
-
-	// Calculate conversation counts
-	targetOpen := countByStatus(targetConvs, "open")
-	targetResolved := countByStatus(targetConvs, "resolved")
-	sourceOpen := countByStatus(sourceConvs, "open")
-	sourceResolved := countByStatus(sourceConvs, "resolved")
-
-	// Determine merge result
-	mergedName := targetContact.Name
-	if mergedName == "" {
-		mergedName = sourceContact.Name
-	}
-
-	mergedEmail := targetContact.Email
-	emailFromSource := false
-	if mergedEmail == "" && sourceContact.Email != "" {
-		mergedEmail = sourceContact.Email
-		emailFromSource = true
-	}
-
-	mergedPhone := targetContact.PhoneNumber
-	phoneFromSource := false
-	if mergedPhone == "" && sourceContact.PhoneNumber != "" {
-		mergedPhone = sourceContact.PhoneNumber
-		phoneFromSource = true
-	}
-
-	// Check for conflicts (data will be lost)
-	var conflicts []string
-	if targetContact.Email != "" && sourceContact.Email != "" && targetContact.Email != sourceContact.Email {
-		conflicts = append(conflicts, fmt.Sprintf("Email: target has %q, source has %q (source email will be lost)",
-			targetContact.Email, sourceContact.Email))
-	}
-	if targetContact.PhoneNumber != "" && sourceContact.PhoneNumber != "" && targetContact.PhoneNumber != sourceContact.PhoneNumber {
-		conflicts = append(conflicts, fmt.Sprintf("Phone: target has %q, source has %q (source phone will be lost)",
-			targetContact.PhoneNumber, sourceContact.PhoneNumber))
-	}
-
-	// JSON output
-	if isJSON(cmd) {
-		result := map[string]any{
-			"dry_run": true,
-			"source": map[string]any{
-				"id":                   sourceContact.ID,
-				"name":                 sourceContact.Name,
-				"email":                sourceContact.Email,
-				"phone_number":         sourceContact.PhoneNumber,
-				"conversations_open":   sourceOpen,
-				"conversations_closed": sourceResolved,
-			},
-			"target": map[string]any{
-				"id":                   targetContact.ID,
-				"name":                 targetContact.Name,
-				"email":                targetContact.Email,
-				"phone_number":         targetContact.PhoneNumber,
-				"conversations_open":   targetOpen,
-				"conversations_closed": targetResolved,
-			},
-			"after_merge": map[string]any{
-				"name":                mergedName,
-				"email":               mergedEmail,
-				"phone_number":        mergedPhone,
-				"total_conversations": len(targetConvs) + len(sourceConvs),
-			},
-			"conflicts": conflicts,
-		}
-		return printJSON(cmd, result)
-	}
-
-	// Text output
-	_, _ = fmt.Fprintln(out)
-	_, _ = fmt.Fprintln(out, yellow("DRY RUN - Contacts will NOT be merged"))
-	_, _ = fmt.Fprintln(out)
-
-	// SOURCE section
-	_, _ = fmt.Fprintln(out, bold("SOURCE (will be deleted):"))
-	_, _ = fmt.Fprintf(out, "  ID:            #%d\n", sourceContact.ID)
-	_, _ = fmt.Fprintf(out, "  Name:          %s\n", valueOrNone(sourceContact.Name))
-	_, _ = fmt.Fprintf(out, "  Email:         %s\n", valueOrNone(sourceContact.Email))
-	_, _ = fmt.Fprintf(out, "  Phone:         %s\n", valueOrNone(sourceContact.PhoneNumber))
-	_, _ = fmt.Fprintf(out, "  Conversations: %d open, %d resolved\n", sourceOpen, sourceResolved)
-	_, _ = fmt.Fprintln(out)
-
-	// TARGET section
-	_, _ = fmt.Fprintln(out, bold("TARGET (will be kept):"))
-	_, _ = fmt.Fprintf(out, "  ID:            #%d\n", targetContact.ID)
-	_, _ = fmt.Fprintf(out, "  Name:          %s\n", valueOrNone(targetContact.Name))
-	_, _ = fmt.Fprintf(out, "  Email:         %s\n", valueOrNone(targetContact.Email))
-	_, _ = fmt.Fprintf(out, "  Phone:         %s\n", valueOrNone(targetContact.PhoneNumber))
-	_, _ = fmt.Fprintf(out, "  Conversations: %d open, %d resolved\n", targetOpen, targetResolved)
-	_, _ = fmt.Fprintln(out)
-
-	// AFTER MERGE section
-	_, _ = fmt.Fprintln(out, bold("AFTER MERGE:"))
-	_, _ = fmt.Fprintf(out, "  Name:          %s\n", valueOrNone(mergedName))
-	emailNote := ""
-	if emailFromSource {
-		emailNote = " (from source)"
-	}
-	_, _ = fmt.Fprintf(out, "  Email:         %s%s\n", valueOrNone(mergedEmail), emailNote)
-	phoneNote := ""
-	if phoneFromSource {
-		phoneNote = " (from source)"
-	}
-	_, _ = fmt.Fprintf(out, "  Phone:         %s%s\n", valueOrNone(mergedPhone), phoneNote)
-	_, _ = fmt.Fprintf(out, "  Conversations: %d total\n", len(targetConvs)+len(sourceConvs))
-	_, _ = fmt.Fprintln(out)
-
-	// CONFLICTS section
-	if len(conflicts) > 0 {
-		_, _ = fmt.Fprintln(out, red("CONFLICTS (data will be lost):"))
-		for _, c := range conflicts {
-			_, _ = fmt.Fprintf(out, "  - %s\n", c)
-		}
-		_, _ = fmt.Fprintln(out)
-	}
-
-	_, _ = fmt.Fprintln(out, "To merge these contacts, run without --dry-run")
-
-	return nil
-}
-
-// countByStatus counts conversations with the given status
-func countByStatus(convs []api.Conversation, status string) int {
-	count := 0
-	for _, c := range convs {
-		if c.Status == status {
-			count++
-		}
-	}
-	return count
-}
-
-// valueOrNone returns the value if non-empty, otherwise "(none)"
-func valueOrNone(s string) string {
-	trimmed := strings.TrimSpace(s)
-	if trimmed == "" {
-		return "(none)"
-	}
-	return trimmed
+	return false
 }
 
 func displayContactName(name string) string {

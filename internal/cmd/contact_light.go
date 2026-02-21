@@ -52,6 +52,17 @@ func buildLightContact(c *api.Contact) lightContact {
 	return lc
 }
 
+func buildLightContacts(contacts []api.Contact) []lightContact {
+	if len(contacts) == 0 {
+		return []lightContact{}
+	}
+	items := make([]lightContact, 0, len(contacts))
+	for i := range contacts {
+		items = append(items, buildLightContact(&contacts[i]))
+	}
+	return items
+}
+
 // extractCustomAttrString returns a nullable string from custom attributes.
 func extractCustomAttrString(ca map[string]any, key string) *string {
 	v, ok := ca[key]

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -33,6 +34,16 @@ func newClientCmd() *cobra.Command {
 	return cmd
 }
 
+func requirePublicIdentifiers(inboxIdentifier, contactIdentifier *string, requireContact bool) error {
+	if inboxIdentifier == nil || strings.TrimSpace(*inboxIdentifier) == "" {
+		return fmt.Errorf("--inbox is required")
+	}
+	if requireContact && (contactIdentifier == nil || strings.TrimSpace(*contactIdentifier) == "") {
+		return fmt.Errorf("--contact is required")
+	}
+	return nil
+}
+
 func newClientContactsCmd(baseURL, inboxIdentifier, contactIdentifier *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "contacts",
@@ -61,8 +72,8 @@ func newClientContactsCreateCmd(baseURL, inboxIdentifier *string) *cobra.Command
 		Aliases: []string{"mk"},
 		Short:   "Create a contact via public API",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, nil, false); err != nil {
+				return err
 			}
 
 			client, err := getPublicClient(*baseURL)
@@ -121,11 +132,8 @@ func newClientContactsGetCmd(baseURL, inboxIdentifier, contactIdentifier *string
 		Aliases: []string{"g"},
 		Short:   "Get a contact via public API",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			client, err := getPublicClient(*baseURL)
@@ -171,11 +179,8 @@ func newClientConversationsListCmd(baseURL, inboxIdentifier, contactIdentifier *
 		Aliases: []string{"ls"},
 		Short:   "List conversations for a contact",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			client, err := getPublicClient(*baseURL)
@@ -214,11 +219,8 @@ func newClientConversationsCreateCmd(baseURL, inboxIdentifier, contactIdentifier
 		Aliases: []string{"mk"},
 		Short:   "Create a conversation for a contact",
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			client, err := getPublicClient(*baseURL)
@@ -259,11 +261,8 @@ func newClientConversationsGetCmd(baseURL, inboxIdentifier, contactIdentifier *s
 		Short:   "Get a conversation",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
@@ -297,11 +296,8 @@ func newClientConversationsResolveCmd(baseURL, inboxIdentifier, contactIdentifie
 		Short: "Resolve a conversation",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
@@ -350,11 +346,8 @@ func newClientMessagesCreateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 		Short:   "Create a message in a conversation",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 			if content == "" {
 				return fmt.Errorf("--content is required")
@@ -398,11 +391,8 @@ func newClientTypingCmd(baseURL, inboxIdentifier, contactIdentifier *string) *co
 		Short: "Toggle typing status",
 		Args:  cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")
@@ -456,11 +446,8 @@ func newClientLastSeenUpdateCmd(baseURL, inboxIdentifier, contactIdentifier *str
 		Short:   "Update last seen for a conversation",
 		Args:    cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if *inboxIdentifier == "" {
-				return fmt.Errorf("--inbox is required")
-			}
-			if *contactIdentifier == "" {
-				return fmt.Errorf("--contact is required")
+			if err := requirePublicIdentifiers(inboxIdentifier, contactIdentifier, true); err != nil {
+				return err
 			}
 
 			conversationID, err := parsePositiveIntArg(args[0], "conversation ID")

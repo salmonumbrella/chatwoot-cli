@@ -40,6 +40,7 @@ func newAuthLoginCmd() *cobra.Command {
 		token     string
 		accountID int
 		browser   bool
+		noBrowser bool
 		profile   string
 		platform  string
 	)
@@ -72,6 +73,13 @@ Optional:
   cw auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1 --profile staging --platform-token PLATFORM_TOKEN
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("browser") && cmd.Flags().Changed("no-browser") && browser == noBrowser {
+				return fmt.Errorf("--browser and --no-browser conflict; set only one of them")
+			}
+			if cmd.Flags().Changed("no-browser") {
+				browser = !noBrowser
+			}
+
 			// If browser mode (default) and no flags provided, use browser setup
 			if browser && url == "" && token == "" && accountID == 0 {
 				return runBrowserSetup(cmd.OutOrStdout(), profile)
@@ -126,6 +134,7 @@ Optional:
 	cmd.Flags().StringVar(&token, "token", "", "API access token")
 	cmd.Flags().IntVar(&accountID, "account-id", 0, "Account ID")
 	cmd.Flags().BoolVar(&browser, "browser", true, "Use browser-based setup (default: true)")
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Disable browser setup and require --url, --token, and --account-id")
 	cmd.Flags().StringVar(&profile, "profile", "default", "Profile name to save credentials under")
 	cmd.Flags().StringVar(&platform, "platform-token", "", "Platform API token (optional)")
 	cmd.Flags().Lookup("browser").NoOptDefVal = "true"
@@ -133,6 +142,7 @@ Optional:
 	flagAlias(cmd.Flags(), "token", "tk")
 	flagAlias(cmd.Flags(), "account-id", "aid")
 	flagAlias(cmd.Flags(), "browser", "br")
+	flagAlias(cmd.Flags(), "no-browser", "nbr")
 	flagAlias(cmd.Flags(), "profile", "pf")
 	flagAlias(cmd.Flags(), "platform-token", "pt")
 
