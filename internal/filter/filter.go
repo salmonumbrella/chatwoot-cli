@@ -78,3 +78,70 @@ func ApplyFromJSON(jsonData []byte, expression string) (interface{}, error) {
 	}
 	return Apply(data, expression)
 }
+
+// fixShellEscapes fixes shell-escaped operators without alias normalization.
+func fixShellEscapes(expr string) string {
+	return strings.ReplaceAll(expr, `\!`, `!`)
+}
+
+// ApplyLiteral applies a JQ filter without query alias normalization.
+// Only fixes shell escapes (\! → !). Use for light mode where JSON keys
+// are intentionally short and collide with query aliases.
+func ApplyLiteral(data interface{}, expression string) (interface{}, error) {
+	if expression == "" {
+		return data, nil
+	}
+
+	expression = fixShellEscapes(expression)
+	query, err := gojq.Parse(expression)
+	if err != nil {
+		return nil, fmt.Errorf("invalid filter expression: %w", err)
+	}
+
+	iter := query.Run(data)
+
+	var results []interface{}
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return nil, fmt.Errorf("filter error: %w", err)
+		}
+		results = append(results, v)
+	}
+
+	if len(results) == 1 {
+		return results[0], nil
+	}
+	return results, nil
+}
+
+// ApplyFromJSONLiteral applies a JQ filter to JSON bytes without alias normalization.
+func ApplyFromJSONLiteral(jsonData []byte, expression string) (interface{}, error) {
+	var data interface{}
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	return ApplyLiteral(data, expression)
+}
+
+// ApplyToJSONLiteral applies a literal filter to JSON bytes and returns filtered JSON bytes.
+func ApplyToJSONLiteral(jsonData []byte, expression string) ([]byte, error) {
+	if expression == "" {
+		return jsonData, nil
+	}
+
+	var data interface{}
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	result, err := ApplyLiteral(data, expression)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.MarshalIndent(result, "", "  ")
+}
