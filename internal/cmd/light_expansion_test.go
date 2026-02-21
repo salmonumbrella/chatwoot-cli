@@ -27,7 +27,7 @@ func TestInboxesListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID          int    `json:"id"`
-			Name        string `json:"name"`
+			Name        string `json:"nm"`
 			ChannelType string `json:"ch"`
 		} `json:"items"`
 	}
@@ -67,8 +67,8 @@ func TestAgentsListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID    int    `json:"id"`
-			Name  string `json:"name"`
-			Avail string `json:"avail"`
+			Name  string `json:"nm"`
+			Avail string `json:"av"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -107,7 +107,7 @@ func TestTeamsListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID   int    `json:"id"`
-			Name string `json:"name"`
+			Name string `json:"nm"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -148,7 +148,7 @@ func TestLabelsListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID    int    `json:"id"`
-			Title string `json:"title"`
+			Title string `json:"t"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -228,9 +228,9 @@ func TestAutomationRulesListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID     int    `json:"id"`
-			Name   string `json:"name"`
-			Event  string `json:"event"`
-			Active bool   `json:"active"`
+			Name   string `json:"nm"`
+			Event  string `json:"ev"`
+			Active bool   `json:"on"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -271,8 +271,8 @@ func TestIntegrationsAppsCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID      string `json:"id"`
-			Name    string `json:"name"`
-			Enabled bool   `json:"enabled"`
+			Name    string `json:"nm"`
+			Enabled bool   `json:"on"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -311,7 +311,7 @@ func TestCustomFiltersListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID   int    `json:"id"`
-			Name string `json:"name"`
+			Name string `json:"nm"`
 			Type string `json:"type"`
 		} `json:"items"`
 	}

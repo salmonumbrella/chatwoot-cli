@@ -283,7 +283,7 @@ func buildLightConversationGet(conv api.Conversation) lightConversationGet {
 // lightInbox is a compact inbox summary.
 type lightInbox struct {
 	ID          int    `json:"id"`
-	Name        string `json:"name"`
+	Name        string `json:"nm"`
 	ChannelType string `json:"ch"`
 }
 
@@ -305,8 +305,8 @@ func buildLightInboxes(inboxes []api.Inbox) []lightInbox {
 // lightAgent is a compact agent summary.
 type lightAgent struct {
 	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Avail string `json:"avail"`
+	Name  string `json:"nm"`
+	Avail string `json:"av"`
 }
 
 func buildLightAgents(agents []api.Agent) []lightAgent {
@@ -327,7 +327,7 @@ func buildLightAgents(agents []api.Agent) []lightAgent {
 // lightTeam is a compact team summary.
 type lightTeam struct {
 	ID   int    `json:"id"`
-	Name string `json:"name"`
+	Name string `json:"nm"`
 }
 
 func buildLightTeams(teams []api.Team) []lightTeam {
@@ -347,7 +347,7 @@ func buildLightTeams(teams []api.Team) []lightTeam {
 // lightLabel is a compact label summary.
 type lightLabel struct {
 	ID    int    `json:"id"`
-	Title string `json:"title"`
+	Title string `json:"t"`
 }
 
 func buildLightLabels(labels []api.Label) []lightLabel {
@@ -387,9 +387,9 @@ func buildLightCannedResponses(responses []api.CannedResponse) []lightCannedResp
 // lightAutomationRule is a compact automation rule summary.
 type lightAutomationRule struct {
 	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Event  string `json:"event"`
-	Active bool   `json:"active"`
+	Name   string `json:"nm"`
+	Event  string `json:"ev"`
+	Active bool   `json:"on"`
 }
 
 func buildLightAutomationRules(rules []api.AutomationRule) []lightAutomationRule {
@@ -411,8 +411,8 @@ func buildLightAutomationRules(rules []api.AutomationRule) []lightAutomationRule
 // lightIntegration is a compact integration app summary.
 type lightIntegration struct {
 	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
+	Name    string `json:"nm"`
+	Enabled bool   `json:"on"`
 }
 
 func buildLightIntegrations(apps []api.Integration) []lightIntegration {
@@ -433,7 +433,7 @@ func buildLightIntegrations(apps []api.Integration) []lightIntegration {
 // lightCustomFilter is a compact custom filter summary.
 type lightCustomFilter struct {
 	ID   int    `json:"id"`
-	Name string `json:"name"`
+	Name string `json:"nm"`
 	Type string `json:"type"`
 }
 

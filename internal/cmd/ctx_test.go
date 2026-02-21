@@ -80,11 +80,11 @@ func TestCtxCommand_LightAlias(t *testing.T) {
 	var payload struct {
 		ID      int    `json:"id"`
 		St      string `json:"st"`
-		Inbox   int    `json:"inbox"`
+		Inbox   int    `json:"ib"`
 		Contact struct {
 			ID   *int    `json:"id"`
-			Name *string `json:"name"`
-		} `json:"contact"`
+			Name *string `json:"nm"`
+		} `json:"ct"`
 		Msgs []string `json:"msgs"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -95,10 +95,10 @@ func TestCtxCommand_LightAlias(t *testing.T) {
 		t.Fatalf("unexpected light payload header: %#v", payload)
 	}
 	if payload.Contact.ID == nil || *payload.Contact.ID != 456 {
-		t.Fatalf("expected contact.id=456, got %#v", payload.Contact.ID)
+		t.Fatalf("expected ct.id=456, got %#v", payload.Contact.ID)
 	}
 	if payload.Contact.Name == nil || *payload.Contact.Name != "TuTu" {
-		t.Fatalf("expected contact.name=TuTu, got %#v", payload.Contact.Name)
+		t.Fatalf("expected ct.nm=TuTu, got %#v", payload.Contact.Name)
 	}
 
 	if len(payload.Msgs) != 2 {
@@ -142,11 +142,11 @@ func TestCtxCommand_LightAlias_MetaSenderFallback(t *testing.T) {
 	var payload struct {
 		ID      int    `json:"id"`
 		St      string `json:"st"`
-		Inbox   int    `json:"inbox"`
+		Inbox   int    `json:"ib"`
 		Contact struct {
 			ID   *int    `json:"id"`
-			Name *string `json:"name"`
-		} `json:"contact"`
+			Name *string `json:"nm"`
+		} `json:"ct"`
 		Msgs []string `json:"msgs"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -157,10 +157,10 @@ func TestCtxCommand_LightAlias_MetaSenderFallback(t *testing.T) {
 		t.Fatalf("unexpected light payload header: %#v", payload)
 	}
 	if payload.Contact.ID == nil || *payload.Contact.ID != 32649 {
-		t.Fatalf("expected contact.id=32649 from meta.sender, got %v", payload.Contact.ID)
+		t.Fatalf("expected ct.id=32649 from meta.sender, got %v", payload.Contact.ID)
 	}
 	if payload.Contact.Name == nil || *payload.Contact.Name != "秋萍🤔" {
-		t.Fatalf("expected contact.name from meta.sender, got %v", payload.Contact.Name)
+		t.Fatalf("expected ct.nm from meta.sender, got %v", payload.Contact.Name)
 	}
 	if len(payload.Msgs) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(payload.Msgs))
@@ -194,7 +194,7 @@ func TestCtxCommand_LightAlias_WithQueryAliases(t *testing.T) {
 	output := captureStdout(t, func() {
 		err := Execute(context.Background(), []string{
 			"ctx", "123", "--li", "--cj",
-			"--jq", "{i, cst, ib, ctc, ls: .mg[-1]}",
+			"--jq", `{id: .id, st: .["st"], ib: .["ib"], ct: .["ct"], ls: .msgs[-1]}`,
 		})
 		if err != nil {
 			t.Fatalf("ctx --li with query aliases failed: %v", err)
@@ -204,10 +204,10 @@ func TestCtxCommand_LightAlias_WithQueryAliases(t *testing.T) {
 	var payload struct {
 		ID      int `json:"id"`
 		St      any `json:"st"`
-		Inbox   int `json:"inbox"`
+		Inbox   int `json:"ib"`
 		Contact struct {
 			ID *int `json:"id"`
-		} `json:"contact"`
+		} `json:"ct"`
 		LS string `json:"ls"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -218,10 +218,10 @@ func TestCtxCommand_LightAlias_WithQueryAliases(t *testing.T) {
 		t.Fatalf("expected id=123, got %d", payload.ID)
 	}
 	if payload.Inbox != 48 {
-		t.Fatalf("expected inbox=48, got %d", payload.Inbox)
+		t.Fatalf("expected ib=48, got %d", payload.Inbox)
 	}
 	if payload.Contact.ID == nil || *payload.Contact.ID != 456 {
-		t.Fatalf("expected contact.id=456, got %#v", payload.Contact.ID)
+		t.Fatalf("expected ct.id=456, got %#v", payload.Contact.ID)
 	}
 	if payload.LS != "> Second" {
 		t.Fatalf("expected ls=Second, got %q", payload.LS)

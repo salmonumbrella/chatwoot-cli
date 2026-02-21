@@ -448,11 +448,11 @@ func TestConversationsContextCommand_Light(t *testing.T) {
 	var payload struct {
 		ID      int    `json:"id"`
 		St      string `json:"st"`
-		Inbox   int    `json:"inbox"`
+		Inbox   int    `json:"ib"`
 		Contact struct {
 			ID   *int    `json:"id"`
-			Name *string `json:"name"`
-		} `json:"contact"`
+			Name *string `json:"nm"`
+		} `json:"ct"`
 		Msgs []string `json:"msgs"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -466,13 +466,13 @@ func TestConversationsContextCommand_Light(t *testing.T) {
 		t.Fatalf("expected st=open, got %q", payload.St)
 	}
 	if payload.Inbox != 48 {
-		t.Fatalf("expected inbox=48, got %d", payload.Inbox)
+		t.Fatalf("expected ib=48, got %d", payload.Inbox)
 	}
 	if payload.Contact.ID == nil || *payload.Contact.ID != 456 {
-		t.Fatalf("expected contact.id=456, got %#v", payload.Contact.ID)
+		t.Fatalf("expected ct.id=456, got %#v", payload.Contact.ID)
 	}
 	if payload.Contact.Name == nil || *payload.Contact.Name != "TuTu" {
-		t.Fatalf("expected contact.name=TuTu, got %#v", payload.Contact.Name)
+		t.Fatalf("expected ct.nm=TuTu, got %#v", payload.Contact.Name)
 	}
 
 	if len(payload.Msgs) != 2 {

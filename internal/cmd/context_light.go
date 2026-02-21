@@ -8,14 +8,14 @@ import (
 
 type lightConversationContact struct {
 	ID   *int    `json:"id"`
-	Name *string `json:"name"`
+	Name *string `json:"nm"`
 }
 
 type lightConversationPayload struct {
 	ID      int                      `json:"id"`
 	Status  string                   `json:"st"`
-	InboxID int                      `json:"inbox"`
-	Contact lightConversationContact `json:"contact"`
+	InboxID int                      `json:"ib"`
+	Contact lightConversationContact `json:"ct"`
 	Msgs    []string                 `json:"msgs"`
 }
 
