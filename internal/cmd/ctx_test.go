@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -225,5 +226,36 @@ func TestCtxCommand_LightAlias_WithQueryAliases(t *testing.T) {
 	}
 	if payload.LS != "> Second" {
 		t.Fatalf("expected ls=Second, got %q", payload.LS)
+	}
+}
+
+func TestCtxCommand_LightAlias_NoAliasExpansion(t *testing.T) {
+	// Verify that jq queries on light output use literal keys,
+	// not query alias expansion (st should NOT become status).
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/100", jsonResponse(200, `{
+			"id": 100,
+			"contact_id": 0,
+			"status": "pending",
+			"inbox_id": 48
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/100/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Test", "message_type": 0, "private": false}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"ctx", "100", "--li", "--cj", "--jq", ".st"})
+		if err != nil {
+			t.Fatalf("ctx --li --jq .st failed: %v", err)
+		}
+	})
+
+	output = strings.TrimSpace(output)
+	if output != `"p"` {
+		t.Fatalf("expected jq .st to return \"p\" (short status), got %q — alias expansion may have changed .st to .status", output)
 	}
 }
