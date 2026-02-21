@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -83,5 +84,45 @@ func TestCommentCommand_Resolve(t *testing.T) {
 	}
 	if result["resolved"] != true {
 		t.Fatalf("expected resolved true, got %#v", result["resolved"])
+	}
+}
+
+func TestCommentCommand_Pending(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 56, "conversation_id": 123, "content": "Waiting on customer", "message_type": 1, "private": false}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "pending", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"comment", "123", "Waiting on customer", "--pending", "-o", "json"})
+		if err != nil {
+			t.Fatalf("comment --pending failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if result["pending"] != true {
+		t.Fatalf("expected pending true, got %#v", result["pending"])
+	}
+}
+
+func TestCommentCommand_ResolveAndPendingExclusive(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 57, "conversation_id": 123, "content": "conflict", "message_type": 1, "private": false}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"comment", "123", "conflict", "--resolve", "--pending"})
+	if err == nil {
+		t.Fatal("expected error for --resolve --pending, got nil")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected error containing 'mutually exclusive', got: %v", err)
 	}
 }
