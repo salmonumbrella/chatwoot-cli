@@ -8,6 +8,31 @@ import (
 	"testing"
 )
 
+func TestNoteCommand_Pending(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 99, "conversation_id": 123, "content": "Internal note", "message_type": 1, "private": true}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "pending", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"note", "123", "Internal note", "--pending", "-o", "json"})
+		if err != nil {
+			t.Fatalf("note --pending failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if result["pending"] != true {
+		t.Fatalf("expected pending true, got %#v", result["pending"])
+	}
+}
+
 func TestNoteCommand_WithMention(t *testing.T) {
 	var received map[string]any
 	handler := newRouteHandler().

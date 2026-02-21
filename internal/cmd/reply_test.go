@@ -783,3 +783,36 @@ func TestReplyDryRunChannelWarning_LINE_JSON(t *testing.T) {
 		t.Errorf("Expected LINE warning in JSON, got: %s", warning)
 	}
 }
+
+func TestReplyCommand_Pending(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"id": 100, "conversation_id": 123, "content": "Heads up", "message_type": 1, "created_at": 1700000000
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "pending", "conversation_id": 123}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123, "contact_id": 456, "status": "open"
+		}`)).
+		On("GET", "/api/v1/accounts/1/contacts/456", jsonResponse(200, `{
+			"payload": {"id": 456, "name": "Test Contact", "email": "test@example.com", "created_at": 1700000000}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", "Heads up", "--pending", "-o", "json"})
+		if err != nil {
+			t.Fatalf("reply --pending failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if result["pending"] != true {
+		t.Fatalf("expected pending true, got %#v", result["pending"])
+	}
+}
