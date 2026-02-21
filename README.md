@@ -823,7 +823,7 @@ All commands support these flags:
 - `--max-rl <n>` / `--max-rate-limit-retries <n>` - Max retries for HTTP 429 responses
 - `--max-5xx-retries <n>` - Max retries for HTTP 5xx responses
 - `--rld <duration>` / `--rate-limit-delay <duration>` - Base delay for 429 retries (e.g., 1s)
-- `--sed <duration>` / `--server-error-delay <duration>` - Delay between 5xx retries (e.g., 1s)
+- `--sedly <duration>` / `--server-error-delay <duration>` - Delay between 5xx retries (e.g., 1s)
 - `--circuit-breaker-threshold <n>` - Failures before circuit opens
 - `--circuit-breaker-reset-time <duration>` - Circuit breaker reset time (e.g., 30s)
 - `--help` - Show help for any command
@@ -846,7 +846,7 @@ Frequently used global flags have short aliases:
 | `--idempotency-key` | `--idem` |
 | `--max-rate-limit-retries` | `--max-rl` |
 | `--rate-limit-delay` | `--rld` |
-| `--server-error-delay` | `--sed` |
+| `--server-error-delay` | `--sedly` |
 | `--output` | `--out` |
 | `--query` | `--qr` |
 | `--query-file` | `--qf` |

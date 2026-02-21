@@ -47,6 +47,7 @@ func newContactsCmd() *cobra.Command {
 func newContactsListCmd() *cobra.Command {
 	var sort string
 	var order string
+	var light bool
 
 	cfg := ListConfig[api.Contact]{
 		Use:             "list",
@@ -101,9 +102,8 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			}
 			return buildLightContacts(items), nil
 		},
-		ForceJSON: func(cmd *cobra.Command) bool {
-			enabled, _ := cmd.Flags().GetBool("light")
-			return enabled
+		ForceJSON: func(_ *cobra.Command) bool {
+			return light
 		},
 		ForceJSONUnwrapItems: true,
 	}
@@ -122,7 +122,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort by field (name|email|phone_number|last_activity_at; aliases: n|e|pn|la); prefix with '-' for desc")
 	cmd.Flags().StringVar(&order, "order", "", "Sort order (asc|desc); overrides '-' prefix")
-	cmd.Flags().Bool("light", false, "Return minimal contact payload")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal contact payload")
 	flagAlias(cmd.Flags(), "light", "li")
 	flagAlias(cmd.Flags(), "sort", "so")
 	flagAlias(cmd.Flags(), "order", "ord")

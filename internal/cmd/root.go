@@ -64,7 +64,10 @@ type rootFlags struct {
 	CircuitBreakerResetTimeSet bool
 }
 
-// flags holds the global command flags, accessible to helper functions
+// flags holds the global command flags. This is package-level mutable state
+// that MUST be reset at the start of every Execute() call. Tests depend on
+// this reset to get clean state; any code that reads flags outside of a
+// command's RunE is reading stale data from the previous Execute() call.
 var flags = rootFlags{
 	Output:       defaultOutput(),
 	Color:        "auto",
@@ -139,7 +142,8 @@ var helpText string
 
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
-	// Reset flags to defaults for each execution (important for tests)
+	// Reset flags to defaults for each execution. This is critical for test
+	// isolation — see the invariant comment on the flags declaration above.
 	flags = rootFlags{
 		Output:       defaultOutput(),
 		Color:        "auto",
@@ -351,7 +355,7 @@ func Execute(ctx context.Context, args []string) error {
 	flagAlias(root.PersistentFlags(), "idempotency-key", "idem")
 	flagAlias(root.PersistentFlags(), "max-rate-limit-retries", "max-rl")
 	flagAlias(root.PersistentFlags(), "rate-limit-delay", "rld")
-	flagAlias(root.PersistentFlags(), "server-error-delay", "sed")
+	flagAlias(root.PersistentFlags(), "server-error-delay", "sedly")
 	flagAlias(root.PersistentFlags(), "json", "j")
 	flagAlias(root.PersistentFlags(), "output", "out")
 	flagAlias(root.PersistentFlags(), "query", "qr")
