@@ -226,7 +226,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					}
 					// When ForceJSON is active (e.g. --light), strip pagination
 					// envelope to match the minimal output of printRawJSON.
-					if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) {
+					if forceJSON {
 						delete(payload, "has_more")
 						delete(payload, "meta")
 					}
@@ -430,7 +430,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			}
 			// When ForceJSON is active (e.g. --light), strip pagination
 			// envelope to match the minimal output of printRawJSON.
-			if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) {
+			if forceJSON {
 				delete(payload, "has_more")
 				delete(payload, "meta")
 			}

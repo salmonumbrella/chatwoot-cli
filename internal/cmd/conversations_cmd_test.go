@@ -177,6 +177,40 @@ func TestConversationsListCommand_LightNoEnvelope(t *testing.T) {
 	}
 }
 
+func TestConversationsListCommand_LightJSONLiteralQuery(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{
+						"id": 1,
+						"inbox_id": 48,
+						"status": "open",
+						"unread_count": 0,
+						"last_activity_at": 1700000000
+					}
+				],
+				"meta": {"total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"conversations", "list", "--light", "-o", "json", "--jq", ".items[0].st",
+		})
+		if err != nil {
+			t.Fatalf("conversations list --light -o json --jq .items[0].st failed: %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(output)
+	if got != `"o"` {
+		t.Fatalf("expected jq output %q for short-key light status, got %q", `"o"`, got)
+	}
+}
+
 func TestConversationsGetCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{

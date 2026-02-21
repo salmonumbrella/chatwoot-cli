@@ -70,11 +70,5 @@ func TestNoteCommand_ResolveAndPendingExclusive(t *testing.T) {
 
 	setupTestEnvWithHandler(t, handler)
 
-	err := Execute(context.Background(), []string{"note", "123", "conflict", "--resolve", "--pending"})
-	if err == nil {
-		t.Fatal("expected error for --resolve --pending, got nil")
-	}
-	if !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Fatalf("expected error containing 'mutually exclusive', got: %v", err)
-	}
+	assertStatusFlagsMutuallyExclusive(t, []string{"note", "123", "conflict", "--resolve", "--pending"})
 }

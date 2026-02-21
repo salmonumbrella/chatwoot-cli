@@ -136,11 +136,5 @@ func TestCommentCommand_ResolveAndPendingExclusive(t *testing.T) {
 
 	setupTestEnvWithHandler(t, handler)
 
-	err := Execute(context.Background(), []string{"comment", "123", "conflict", "--resolve", "--pending"})
-	if err == nil {
-		t.Fatal("expected error for --resolve --pending, got nil")
-	}
-	if !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Fatalf("expected error containing 'mutually exclusive', got: %v", err)
-	}
+	assertStatusFlagsMutuallyExclusive(t, []string{"comment", "123", "conflict", "--resolve", "--pending"})
 }
