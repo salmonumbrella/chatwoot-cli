@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +46,7 @@ func newCannedResponsesListCmd() *cobra.Command {
 			}
 
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightCannedResponses(responses))
 			}
 

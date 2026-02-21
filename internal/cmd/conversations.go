@@ -15,6 +15,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
 	"github.com/chatwoot/chatwoot-cli/internal/heuristics"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -131,6 +132,7 @@ func newConversationsGetCmd() *cobra.Command {
 			}
 
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationGet(*conv))
 			}
 
@@ -633,6 +635,7 @@ See: https://developers.chatwoot.com/api-reference/conversations/conversations-f
 				return fmt.Errorf("failed to filter conversations: %w", err)
 			}
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationLookups(result.Data.Payload))
 			}
 
@@ -712,6 +715,7 @@ func filterAllConversations(cmd *cobra.Command, client *api.Client, payload map[
 	}
 
 	if light {
+		cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 		return printRawJSON(cmd, buildLightConversationLookups(allConversations))
 	}
 
@@ -1740,6 +1744,7 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 			}
 
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationContext(id, ctx))
 			}
 
@@ -2079,6 +2084,7 @@ func newConversationsSearchCmd() *cobra.Command {
 
 			conversations := result.Data.Payload
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationLookups(conversations))
 			}
 
@@ -2159,6 +2165,7 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 	}
 
 	if light {
+		cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 		return printRawJSON(cmd, buildLightConversationLookups(allConversations))
 	}
 

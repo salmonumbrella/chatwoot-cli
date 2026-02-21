@@ -13,6 +13,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -142,6 +143,7 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 
 			totalMessages := len(messages)
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightMessageLookups(messages))
 			}
 

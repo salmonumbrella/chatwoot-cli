@@ -11,6 +11,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -131,6 +132,7 @@ Run 'cw config dashboard list' to see available dashboards.`,
 			}
 
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				compacted := compactDashboardResult(result)
 				if items, ok := compacted["items"].([]any); ok && len(items) > 3 {
 					compacted["items"] = items[:3]

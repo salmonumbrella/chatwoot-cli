@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -51,6 +52,7 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 			}
 
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationContext(id, ctx))
 			}
 

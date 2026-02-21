@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +46,7 @@ func newIntegrationsAppsCmd() *cobra.Command {
 			}
 
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightIntegrations(apps))
 			}
 

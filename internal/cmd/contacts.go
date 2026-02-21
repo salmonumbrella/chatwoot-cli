@@ -11,6 +11,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -88,6 +89,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
 			light, _ := cmd.Flags().GetBool("light")
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				var lightContacts []lightContact
 				for i := range contacts.Payload {
 					lightContacts = append(lightContacts, buildLightContact(&contacts.Payload[i]))
@@ -198,6 +200,7 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 	// Light mode: minimal payload with open/pending conversations
 	light, _ := cmd.Flags().GetBool("light")
 	if light {
+		cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 		lc := buildLightContact(contact)
 
 		// Fetch open/pending conversations with last message
@@ -859,6 +862,7 @@ Accepts contact ID, email address, phone number, or name to search for the conta
 				return fmt.Errorf("failed to get conversations for contact %d: %w", id, err)
 			}
 			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationLookups(conversations))
 			}
 
