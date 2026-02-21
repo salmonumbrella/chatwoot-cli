@@ -1203,23 +1203,23 @@ func TestCompactDashboardResult(t *testing.T) {
 	}
 
 	// Verify essential fields
-	if order1["number"] != "ORD-001" {
-		t.Errorf("number = %v, want ORD-001", order1["number"])
+	if order1["num"] != "ORD-001" {
+		t.Errorf("num = %v, want ORD-001", order1["num"])
 	}
-	if order1["date"] != "2026-01-15" {
-		t.Errorf("date = %v, want 2026-01-15", order1["date"])
+	if order1["dt"] != "2026-01-15" {
+		t.Errorf("dt = %v, want 2026-01-15", order1["dt"])
 	}
-	if order1["total"] != 1500.0 {
-		t.Errorf("total = %v, want 1500", order1["total"])
+	if order1["tot"] != 1500.0 {
+		t.Errorf("tot = %v, want 1500", order1["tot"])
 	}
-	if order1["status"] != "completed" {
-		t.Errorf("status = %v, want completed", order1["status"])
+	if order1["st"] != "completed" {
+		t.Errorf("st = %v, want completed", order1["st"])
 	}
-	if order1["payment"] != "paid" {
-		t.Errorf("payment = %v, want paid", order1["payment"])
+	if order1["pay"] != "paid" {
+		t.Errorf("pay = %v, want paid", order1["pay"])
 	}
-	if order1["delivery"] != "delivered" {
-		t.Errorf("delivery = %v, want delivered", order1["delivery"])
+	if order1["dlv"] != "delivered" {
+		t.Errorf("dlv = %v, want delivered", order1["dlv"])
 	}
 	if order1["items"] != 3.0 {
 		t.Errorf("items = %v, want 3", order1["items"])
@@ -1234,8 +1234,8 @@ func TestCompactDashboardResult(t *testing.T) {
 	}
 
 	// Pagination should be preserved
-	if _, ok := result["pagination"].(map[string]any); !ok {
-		t.Error("Expected pagination to be preserved")
+	if _, ok := result["pg"].(map[string]any); !ok {
+		t.Error("Expected pg to be preserved")
 	}
 }
 
@@ -1266,8 +1266,8 @@ func TestCompactDashboardResult_DateTruncation(t *testing.T) {
 			items := result["items"].([]any)
 			order := items[0].(map[string]any)
 
-			if order["date"] != tt.expected {
-				t.Errorf("date = %q, want %q", order["date"], tt.expected)
+			if order["dt"] != tt.expected {
+				t.Errorf("dt = %q, want %q", order["dt"], tt.expected)
 			}
 		})
 	}
@@ -1374,8 +1374,8 @@ func TestDashboardCommand_CompactJSONOutput(t *testing.T) {
 	}
 
 	order := items[0].(map[string]any)
-	if order["date"] != "2026-01-15" {
-		t.Errorf("date = %v, want 2026-01-15", order["date"])
+	if order["dt"] != "2026-01-15" {
+		t.Errorf("dt = %v, want 2026-01-15", order["dt"])
 	}
 
 	// Verbose fields should be absent
@@ -1439,8 +1439,8 @@ func TestDashboardCommand_CompactAgentOutput(t *testing.T) {
 	if _, exists := item["uuid"]; exists {
 		t.Error("uuid should not appear in compact agent output")
 	}
-	if item["date"] != "2026-01-15" {
-		t.Errorf("date = %v, want 2026-01-15", item["date"])
+	if item["dt"] != "2026-01-15" {
+		t.Errorf("dt = %v, want 2026-01-15", item["dt"])
 	}
 
 	// Meta should contain tier
@@ -1542,7 +1542,7 @@ func TestDashboardCommand_CompactWithJQ(t *testing.T) {
 	output := captureStdout(t, func() {
 		err := Execute(context.Background(), []string{
 			"dashboard", "orders", "--contact", "123", "--no-resolve",
-			"-o", "json", "--compact", "--jq", "[.items[] | select(.total > 2000)]",
+			"-o", "json", "--compact", "--jq", "[.items[] | select(.tot > 2000)]",
 		})
 		if err != nil {
 			t.Fatalf("compact + jq failed: %v", err)
@@ -1557,8 +1557,8 @@ func TestDashboardCommand_CompactWithJQ(t *testing.T) {
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 order with total > 2000, got %d", len(result))
 	}
-	if result[0]["number"] != "ORD-002" {
-		t.Errorf("Expected ORD-002, got %v", result[0]["number"])
+	if result[0]["num"] != "ORD-002" {
+		t.Errorf("Expected ORD-002, got %v", result[0]["num"])
 	}
 }
 
@@ -1787,8 +1787,8 @@ func TestCompactDashboardResult_MissingDateField(t *testing.T) {
 	order := result["items"].([]any)[0].(map[string]any)
 
 	// Only the fields that exist in the source should appear
-	if _, exists := order["date"]; exists {
-		t.Error("date should not be set when shopline_created_at is missing")
+	if _, exists := order["dt"]; exists {
+		t.Error("dt should not be set when shopline_created_at is missing")
 	}
 }
 
@@ -1845,10 +1845,10 @@ func TestDashboardCommand_Light(t *testing.T) {
 		t.Fatalf("expected 3 items (capped), got %d", len(items))
 	}
 
-	// First item should be compact (have "number" not "uuid")
+	// First item should be compact (have "num" not "uuid")
 	order := items[0].(map[string]any)
-	if order["number"] != "ORD-001" {
-		t.Errorf("first order number = %v, want ORD-001", order["number"])
+	if order["num"] != "ORD-001" {
+		t.Errorf("first order num = %v, want ORD-001", order["num"])
 	}
 	if _, exists := order["uuid"]; exists {
 		t.Error("light output should not contain uuid")

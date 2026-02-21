@@ -15,7 +15,7 @@ type lightContact struct {
 	Amy   *string            `json:"amy,omitempty"`
 	PP    *string            `json:"pp,omitempty"`
 	TM    *string            `json:"tm,omitempty"`
-	Convs []lightContactConv `json:"convs,omitempty"`
+	Convs []lightContactConv `json:"cvs,omitempty"`
 }
 
 type lightContactConv struct {

@@ -322,9 +322,9 @@ func addDashboardWarning(result map[string]any, warning string) {
 // compact summary with only essential fields.
 //
 // NOTE: This transformation is specific to Shopline order dashboards. The field
-// mapping (shopline_created_at → date, order_total → total, etc.) assumes
+// mapping (shopline_created_at → dt, order_total → tot, etc.) assumes
 // Shopline's data structure. For non-Shopline dashboards, --compact will produce
-// items with only the fields that happen to match (e.g., "number" is generic).
+// items with only the fields that happen to match (e.g., "num" is generic).
 // If additional dashboard integrations are added, consider making the compact
 // field mapping configurable per dashboard.
 //
@@ -334,16 +334,16 @@ func addDashboardWarning(result map[string]any, warning string) {
 //	  "tier": "Gold",                    // from customer_info.membership_tier_name
 //	  "items": [
 //	    {
-//	      "number": "ORD-001",
-//	      "date": "2026-01-15",          // shopline_created_at truncated to date
-//	      "total": 1500,                 // order_total
-//	      "status": "completed",         // order_status
-//	      "payment": "paid",             // payment_status
-//	      "delivery": "delivered",       // delivery_status
+//	      "num": "ORD-001",
+//	      "dt": "2026-01-15",            // shopline_created_at truncated to date
+//	      "tot": 1500,                   // order_total
+//	      "st": "completed",             // order_status
+//	      "pay": "paid",                 // payment_status
+//	      "dlv": "delivered",            // delivery_status
 //	      "items": 3                     // total_items_count
 //	    }
 //	  ],
-//	  "pagination": { ... }              // preserved as-is
+//	  "pg": { ... }                      // pagination preserved as-is
 //	}
 func compactDashboardResult(result map[string]any) map[string]any {
 	out := make(map[string]any)
@@ -365,26 +365,26 @@ func compactDashboardResult(result map[string]any) map[string]any {
 		}
 		order := make(map[string]any)
 		if v, ok := item["number"]; ok {
-			order["number"] = v
+			order["num"] = v
 		}
 		if v, ok := item["shopline_created_at"].(string); ok {
 			if len(v) >= 10 {
-				order["date"] = v[:10]
+				order["dt"] = v[:10]
 			} else {
-				order["date"] = v
+				order["dt"] = v
 			}
 		}
 		if v, ok := item["order_total"]; ok {
-			order["total"] = v
+			order["tot"] = v
 		}
 		if v, ok := item["order_status"]; ok {
-			order["status"] = v
+			order["st"] = v
 		}
 		if v, ok := item["payment_status"]; ok {
-			order["payment"] = v
+			order["pay"] = v
 		}
 		if v, ok := item["delivery_status"]; ok {
-			order["delivery"] = v
+			order["dlv"] = v
 		}
 		if v, ok := item["total_items_count"]; ok {
 			order["items"] = v
@@ -395,7 +395,7 @@ func compactDashboardResult(result map[string]any) map[string]any {
 
 	// Preserve pagination.
 	if pagination, ok := result["pagination"]; ok {
-		out["pagination"] = pagination
+		out["pg"] = pagination
 	}
 
 	return out

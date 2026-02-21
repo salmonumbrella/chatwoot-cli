@@ -1713,8 +1713,8 @@ func TestContactsListLight(t *testing.T) {
 		t.Error("expected short key 'nm'")
 	}
 	// Should NOT have conversations (too expensive for list)
-	if strings.Contains(output, `"convs"`) {
-		t.Error("should not include convs in list mode")
+	if strings.Contains(output, `"cvs"`) {
+		t.Error("should not include cvs in list mode")
 	}
 	// Should NOT have full field names or custom attributes
 	if strings.Contains(output, `"created_at"`) {
