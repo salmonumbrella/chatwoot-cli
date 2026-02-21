@@ -360,17 +360,17 @@ func TestConversationsGetCommand_Light(t *testing.T) {
 	var item struct {
 		ID          int    `json:"id"`
 		Status      string `json:"st"`
-		InboxID     int    `json:"inbox"`
-		UnreadCount int    `json:"unread"`
+		InboxID     int    `json:"ib"`
+		UnreadCount int    `json:"ur"`
 		Contact     *struct {
 			ID   *int    `json:"id"`
-			Name *string `json:"name"`
-		} `json:"contact"`
+			Name *string `json:"nm"`
+		} `json:"ct"`
 		Assignee *struct {
 			ID   *int    `json:"id"`
-			Name *string `json:"name"`
-		} `json:"assignee"`
-		LastMessage *string `json:"last_msg"`
+			Name *string `json:"nm"`
+		} `json:"ag"`
+		LastMessage *string `json:"lm"`
 	}
 	if err := json.Unmarshal([]byte(output), &item); err != nil {
 		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)

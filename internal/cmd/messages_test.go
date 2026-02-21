@@ -106,10 +106,10 @@ func TestMessagesListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID          int      `json:"id"`
-			MessageType int      `json:"message_type"`
-			Private     bool     `json:"private"`
-			Content     string   `json:"content"`
-			Attachments []string `json:"attachments"`
+			MessageType int      `json:"mt"`
+			Private     bool     `json:"prv"`
+			Content     string   `json:"ct"`
+			Attachments []string `json:"att"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {

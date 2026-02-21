@@ -10,52 +10,52 @@ import (
 // lightLookupContact keeps only stable contact identity fields for lookup flows.
 type lightLookupContact struct {
 	ID   *int    `json:"id,omitempty"`
-	Name *string `json:"name,omitempty"`
+	Name *string `json:"nm,omitempty"`
 }
 
 // lightConversationLookup is a compact conversation summary optimized for triage.
 type lightConversationLookup struct {
 	ID      int    `json:"id"`
-	Status  string `json:"status,omitempty"`
-	InboxID int    `json:"inbox_id,omitempty"`
+	Status  string `json:"st,omitempty"`
+	InboxID int    `json:"ib,omitempty"`
 	// UnreadCount always serializes (no omitempty) — zero unread is meaningful for triage.
-	UnreadCount    int                 `json:"unread_count"`
-	LastActivityAt int64               `json:"last_activity_at,omitempty"`
-	MessagesCount  int                 `json:"messages_count,omitempty"`
-	Contact        *lightLookupContact `json:"contact,omitempty"`
-	LastMessage    *string             `json:"last_message,omitempty"`
+	UnreadCount    int                 `json:"ur"`
+	LastActivityAt int64               `json:"la,omitempty"`
+	MessagesCount  int                 `json:"mc,omitempty"`
+	Contact        *lightLookupContact `json:"ct,omitempty"`
+	LastMessage    *string             `json:"lm,omitempty"`
 }
 
 // lightMessageLookup is a minimal message payload for agent reads.
 type lightMessageLookup struct {
 	ID          int                 `json:"id"`
-	MessageType int                 `json:"message_type"`
-	Private     bool                `json:"private,omitempty"`
-	Content     *string             `json:"content,omitempty"`
-	CreatedAt   int64               `json:"created_at,omitempty"`
-	Sender      *lightLookupContact `json:"sender,omitempty"`
-	Attachments []string            `json:"attachments,omitempty"`
+	MessageType int                 `json:"mt"`
+	Private     bool                `json:"prv,omitempty"`
+	Content     *string             `json:"ct,omitempty"`
+	CreatedAt   int64               `json:"ts,omitempty"`
+	Sender      *lightLookupContact `json:"sn,omitempty"`
+	Attachments []string            `json:"att,omitempty"`
 }
 
 // lightSearchPayload is a compact multi-resource search result.
 type lightSearchPayload struct {
-	Query   string              `json:"query"`
-	Results []lightSearchResult `json:"results"`
-	Summary map[string]int      `json:"summary"`
+	Query   string              `json:"q"`
+	Results []lightSearchResult `json:"rs"`
+	Summary map[string]int      `json:"sm"`
 }
 
 type lightSearchResult struct {
 	Type           string  `json:"type"`
 	ID             int     `json:"id"`
-	Name           *string `json:"name,omitempty"`
-	Email          *string `json:"email,omitempty"`
-	Status         *string `json:"status,omitempty"`
-	InboxID        *int    `json:"inbox_id,omitempty"`
-	ContactID      *int    `json:"contact_id,omitempty"`
-	ContactName    *string `json:"contact_name,omitempty"`
-	LastActivityAt *int64  `json:"last_activity_at,omitempty"`
-	MessageCount   *int    `json:"message_count,omitempty"`
-	Snippet        *string `json:"snippet,omitempty"`
+	Name           *string `json:"nm,omitempty"`
+	Email          *string `json:"em,omitempty"`
+	Status         *string `json:"st,omitempty"`
+	InboxID        *int    `json:"ib,omitempty"`
+	ContactID      *int    `json:"cid,omitempty"`
+	ContactName    *string `json:"cnm,omitempty"`
+	LastActivityAt *int64  `json:"la,omitempty"`
+	MessageCount   *int    `json:"mc,omitempty"`
+	Snippet        *string `json:"snip,omitempty"`
 }
 
 func buildLightConversationLookups(conversations []api.Conversation) []lightConversationLookup {
@@ -245,12 +245,12 @@ func buildLightSearchPayload(results SearchResults) lightSearchPayload {
 type lightConversationGet struct {
 	ID             int                 `json:"id"`
 	Status         string              `json:"st"`
-	InboxID        int                 `json:"inbox"`
-	UnreadCount    int                 `json:"unread"`
-	LastActivityAt int64               `json:"last_at,omitempty"`
-	Contact        *lightLookupContact `json:"contact,omitempty"`
-	Assignee       *lightLookupContact `json:"assignee,omitempty"`
-	LastMessage    *string             `json:"last_msg,omitempty"`
+	InboxID        int                 `json:"ib"`
+	UnreadCount    int                 `json:"ur"`
+	LastActivityAt int64               `json:"la,omitempty"`
+	Contact        *lightLookupContact `json:"ct,omitempty"`
+	Assignee       *lightLookupContact `json:"ag,omitempty"`
+	LastMessage    *string             `json:"lm,omitempty"`
 }
 
 func buildLightConversationGet(conv api.Conversation) lightConversationGet {

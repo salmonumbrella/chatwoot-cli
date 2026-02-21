@@ -933,9 +933,9 @@ func TestConversationsSearchCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID          int    `json:"id"`
-			Status      string `json:"status"`
-			InboxID     int    `json:"inbox_id"`
-			LastMessage string `json:"last_message"`
+			Status      string `json:"st"`
+			InboxID     int    `json:"ib"`
+			LastMessage string `json:"lm"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {

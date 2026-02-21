@@ -105,14 +105,14 @@ func TestConversationsListCommand_Light(t *testing.T) {
 	var payload struct {
 		Items []struct {
 			ID          int    `json:"id"`
-			Status      string `json:"status"`
-			InboxID     int    `json:"inbox_id"`
-			UnreadCount int    `json:"unread_count"`
-			LastMessage string `json:"last_message"`
+			Status      string `json:"st"`
+			InboxID     int    `json:"ib"`
+			UnreadCount int    `json:"ur"`
+			LastMessage string `json:"lm"`
 			Contact     struct {
 				ID   *int    `json:"id"`
-				Name *string `json:"name"`
-			} `json:"contact"`
+				Name *string `json:"nm"`
+			} `json:"ct"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -1089,11 +1089,11 @@ func TestConversationsFilterCommand_Light(t *testing.T) {
 	if len(payload.Items) != 1 {
 		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
 	}
-	if payload.Items[0]["status"] != "open" {
-		t.Fatalf("expected status open, got %#v", payload.Items[0]["status"])
+	if payload.Items[0]["st"] != "open" {
+		t.Fatalf("expected status open, got %#v", payload.Items[0]["st"])
 	}
-	if payload.Items[0]["last_message"] != "Still waiting" {
-		t.Fatalf("expected last_message, got %#v", payload.Items[0]["last_message"])
+	if payload.Items[0]["lm"] != "Still waiting" {
+		t.Fatalf("expected last_message, got %#v", payload.Items[0]["lm"])
 	}
 	if strings.Contains(output, `"meta"`) {
 		t.Fatal("light output should not include full meta object")
@@ -1144,7 +1144,7 @@ func TestConversationsFilterCommand_LightAll(t *testing.T) {
 	if len(payload.Items) != 2 {
 		t.Fatalf("expected 2 conversations from 2 pages, got %d", len(payload.Items))
 	}
-	if payload.Items[0]["status"] != "open" || payload.Items[1]["status"] != "resolved" {
+	if payload.Items[0]["st"] != "open" || payload.Items[1]["st"] != "resolved" {
 		t.Fatalf("unexpected items: %#v", payload.Items)
 	}
 }

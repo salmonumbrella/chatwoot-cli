@@ -148,14 +148,14 @@ func TestSearchCommand_Light(t *testing.T) {
 	})
 
 	var payload struct {
-		Query   string `json:"query"`
+		Query   string `json:"q"`
 		Results []struct {
 			Type   string `json:"type"`
 			ID     int    `json:"id"`
-			Status string `json:"status"`
-			Inbox  int    `json:"inbox_id"`
-		} `json:"results"`
-		Summary map[string]int `json:"summary"`
+			Status string `json:"st"`
+			Inbox  int    `json:"ib"`
+		} `json:"rs"`
+		Summary map[string]int `json:"sm"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
 		t.Fatalf("failed to parse light search output: %v\noutput: %s", err, output)
