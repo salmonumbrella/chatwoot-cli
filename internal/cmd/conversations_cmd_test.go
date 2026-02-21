@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -2675,5 +2676,73 @@ func TestExpandFilterPayload(t *testing.T) {
 				t.Errorf("expandFilterPayload mismatch\n  got:  %s\n  want: %s", resultJSON, expectedJSON)
 			}
 		})
+	}
+}
+
+func TestConversationsTriage_Brief(t *testing.T) {
+	now := time.Now()
+	activityTime := now.Add(-1 * time.Hour).Unix()
+
+	var callPaths []string
+	var mu sync.Mutex
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			callPaths = append(callPaths, r.URL.Path+"?status="+r.URL.Query().Get("status"))
+			mu.Unlock()
+
+			status := r.URL.Query().Get("status")
+			if status != "open" && status != "pending" {
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":0}}}`)(w, r)
+				return
+			}
+			if status == "pending" {
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":0}}}`)(w, r)
+				return
+			}
+			jsonResponse(200, `{
+				"data": {
+					"payload": [{
+						"id": 1,
+						"inbox_id": 48,
+						"status": "open",
+						"unread_count": 2,
+						"last_activity_at": `+strconv.FormatInt(activityTime, 10)+`,
+						"last_non_activity_message": {"content": "Need help with order"},
+						"meta": {"sender": {"id": 10, "name": "Alice"}}
+					}],
+					"meta": {"total_pages": 1}
+				}
+			}`)(w, r)
+		}).
+		On("GET", "/api/v1/accounts/1/conversations/1/messages", func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			callPaths = append(callPaths, r.URL.Path)
+			mu.Unlock()
+			jsonResponse(200, `{"payload": [{"id": 101, "content": "Should not be fetched", "message_type": 0}]}`)(w, r)
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "triage", "--brief", "-o", "json"})
+		if err != nil {
+			t.Fatalf("triage --brief failed: %v", err)
+		}
+	})
+
+	// Verify messages endpoint was NOT called
+	mu.Lock()
+	for _, path := range callPaths {
+		if strings.Contains(path, "/messages") {
+			t.Errorf("--brief should skip Messages().List calls, but got request to %s", path)
+		}
+	}
+	mu.Unlock()
+
+	// Verify last_non_activity_message content appears in output
+	if !strings.Contains(output, "Need help with order") {
+		t.Errorf("expected last_non_activity_message in output, got: %s", output)
 	}
 }

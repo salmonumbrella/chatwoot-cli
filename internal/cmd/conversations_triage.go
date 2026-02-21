@@ -28,6 +28,7 @@ func newConversationsTriageCmd() *cobra.Command {
 	var limit int
 	var inboxID int
 	var explain bool
+	var brief bool
 
 	cmd := &cobra.Command{
 		Use:     "triage",
@@ -108,20 +109,26 @@ the customer has been waiting (oldest first = longest waiting = most urgent).`,
 					item.ContactName = fmt.Sprintf("Contact #%d", conv.ContactID)
 				}
 
-				messages, err := client.Messages().List(ctx, conv.ID)
-				if err == nil && len(messages) > 0 {
-					for i := len(messages) - 1; i >= 0; i-- {
-						if messages[i].MessageType == api.MessageTypeIncoming {
-							item.LastMessage = truncateString(normalizeMessagePreview(messages[i].Content), 100)
-							break
+				var messages []api.Message
+				if brief {
+					item.LastMessage = truncateString(normalizeMessagePreview(extractLastNonActivityMessage(conv)), 100)
+				} else {
+					var msgErr error
+					messages, msgErr = client.Messages().List(ctx, conv.ID)
+					if msgErr == nil && len(messages) > 0 {
+						for i := len(messages) - 1; i >= 0; i-- {
+							if messages[i].MessageType == api.MessageTypeIncoming {
+								item.LastMessage = truncateString(normalizeMessagePreview(messages[i].Content), 100)
+								break
+							}
 						}
-					}
-					if item.LastMessage == "" {
-						item.LastMessage = truncateString(normalizeMessagePreview(messages[len(messages)-1].Content), 100)
+						if item.LastMessage == "" {
+							item.LastMessage = truncateString(normalizeMessagePreview(messages[len(messages)-1].Content), 100)
+						}
 					}
 				}
 
-				if explain {
+				if explain && !brief {
 					var contactHistory []api.Conversation
 					if conv.ContactID > 0 {
 						contactHistory, _ = client.Contacts().Conversations(ctx, conv.ContactID)
@@ -162,9 +169,11 @@ the customer has been waiting (oldest first = longest waiting = most urgent).`,
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum conversations to show")
 	cmd.Flags().IntVar(&inboxID, "inbox", 0, "Filter by inbox ID")
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints (agent mode)")
+	cmd.Flags().BoolVar(&brief, "brief", false, "Skip per-conversation API calls; use last_non_activity_message from list response")
 	flagAlias(cmd.Flags(), "inbox", "ib")
 	flagAlias(cmd.Flags(), "explain", "exp")
 	flagAlias(cmd.Flags(), "limit", "lt")
+	flagAlias(cmd.Flags(), "brief", "br")
 
 	return cmd
 }
