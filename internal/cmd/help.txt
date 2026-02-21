@@ -93,7 +93,7 @@ Contact management:
   cw co mg KEEP DELETE -F           Merge (keep first, delete second)
   cw co bk al --id 1,2,3 -L vip    Bulk add labels
 
-Orders & dashboards:
+Orders & dashboards (Shopline-specific):
   cw dh ods --cv CONV -c       Orders from conversation (compact)
   cw dh ods --ct CONTACT -c    Orders by contact ID
 
@@ -137,6 +137,21 @@ Common flags:
   --li          Light mode: minimal payload (on c ls/g, co g/ls/cv, c f/q/ct, m ls, s, in ls, a ls, t ls, l ls, cr ls, ar ls, ig apps, cf ls, dh)
   --dr          Preview without executing
   -y / --yes    Skip confirmations
+
+Light mode keys (--li):
+  Conversations: id st ib ur la mc ct{id,nm} ag{id,nm} lm
+  Contacts:      id nm em ph tier amy pp tm cvs[]{id,st,ib,lm}
+  Messages:      id mt prv ct ts sn{id,nm} att[]
+  Search:        q rs[]{type,id,nm,em,st,ib,cid,cnm,la,mc,snip} sm{}
+  Context (ct):  id st ib ct{id,nm} msgs[]
+  Inboxes:       id nm ch
+  Agents:        id nm av
+  Teams:         id nm
+  Labels:        id t
+  Canned:        id code
+  Automation:    id nm ev on
+  Integrations:  id nm on
+  Custom filters: id nm type
 
 Flag aliases (long → short):
   --agent=ag  --team=tm  --priority=pri  --ids=id  --folder=view
