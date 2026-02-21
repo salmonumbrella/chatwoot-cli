@@ -125,14 +125,14 @@ func TestListCommand_JSONOutput(t *testing.T) {
 	}
 }
 
-func TestListCommand_ForceJSONJSONMode_PreservesLightLiteralQuery(t *testing.T) {
+func newLightShortKeyListCommand(t *testing.T, forceJSON bool) *cobra.Command {
+	t.Helper()
+
 	cfg := ListConfig[map[string]any]{
 		Use:     "list",
 		Short:   "List items",
-		Headers: []string{"ID", "NAME"},
-		RowFunc: func(item map[string]any) []string {
-			return []string{fmt.Sprintf("%v", item["id"]), fmt.Sprintf("%v", item["name"])}
-		},
+		Headers: []string{"ST"},
+		RowFunc: func(item map[string]any) []string { return []string{fmt.Sprintf("%v", item["st"])} },
 		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[map[string]any], error) {
 			return ListResult[map[string]any]{
 				Items: []map[string]any{
@@ -144,10 +144,17 @@ func TestListCommand_ForceJSONJSONMode_PreservesLightLiteralQuery(t *testing.T) 
 				HasMore: false,
 			}, nil
 		},
-		ForceJSON: func(_ *cobra.Command) bool { return true },
 	}
 
-	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	if forceJSON {
+		cfg.ForceJSON = func(_ *cobra.Command) bool { return true }
+	}
+
+	return NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+}
+
+func TestListCommand_ForceJSONJSONMode_PreservesLightLiteralQuery(t *testing.T) {
+	cmd := newLightShortKeyListCommand(t, true)
 
 	var out bytes.Buffer
 	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
@@ -295,25 +302,7 @@ func TestListCommand_JSONLOutput(t *testing.T) {
 }
 
 func TestListCommand_JSONLLightQuery(t *testing.T) {
-	cfg := ListConfig[map[string]any]{
-		Use:     "list",
-		Short:   "List items",
-		Headers: []string{"ST"},
-		RowFunc: func(item map[string]any) []string { return []string{fmt.Sprintf("%v", item["st"])} },
-		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[map[string]any], error) {
-			return ListResult[map[string]any]{
-				Items: []map[string]any{
-					{
-						"st":     "o",
-						"status": "should-not-match",
-					},
-				},
-				HasMore: false,
-			}, nil
-		},
-	}
-
-	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	cmd := newLightShortKeyListCommand(t, false)
 
 	var out bytes.Buffer
 	ctx := outfmt.WithMode(context.Background(), outfmt.JSONL)
@@ -332,25 +321,7 @@ func TestListCommand_JSONLLightQuery(t *testing.T) {
 }
 
 func TestListCommand_JSONLLightTemplate(t *testing.T) {
-	cfg := ListConfig[map[string]any]{
-		Use:     "list",
-		Short:   "List items",
-		Headers: []string{"ST"},
-		RowFunc: func(item map[string]any) []string { return []string{fmt.Sprintf("%v", item["st"])} },
-		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[map[string]any], error) {
-			return ListResult[map[string]any]{
-				Items: []map[string]any{
-					{
-						"st":     "o",
-						"status": "should-not-match",
-					},
-				},
-				HasMore: false,
-			}, nil
-		},
-	}
-
-	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	cmd := newLightShortKeyListCommand(t, false)
 
 	var out bytes.Buffer
 	ctx := outfmt.WithMode(context.Background(), outfmt.JSONL)

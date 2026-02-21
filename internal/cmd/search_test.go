@@ -186,6 +186,40 @@ func TestSearchCommand_Light(t *testing.T) {
 	}
 }
 
+func TestSearchCommand_LightJSONLiteralQuery(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com", "last_activity_at": 1700000100}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 48, "last_activity_at": 1700000200, "meta": {"sender": {"name": "John Doe"}}}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"search", "john", "--light", "-o", "json", "--jq", ".rs[0].st",
+		})
+		if err != nil {
+			t.Fatalf("search john --light -o json --jq .rs[0].st failed: %v", err)
+		}
+	})
+
+	got := strings.TrimSpace(output)
+	if got != `"o"` {
+		t.Fatalf("expected jq output %q for short-key light status, got %q", `"o"`, got)
+	}
+}
+
 func TestSearchCommand_Best_EmitID(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
