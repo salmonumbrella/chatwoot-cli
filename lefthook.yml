@@ -4,31 +4,18 @@
 pre-commit:
   parallel: true
   commands:
+    fmt:
+      glob: "*.go"
+      run: "test -z \"$(gofumpt -l {staged_files})\" || { gofumpt -d {staged_files}; exit 1; }"
     lint:
       glob: "*.go"
-      run: golangci-lint run --new-from-rev=HEAD~1
-      stage_fixed: true
-
+      run: golangci-lint run --new-from-rev=HEAD --timeout 2m {staged_files}
     build:
       glob: "*.go"
-      run: go build ./cmd/chatwoot
-
-    fmt-check:
-      glob: "*.go"
-      run: |
-        if ! goimports -l . | grep -q .; then
-          exit 0
-        else
-          echo "Run 'make fmt' to fix formatting"
-          goimports -l .
-          exit 1
-        fi
+      run: go build ./...
 
 pre-push:
   parallel: true
   commands:
     test:
-      run: go test -short ./...
-
-    lint-full:
-      run: golangci-lint run
+      run: go test ./...
