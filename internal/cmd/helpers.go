@@ -732,6 +732,23 @@ func (e *handledError) ExitCode() int {
 	return e.exitCode
 }
 
+// shortStatus compresses conversation status values for light mode output.
+// open→o, pending→p, resolved→r, snoozed→s.
+func shortStatus(s string) string {
+	switch s {
+	case "open":
+		return "o"
+	case "pending":
+		return "p"
+	case "resolved":
+		return "r"
+	case "snoozed":
+		return "s"
+	default:
+		return s
+	}
+}
+
 // ANSI color codes
 const (
 	colorReset  = "\033[0m"

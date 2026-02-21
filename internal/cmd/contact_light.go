@@ -86,7 +86,7 @@ func extractShoplineID(ca map[string]any, key string) *string {
 func buildLightContactConversation(conv api.Conversation, lastMsg string) lightContactConv {
 	return lightContactConv{
 		ID:      conv.ID,
-		Status:  conv.Status,
+		Status:  shortStatus(conv.Status),
 		InboxID: conv.InboxID,
 		Last:    nullableString(lastMsg),
 	}

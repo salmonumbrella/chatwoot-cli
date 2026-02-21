@@ -693,6 +693,24 @@ func TestNormalizeEnumAmbiguous(t *testing.T) {
 	}
 }
 
+func TestShortStatus(t *testing.T) {
+	tests := []struct {
+		input, want string
+	}{
+		{"open", "o"},
+		{"pending", "p"},
+		{"resolved", "r"},
+		{"snoozed", "s"},
+		{"unknown", "unknown"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := shortStatus(tt.input); got != tt.want {
+			t.Errorf("shortStatus(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestValidateExclusiveStatus(t *testing.T) {
 	tests := []struct {
 		name    string

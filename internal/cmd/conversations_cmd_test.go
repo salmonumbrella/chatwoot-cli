@@ -122,7 +122,7 @@ func TestConversationsListCommand_Light(t *testing.T) {
 		t.Fatalf("expected 1 item, got %d", len(payload.Items))
 	}
 	item := payload.Items[0]
-	if item.ID != 321 || item.Status != "open" || item.InboxID != 48 {
+	if item.ID != 321 || item.Status != "o" || item.InboxID != 48 {
 		t.Fatalf("unexpected light item: %#v", item)
 	}
 	if item.LastMessage != "Need refund status" {
@@ -1089,8 +1089,8 @@ func TestConversationsFilterCommand_Light(t *testing.T) {
 	if len(payload.Items) != 1 {
 		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
 	}
-	if payload.Items[0]["st"] != "open" {
-		t.Fatalf("expected status open, got %#v", payload.Items[0]["st"])
+	if payload.Items[0]["st"] != "o" {
+		t.Fatalf("expected status o, got %#v", payload.Items[0]["st"])
 	}
 	if payload.Items[0]["lm"] != "Still waiting" {
 		t.Fatalf("expected last_message, got %#v", payload.Items[0]["lm"])
@@ -1144,7 +1144,7 @@ func TestConversationsFilterCommand_LightAll(t *testing.T) {
 	if len(payload.Items) != 2 {
 		t.Fatalf("expected 2 conversations from 2 pages, got %d", len(payload.Items))
 	}
-	if payload.Items[0]["st"] != "open" || payload.Items[1]["st"] != "resolved" {
+	if payload.Items[0]["st"] != "o" || payload.Items[1]["st"] != "r" {
 		t.Fatalf("unexpected items: %#v", payload.Items)
 	}
 }

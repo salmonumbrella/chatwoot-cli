@@ -32,7 +32,7 @@ func buildLightConversationContext(conversationID int, ctx *api.ConversationCont
 	}
 
 	if ctx.Conversation != nil {
-		payload.Status = ctx.Conversation.Status
+		payload.Status = shortStatus(ctx.Conversation.Status)
 		payload.InboxID = ctx.Conversation.InboxID
 	}
 

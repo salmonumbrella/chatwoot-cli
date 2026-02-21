@@ -462,8 +462,8 @@ func TestConversationsContextCommand_Light(t *testing.T) {
 	if payload.ID != 123 {
 		t.Fatalf("expected id=123, got %d", payload.ID)
 	}
-	if payload.St != "open" {
-		t.Fatalf("expected st=open, got %q", payload.St)
+	if payload.St != "o" {
+		t.Fatalf("expected st=o, got %q", payload.St)
 	}
 	if payload.Inbox != 48 {
 		t.Fatalf("expected ib=48, got %d", payload.Inbox)
@@ -944,7 +944,7 @@ func TestConversationsSearchCommand_Light(t *testing.T) {
 	if len(payload.Items) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(payload.Items))
 	}
-	if payload.Items[0].Status != "open" || payload.Items[0].InboxID != 48 {
+	if payload.Items[0].Status != "o" || payload.Items[0].InboxID != 48 {
 		t.Fatalf("unexpected payload: %#v", payload.Items[0])
 	}
 	if payload.Items[0].LastMessage != "Refund please" {

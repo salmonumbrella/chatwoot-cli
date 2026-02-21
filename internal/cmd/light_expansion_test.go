@@ -375,7 +375,7 @@ func TestConversationsGetCommand_Light(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &item); err != nil {
 		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
 	}
-	if item.ID != 123 || item.Status != "open" || item.InboxID != 48 || item.UnreadCount != 3 {
+	if item.ID != 123 || item.Status != "o" || item.InboxID != 48 || item.UnreadCount != 3 {
 		t.Fatalf("unexpected light item: %+v", item)
 	}
 	if item.Contact == nil || item.Contact.ID == nil || *item.Contact.ID != 456 {

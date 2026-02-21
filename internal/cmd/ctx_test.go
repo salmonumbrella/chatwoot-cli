@@ -91,7 +91,7 @@ func TestCtxCommand_LightAlias(t *testing.T) {
 		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
 	}
 
-	if payload.ID != 123 || payload.St != "open" || payload.Inbox != 48 {
+	if payload.ID != 123 || payload.St != "o" || payload.Inbox != 48 {
 		t.Fatalf("unexpected light payload header: %#v", payload)
 	}
 	if payload.Contact.ID == nil || *payload.Contact.ID != 456 {
@@ -153,7 +153,7 @@ func TestCtxCommand_LightAlias_MetaSenderFallback(t *testing.T) {
 		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
 	}
 
-	if payload.ID != 789 || payload.St != "pending" || payload.Inbox != 48 {
+	if payload.ID != 789 || payload.St != "p" || payload.Inbox != 48 {
 		t.Fatalf("unexpected light payload header: %#v", payload)
 	}
 	if payload.Contact.ID == nil || *payload.Contact.ID != 32649 {

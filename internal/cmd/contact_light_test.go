@@ -172,8 +172,8 @@ func TestBuildLightContactConversation(t *testing.T) {
 	if result.ID != 8821 {
 		t.Errorf("expected ID 8821, got %d", result.ID)
 	}
-	if result.Status != "open" {
-		t.Errorf("expected status open, got %s", result.Status)
+	if result.Status != "o" {
+		t.Errorf("expected status o, got %s", result.Status)
 	}
 	if result.InboxID != 3 {
 		t.Errorf("expected inbox 3, got %d", result.InboxID)

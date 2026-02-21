@@ -533,7 +533,7 @@ func TestContactsConversationsCommand_Light(t *testing.T) {
 	if len(payload.Items) != 1 {
 		t.Fatalf("expected 1 conversation, got %d", len(payload.Items))
 	}
-	if payload.Items[0].Status != "open" || payload.Items[0].InboxID != 48 {
+	if payload.Items[0].Status != "o" || payload.Items[0].InboxID != 48 {
 		t.Fatalf("unexpected conversation payload: %#v", payload.Items[0])
 	}
 	if payload.Items[0].LastMessage != "Order update?" {

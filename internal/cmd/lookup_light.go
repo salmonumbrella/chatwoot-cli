@@ -73,7 +73,7 @@ func buildLightConversationLookups(conversations []api.Conversation) []lightConv
 func buildLightConversationLookup(conv api.Conversation) lightConversationLookup {
 	item := lightConversationLookup{
 		ID:             conv.ID,
-		Status:         strings.TrimSpace(conv.Status),
+		Status:         shortStatus(strings.TrimSpace(conv.Status)),
 		InboxID:        conv.InboxID,
 		UnreadCount:    conv.Unread,
 		LastActivityAt: conv.LastActivityAt,
@@ -191,7 +191,7 @@ func buildLightSearchPayload(results SearchResults) lightSearchPayload {
 		case "conversation":
 			if r.Conversation != nil {
 				item.ID = r.Conversation.ID
-				item.Status = nullableString(r.Conversation.Status)
+				item.Status = nullableString(shortStatus(r.Conversation.Status))
 				if r.Conversation.InboxID > 0 {
 					inboxID := r.Conversation.InboxID
 					item.InboxID = &inboxID
@@ -256,7 +256,7 @@ type lightConversationGet struct {
 func buildLightConversationGet(conv api.Conversation) lightConversationGet {
 	item := lightConversationGet{
 		ID:             conv.ID,
-		Status:         strings.TrimSpace(conv.Status),
+		Status:         shortStatus(strings.TrimSpace(conv.Status)),
 		InboxID:        conv.InboxID,
 		UnreadCount:    conv.Unread,
 		LastActivityAt: conv.LastActivityAt,
