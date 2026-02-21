@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
@@ -120,6 +122,49 @@ func TestListCommand_JSONOutput(t *testing.T) {
 	}
 	if _, ok := meta["total_items"]; !ok {
 		t.Fatalf("expected meta to contain total_items, got %v", meta)
+	}
+}
+
+func TestListCommand_ForceJSONJSONMode_PreservesLightLiteralQuery(t *testing.T) {
+	cfg := ListConfig[map[string]any]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item map[string]any) []string {
+			return []string{fmt.Sprintf("%v", item["id"]), fmt.Sprintf("%v", item["name"])}
+		},
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[map[string]any], error) {
+			return ListResult[map[string]any]{
+				Items: []map[string]any{
+					{
+						"st":     "o",
+						"status": "should-not-match",
+					},
+				},
+				HasMore: false,
+			}, nil
+		},
+		ForceJSON: func(_ *cobra.Command) bool { return true },
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = outfmt.WithQuery(ctx, ".items[0].st")
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var got string
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("failed to parse JSON output: %v; raw=%q", err, out.String())
+	}
+	if got != "o" {
+		t.Fatalf("expected jq .items[0].st to return light literal short key value \"o\", got %q", got)
 	}
 }
 
@@ -246,6 +291,81 @@ func TestListCommand_JSONLOutput(t *testing.T) {
 	}
 	if item1.ID != 1 {
 		t.Fatalf("expected first item id 1, got %v", item1.ID)
+	}
+}
+
+func TestListCommand_JSONLLightQuery(t *testing.T) {
+	cfg := ListConfig[map[string]any]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ST"},
+		RowFunc: func(item map[string]any) []string { return []string{fmt.Sprintf("%v", item["st"])} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[map[string]any], error) {
+			return ListResult[map[string]any]{
+				Items: []map[string]any{
+					{
+						"st":     "o",
+						"status": "should-not-match",
+					},
+				},
+				HasMore: false,
+			}, nil
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSONL)
+	ctx = outfmt.WithLight(ctx, true)
+	ctx = outfmt.WithQuery(ctx, ".st")
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := strings.TrimSpace(out.String()); got != `"o"` {
+		t.Fatalf("expected jq .st in JSONL light mode to return \"o\", got %q", got)
+	}
+}
+
+func TestListCommand_JSONLLightTemplate(t *testing.T) {
+	cfg := ListConfig[map[string]any]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ST"},
+		RowFunc: func(item map[string]any) []string { return []string{fmt.Sprintf("%v", item["st"])} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[map[string]any], error) {
+			return ListResult[map[string]any]{
+				Items: []map[string]any{
+					{
+						"st":     "o",
+						"status": "should-not-match",
+					},
+				},
+				HasMore: false,
+			}, nil
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSONL)
+	ctx = outfmt.WithLight(ctx, true)
+	ctx = outfmt.WithQuery(ctx, "{st: .st}")
+	ctx = outfmt.WithTemplate(ctx, "{{.st}}")
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := strings.TrimSpace(out.String()); got != "o" {
+		t.Fatalf("expected template {{.st}} in JSONL light mode to render \"o\", got %q", got)
 	}
 }
 

@@ -63,3 +63,18 @@ func TestNoteCommand_WithMention(t *testing.T) {
 		t.Fatalf("expected private true, got %#v", received["private"])
 	}
 }
+
+func TestNoteCommand_ResolveAndPendingExclusive(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 99, "conversation_id": 123, "content": "conflict", "message_type": 1, "private": true}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"note", "123", "conflict", "--resolve", "--pending"})
+	if err == nil {
+		t.Fatal("expected error for --resolve --pending, got nil")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected error containing 'mutually exclusive', got: %v", err)
+	}
+}

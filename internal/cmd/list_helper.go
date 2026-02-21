@@ -63,9 +63,17 @@ type ListConfig[T any] struct {
 	ForceJSON func(cmd *cobra.Command) bool
 }
 
-func writeJSONLItem(w io.Writer, item any, query, tmpl string) error {
+func writeJSONLItem(w io.Writer, item any, query, tmpl string, light bool) error {
 	if query != "" {
-		filtered, err := outfmt.ApplyQuery(item, query)
+		var (
+			filtered any
+			err      error
+		)
+		if light {
+			filtered, err = outfmt.ApplyQueryLiteral(item, query)
+		} else {
+			filtered, err = outfmt.ApplyQuery(item, query)
+		}
 		if err != nil {
 			return err
 		}
@@ -138,11 +146,16 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 
 			ctx := cmd.Context()
 			mode := outfmt.ModeFromContext(ctx)
-			if cfg.ForceJSON != nil && cfg.ForceJSON(cmd) && mode == outfmt.Text {
-				ctx = outfmt.WithMode(ctx, outfmt.JSON)
+			forceJSON := cfg.ForceJSON != nil && cfg.ForceJSON(cmd)
+			if forceJSON {
+				// ForceJSON paths (for example --light) should always preserve literal
+				// short-key jq behavior, even when mode is already JSON.
 				ctx = outfmt.WithLight(ctx, true)
+				if mode == outfmt.Text {
+					ctx = outfmt.WithMode(ctx, outfmt.JSON)
+					mode = outfmt.JSON
+				}
 				cmd.SetContext(ctx)
-				mode = outfmt.JSON
 			}
 
 			client, err := getClient(ctx)
@@ -162,8 +175,9 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				if mode == outfmt.JSONL {
 					query := outfmt.GetQuery(ctx)
 					tmpl := outfmt.GetTemplate(ctx)
+					light := outfmt.IsLight(ctx)
 					for _, item := range result.Items {
-						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl); err != nil {
+						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl, light); err != nil {
 							return err
 						}
 					}
@@ -256,6 +270,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			if mode == outfmt.JSONL {
 				query := outfmt.GetQuery(ctx)
 				tmpl := outfmt.GetTemplate(ctx)
+				light := outfmt.IsLight(ctx)
 				currentPage := page
 				pagesFetched := 0
 				totalItems := 0
@@ -273,7 +288,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						break
 					}
 					for _, item := range result.Items {
-						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl); err != nil {
+						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl, light); err != nil {
 							return err
 						}
 						totalItems++

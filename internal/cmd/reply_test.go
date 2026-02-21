@@ -816,3 +816,20 @@ func TestReplyCommand_Pending(t *testing.T) {
 		t.Fatalf("expected pending true, got %#v", result["pending"])
 	}
 }
+
+func TestReplyCommand_ResolveAndPendingExclusive(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"id": 100, "conversation_id": 123, "content": "conflict", "message_type": 1, "created_at": 1700000000
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{"reply", "--conversation-id", "123", "--content", "conflict", "--resolve", "--pending"})
+	if err == nil {
+		t.Fatal("expected error for --resolve --pending, got nil")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected error containing 'mutually exclusive', got: %v", err)
+	}
+}
