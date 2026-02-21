@@ -156,12 +156,22 @@ func printRawJSON(cmd *cobra.Command, v any) error {
 	ioStreams := iocontext.GetIO(cmd.Context())
 	query := outfmt.GetQuery(cmd.Context())
 	compact := outfmt.IsCompact(cmd.Context())
+	light := outfmt.IsLight(cmd.Context())
 	if tmpl := outfmt.GetTemplate(cmd.Context()); tmpl != "" {
-		filtered, err := outfmt.ApplyQuery(v, query)
+		var filtered any
+		var err error
+		if light {
+			filtered, err = outfmt.ApplyQueryLiteral(v, query)
+		} else {
+			filtered, err = outfmt.ApplyQuery(v, query)
+		}
 		if err != nil {
 			return err
 		}
 		return outfmt.WriteTemplate(ioStreams.Out, filtered, tmpl)
+	}
+	if light {
+		return outfmt.WriteJSONFilteredLiteral(ioStreams.Out, v, query, compact)
 	}
 	return outfmt.WriteJSONFiltered(ioStreams.Out, v, query, compact)
 }
