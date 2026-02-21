@@ -29,12 +29,22 @@ func NewFormatter(ctx context.Context, out, errOut io.Writer) *Formatter {
 func (f *Formatter) Output(data any) error {
 	if IsJSON(f.ctx) {
 		query := GetQuery(f.ctx)
+		light := IsLight(f.ctx)
 		if tmpl := GetTemplate(f.ctx); tmpl != "" {
-			filtered, err := ApplyQuery(data, query)
+			var filtered any
+			var err error
+			if light {
+				filtered, err = ApplyQueryLiteral(data, query)
+			} else {
+				filtered, err = ApplyQuery(data, query)
+			}
 			if err != nil {
 				return err
 			}
 			return WriteTemplate(f.out, filtered, tmpl)
+		}
+		if light {
+			return WriteJSONFilteredLiteral(f.out, data, query, IsCompact(f.ctx))
 		}
 		return WriteJSONFiltered(f.out, data, query, IsCompact(f.ctx))
 	}
