@@ -24,6 +24,7 @@ const (
 type (
 	contextKey struct{}
 	compactKey struct{}
+	lightKey   struct{}
 )
 
 // Parse parses an output mode string
@@ -80,6 +81,20 @@ func WithCompact(ctx context.Context, compact bool) context.Context {
 func IsCompact(ctx context.Context) bool {
 	if c, ok := ctx.Value(compactKey{}).(bool); ok {
 		return c
+	}
+	return false
+}
+
+// WithLight marks the context as producing light mode output.
+// When set, jq query alias expansion is skipped to preserve short JSON keys.
+func WithLight(ctx context.Context, light bool) context.Context {
+	return context.WithValue(ctx, lightKey{}, light)
+}
+
+// IsLight returns true if light mode output is active in the context.
+func IsLight(ctx context.Context) bool {
+	if l, ok := ctx.Value(lightKey{}).(bool); ok {
+		return l
 	}
 	return false
 }
