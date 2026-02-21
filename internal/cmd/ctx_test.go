@@ -194,7 +194,7 @@ func TestCtxCommand_LightAlias_WithQueryAliases(t *testing.T) {
 	output := captureStdout(t, func() {
 		err := Execute(context.Background(), []string{
 			"ctx", "123", "--li", "--cj",
-			"--jq", `{id: .id, st: .["st"], ib: .["ib"], ct: .["ct"], ls: .msgs[-1]}`,
+			"--jq", `{id: .id, st: .st, ib: .ib, ct: .ct, ls: .msgs[-1]}`,
 		})
 		if err != nil {
 			t.Fatalf("ctx --li with query aliases failed: %v", err)
