@@ -27,7 +27,9 @@ func newIntegrationsCmd() *cobra.Command {
 }
 
 func newIntegrationsAppsCmd() *cobra.Command {
-	return &cobra.Command{
+	var light bool
+
+	cmd := &cobra.Command{
 		Use:     "apps",
 		Short:   "List available integration apps",
 		Example: "cw integrations apps",
@@ -40,6 +42,10 @@ func newIntegrationsAppsCmd() *cobra.Command {
 			apps, err := client.Integrations().ListApps(cmdContext(cmd))
 			if err != nil {
 				return err
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightIntegrations(apps))
 			}
 
 			if isJSON(cmd) {
@@ -59,6 +65,11 @@ func newIntegrationsAppsCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal integration payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
+
+	return cmd
 }
 
 func newIntegrationsHooksCmd() *cobra.Command {

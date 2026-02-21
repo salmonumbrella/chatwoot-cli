@@ -64,6 +64,7 @@ func newConversationsGetCmd() *cobra.Command {
 	var suggestedActions bool
 	var explain bool
 	var emit string
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "get <id>",
@@ -127,6 +128,10 @@ func newConversationsGetCmd() *cobra.Command {
 			conv, err := client.Conversations().Get(ctx, id)
 			if err != nil {
 				return fmt.Errorf("failed to get conversation %d: %w", id, err)
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightConversationGet(*conv))
 			}
 
 			// Keep agent-mode behavior intact (context enrichment, suggested actions, etc.).
@@ -294,6 +299,8 @@ func newConversationsGetCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "message-limit", "ml")
 	flagAlias(cmd.Flags(), "suggested-actions", "sa")
 	flagAlias(cmd.Flags(), "explain", "exp")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},

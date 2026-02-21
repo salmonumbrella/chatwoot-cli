@@ -240,3 +240,214 @@ func buildLightSearchPayload(results SearchResults) lightSearchPayload {
 	}
 	return payload
 }
+
+// lightConversationGet is a compact conversation detail for agent reads.
+type lightConversationGet struct {
+	ID             int                 `json:"id"`
+	Status         string              `json:"st"`
+	InboxID        int                 `json:"inbox"`
+	UnreadCount    int                 `json:"unread"`
+	LastActivityAt int64               `json:"last_at,omitempty"`
+	Contact        *lightLookupContact `json:"contact,omitempty"`
+	Assignee       *lightLookupContact `json:"assignee,omitempty"`
+	LastMessage    *string             `json:"last_msg,omitempty"`
+}
+
+func buildLightConversationGet(conv api.Conversation) lightConversationGet {
+	item := lightConversationGet{
+		ID:             conv.ID,
+		Status:         strings.TrimSpace(conv.Status),
+		InboxID:        conv.InboxID,
+		UnreadCount:    conv.Unread,
+		LastActivityAt: conv.LastActivityAt,
+	}
+	item.Contact = extractLightLookupContact(conv)
+	if conv.Meta != nil {
+		if assignee, ok := conv.Meta["assignee"].(map[string]any); ok {
+			var a lightLookupContact
+			if id, ok := senderInt(assignee["id"]); ok && id > 0 {
+				a.ID = nullableInt(id)
+			}
+			if name, ok := assignee["name"].(string); ok {
+				a.Name = nullableString(name)
+			}
+			if a.ID != nil || a.Name != nil {
+				item.Assignee = &a
+			}
+		}
+	}
+	item.LastMessage = nullableString(extractLastNonActivityMessage(conv))
+	return item
+}
+
+// lightInbox is a compact inbox summary.
+type lightInbox struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	ChannelType string `json:"ch"`
+}
+
+func buildLightInboxes(inboxes []api.Inbox) []lightInbox {
+	if len(inboxes) == 0 {
+		return []lightInbox{}
+	}
+	out := make([]lightInbox, 0, len(inboxes))
+	for _, inbox := range inboxes {
+		out = append(out, lightInbox{
+			ID:          inbox.ID,
+			Name:        inbox.Name,
+			ChannelType: inbox.ChannelType,
+		})
+	}
+	return out
+}
+
+// lightAgent is a compact agent summary.
+type lightAgent struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Avail string `json:"avail"`
+}
+
+func buildLightAgents(agents []api.Agent) []lightAgent {
+	if len(agents) == 0 {
+		return []lightAgent{}
+	}
+	out := make([]lightAgent, 0, len(agents))
+	for _, agent := range agents {
+		out = append(out, lightAgent{
+			ID:    agent.ID,
+			Name:  agent.Name,
+			Avail: agent.AvailabilityStatus,
+		})
+	}
+	return out
+}
+
+// lightTeam is a compact team summary.
+type lightTeam struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+func buildLightTeams(teams []api.Team) []lightTeam {
+	if len(teams) == 0 {
+		return []lightTeam{}
+	}
+	out := make([]lightTeam, 0, len(teams))
+	for _, team := range teams {
+		out = append(out, lightTeam{
+			ID:   team.ID,
+			Name: team.Name,
+		})
+	}
+	return out
+}
+
+// lightLabel is a compact label summary.
+type lightLabel struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+}
+
+func buildLightLabels(labels []api.Label) []lightLabel {
+	if len(labels) == 0 {
+		return []lightLabel{}
+	}
+	out := make([]lightLabel, 0, len(labels))
+	for _, label := range labels {
+		out = append(out, lightLabel{
+			ID:    label.ID,
+			Title: label.Title,
+		})
+	}
+	return out
+}
+
+// lightCannedResponse is a compact canned response summary.
+type lightCannedResponse struct {
+	ID   int    `json:"id"`
+	Code string `json:"code"`
+}
+
+func buildLightCannedResponses(responses []api.CannedResponse) []lightCannedResponse {
+	if len(responses) == 0 {
+		return []lightCannedResponse{}
+	}
+	out := make([]lightCannedResponse, 0, len(responses))
+	for _, r := range responses {
+		out = append(out, lightCannedResponse{
+			ID:   r.ID,
+			Code: r.ShortCode,
+		})
+	}
+	return out
+}
+
+// lightAutomationRule is a compact automation rule summary.
+type lightAutomationRule struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Event  string `json:"event"`
+	Active bool   `json:"active"`
+}
+
+func buildLightAutomationRules(rules []api.AutomationRule) []lightAutomationRule {
+	if len(rules) == 0 {
+		return []lightAutomationRule{}
+	}
+	out := make([]lightAutomationRule, 0, len(rules))
+	for _, r := range rules {
+		out = append(out, lightAutomationRule{
+			ID:     r.ID,
+			Name:   r.Name,
+			Event:  r.EventName,
+			Active: r.Active,
+		})
+	}
+	return out
+}
+
+// lightIntegration is a compact integration app summary.
+type lightIntegration struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+}
+
+func buildLightIntegrations(apps []api.Integration) []lightIntegration {
+	if len(apps) == 0 {
+		return []lightIntegration{}
+	}
+	out := make([]lightIntegration, 0, len(apps))
+	for _, app := range apps {
+		out = append(out, lightIntegration{
+			ID:      app.ID,
+			Name:    app.Name,
+			Enabled: app.Enabled,
+		})
+	}
+	return out
+}
+
+// lightCustomFilter is a compact custom filter summary.
+type lightCustomFilter struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+func buildLightCustomFilters(filters []api.CustomFilter) []lightCustomFilter {
+	if len(filters) == 0 {
+		return []lightCustomFilter{}
+	}
+	out := make([]lightCustomFilter, 0, len(filters))
+	for _, f := range filters {
+		out = append(out, lightCustomFilter{
+			ID:   f.ID,
+			Name: f.Name,
+			Type: f.FilterType,
+		})
+	}
+	return out
+}

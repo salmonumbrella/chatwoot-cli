@@ -28,6 +28,8 @@ func newLabelsCmd() *cobra.Command {
 }
 
 func newLabelsListCmd() *cobra.Command {
+	var light bool
+
 	cfg := ListConfig[api.Label]{
 		Use:               "list",
 		Short:             "List all labels",
@@ -41,6 +43,21 @@ func newLabelsListCmd() *cobra.Command {
   # JSON output
   cw labels list -o json
 `),
+		AgentTransform: func(_ context.Context, _ *api.Client, items []api.Label) (any, error) {
+			if light {
+				return buildLightLabels(items), nil
+			}
+			return nil, nil
+		},
+		JSONTransform: func(_ context.Context, _ *api.Client, items []api.Label) (any, error) {
+			if !light {
+				return items, nil
+			}
+			return buildLightLabels(items), nil
+		},
+		ForceJSON: func(_ *cobra.Command) bool {
+			return light
+		},
 		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Label], error) {
 			labels, err := client.Labels().List(ctx)
 			if err != nil {
@@ -67,6 +84,9 @@ func newLabelsListCmd() *cobra.Command {
 		return getClient()
 	})
 	cmd.Aliases = []string{"ls"}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal label payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "title"},

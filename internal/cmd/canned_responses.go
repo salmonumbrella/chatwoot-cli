@@ -27,6 +27,8 @@ func newCannedResponsesCmd() *cobra.Command {
 }
 
 func newCannedResponsesListCmd() *cobra.Command {
+	var light bool
+
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -40,6 +42,10 @@ func newCannedResponsesListCmd() *cobra.Command {
 			responses, err := client.CannedResponses().List(cmdContext(cmd))
 			if err != nil {
 				return fmt.Errorf("failed to list canned responses: %w", err)
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightCannedResponses(responses))
 			}
 
 			if isJSON(cmd) {
@@ -60,6 +66,9 @@ func newCannedResponsesListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal canned response payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "short_code"},

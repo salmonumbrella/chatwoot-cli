@@ -38,6 +38,8 @@ func newInboxesCmd() *cobra.Command {
 }
 
 func newInboxesListCmd() *cobra.Command {
+	var light bool
+
 	cfg := ListConfig[api.Inbox]{
 		Use:     "list",
 		Short:   "List all inboxes",
@@ -51,6 +53,21 @@ func newInboxesListCmd() *cobra.Command {
 			}
 		},
 		EmptyMessage: "No inboxes found",
+		AgentTransform: func(_ context.Context, _ *api.Client, items []api.Inbox) (any, error) {
+			if light {
+				return buildLightInboxes(items), nil
+			}
+			return nil, nil
+		},
+		JSONTransform: func(_ context.Context, _ *api.Client, items []api.Inbox) (any, error) {
+			if !light {
+				return items, nil
+			}
+			return buildLightInboxes(items), nil
+		},
+		ForceJSON: func(_ *cobra.Command) bool {
+			return light
+		},
 		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[api.Inbox], error) {
 			inboxes, err := client.Inboxes().List(ctx)
 			if err != nil {
@@ -64,6 +81,9 @@ func newInboxesListCmd() *cobra.Command {
 		return getClient()
 	})
 	cmd.Aliases = []string{"ls"}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal inbox payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "channel_type"},

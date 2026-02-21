@@ -41,7 +41,10 @@ func newCustomFiltersCmd() *cobra.Command {
 }
 
 func newCustomFiltersListCmd() *cobra.Command {
-	var filterType string
+	var (
+		filterType string
+		light      bool
+	)
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -56,6 +59,10 @@ func newCustomFiltersListCmd() *cobra.Command {
 			filters, err := client.CustomFilters().List(cmdContext(cmd), filterType)
 			if err != nil {
 				return err
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightCustomFilters(filters))
 			}
 
 			if isJSON(cmd) {
@@ -87,6 +94,8 @@ func newCustomFiltersListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by type: conversation or contact")
 	flagAlias(cmd.Flags(), "type", "ty")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal custom filter payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "filter_type"},

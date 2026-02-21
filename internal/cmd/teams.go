@@ -29,11 +29,28 @@ func newTeamsCmd() *cobra.Command {
 }
 
 func newTeamsListCmd() *cobra.Command {
+	var light bool
+
 	cfg := ListConfig[api.Team]{
 		Use:               "list",
 		Short:             "List all teams",
 		DisablePagination: true,
 		EmptyMessage:      "No teams found",
+		AgentTransform: func(_ context.Context, _ *api.Client, items []api.Team) (any, error) {
+			if light {
+				return buildLightTeams(items), nil
+			}
+			return nil, nil
+		},
+		JSONTransform: func(_ context.Context, _ *api.Client, items []api.Team) (any, error) {
+			if !light {
+				return items, nil
+			}
+			return buildLightTeams(items), nil
+		},
+		ForceJSON: func(_ *cobra.Command) bool {
+			return light
+		},
 		Fetch: func(ctx context.Context, client *api.Client, _ int, _ int) (ListResult[api.Team], error) {
 			teams, err := client.Teams().List(ctx)
 			if err != nil {
@@ -60,6 +77,9 @@ func newTeamsListCmd() *cobra.Command {
 		return getClient()
 	})
 	cmd.Aliases = []string{"ls"}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal team payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name"},

@@ -26,6 +26,8 @@ func newAutomationRulesCmd() *cobra.Command {
 }
 
 func newAutomationRulesListCmd() *cobra.Command {
+	var light bool
+
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -39,6 +41,10 @@ func newAutomationRulesListCmd() *cobra.Command {
 			rules, err := client.AutomationRules().List(cmdContext(cmd))
 			if err != nil {
 				return err
+			}
+
+			if light {
+				return printRawJSON(cmd, buildLightAutomationRules(rules))
 			}
 
 			if isJSON(cmd) {
@@ -63,6 +69,9 @@ func newAutomationRulesListCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal automation rule payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "event_name"},

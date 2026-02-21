@@ -134,7 +134,7 @@ Common flags:
   -p            Set pending after action (on cmt, n, r)  ⎬ mutually exclusive
   --snooze-for  Snooze after action (on cmt, n, r)  ⎭
   -C CONTACT    Contact ID
-  --li          Light mode: minimal payload (on c ls, co g, m ls, s, ct)
+  --li          Light mode: minimal payload (on c ls/g, co g/ls/cv, c f/q/ct, m ls, s, in ls, a ls, t ls, l ls, cr ls, ar ls, ig apps, cf ls)
   --dr          Preview without executing
   -y / --yes    Skip confirmations
 
