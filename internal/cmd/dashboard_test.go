@@ -1792,6 +1792,109 @@ func TestCompactDashboardResult_MissingDateField(t *testing.T) {
 	}
 }
 
+func TestDashboardCommand_Light(t *testing.T) {
+	// --light should return compact output with at most 3 items
+	chatwootHandler := newRouteHandler()
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{
+			"customer_info": {
+				"customer_name": "Test User",
+				"membership_tier_name": "Gold",
+				"total_spend": 50000
+			},
+			"items": [
+				{"number": "ORD-001", "shopline_created_at": "2026-01-10T10:00:00Z", "order_total": 1000, "order_status": "completed", "payment_status": "paid", "delivery_status": "delivered", "total_items_count": 2, "uuid": "aaa"},
+				{"number": "ORD-002", "shopline_created_at": "2026-01-15T10:00:00Z", "order_total": 2000, "order_status": "completed", "payment_status": "paid", "delivery_status": "delivered", "total_items_count": 1, "uuid": "bbb"},
+				{"number": "ORD-003", "shopline_created_at": "2026-01-20T10:00:00Z", "order_total": 3000, "order_status": "pending", "payment_status": "unpaid", "delivery_status": "unfulfilled", "total_items_count": 4, "uuid": "ccc"},
+				{"number": "ORD-004", "shopline_created_at": "2026-02-01T10:00:00Z", "order_total": 4000, "order_status": "completed", "payment_status": "paid", "delivery_status": "delivered", "total_items_count": 1, "uuid": "ddd"},
+				{"number": "ORD-005", "shopline_created_at": "2026-02-10T10:00:00Z", "order_total": 5000, "order_status": "completed", "payment_status": "paid", "delivery_status": "delivered", "total_items_count": 3, "uuid": "eee"}
+			],
+			"pagination": {"page": 1, "total_pages": 1, "total_records": 5}
+		}`))
+	})
+
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"dashboard", "orders", "--contact", "123", "--no-resolve", "--light",
+		})
+		if err != nil {
+			t.Fatalf("dashboard --light failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
+	}
+
+	// Should have tier from compact transform
+	if result["tier"] != "Gold" {
+		t.Errorf("tier = %v, want Gold", result["tier"])
+	}
+
+	// Should have at most 3 items
+	items, ok := result["items"].([]any)
+	if !ok {
+		t.Fatalf("expected items array, got %T", result["items"])
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items (capped), got %d", len(items))
+	}
+
+	// First item should be compact (have "number" not "uuid")
+	order := items[0].(map[string]any)
+	if order["number"] != "ORD-001" {
+		t.Errorf("first order number = %v, want ORD-001", order["number"])
+	}
+	if _, exists := order["uuid"]; exists {
+		t.Error("light output should not contain uuid")
+	}
+	if _, exists := order["customer_email"]; exists {
+		t.Error("light output should not contain customer_email")
+	}
+}
+
+func TestDashboardCommand_LightFewItems(t *testing.T) {
+	// --light with fewer than 3 items should return all of them
+	chatwootHandler := newRouteHandler()
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{
+			"customer_info": {"membership_tier_name": "Silver"},
+			"items": [
+				{"number": "ORD-001", "order_total": 1000, "order_status": "completed"}
+			],
+			"pagination": {"page": 1, "total_pages": 1}
+		}`))
+	})
+
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"dashboard", "orders", "--contact", "123", "--no-resolve", "--li",
+		})
+		if err != nil {
+			t.Fatalf("dashboard --li failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
+	}
+
+	items := result["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+}
+
 func TestDashboardCommand_AgentModeSlicing(t *testing.T) {
 	// The exact command from the bug report: cw dash ods --cv CONV_ID --jq '[.it[-3:] | .[] | {n: .number, ot}]'
 	chatwootHandler := newRouteHandler()

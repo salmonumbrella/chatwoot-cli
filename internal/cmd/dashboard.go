@@ -23,6 +23,7 @@ func newDashboardCmd() *cobra.Command {
 	var noResolveWarning bool
 	var resolveWarning string
 	var compact bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "dashboard <name>",
@@ -129,6 +130,14 @@ Run 'cw config dashboard list' to see available dashboards.`,
 				return fmt.Errorf("dashboard query failed: %w", err)
 			}
 
+			if light {
+				compacted := compactDashboardResult(result)
+				if items, ok := compacted["items"].([]any); ok && len(items) > 3 {
+					compacted["items"] = items[:3]
+				}
+				return printRawJSON(cmd, compacted)
+			}
+
 			if isJSON(cmd) {
 				if resolveWarning != "" {
 					addDashboardWarning(result, resolveWarning)
@@ -166,6 +175,8 @@ Run 'cw config dashboard list' to see available dashboards.`,
 	flagAlias(cmd.Flags(), "page", "pg")
 	flagAlias(cmd.Flags(), "compact", "brief")
 	flagAlias(cmd.Flags(), "compact", "summary")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact summary with only the 3 most recent orders")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
