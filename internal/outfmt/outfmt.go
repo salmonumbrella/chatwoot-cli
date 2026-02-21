@@ -21,8 +21,10 @@ const (
 	Agent
 )
 
-type contextKey struct{}
-type compactKey struct{}
+type (
+	contextKey struct{}
+	compactKey struct{}
+)
 
 // Parse parses an output mode string
 func Parse(s string) (Mode, error) {

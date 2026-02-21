@@ -6,10 +6,11 @@ pre-commit:
   commands:
     fmt:
       glob: "*.go"
-      run: "test -z \"$(gofumpt -l {staged_files})\" || { gofumpt -d {staged_files}; exit 1; }"
+      run: gofumpt -w {staged_files}
+      stage_fixed: true
     lint:
       glob: "*.go"
-      run: golangci-lint run --new-from-rev=HEAD --timeout 2m {staged_files}
+      run: golangci-lint run --new-from-rev=HEAD --timeout 2m
     build:
       glob: "*.go"
       run: go build ./...

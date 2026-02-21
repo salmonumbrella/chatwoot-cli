@@ -130,7 +130,7 @@ func GenerateWorkspaceSkill(ctx context.Context, client *api.Client, accountName
 	}
 
 	skillDir := filepath.Join(homeDir, ".claude", "skills", "chatwoot-workspace")
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create skill directory: %w", err)
 	}
 

@@ -523,7 +523,6 @@ func TestRunE_ReturnsNilOnSuccess(t *testing.T) {
 	cmd.SetContext(context.Background())
 	wrapped := RunE(inner)
 	err := wrapped(cmd, nil)
-
 	if err != nil {
 		t.Errorf("RunE wrapper should return nil on success, got: %v", err)
 	}

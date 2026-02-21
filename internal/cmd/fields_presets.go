@@ -11,8 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const fieldsPresetsAnnotation = "chatwoot.fields.presets"
-const fieldsSchemaAnnotation = "chatwoot.fields.schema"
+const (
+	fieldsPresetsAnnotation = "chatwoot.fields.presets"
+	fieldsSchemaAnnotation  = "chatwoot.fields.schema"
+)
 
 func registerFieldPresets(cmd *cobra.Command, presets map[string][]string) {
 	if cmd == nil || len(presets) == 0 {

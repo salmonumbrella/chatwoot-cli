@@ -124,7 +124,6 @@ func TestListCustomAttributes(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().List(context.Background(), "")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -166,7 +165,6 @@ func TestListCustomAttributes_FilterByContact(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().List(context.Background(), "contact")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -198,7 +196,6 @@ func TestListCustomAttributes_FilterByConversation(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().List(context.Background(), "conversation")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -220,7 +217,6 @@ func TestListCustomAttributes_Empty(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().List(context.Background(), "")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -271,7 +267,6 @@ func TestGetCustomAttribute(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().Get(context.Background(), 1)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -352,7 +347,6 @@ func TestCreateCustomAttribute_Contact(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().Create(context.Background(), "Company Size", "company_size", "contact", "text")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -399,7 +393,6 @@ func TestCreateCustomAttribute_Conversation(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().Create(context.Background(), "Priority", "priority", "conversation", "list")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -442,7 +435,6 @@ func TestUpdateCustomAttribute(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CustomAttributes().Update(context.Background(), 1, "Updated Company Size")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -493,7 +485,6 @@ func TestDeleteCustomAttribute(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	err := client.CustomAttributes().Delete(context.Background(), 1)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

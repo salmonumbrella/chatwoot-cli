@@ -524,7 +524,6 @@ Social profiles are set via repeatable --social/-S flags with platform=url forma
   cw contacts update 123 -S twitter=https://twitter.com/acme -S linkedin=https://linkedin.com/company/acme`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-
 			if name == "" && email == "" && phone == "" && company == "" && country == "" && len(customAttrs) == 0 && len(social) == 0 {
 				return fmt.Errorf("at least one of --name, --email, --phone, --company, --country, --custom-attr, or --social must be provided")
 			}

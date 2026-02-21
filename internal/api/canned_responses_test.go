@@ -28,7 +28,6 @@ func TestListCannedResponses(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CannedResponses().List(context.Background())
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -56,7 +55,6 @@ func TestListCannedResponses_Empty(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CannedResponses().List(context.Background())
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -78,7 +76,6 @@ func TestGetCannedResponse(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CannedResponses().Get(context.Background(), 2)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -145,7 +142,6 @@ func TestCreateCannedResponse(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CannedResponses().Create(context.Background(), "test", "Test content")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -188,7 +184,6 @@ func TestUpdateCannedResponse(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.CannedResponses().Update(context.Background(), 1, "updated", "Updated content")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -217,7 +212,6 @@ func TestDeleteCannedResponse(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	err := client.CannedResponses().Delete(context.Background(), 1)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

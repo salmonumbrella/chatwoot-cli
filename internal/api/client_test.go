@@ -154,7 +154,6 @@ func TestPost(t *testing.T) {
 	client := newTestClient(server.URL, "test-token", 1)
 	var result map[string]int
 	err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, &result)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -575,7 +574,6 @@ func TestPatch(t *testing.T) {
 	client := newTestClient(server.URL, "test-token", 1)
 	var result map[string]any
 	err := client.Patch(context.Background(), "/test", map[string]string{"key": "value"}, &result)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -646,7 +644,6 @@ func TestDeleteWithBody(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	err := client.DeleteWithBody(context.Background(), "/test", map[string]string{"reason": "test"})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -855,7 +852,6 @@ func TestDoWithNilBody(t *testing.T) {
 	client := newTestClient(server.URL, "test-token", 1)
 	var result map[string]int
 	err := client.Get(context.Background(), "/test", &result)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -871,7 +867,6 @@ func TestDoWithNilResult(t *testing.T) {
 	client := newTestClient(server.URL, "test-token", 1)
 	// Pass nil result - should not error
 	err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, nil)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -887,7 +882,6 @@ func TestDoWithEmptyResponse(t *testing.T) {
 	client := newTestClient(server.URL, "test-token", 1)
 	var result map[string]any
 	err := client.Post(context.Background(), "/test", map[string]string{"key": "value"}, &result)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

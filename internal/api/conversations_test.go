@@ -1496,7 +1496,6 @@ func TestAddConversationLabels(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Conversations().AddLabels(context.Background(), 123, []string{"new-label", "another"})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

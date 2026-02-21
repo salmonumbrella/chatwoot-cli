@@ -276,7 +276,6 @@ func TestCustomAttributesCreateCommand_WithKey(t *testing.T) {
 		"--model", "contact",
 		"--type", "text",
 	})
-
 	if err != nil {
 		t.Errorf("custom-attributes create failed: %v", err)
 	}

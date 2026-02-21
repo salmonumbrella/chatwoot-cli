@@ -54,7 +54,6 @@ func TestFindMentions(t *testing.T) {
 		UserID: 42,
 		Limit:  50,
 	})
-
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -125,7 +124,6 @@ func TestFindMentions_WithConversationID(t *testing.T) {
 		ConversationID: 123,
 		Limit:          50,
 	})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -185,7 +183,6 @@ func TestFindMentions_WithSinceFilter(t *testing.T) {
 		Since:  &sinceTime,
 		Limit:  50,
 	})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -233,7 +230,6 @@ func TestFindMentions_Limit(t *testing.T) {
 		UserID: 42,
 		Limit:  2, // Only want 2 mentions
 	})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -267,7 +263,6 @@ func TestFindMentions_DefaultLimit(t *testing.T) {
 		UserID: 42,
 		Limit:  0, // Zero limit should default to 50
 	})
-
 	if err != nil {
 		t.Errorf("Unexpected error with zero limit: %v", err)
 	}
@@ -311,7 +306,6 @@ func TestFindMentions_IgnoresNonPrivateMessages(t *testing.T) {
 		UserID: 42,
 		Limit:  50,
 	})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -379,7 +373,6 @@ func TestFindMentions_UnknownSender(t *testing.T) {
 		UserID: 42,
 		Limit:  50,
 	})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

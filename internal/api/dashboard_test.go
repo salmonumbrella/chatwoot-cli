@@ -59,7 +59,6 @@ func TestDashboardClient_Query(t *testing.T) {
 		Page:      1,
 		PerPage:   50,
 	})
-
 	if err != nil {
 		t.Fatalf("Query failed: %v", err)
 	}
@@ -123,7 +122,6 @@ func TestDashboardClient_QueryResponseAtLimit(t *testing.T) {
 
 	client := NewDashboardClient(server.URL, "test@example.com")
 	resp, err := client.Query(context.Background(), DashboardRequest{ContactID: 123})
-
 	if err != nil {
 		t.Fatalf("Unexpected error for valid response: %v", err)
 	}

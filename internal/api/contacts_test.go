@@ -167,7 +167,6 @@ func TestCreateContact(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Contacts().Create(context.Background(), "New Contact", "new@example.com", "")
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -196,7 +195,6 @@ func TestSearchContacts(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Contacts().Search(context.Background(), "john", 1)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

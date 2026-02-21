@@ -364,7 +364,6 @@ func TestGetConversationContextWithImageEmbedding(t *testing.T) {
 
 	client := newTestClient(apiServer.URL, "test-token", 1)
 	result, err := client.GetConversationContext(context.Background(), 123, true)
-
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

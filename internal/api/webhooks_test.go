@@ -32,7 +32,6 @@ func TestListWebhooks(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Webhooks().List(context.Background())
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -64,7 +63,6 @@ func TestListWebhooksEmpty(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Webhooks().List(context.Background())
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -94,7 +92,6 @@ func TestGetWebhook(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Webhooks().Get(context.Background(), 2)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -173,7 +170,6 @@ func TestCreateWebhook(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Webhooks().Create(context.Background(), "https://example.com/webhook", []string{"message_created", "conversation_created"})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -220,7 +216,6 @@ func TestUpdateWebhook(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Webhooks().Update(context.Background(), 1, "https://example.com/updated", []string{"message_created"})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -259,7 +254,6 @@ func TestUpdateWebhookPartial(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	result, err := client.Webhooks().Update(context.Background(), 1, "", []string{"conversation_created"})
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -285,7 +279,6 @@ func TestDeleteWebhook(t *testing.T) {
 
 	client := newTestClient(server.URL, "test-token", 1)
 	err := client.Webhooks().Delete(context.Background(), 1)
-
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

@@ -9,9 +9,11 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/cmd"
 )
 
-var executeCmd = cmd.Execute
-var mapExitCode = cmd.ExitCode
-var terminate = os.Exit
+var (
+	executeCmd  = cmd.Execute
+	mapExitCode = cmd.ExitCode
+	terminate   = os.Exit
+)
 
 func run(args []string) int {
 	ctx := context.Background()

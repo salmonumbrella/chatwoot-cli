@@ -280,7 +280,6 @@ func TestWebhooksCreateCommand_MultipleSubscriptions(t *testing.T) {
 		"--url", "https://example.com/webhook",
 		"--subscriptions", "message_created,conversation_created",
 	})
-
 	if err != nil {
 		t.Errorf("webhooks create failed: %v", err)
 	}
@@ -510,7 +509,6 @@ func TestWebhooksUpdateCommand_Subscriptions(t *testing.T) {
 		"webhooks", "update", "123",
 		"--subscriptions", "conversation_created",
 	})
-
 	if err != nil {
 		t.Errorf("webhooks update failed: %v", err)
 	}

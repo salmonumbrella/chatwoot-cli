@@ -98,11 +98,13 @@ var entries = []Entry{
 	{Alias: "tc", Canonical: "total_count"},
 }
 
-var aliasToCanonical = buildAliasToCanonical(entries)
-var functionAliasToCanonical = map[string]string{
-	"sl": "select",
-	"ts": "test",
-}
+var (
+	aliasToCanonical         = buildAliasToCanonical(entries)
+	functionAliasToCanonical = map[string]string{
+		"sl": "select",
+		"ts": "test",
+	}
+)
 
 func init() {
 	if err := validateEntries(entries); err != nil {
