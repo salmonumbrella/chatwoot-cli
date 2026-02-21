@@ -590,6 +590,7 @@ type ReplyResult struct {
 	Contact        *TriageContact `json:"contact,omitempty"`
 	MessageID      int            `json:"message_id,omitempty"`
 	Resolved       bool           `json:"resolved,omitempty"`
+	Pending        bool           `json:"pending,omitempty"`
 
 	// For disambiguation
 	Type    string `json:"type,omitempty"` // "multiple_contacts" | "multiple_conversations"

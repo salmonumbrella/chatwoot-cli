@@ -18,6 +18,7 @@ type replySideEffects struct {
 	labels    []string
 	priority  string
 	snoozeFor string
+	pending   bool
 }
 
 // newReplyCmd creates the reply command for one-shot messaging by contact search
@@ -25,6 +26,7 @@ func newReplyCmd() *cobra.Command {
 	var (
 		content        string
 		resolve        bool
+		pending        bool
 		contactID      int
 		conversationID int
 		private        bool
@@ -71,6 +73,9 @@ If multiple open conversations exist for the contact, disambiguation is required
 			}
 
 			// Validate side-effect flags before sending so we fail fast.
+			if err := validateExclusiveStatus(resolve, pending, snoozeFor); err != nil {
+				return err
+			}
 			var err error
 			if priority != "" {
 				if priority, err = validatePriority(priority); err != nil {
@@ -83,7 +88,7 @@ If multiple open conversations exist for the contact, disambiguation is required
 				}
 			}
 
-			se := replySideEffects{labels: labels, priority: priority, snoozeFor: snoozeFor}
+			se := replySideEffects{labels: labels, priority: priority, snoozeFor: snoozeFor, pending: pending}
 
 			// Determine the mode: direct conversation, contact ID, or search
 			if conversationID == 0 && contactID == 0 && len(args) == 0 {
@@ -154,6 +159,7 @@ If multiple open conversations exist for the contact, disambiguation is required
 
 	cmd.Flags().StringVarP(&content, "content", "c", "", "Message content (required)")
 	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after replying")
+	cmd.Flags().BoolVarP(&pending, "pending", "p", false, "Set conversation to pending after replying")
 	cmd.Flags().IntVarP(&contactID, "contact-id", "C", 0, "Skip search, use specific contact ID")
 	flagAlias(cmd.Flags(), "contact-id", "cid")
 	cmd.Flags().IntVar(&conversationID, "conversation-id", 0, "Skip all lookups, reply to specific conversation")
@@ -265,6 +271,15 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 		resolved = true
 	}
 
+	pendingSet := false
+	if se.pending {
+		_, err := client.Conversations().ToggleStatus(ctx, conversationID, "pending", 0)
+		if err != nil {
+			return fmt.Errorf("message sent (ID: %d) but failed to set conversation to pending: %w", message.ID, err)
+		}
+		pendingSet = true
+	}
+
 	if len(se.labels) > 0 {
 		existing, _ := client.Conversations().Labels(ctx, conversationID)
 		merged := dedupeStrings(append(existing, se.labels...))
@@ -309,6 +324,7 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 		Contact:        contact,
 		MessageID:      message.ID,
 		Resolved:       resolved,
+		Pending:        pendingSet,
 	}
 
 	if isJSON(cmd) {
@@ -330,6 +346,9 @@ func replyToConversation(cmd *cobra.Command, client *api.Client, conversationID 
 	}
 	if resolved {
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: Resolved")
+	}
+	if pendingSet {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: Pending")
 	}
 
 	return nil

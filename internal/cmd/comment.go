@@ -20,6 +20,7 @@ type CommentResult struct {
 	Message        *api.Message `json:"message,omitempty"`
 	Private        bool         `json:"private"`
 	Resolved       bool         `json:"resolved,omitempty"`
+	Pending        bool         `json:"pending,omitempty"`
 	URL            string       `json:"url,omitempty"`
 }
 
@@ -27,6 +28,7 @@ func newCommentCmd() *cobra.Command {
 	var (
 		content   string
 		resolve   bool
+		pending   bool
 		labels    []string
 		priority  string
 		snoozeFor string
@@ -80,6 +82,9 @@ This is a convenience shortcut for:
 			}
 
 			// Validate side-effect flags before sending so we fail fast.
+			if err := validateExclusiveStatus(resolve, pending, snoozeFor); err != nil {
+				return err
+			}
 			if priority != "" {
 				if priority, err = validatePriority(priority); err != nil {
 					return err
@@ -100,6 +105,7 @@ This is a convenience shortcut for:
 					"private":         false,
 					"type":            "outgoing",
 					"resolve":         resolve,
+					"pending":         pending,
 				},
 			}); ok {
 				return err
@@ -124,6 +130,15 @@ This is a convenience shortcut for:
 					return fmt.Errorf("message sent (ID: %d) but failed to resolve conversation: %w", message.ID, err)
 				}
 				resolved = true
+			}
+
+			pendingSet := false
+			if pending {
+				_, err := client.Conversations().ToggleStatus(ctx, conversationID, "pending", 0)
+				if err != nil {
+					return fmt.Errorf("message sent (ID: %d) but failed to set conversation to pending: %w", message.ID, err)
+				}
+				pendingSet = true
 			}
 
 			if len(labels) > 0 {
@@ -157,6 +172,7 @@ This is a convenience shortcut for:
 				Message:        message,
 				Private:        false,
 				Resolved:       resolved,
+				Pending:        pendingSet,
 				URL:            u,
 			}
 
@@ -180,12 +196,16 @@ This is a convenience shortcut for:
 			if resolved {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: Resolved")
 			}
+			if pendingSet {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: Pending")
+			}
 			return nil
 		}),
 	}
 
 	cmd.Flags().StringVarP(&content, "content", "c", "", "Message content (alternative to positional text)")
 	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after sending")
+	cmd.Flags().BoolVarP(&pending, "pending", "p", false, "Set conversation to pending after sending")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
 	flagAlias(cmd.Flags(), "label", "lb")
 	cmd.Flags().StringVar(&priority, "priority", "", "Set priority after sending (urgent|high|medium|low|none)")

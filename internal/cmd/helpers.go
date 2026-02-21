@@ -269,6 +269,24 @@ func validatePriority(priority string) (string, error) {
 	return normalizeEnum("priority", priority, []string{"urgent", "high", "medium", "low", "none"})
 }
 
+// validateExclusiveStatus ensures at most one status-changing post-action is set.
+func validateExclusiveStatus(resolve, pending bool, snoozeFor string) error {
+	n := 0
+	if resolve {
+		n++
+	}
+	if pending {
+		n++
+	}
+	if snoozeFor != "" {
+		n++
+	}
+	if n > 1 {
+		return fmt.Errorf("--resolve, --pending, and --snooze-for are mutually exclusive (all change conversation status)")
+	}
+	return nil
+}
+
 // validateStatus validates and normalizes a conversation status value
 func validateStatus(status string) (string, error) {
 	return normalizeEnum("status", status, []string{"open", "resolved", "pending", "snoozed"})
