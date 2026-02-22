@@ -87,7 +87,7 @@ func TestMessagesListCommand_Light(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
 			"payload": [
-				{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+				{"id": 1, "content": "  \nCustomer hello  ", "message_type": 0, "private": false, "created_at": 1704067200, "sender": {"id": 42, "name": "Alice"}},
 				{"id": 2, "content": "Agent reply", "message_type": 1, "private": false, "created_at": 1704067300, "attachments": [{"file_type":"image"}]},
 				{"id": 3, "content": "Internal note", "message_type": 1, "private": true, "created_at": 1704067400},
 				{"id": 4, "content": "Assigned conversation", "message_type": 2, "private": false, "created_at": 1704067500}
@@ -105,10 +105,13 @@ func TestMessagesListCommand_Light(t *testing.T) {
 
 	var payload struct {
 		Items []struct {
-			ID          int      `json:"id"`
-			MessageType int      `json:"mt"`
-			Private     bool     `json:"prv"`
-			Content     string   `json:"ct"`
+			ID          int    `json:"id"`
+			MessageType int    `json:"mt"`
+			Private     bool   `json:"prv"`
+			Content     string `json:"ct"`
+			Sender      *struct {
+				Name string `json:"nm"`
+			} `json:"sn,omitempty"`
 			Attachments []string `json:"att"`
 		} `json:"items"`
 	}
@@ -123,6 +126,15 @@ func TestMessagesListCommand_Light(t *testing.T) {
 	}
 	if payload.Items[1].Attachments[0] != "image" {
 		t.Fatalf("expected attachment type image, got %#v", payload.Items[1].Attachments)
+	}
+	if payload.Items[0].Content != "Customer hello" {
+		t.Fatalf("expected trimmed message content, got %q", payload.Items[0].Content)
+	}
+	if payload.Items[0].Sender == nil || payload.Items[0].Sender.Name != "Alice" {
+		t.Fatalf("expected sender name Alice, got %#v", payload.Items[0].Sender)
+	}
+	if strings.Contains(output, `"sn":{"id"`) {
+		t.Fatal("light output should not include sender id")
 	}
 	if !payload.Items[2].Private {
 		t.Fatal("expected private note to keep private=true")

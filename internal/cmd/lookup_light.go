@@ -33,8 +33,12 @@ type lightMessageLookup struct {
 	Private     bool                `json:"prv,omitempty"`
 	Content     *string             `json:"ct,omitempty"`
 	CreatedAt   int64               `json:"ts,omitempty"`
-	Sender      *lightLookupContact `json:"sn,omitempty"`
+	Sender      *lightMessageSender `json:"sn,omitempty"`
 	Attachments []string            `json:"att,omitempty"`
+}
+
+type lightMessageSender struct {
+	Name *string `json:"nm,omitempty"`
 }
 
 // lightSearchPayload is a compact multi-resource search result.
@@ -128,16 +132,15 @@ func buildLightMessageLookups(messages []api.Message) []lightMessageLookup {
 			ID:          msg.ID,
 			MessageType: msg.MessageType,
 			Private:     msg.Private,
-			Content:     nullableString(msg.Content),
+			Content:     nullableString(normalizeMessagePreview(msg.Content)),
 			CreatedAt:   msg.CreatedAt,
 		}
 
 		if msg.Sender != nil {
-			sender := lightLookupContact{
-				ID:   nullableInt(msg.Sender.ID),
+			sender := lightMessageSender{
 				Name: nullableString(msg.Sender.Name),
 			}
-			if sender.ID != nil || sender.Name != nil {
+			if sender.Name != nil {
 				item.Sender = &sender
 			}
 		}

@@ -149,7 +149,7 @@ Light mode keys (--li):
   Triage (tri): id st ib? ur lm cnm
   Mutations:     id mid? st? ag? tm? pri? su?
   Contacts:      id nm em ph tier amy pp tm cvs[]{id,st,ib,lm}
-  Messages:      id mt prv ct ts sn{id,nm} att[]
+  Messages:      id mt prv ct ts sn{nm} att[]
   Search:        q rs[]{type,id,nm,em,st,ib,cid,cnm,la,mc,snip} sm{}
   Context (ct):  id st ib ct{id,nm} msgs[]
   Inboxes:       id nm ch
