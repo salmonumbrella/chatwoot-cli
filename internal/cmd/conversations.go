@@ -977,6 +977,21 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 				return printRawJSON(cmd, buildLightToggleStatusResult(result.Payload.ConversationID, result.Payload.CurrentStatus, result.Payload.SnoozedUntil))
 			}
 
+			if isAgent(cmd) {
+				if !flagOrAliasChanged(cmd, "compact-json") {
+					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
+				}
+				item := map[string]any{
+					"id": result.Payload.ConversationID,
+					"ok": result.Payload.Success,
+					"st": shortStatus(result.Payload.CurrentStatus),
+				}
+				if result.Payload.SnoozedUntil != nil && *result.Payload.SnoozedUntil > 0 {
+					item["su"] = *result.Payload.SnoozedUntil
+				}
+				return printRawJSON(cmd, item)
+			}
+
 			if isJSON(cmd) {
 				// Return payload directly for consistency
 				return printJSON(cmd, result.Payload)
@@ -1162,6 +1177,26 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightTogglePriorityResult(conv.ID, priorityValue))
+			}
+
+			if isAgent(cmd) {
+				if !flagOrAliasChanged(cmd, "compact-json") {
+					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
+				}
+				item := map[string]any{
+					"id":  conv.ID,
+					"pri": shortPriority(priorityValue),
+				}
+				if status := shortStatus(conv.Status); status != "" {
+					item["st"] = status
+				}
+				if conv.InboxID > 0 {
+					item["ib"] = conv.InboxID
+				}
+				if conv.Unread > 0 {
+					item["ur"] = conv.Unread
+				}
+				return printRawJSON(cmd, item)
 			}
 
 			if isJSON(cmd) {
@@ -1377,6 +1412,20 @@ func newConversationsAssignCmd() *cobra.Command {
 				if light {
 					cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 					return printRawJSON(cmd, buildLightAssignResult(conv.ID, conv.AssigneeID, conv.TeamID))
+				}
+
+				if isAgent(cmd) {
+					item := map[string]any{"id": conv.ID}
+					if status := shortStatus(conv.Status); status != "" {
+						item["st"] = status
+					}
+					if conv.AssigneeID != nil {
+						item["ag"] = *conv.AssigneeID
+					}
+					if conv.TeamID != nil {
+						item["tm"] = *conv.TeamID
+					}
+					return printRawJSON(cmd, item)
 				}
 
 				if isJSON(cmd) {

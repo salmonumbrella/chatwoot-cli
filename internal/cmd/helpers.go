@@ -157,6 +157,9 @@ func printRawJSON(cmd *cobra.Command, v any) error {
 	query := outfmt.GetQuery(cmd.Context())
 	compact := outfmt.IsCompact(cmd.Context())
 	light := outfmt.IsLight(cmd.Context())
+	if light && !compact && !flagOrAliasChanged(cmd, "compact-json") {
+		compact = true
+	}
 	if tmpl := outfmt.GetTemplate(cmd.Context()); tmpl != "" {
 		var filtered any
 		var err error

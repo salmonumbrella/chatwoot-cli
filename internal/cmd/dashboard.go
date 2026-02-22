@@ -133,11 +133,7 @@ Run 'cw config dashboard list' to see available dashboards.`,
 
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
-				compacted := compactDashboardResult(result)
-				if items, ok := compacted["items"].([]any); ok && len(items) > 3 {
-					compacted["items"] = items[:3]
-				}
-				return printRawJSON(cmd, compacted)
+				return printRawJSON(cmd, lightDashboardResult(result))
 			}
 
 			if isJSON(cmd) {
@@ -318,6 +314,75 @@ func addDashboardWarning(result map[string]any, warning string) {
 		}
 	}
 	result["_warnings"] = []string{warning}
+}
+
+// lightDashboardResult returns a strict token-minimized dashboard payload.
+// It keeps only:
+// - tier: membership tier (when present)
+// - n: total records (when present)
+// - it: up to 3 recent orders with num/dt/tot/st
+func lightDashboardResult(result map[string]any) map[string]any {
+	compacted := compactDashboardResult(result)
+	out := make(map[string]any)
+
+	if tier, ok := compacted["tier"]; ok {
+		out["tier"] = tier
+	}
+
+	if pg, ok := compacted["pg"].(map[string]any); ok {
+		if totalRecords, ok := pg["total_records"]; ok {
+			out["n"] = totalRecords
+		}
+	}
+
+	rawItems, _ := compacted["items"].([]any)
+	limit := len(rawItems)
+	if limit > 3 {
+		limit = 3
+	}
+	items := make([]any, 0, limit)
+	for i := 0; i < limit; i++ {
+		raw, ok := rawItems[i].(map[string]any)
+		if !ok {
+			continue
+		}
+		item := make(map[string]any)
+		if v, ok := raw["num"]; ok {
+			item["num"] = v
+		}
+		if v, ok := raw["dt"]; ok {
+			item["dt"] = v
+		}
+		if v, ok := raw["tot"]; ok {
+			item["tot"] = v
+		}
+		if v, ok := raw["st"]; ok {
+			item["st"] = shortOrderStatus(v)
+		}
+		items = append(items, item)
+	}
+	out["it"] = items
+
+	return out
+}
+
+func shortOrderStatus(v any) any {
+	s, ok := v.(string)
+	if !ok {
+		return v
+	}
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "pending":
+		return "p"
+	case "confirmed":
+		return "c"
+	case "completed", "complete":
+		return "d"
+	case "cancelled", "canceled":
+		return "x"
+	default:
+		return s
+	}
 }
 
 // compactDashboardResult transforms a full dashboard API response into a

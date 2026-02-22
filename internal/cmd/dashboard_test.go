@@ -1835,26 +1835,39 @@ func TestDashboardCommand_Light(t *testing.T) {
 	if result["tier"] != "Gold" {
 		t.Errorf("tier = %v, want Gold", result["tier"])
 	}
+	if result["n"] != float64(5) {
+		t.Errorf("n = %v, want 5", result["n"])
+	}
 
 	// Should have at most 3 items
-	items, ok := result["items"].([]any)
+	items, ok := result["it"].([]any)
 	if !ok {
-		t.Fatalf("expected items array, got %T", result["items"])
+		t.Fatalf("expected it array, got %T", result["it"])
 	}
 	if len(items) != 3 {
 		t.Fatalf("expected 3 items (capped), got %d", len(items))
 	}
 
-	// First item should be compact (have "num" not "uuid")
+	// First item should be minimal light format.
 	order := items[0].(map[string]any)
 	if order["num"] != "ORD-001" {
 		t.Errorf("first order num = %v, want ORD-001", order["num"])
 	}
-	if _, exists := order["uuid"]; exists {
-		t.Error("light output should not contain uuid")
+	if order["st"] != "d" {
+		t.Errorf("first order st = %v, want d", order["st"])
 	}
-	if _, exists := order["customer_email"]; exists {
-		t.Error("light output should not contain customer_email")
+	third := items[2].(map[string]any)
+	if third["st"] != "p" {
+		t.Errorf("third order st = %v, want p", third["st"])
+	}
+	if _, exists := order["pay"]; exists {
+		t.Error("light output should not contain pay")
+	}
+	if _, exists := order["dlv"]; exists {
+		t.Error("light output should not contain dlv")
+	}
+	if _, exists := order["items"]; exists {
+		t.Error("light output should not contain item count")
 	}
 }
 
@@ -1889,9 +1902,13 @@ func TestDashboardCommand_LightFewItems(t *testing.T) {
 		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
 	}
 
-	items := result["items"].([]any)
+	items := result["it"].([]any)
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	order := items[0].(map[string]any)
+	if order["st"] != "d" {
+		t.Errorf("order st = %v, want d", order["st"])
 	}
 }
 

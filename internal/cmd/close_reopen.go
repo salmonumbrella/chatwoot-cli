@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
 func newCloseCmd() *cobra.Command {
+	var light bool
+
 	cmd := &cobra.Command{
 		Use:     "close <conversation-id> [conversation-id...]",
 		Aliases: []string{"close-conversation", "resolve-conversation", "resolve", "x"},
@@ -28,6 +30,9 @@ This is a convenience shortcut for:
 
   # JSON output summary
   cw close 123 456 --output json
+
+  # Light token-optimized output
+  cw close 123 --li
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -72,16 +77,14 @@ This is a convenience shortcut for:
 				"total":  len(ids),
 			}
 
-			if isAgent(cmd) {
-				return printJSON(cmd, agentfmt.ItemEnvelope{
-					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
-					Item: summary,
-				})
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightBulkMutationSummary(okCount, len(ids)))
 			}
 			if isJSON(cmd) {
-				return printJSON(cmd, summary)
+				// Keep close/reopen summaries flat in both json and agent modes.
+				return printRawJSON(cmd, summary)
 			}
-
 			if len(failures) > 0 {
 				return fmt.Errorf("failed to close %d of %d conversations", len(failures), len(ids))
 			}
@@ -89,10 +92,15 @@ This is a convenience shortcut for:
 		}),
 	}
 
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
+	flagAlias(cmd.Flags(), "light", "li")
+
 	return cmd
 }
 
 func newReopenCmd() *cobra.Command {
+	var light bool
+
 	cmd := &cobra.Command{
 		Use:     "reopen <conversation-id> [conversation-id...]",
 		Aliases: []string{"open-conversation", "ro"},
@@ -110,6 +118,9 @@ This is a convenience shortcut for:
 
   # JSON output summary
   cw reopen 123 456 --output json
+
+  # Light token-optimized output
+  cw reopen 123 --li
 `),
 		Args: cobra.MinimumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -154,22 +165,23 @@ This is a convenience shortcut for:
 				"total":    len(ids),
 			}
 
-			if isAgent(cmd) {
-				return printJSON(cmd, agentfmt.ItemEnvelope{
-					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
-					Item: summary,
-				})
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightBulkMutationSummary(okCount, len(ids)))
 			}
 			if isJSON(cmd) {
-				return printJSON(cmd, summary)
+				// Keep close/reopen summaries flat in both json and agent modes.
+				return printRawJSON(cmd, summary)
 			}
-
 			if len(failures) > 0 {
 				return fmt.Errorf("failed to reopen %d of %d conversations", len(failures), len(ids))
 			}
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

@@ -80,6 +80,38 @@ func TestCommentCommand_LightOutput(t *testing.T) {
 	}
 }
 
+func TestCommentCommand_AgentOutput_CompactAliases(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 55, "conversation_id": 123, "content": "Hello", "message_type": 1, "private": false}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "pending", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"comment", "123", "Hello", "--pending", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("comment --pending -o agent failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	var result struct {
+		ID     int    `json:"id"`
+		Mid    int    `json:"mid"`
+		Status string `json:"st"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse compact output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 || result.Mid != 55 || result.Status != "p" {
+		t.Fatalf("unexpected compact comment payload: %#v", result)
+	}
+}
+
 func TestCommentAcceptsSideEffectFlags(t *testing.T) {
 	for _, name := range []string{"label", "priority", "snooze-for"} {
 		if rootCmd := newCommentCmd(); rootCmd.Flags().Lookup(name) == nil {

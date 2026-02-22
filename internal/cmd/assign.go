@@ -36,6 +36,9 @@ At least one of --agent or --team must be specified.`,
 
   # JSON output
   cw assign 123 --agent 5 --output json
+
+  # Light token-optimized payload
+  cw assign 123 --agent 5 --li
 `),
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
@@ -98,6 +101,20 @@ At least one of --agent or --team must be specified.`,
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightAssignResult(conv.ID, conv.AssigneeID, conv.TeamID))
+			}
+
+			if isAgent(cmd) {
+				item := map[string]any{"id": conv.ID}
+				if status := shortStatus(strings.TrimSpace(conv.Status)); status != "" {
+					item["st"] = status
+				}
+				if conv.AssigneeID != nil {
+					item["ag"] = *conv.AssigneeID
+				}
+				if conv.TeamID != nil {
+					item["tm"] = *conv.TeamID
+				}
+				return printRawJSON(cmd, item)
 			}
 
 			if isJSON(cmd) {

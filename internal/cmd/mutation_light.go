@@ -36,6 +36,12 @@ type lightTogglePriorityResult struct {
 	Priority string `json:"pri"`
 }
 
+type lightBulkMutationSummary struct {
+	Success int `json:"ok"`
+	Total   int `json:"tot"`
+	Failed  int `json:"er,omitempty"`
+}
+
 func buildLightMessageMutationResult(conversationID, messageID int, status string) lightMessageMutationResult {
 	return lightMessageMutationResult{
 		ID:        conversationID,
@@ -104,4 +110,16 @@ func buildLightTogglePriorityResult(conversationID int, priority string) lightTo
 		ID:       conversationID,
 		Priority: shortPriority(priority),
 	}
+}
+
+func buildLightBulkMutationSummary(successCount, total int) lightBulkMutationSummary {
+	summary := lightBulkMutationSummary{
+		Success: successCount,
+		Total:   total,
+	}
+	failed := total - successCount
+	if failed > 0 {
+		summary.Failed = failed
+	}
+	return summary
 }

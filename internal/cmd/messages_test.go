@@ -103,47 +103,70 @@ func TestMessagesListCommand_Light(t *testing.T) {
 		}
 	})
 
-	var payload struct {
-		Items []struct {
-			ID          int    `json:"id"`
-			MessageType int    `json:"mt"`
-			Private     bool   `json:"prv"`
-			Content     string `json:"ct"`
-			Sender      *struct {
-				Name string `json:"nm"`
-			} `json:"sn,omitempty"`
-			Attachments []string `json:"att"`
-		} `json:"items"`
+	var payload []struct {
+		ID          int    `json:"id"`
+		MessageType int    `json:"mt"`
+		Private     bool   `json:"prv"`
+		Content     string `json:"ct"`
+		Sender      *struct {
+			Name string `json:"nm"`
+		} `json:"sn,omitempty"`
+		Attachments []string `json:"att"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
 		t.Fatalf("failed to parse light messages output: %v\noutput: %s", err, output)
 	}
-	if len(payload.Items) != 3 {
-		t.Fatalf("expected 3 non-activity messages, got %d", len(payload.Items))
+	if len(payload) != 3 {
+		t.Fatalf("expected 3 non-activity messages, got %d", len(payload))
 	}
-	if payload.Items[0].MessageType != 0 || payload.Items[1].MessageType != 1 {
-		t.Fatalf("unexpected message types: %#v", payload.Items)
+	if payload[0].MessageType != 0 || payload[1].MessageType != 1 {
+		t.Fatalf("unexpected message types: %#v", payload)
 	}
-	if payload.Items[1].Attachments[0] != "image" {
-		t.Fatalf("expected attachment type image, got %#v", payload.Items[1].Attachments)
+	if payload[1].Attachments[0] != "image" {
+		t.Fatalf("expected attachment type image, got %#v", payload[1].Attachments)
 	}
-	if payload.Items[0].Content != "Customer hello" {
-		t.Fatalf("expected trimmed message content, got %q", payload.Items[0].Content)
+	if payload[0].Content != "Customer hello" {
+		t.Fatalf("expected trimmed message content, got %q", payload[0].Content)
 	}
-	if payload.Items[0].Sender == nil || payload.Items[0].Sender.Name != "Alice" {
-		t.Fatalf("expected sender name Alice, got %#v", payload.Items[0].Sender)
+	if payload[0].Sender == nil || payload[0].Sender.Name != "Alice" {
+		t.Fatalf("expected sender name Alice, got %#v", payload[0].Sender)
 	}
 	if strings.Contains(output, `"sn":{"id"`) {
 		t.Fatal("light output should not include sender id")
 	}
-	if !payload.Items[2].Private {
+	if !payload[2].Private {
 		t.Fatal("expected private note to keep private=true")
+	}
+	if strings.Contains(output, `"items"`) {
+		t.Fatal("light output should not include an items wrapper")
 	}
 	if strings.Contains(output, `"content_type"`) {
 		t.Fatal("light output should not include content_type")
 	}
 	if strings.Contains(output, `"conversation_id"`) {
 		t.Fatal("light output should not include conversation_id")
+	}
+}
+
+func TestMessagesListCommand_Light_QueryKeepsItemsCompatibility(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"messages", "list", "123", "--li", "--jq", ".items[0].id"})
+		if err != nil {
+			t.Fatalf("messages list --li --jq .items[0].id failed: %v", err)
+		}
+	})
+
+	if strings.TrimSpace(output) != "1" {
+		t.Fatalf("expected .items[0].id query to return 1, got %q", strings.TrimSpace(output))
 	}
 }
 

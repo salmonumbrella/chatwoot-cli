@@ -72,11 +72,14 @@ func TestCtxCommand_LightAlias(t *testing.T) {
 	setupTestEnvWithHandler(t, handler)
 
 	output := captureStdout(t, func() {
-		err := Execute(context.Background(), []string{"ctx", "123", "--li", "--cj"})
+		err := Execute(context.Background(), []string{"ctx", "123", "--li"})
 		if err != nil {
 			t.Fatalf("ctx --li failed: %v", err)
 		}
 	})
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("expected --li output to be compact by default, got pretty JSON:\n%s", output)
+	}
 
 	var payload struct {
 		ID      int    `json:"id"`

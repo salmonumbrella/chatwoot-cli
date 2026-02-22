@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -180,30 +179,30 @@ This is a convenience shortcut for:
 				Pending:        pendingSet,
 				URL:            u,
 			}
+			status := ""
+			if resolved {
+				status = "resolved"
+			} else if pendingSet {
+				status = "pending"
+			} else if snoozeFor != "" {
+				status = "snoozed"
+			}
 
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
-				status := ""
-				if resolved {
-					status = "resolved"
-				} else if pendingSet {
-					status = "pending"
-				} else if snoozeFor != "" {
-					status = "snoozed"
-				}
 				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, status))
 			}
 
 			if isAgent(cmd) {
-				// In agent mode, omit the full Message object to keep
-				// mutation output compact (~9 lines vs ~22 lines).
-				// Use -o json to get the full message.
-				agentResult := result
-				agentResult.Message = nil
-				return printJSON(cmd, agentfmt.ItemEnvelope{
-					Kind: agentfmt.KindFromCommandPath(cmd.CommandPath()),
-					Item: agentResult,
-				})
+				item := map[string]any{
+					"id":  result.ConversationID,
+					"mid": result.MessageID,
+					"prv": true,
+				}
+				if status != "" {
+					item["st"] = shortStatus(status)
+				}
+				return printRawJSON(cmd, item)
 			}
 			if isJSON(cmd) {
 				return printJSON(cmd, result)

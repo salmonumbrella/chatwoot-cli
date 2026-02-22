@@ -109,6 +109,39 @@ func TestNoteCommand_WithMentionAliasMTAndLight(t *testing.T) {
 	}
 }
 
+func TestNoteCommand_AgentOutput_CompactAliases(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 99, "conversation_id": 123, "content": "Internal note", "message_type": 1, "private": true}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "pending", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"note", "123", "Internal note", "--pending", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("note --pending -o agent failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	var result struct {
+		ID  int    `json:"id"`
+		Mid int    `json:"mid"`
+		Prv bool   `json:"prv"`
+		St  string `json:"st"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse compact output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 || result.Mid != 99 || !result.Prv || result.St != "p" {
+		t.Fatalf("unexpected compact note payload: %#v", result)
+	}
+}
+
 func TestNoteCommand_ResolveAndPendingExclusive(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 99, "conversation_id": 123, "content": "conflict", "message_type": 1, "private": true}`))

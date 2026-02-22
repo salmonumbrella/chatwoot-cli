@@ -144,7 +144,20 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 			totalMessages := len(messages)
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
-				return printRawJSON(cmd, buildLightMessageLookups(messages))
+				lookups := buildLightMessageLookups(messages)
+				// Preserve historic .items query/template behavior when users
+				// provide --jq/--query/--template, but keep the default payload
+				// flattened for token-efficient automation.
+				if outfmt.GetQuery(cmd.Context()) != "" || outfmt.GetTemplate(cmd.Context()) != "" {
+					return printRawJSON(cmd, map[string]any{"items": lookups})
+				}
+				// Keep light messages output as a raw array for token-efficient
+				// agent workflows (no implicit {"items": ...} envelope).
+				raw, err := json.Marshal(lookups)
+				if err != nil {
+					return err
+				}
+				return printRawJSON(cmd, json.RawMessage(raw))
 			}
 
 			if transcript {

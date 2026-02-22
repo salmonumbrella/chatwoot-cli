@@ -246,6 +246,54 @@ func TestAssignCommand_JSONOutput(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAssignCommand_AgentOutput_CompactAliases(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/api/v1/accounts/1/conversations/123/assignments":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 5})
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/conversations/123":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":          123,
+				"status":      "open",
+				"assignee_id": 5,
+				"team_id":     2,
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--team", "2", "-o", "agent", "--allow-private"})
+		assert.NoError(t, err)
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	var result struct {
+		ID int    `json:"id"`
+		St string `json:"st"`
+		Ag int    `json:"ag"`
+		Tm int    `json:"tm"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse agent output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 || result.St != "o" || result.Ag != 5 || result.Tm != 2 {
+		t.Fatalf("unexpected compact assign payload: %#v", result)
+	}
+}
+
 func TestAssignCommand_LightOutput(t *testing.T) {
 	t.Cleanup(func() { validation.SetAllowPrivate(false) })
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

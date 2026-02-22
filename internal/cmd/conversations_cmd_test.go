@@ -323,6 +323,45 @@ func TestConversationsToggleStatusCommand_Light(t *testing.T) {
 	}
 }
 
+func TestConversationsToggleStatusCommand_AgentCompactAliases(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"meta": {},
+			"payload": {
+				"success": true,
+				"conversation_id": 123,
+				"current_status": "pending"
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "toggle-status", "123", "--status", "pending", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations toggle-status -o agent failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("agent mutation output should be compact by default, got: %s", output)
+	}
+	var result struct {
+		ID int    `json:"id"`
+		OK bool   `json:"ok"`
+		St string `json:"st"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse compact agent output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 || !result.OK || result.St != "p" {
+		t.Fatalf("unexpected compact status payload: %#v", result)
+	}
+}
+
 func TestConversationsAssignCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
@@ -395,6 +434,46 @@ func TestConversationsAssignCommand_Light(t *testing.T) {
 	}
 	if result.TeamID == nil || *result.TeamID != 2 {
 		t.Fatalf("expected tm=2, got %#v", result.TeamID)
+	}
+}
+
+func TestConversationsAssignCommand_AgentCompactAliases(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 5,
+			"name": "Agent Name"
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"status": "open",
+			"assignee_id": 5,
+			"team_id": 2
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123", "--agent", "5", "--team", "2", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations assign -o agent failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	var result struct {
+		ID int    `json:"id"`
+		St string `json:"st"`
+		Ag int    `json:"ag"`
+		Tm int    `json:"tm"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse compact assign output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 || result.St != "o" || result.Ag != 5 || result.Tm != 2 {
+		t.Fatalf("unexpected compact assign payload: %#v", result)
 	}
 }
 
@@ -1518,6 +1597,47 @@ func TestConversationsTogglePriorityCommand_Light(t *testing.T) {
 	}
 	if result.Priority != "u" {
 		t.Fatalf("expected short priority u, got %q", result.Priority)
+	}
+}
+
+func TestConversationsTogglePriorityCommand_AgentCompactAliases(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_priority", jsonResponse(200, ``)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"status": "open",
+			"priority": "medium",
+			"inbox_id": 48,
+			"unread_count": 3
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "toggle-priority", "123", "--priority", "medium", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations toggle-priority -o agent failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("agent mutation output should be compact by default, got: %s", output)
+	}
+	var result struct {
+		ID  int    `json:"id"`
+		Pri string `json:"pri"`
+		St  string `json:"st"`
+		Ib  int    `json:"ib"`
+		Ur  int    `json:"ur"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse compact priority output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 || result.Pri != "m" || result.St != "o" || result.Ib != 48 || result.Ur != 3 {
+		t.Fatalf("unexpected compact priority payload: %#v", result)
 	}
 }
 
