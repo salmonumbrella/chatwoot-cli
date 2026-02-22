@@ -1,0 +1,7 @@
+{
+  "id": 123,
+  "title": "Important",
+  "description": "Important issues",
+  "color": "#0000ff",
+  "show_on_sidebar": true
+}

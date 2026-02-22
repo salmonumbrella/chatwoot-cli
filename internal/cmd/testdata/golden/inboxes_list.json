@@ -1,0 +1,27 @@
+{
+  "has_more": false,
+  "items": [
+    {
+      "id": 10,
+      "name": "Support",
+      "channel_type": "website",
+      "greeting_enabled": false,
+      "enable_auto_assignment": true
+    },
+    {
+      "id": 11,
+      "name": "Sales",
+      "channel_type": "email",
+      "greeting_enabled": true,
+      "greeting_message": "Hi there",
+      "enable_auto_assignment": false
+    }
+  ],
+  "meta": {
+    "all": false,
+    "page": 1,
+    "page_size": 20,
+    "pages_fetched": 1,
+    "total_items": 2
+  }
+}

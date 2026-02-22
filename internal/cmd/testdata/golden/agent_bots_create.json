@@ -1,0 +1,7 @@
+{
+  "id": 803,
+  "name": "AutoResponder",
+  "description": "Handles FAQs",
+  "outgoing_url": "https://example.com/auto",
+  "account_id": 1
+}

@@ -1,0 +1,26 @@
+{
+  "id": 902,
+  "name": "Auto tag",
+  "event_name": "conversation_created",
+  "conditions": [
+    {
+      "attribute_key": "priority",
+      "filter_operator": "equals",
+      "values": [
+        "high"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "action_name": "add_label",
+      "action_params": {
+        "labels": [
+          "vip"
+        ]
+      }
+    }
+  ],
+  "active": true,
+  "account_id": 1
+}

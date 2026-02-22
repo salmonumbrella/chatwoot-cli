@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": 1301,
+      "name": "Help Center",
+      "slug": "help-center",
+      "account_id": 1
+    },
+    {
+      "id": 1302,
+      "name": "Docs",
+      "slug": "docs",
+      "account_id": 1
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": 802,
+  "name": "Triage",
+  "description": "Routes conversations",
+  "outgoing_url": "https://example.com/triage",
+  "account_id": 1
+}

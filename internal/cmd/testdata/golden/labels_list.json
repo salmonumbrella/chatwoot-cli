@@ -1,0 +1,25 @@
+{
+  "has_more": false,
+  "items": [
+    {
+      "id": 1,
+      "title": "Bug",
+      "description": "Bug reports",
+      "color": "#ff0000",
+      "show_on_sidebar": true
+    },
+    {
+      "id": 2,
+      "title": "Feature",
+      "color": "#00ff00",
+      "show_on_sidebar": false
+    }
+  ],
+  "meta": {
+    "all": false,
+    "page": 1,
+    "page_size": 2,
+    "pages_fetched": 1,
+    "total_items": 2
+  }
+}

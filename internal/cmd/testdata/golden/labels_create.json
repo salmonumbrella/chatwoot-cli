@@ -1,0 +1,7 @@
+{
+  "id": 301,
+  "title": "Urgent",
+  "description": "High priority issues",
+  "color": "#ff0000",
+  "show_on_sidebar": true
+}

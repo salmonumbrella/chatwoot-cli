@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": 1101,
+      "attribute_display_name": "Plan",
+      "attribute_key": "plan",
+      "attribute_model": "contact_attribute",
+      "attribute_display_type": "text"
+    },
+    {
+      "id": 1102,
+      "attribute_display_name": "Tier",
+      "attribute_key": "tier",
+      "attribute_model": "contact_attribute",
+      "attribute_display_type": "list",
+      "attribute_values": [
+        "gold",
+        "silver"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "id": 901,
+      "name": "Auto assign",
+      "event_name": "conversation_created",
+      "conditions": [],
+      "actions": [],
+      "active": true,
+      "account_id": 1
+    }
+  ]
+}

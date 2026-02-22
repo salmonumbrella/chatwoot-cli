@@ -1,0 +1,202 @@
+cw - CLI for Chatwoot customer support platform
+
+IMPORTANT: Always use the shortest alias. Full names waste tokens.
+
+Aliases (resource → short):
+  conversations=c  contacts=co  messages=m  inboxes=in  agents=a
+  teams=t  labels=l  campaigns=cm  reports=rp  integrations=ig
+  search=s  mentions=mn  custom-filters=cf  custom-attributes=ca
+  canned-responses=cr  webhooks=wh  automation-rules=ar  agent-bots=ab
+  portals=po  csat=cs  audit-logs=al  account=ac  inbox-members=im
+  platform=pf  public=pub  survey=sv  schema=sc  client=cl  api=ap
+  cache=ch  auth=au  config=cfg  dashboard=dh  version=v
+
+Aliases (shortcut → short):
+  comment=cmt  note=n  close=x  reopen=ro  assign=as  handoff=ho
+  snooze=sn  reply=r  open=o  ctx=ct  status=st  profile=pr
+  dashboard=dh  ref=ref
+
+Aliases (subcommand → short):
+  list=ls  get/show=g  create=mk  update=up  delete=rm  search=q
+  filter=f  follow=fw  watch=w  transcript=tr  triage=tri  bulk=bk
+  merge=mg  toggle-status=ts  toggle-priority=tp  labels-add=la
+  labels-remove=lr  mark-unread=mu  members-add=ma  members-remove=mr
+  custom-attributes=ca  contactable-inboxes=ci  batch-send=bs
+  bulk-create=bc  notes-add=na  notes-delete=nd
+
+Reading conversations:
+  cw ct CONV                   Full AI context (messages + metadata)
+  cw ct CONV --li              Light compact JSON (saves tokens)
+  cw m ls CONV                 List messages (oldest first, newest at end)
+  cw m ls CONV --sla           Messages since last agent reply
+  cw m ls CONV --tr            Human-readable transcript
+  cw c tr CONV                 Full transcript (includes private notes)
+  cw m ls CONV --jq '.it[-6:]' Last 6 messages
+  cw m ls CONV --kw "keyword"  Filter by content keyword
+
+Replying:
+  cw cmt CONV "text"           Public reply (customer-visible)
+  cw cmt CONV "text" --li      Public reply with light mutation payload
+  cw cmt CONV "text" -R        Reply and resolve in one step
+  cw cmt CONV "text" -p        Reply and set pending (ball in their court)
+  cw n CONV "text"             Private note (internal only)
+  cw n CONV --mt NAME "t"      Note with @mention
+  cw n CONV --mt NAME "t" --li Note + light mutation payload
+  cw r "contact-name" -c "text"  Find contact by name/email, send reply
+
+Disposition:
+  cw x CONV                    Resolve (close)
+  cw x 123 456 789             Resolve multiple
+  cw ro CONV                   Reopen
+  cw sn CONV --for 2h          Snooze for duration
+  cw sn CONV --for 24h --nt "reason"    Snooze with explanation
+  cw c ts CONV -s p            Set pending (waiting on customer)
+  cw c ts CONV -s p --li       Set pending + light mutation payload
+  cw c tp CONV --pri u         Set priority (u=urgent h=high m=medium l=low)
+  cw c tp CONV --pri u --li    Set priority + light mutation payload
+
+Assignment & escalation:
+  cw as CONV --ag 5            Assign to agent (ID or name)
+  cw as CONV --ag 5 --li       Assign with light mutation payload
+  cw as CONV --tm 2            Assign to team
+  cw ho CONV --ag NAME --rs "..."  Escalate (note + assign + priority)
+
+Listing conversations:
+  cw c ls -s o                 Open conversations
+  cw c ls -s o -I 48           Filter by inbox
+  cw c ls -s o --wt            Longest-waiting customer first
+  cw c ls -s o --unread        Unread only
+  cw c ls -S "2h ago"          Activity since time
+  cw c ls -s o -a -M 50        All pages (max 50)
+
+Triage & filtering:
+  cw c tri                     Triage queue (urgency-sorted)
+  cw c tri --ib 48             Triage specific inbox
+  cw c f --view 1              Saved custom view (sidebar folder)
+  cw c f --view 1 --all        All pages of saved view
+  cw c q "query"               Full-text message search
+  cw c f --pl '[{"ak":"st","fo":"eq","v":["open"]}]'  Inline filter (shortcodes)
+
+Search:
+  cw s "query" --li            Global search (light payload, saves tokens)
+  cw s "query" -t ct --li      Contacts only
+  cw s "query" -t cv           Conversations only
+  cw s "query" -t s            Message senders
+  cw s "query" --best -E id    Auto-pick best result, emit ID
+
+Contact lookup:
+  cw co g 123 --li             By ID (light payload)
+  cw co g john@example.com     By email
+  cw co g +16042091231         By phone
+  cw co g "John Smith"         By name (fuzzy match)
+  cw co cv CONTACT --li        Contact's conversations (light)
+
+Contact management:
+  cw co up ID -n "name" -e "email"  Update fields
+  cw co up ID -A "key=value"        Set custom attribute
+  cw co up ID -C "company" -K "country"  Set company/country
+  cw co mg KEEP DELETE -F           Merge (keep first, delete second)
+  cw co bk al --id 1,2,3 -L vip    Bulk add labels
+
+Orders & dashboards (Shopline-specific):
+  cw dh ods --cv CONV -c       Orders from conversation (compact)
+  cw dh ods --ct CONTACT -c    Orders by contact ID
+
+Real-time:
+  cw c fw CONV                 Follow conversation (WebSocket)
+  cw c fw -A --ib 48           Follow all in inbox
+  cw c fw -A --ua              New inquiries only (unassigned)
+  cw c fw CONV --tl 0 -o jsonl | head -1    Wait for next message
+  cw c w -s o                  Poll open conversations
+
+Bulk operations:
+  cw c bk res --id 123,456     Bulk resolve
+  cw c bk asgn --id 1,2 --ag 5  Bulk assign
+  cw co bk al --id 1,2 -L vip   Bulk label contacts
+
+Creating:
+  cw c mk -I 48 -C 123 -m "text"  New conversation
+  cw m mk CONV -c "text"          New message (prefer cmt/n shortcuts)
+
+Output formats:
+  -o agent      Agent-friendly (default): compact, resolved names
+  -o json / -j  Full JSON: {items: [...], meta: {...}}
+  -o jsonl      Newline-delimited JSON (streaming/piping)
+  -o text       Human-readable tabulated text
+  --li          Light mode (where supported): minimal payload, compact by default
+  --cj          Compact JSON (advanced/manual override)
+  --jq EXPR     Built-in JQ filter (preferred over piping to jq)
+  --fi F        Field selection: minimal, default, debug, or CSV
+  --tpl T       Go template string (or @path)
+  --io          Output only items/results array
+  -Q            Quiet: suppress non-essential output
+
+Common flags:
+  -s STATUS     Status: o=open p=pending r=resolved s=snoozed a=all
+  -I INBOX      Inbox ID or name
+  -M MAX_PAGES  Max pages to fetch
+  -a / --all    Fetch all pages
+  -R            Resolve after action (on cmt, n, r)  ⎫
+  -p            Set pending after action (on cmt, n, r)  ⎬ mutually exclusive
+  --snooze-for  Snooze after action (on cmt, n, r)  ⎭
+  -C CONTACT    Contact ID
+  --li          Light mode: minimal payload (on c ls/g/tri/f/q/ct/ts/tp/as, co g/ls/cv, m ls, s, cmt, n, as, x, ro, in ls, a ls, t ls, l ls, cr ls, ar ls, ig apps, cf ls, dh)
+  --dr          Preview without executing
+  -y / --yes    Skip confirmations
+
+Light mode keys (--li):
+  Conversations: id st ib ur la mc ct{id,nm} ag{id,nm} lm
+  Triage (tri): id st ib? ur lm cnm
+  Mutations:     id mid? st? ag? tm? pri? su? ok? tot? er?
+  Contacts:      id nm em ph tier <store_alias>... cvs[]{id,st,ib,lm}
+  Messages:      id mt prv ct ts sn{nm} att[]
+  Search:        q rs[]{type,id,nm,em,st,ib,cid,cnm,la,mc,snip} sm{}
+  Context (ct):  id st ib ct{id,nm} msgs[]
+  Inboxes:       id nm ch
+  Agents:        id nm av
+  Teams:         id nm
+  Labels:        id t
+  Canned:        id code
+  Automation:    id nm ev on
+  Integrations:  id nm on
+  Custom filters: id nm type
+  Dashboard (dh): tier n it[]{num,dt,tot,st}
+  Dashboard st:  p=pending c=confirmed d=completed x=cancelled
+
+Flag aliases (long → short):
+  --agent=ag  --team=tm  --priority=pri  --ids=id  --folder=view
+  --mention=mt|mn  --reason=rs  --note=nt  --inbox=ib  --limit=lt
+  --waiting=wt  --unread-only=unread  --tail=tl  --dry-run=dr
+  --fields=fi  --template=tpl  --items-only=io  --label=lb
+  --search=sq  --light=li  --explain=exp  --debug=dbg
+
+Exit codes:
+  0  Success
+  1  General error
+  2  Usage error (invalid flags or arguments)
+  3  Authentication error
+  4  Not found (404)
+  5  Permission denied (403)
+  6  Rate limited (429)
+  7  Server error (5xx)
+  8  Network error
+
+Environment:
+  CHATWOOT_BASE_URL        Server URL
+  CHATWOOT_API_TOKEN       API token
+  CHATWOOT_ACCOUNT_ID      Account ID
+  CHATWOOT_OUTPUT          Default output format (agent|json|text|jsonl)
+  CHATWOOT_RESOLVE_NAMES   Resolve names in agent output (0|1)
+  CW_CONTACT_LIGHT_TIER_KEY   Contact tier attribute key (default: membership_tier)
+  CW_CONTACT_LIGHT_STORE_KEYS Store alias mapping (CSV or JSON, flattened keys)
+
+Auth:
+  cw auth login              Browser-based setup
+  cw auth login --no-browser CLI flags (--url, --token, --account-id)
+  cw st                      Show current config and auth status
+
+Discovery:
+  cw --help-json             Full command tree as JSON (for agent discovery)
+  cw CMD --help              Detailed help for any command
+
+Use "cw CMD --help" for detailed help on any command.

@@ -1,0 +1,6 @@
+Service temporarily unavailable (circuit breaker open).
+
+Suggestions:
+  - The API has had multiple failures recently
+  - Wait 30 seconds and retry
+  - Check if the Chatwoot server is healthy

@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "id": 9001,
+      "conversation_id": 123,
+      "content": "Hello there",
+      "content_type": "text",
+      "message_type": 1,
+      "private": false,
+      "created_at": 1700003000,
+      "position": 1,
+      "total_messages": 2
+    },
+    {
+      "id": 9002,
+      "conversation_id": 123,
+      "content": "Internal note",
+      "content_type": "text",
+      "message_type": 2,
+      "private": true,
+      "created_at": 1700004000,
+      "position": 2,
+      "total_messages": 2
+    }
+  ]
+}

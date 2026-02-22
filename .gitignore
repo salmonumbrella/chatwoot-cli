@@ -1,0 +1,62 @@
+# Build output
+/bin/
+/cw
+/chatwoot
+cw-*
+dist/
+
+# IDE & AI
+.idea/
+.vscode/
+.cursor/
+.claude/
+.specstory/
+CLAUDE.md
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tools
+.tools/
+.plan/
+
+# Agent artifacts
+.dm/
+.private-journal/
+
+# Local development (not for public repo)
+PLAN-*.md
+plan.md
+ALIASES_SHORTCODES_AUDIT.md
+BATCH-*.md
+CODE_REVIEW_*.md
+*test-results*.md
+*test_results*.md
+*.test.sh
+test_*.sh
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Environment/secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+.worktrees/
+
+# Evals
+evals/
+
+# Documentation (plans/drafts)
+docs/
