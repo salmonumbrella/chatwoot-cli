@@ -2496,6 +2496,192 @@ func TestConversationsTriage_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsTriage_Light_FilteredInbox(t *testing.T) {
+	activityTime := time.Now().Add(-90 * time.Minute).Unix()
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			if got := r.URL.Query().Get("inbox_id"); got != "48" {
+				t.Fatalf("expected inbox_id=48, got %q", got)
+			}
+			switch r.URL.Query().Get("status") {
+			case "open":
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":1}}}`)(w, r)
+			case "pending":
+				jsonResponse(200, `{
+					"data": {
+						"payload": [
+							{
+								"id": 43470,
+								"inbox_id": 48,
+								"status": "pending",
+								"unread_count": 10,
+								"last_activity_at": `+strconv.FormatInt(activityTime, 10)+`,
+								"last_non_activity_message": {"content": "能協助看是否還有庫存"},
+								"meta": {"sender": {"name": "Shani Chiang"}}
+							}
+						],
+						"meta": {"total_pages": 1}
+					}
+				}`)(w, r)
+			default:
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":1}}}`)(w, r)
+			}
+		})
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_OUTPUT", "agent")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "triage", "--inbox", "48", "--light", "--brief"})
+		if err != nil {
+			t.Fatalf("conversations triage --inbox 48 --light --brief failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"data"`) {
+		t.Fatalf("light triage should bypass agent envelope, got: %s", output)
+	}
+	if strings.Contains(output, `"wt"`) {
+		t.Fatalf("light triage should omit wait time in light mode, got: %s", output)
+	}
+
+	var result struct {
+		Items []struct {
+			ID          int    `json:"id"`
+			Status      string `json:"st"`
+			InboxID     *int   `json:"ib,omitempty"`
+			Unread      int    `json:"ur"`
+			LastMessage string `json:"lm"`
+			ContactName string `json:"cnm"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to decode light triage output: %v\noutput: %s", err, output)
+	}
+
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 triage item, got %d", len(result.Items))
+	}
+
+	item := result.Items[0]
+	if item.ID != 43470 {
+		t.Fatalf("expected id 43470, got %d", item.ID)
+	}
+	if item.Status != "p" {
+		t.Fatalf("expected short status p, got %q", item.Status)
+	}
+	if item.InboxID != nil {
+		t.Fatalf("expected ib to be omitted when --inbox is provided, got %v", *item.InboxID)
+	}
+	if item.Unread != 10 {
+		t.Fatalf("expected unread 10, got %d", item.Unread)
+	}
+	if item.LastMessage != "能協助看是否還有庫存" {
+		t.Fatalf("expected last message from last_non_activity_message, got %q", item.LastMessage)
+	}
+	if item.ContactName != "Shani Chiang" {
+		t.Fatalf("expected contact name Shani Chiang, got %q", item.ContactName)
+	}
+}
+
+func TestConversationsTriage_Light_UnfilteredIncludesInbox(t *testing.T) {
+	openActivityTime := time.Now().Add(-2 * time.Hour).Unix()
+	pendingActivityTime := time.Now().Add(-1 * time.Hour).Unix()
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Query().Get("status") {
+			case "open":
+				jsonResponse(200, `{
+					"data": {
+						"payload": [
+							{
+								"id": 99,
+								"inbox_id": 48,
+								"status": "open",
+								"unread_count": 2,
+								"last_activity_at": `+strconv.FormatInt(openActivityTime, 10)+`,
+								"last_non_activity_message": {"content": "Need help"},
+								"meta": {"sender": {"name": "Alice"}}
+							}
+						],
+						"meta": {"total_pages": 1}
+					}
+				}`)(w, r)
+			case "pending":
+				jsonResponse(200, `{
+					"data": {
+						"payload": [
+							{
+								"id": 100,
+								"inbox_id": 77,
+								"status": "pending",
+								"unread_count": 1,
+								"last_activity_at": `+strconv.FormatInt(pendingActivityTime, 10)+`,
+								"last_non_activity_message": {"content": "Still waiting"},
+								"meta": {"sender": {"name": "Bob"}}
+							}
+						],
+						"meta": {"total_pages": 1}
+					}
+				}`)(w, r)
+			default:
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":1}}}`)(w, r)
+			}
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "triage", "--light", "--brief", "--output", "json"})
+		if err != nil {
+			t.Fatalf("conversations triage --light --brief --output json failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct {
+			ID      int    `json:"id"`
+			InboxID *int   `json:"ib,omitempty"`
+			Status  string `json:"st"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to decode light triage output: %v\noutput: %s", err, output)
+	}
+
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 triage items, got %d", len(result.Items))
+	}
+	if strings.Contains(output, `"wt"`) {
+		t.Fatalf("light triage should omit wait time in light mode, got: %s", output)
+	}
+
+	inboxesByID := map[int]int{}
+	statusByID := map[int]string{}
+	for _, item := range result.Items {
+		statusByID[item.ID] = item.Status
+		if item.InboxID == nil {
+			t.Fatalf("expected ib to be present when no inbox filter is provided for item %d", item.ID)
+		}
+		inboxesByID[item.ID] = *item.InboxID
+	}
+
+	if statusByID[99] != "o" {
+		t.Fatalf("expected id 99 to have short status o, got %q", statusByID[99])
+	}
+	if statusByID[100] != "p" {
+		t.Fatalf("expected id 100 to have short status p, got %q", statusByID[100])
+	}
+	if inboxesByID[99] != 48 {
+		t.Fatalf("expected id 99 to have ib=48, got %d", inboxesByID[99])
+	}
+	if inboxesByID[100] != 77 {
+		t.Fatalf("expected id 100 to have ib=77, got %d", inboxesByID[100])
+	}
+}
+
 func TestConversationsTriage_IncludesPendingStatus(t *testing.T) {
 	now := time.Now().Unix()
 	var openCalls atomic.Int32

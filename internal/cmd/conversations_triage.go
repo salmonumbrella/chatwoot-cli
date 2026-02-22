@@ -9,6 +9,7 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/heuristics"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +25,48 @@ type triageItem struct {
 	Explanation *heuristics.Analysis `json:"_explanation,omitempty"`
 }
 
+type lightTriageItem struct {
+	ID          int                  `json:"id"`
+	Status      string               `json:"st,omitempty"`
+	InboxID     *int                 `json:"ib,omitempty"`
+	Unread      int                  `json:"ur"`
+	LastMessage string               `json:"lm,omitempty"`
+	ContactName string               `json:"cnm,omitempty"`
+	Explanation *heuristics.Analysis `json:"_exp,omitempty"`
+}
+
+func buildLightTriageItems(items []triageItem, includeInbox bool) []lightTriageItem {
+	if len(items) == 0 {
+		return []lightTriageItem{}
+	}
+
+	out := make([]lightTriageItem, 0, len(items))
+	for _, item := range items {
+		light := lightTriageItem{
+			ID:          item.ID,
+			Status:      shortStatus(strings.TrimSpace(item.Status)),
+			Unread:      item.Unread,
+			LastMessage: item.LastMessage,
+			ContactName: item.ContactName,
+		}
+		if includeInbox {
+			inboxID := item.InboxID
+			light.InboxID = &inboxID
+		}
+		if item.Explanation != nil {
+			light.Explanation = item.Explanation
+		}
+		out = append(out, light)
+	}
+	return out
+}
+
 func newConversationsTriageCmd() *cobra.Command {
 	var limit int
 	var inboxID int
 	var explain bool
 	var brief bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "triage",
@@ -139,6 +177,13 @@ the customer has been waiting (oldest first = longest waiting = most urgent).`,
 				items = append(items, item)
 			}
 
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, map[string]any{
+					"items": buildLightTriageItems(items, inboxID <= 0),
+				})
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, map[string]any{"items": items})
 			}
@@ -170,10 +215,12 @@ the customer has been waiting (oldest first = longest waiting = most urgent).`,
 	cmd.Flags().IntVar(&inboxID, "inbox", 0, "Filter by inbox ID")
 	cmd.Flags().BoolVar(&explain, "explain", false, "Include reasoning hints (agent mode)")
 	cmd.Flags().BoolVar(&brief, "brief", false, "Skip per-conversation API calls; use last_non_activity_message from list response")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal triage payload for lookup")
 	flagAlias(cmd.Flags(), "inbox", "ib")
 	flagAlias(cmd.Flags(), "explain", "exp")
 	flagAlias(cmd.Flags(), "limit", "lt")
 	flagAlias(cmd.Flags(), "brief", "br")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
