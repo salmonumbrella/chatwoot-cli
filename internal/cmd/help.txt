@@ -26,7 +26,7 @@ Aliases (subcommand → short):
 
 Reading conversations:
   cw ct CONV                   Full AI context (messages + metadata)
-  cw ct CONV --cj              Compact single-line JSON (saves tokens)
+  cw ct CONV --li              Light compact JSON (saves tokens)
   cw m ls CONV                 List messages (oldest first, newest at end)
   cw m ls CONV --sla           Messages since last agent reply
   cw m ls CONV --tr            Human-readable transcript
@@ -123,8 +123,8 @@ Output formats:
   -o json / -j  Full JSON: {items: [...], meta: {...}}
   -o jsonl      Newline-delimited JSON (streaming/piping)
   -o text       Human-readable tabulated text
-  --li          Light mode (where supported), implies --cj by default
-  --cj          Compact JSON (no indentation, single line)
+  --li          Light mode (where supported): minimal payload, compact by default
+  --cj          Compact JSON (advanced/manual override)
   --jq EXPR     Built-in JQ filter (preferred over piping to jq)
   --fi F        Field selection: minimal, default, debug, or CSV
   --tpl T       Go template string (or @path)
