@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/auth"
@@ -43,6 +46,7 @@ func newAuthLoginCmd() *cobra.Command {
 		noBrowser bool
 		profile   string
 		platform  string
+		envFile   string
 	)
 
 	cmd := &cobra.Command{
@@ -71,6 +75,9 @@ Optional:
 
   # Save to a named profile with a platform token
   cw auth login --no-browser --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1 --profile staging --platform-token PLATFORM_TOKEN
+
+  # Load credentials from a .env file
+  cw auth login --env-file .env
 `),
 		RunE: RunE(func(cmd *cobra.Command, _ []string) error {
 			if cmd.Flags().Changed("browser") && cmd.Flags().Changed("no-browser") && browser == noBrowser {
@@ -80,8 +87,41 @@ Optional:
 				browser = !noBrowser
 			}
 
+			if envFile != "" {
+				envVars, err := loadAuthEnvFile(envFile)
+				if err != nil {
+					return err
+				}
+				applyAuthEnvFileRuntimeVars(envVars)
+
+				if url == "" {
+					url = strings.TrimSpace(envVars["CHATWOOT_BASE_URL"])
+				}
+				if token == "" {
+					token = strings.TrimSpace(envVars["CHATWOOT_API_TOKEN"])
+				}
+				if accountID <= 0 {
+					rawAccountID := strings.TrimSpace(envVars["CHATWOOT_ACCOUNT_ID"])
+					if rawAccountID != "" {
+						id, err := strconv.Atoi(rawAccountID)
+						if err != nil || id <= 0 {
+							return fmt.Errorf("invalid CHATWOOT_ACCOUNT_ID in %q: must be a positive integer", envFile)
+						}
+						accountID = id
+					}
+				}
+				if platform == "" {
+					platform = strings.TrimSpace(envVars["CHATWOOT_PLATFORM_TOKEN"])
+				}
+				if !cmd.Flags().Changed("profile") {
+					if envProfile := strings.TrimSpace(envVars["CHATWOOT_PROFILE"]); envProfile != "" {
+						profile = envProfile
+					}
+				}
+			}
+
 			// If browser mode (default) and no flags provided, use browser setup
-			if browser && url == "" && token == "" && accountID == 0 {
+			if envFile == "" && browser && url == "" && token == "" && accountID == 0 {
 				return runBrowserSetup(cmd.OutOrStdout(), profile)
 			}
 
@@ -137,6 +177,7 @@ Optional:
 	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Disable browser setup and require --url, --token, and --account-id")
 	cmd.Flags().StringVar(&profile, "profile", "default", "Profile name to save credentials under")
 	cmd.Flags().StringVar(&platform, "platform-token", "", "Platform API token (optional)")
+	cmd.Flags().StringVar(&envFile, "env-file", "", "Load CHATWOOT_* (and optional CW_KEYRING_*) values from a .env file")
 	cmd.Flags().Lookup("browser").NoOptDefVal = "true"
 	flagAlias(cmd.Flags(), "url", "ur")
 	flagAlias(cmd.Flags(), "token", "tk")
@@ -145,8 +186,47 @@ Optional:
 	flagAlias(cmd.Flags(), "no-browser", "nbr")
 	flagAlias(cmd.Flags(), "profile", "pf")
 	flagAlias(cmd.Flags(), "platform-token", "pt")
+	flagAlias(cmd.Flags(), "env-file", "env")
 
 	return cmd
+}
+
+func loadAuthEnvFile(path string) (map[string]string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, fmt.Errorf("--env-file requires a file path")
+	}
+
+	envVars, err := godotenv.Read(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read --env-file %q: %w", path, err)
+	}
+
+	return envVars, nil
+}
+
+// applyAuthEnvFileRuntimeVars copies keyring/runtime settings from --env-file
+// into process environment when they are not already exported.
+func applyAuthEnvFileRuntimeVars(envVars map[string]string) {
+	keys := []string{
+		"CW_KEYRING_BACKEND",
+		"CW_KEYRING_PASSWORD",
+		"CW_CREDENTIALS_DIR",
+		"CHATWOOT_KEYRING_BACKEND",
+		"CHATWOOT_KEYRING_PASSWORD",
+		"CHATWOOT_CREDENTIALS_DIR",
+	}
+
+	for _, key := range keys {
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		value := strings.TrimSpace(envVars[key])
+		if value == "" {
+			continue
+		}
+		_ = os.Setenv(key, value)
+	}
 }
 
 // runBrowserSetup launches the browser-based authentication flow

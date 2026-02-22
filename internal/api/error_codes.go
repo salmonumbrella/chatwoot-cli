@@ -49,7 +49,7 @@ func (c ErrorCode) IsRetryable() bool {
 func (c ErrorCode) Suggestion() string {
 	switch c {
 	case ErrUnauthorized:
-		return "Run 'chatwoot auth login' to authenticate"
+		return "Run 'cw auth login' to authenticate"
 	case ErrForbidden:
 		return "Check your account permissions"
 	case ErrNotFound:

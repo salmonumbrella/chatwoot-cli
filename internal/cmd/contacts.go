@@ -1006,16 +1006,16 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 				return err
 			}
 
-			inboxes, err := client.Contacts().ContactableInboxes(cmdContext(cmd), id)
+			contactInboxes, err := client.Contacts().ContactableInboxes(cmdContext(cmd), id)
 			if err != nil {
 				return fmt.Errorf("failed to get contactable inboxes for contact %d: %w", id, err)
 			}
 
 			if isJSON(cmd) {
-				return printJSON(cmd, inboxes)
+				return printJSON(cmd, contactInboxes)
 			}
 
-			if len(inboxes) == 0 {
+			if len(contactInboxes) == 0 {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No contactable inboxes found")
 				return nil
 			}
@@ -1023,12 +1023,13 @@ func newContactsContactableInboxesCmd() *cobra.Command {
 			w := newTabWriterFromCmd(cmd)
 			defer func() { _ = w.Flush() }()
 
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tCHANNEL_TYPE")
-			for _, inbox := range inboxes {
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n",
-					inbox.ID,
-					inbox.Name,
-					inbox.ChannelType,
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tCHANNEL_TYPE\tSOURCE_ID")
+			for _, contactInbox := range contactInboxes {
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+					contactInbox.Inbox.ID,
+					contactInbox.Inbox.Name,
+					contactInbox.Inbox.ChannelType,
+					contactInbox.SourceID,
 				)
 			}
 

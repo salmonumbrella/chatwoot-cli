@@ -258,3 +258,40 @@ func TestApply_QueryAliases_CustomAttributes(t *testing.T) {
 		t.Fatalf("expected mtr=gold, got %v", out["mtr"])
 	}
 }
+
+func TestApply_RootArrayQueryFallsBackToItems(t *testing.T) {
+	data := map[string]any{
+		"items": []any{
+			map[string]any{"inbox": map[string]any{"id": 11}},
+			map[string]any{"inbox": map[string]any{"id": 22}},
+		},
+		"meta": map[string]any{"total": 2},
+	}
+
+	result, err := Apply(data, `.[].inbox.id`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	values, ok := result.([]any)
+	if !ok {
+		t.Fatalf("expected []any result, got %T (%v)", result, result)
+	}
+	if len(values) != 2 {
+		t.Fatalf("expected 2 results, got %d (%v)", len(values), values)
+	}
+	if values[0] != 11 || values[1] != 22 {
+		t.Fatalf("unexpected values: %v", values)
+	}
+}
+
+func TestApply_RootArrayQueryWithoutItemsStillErrors(t *testing.T) {
+	data := map[string]any{
+		"payload": []any{map[string]any{"id": 1}},
+	}
+
+	_, err := Apply(data, `.[].id`)
+	if err == nil {
+		t.Fatal("expected error for root-array query on non-items object")
+	}
+}

@@ -120,6 +120,9 @@ If multiple open conversations exist for the contact, disambiguation is required
 			}
 
 			if len(contacts.Payload) == 0 {
+				if isDryRun(cmd) {
+					return fmt.Errorf("no contacts found matching %q (dry-run still requires a real contact/conversation; use --contact-id or --conversation-id)", query)
+				}
 				return fmt.Errorf("no contacts found matching %q", query)
 			}
 

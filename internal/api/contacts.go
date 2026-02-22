@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -267,19 +268,47 @@ func addContactLabels(ctx context.Context, r Requester, id int, labels []string)
 }
 
 // ContactableInboxes retrieves contactable inboxes for a contact.
-func (s ContactsService) ContactableInboxes(ctx context.Context, id int) ([]Inbox, error) {
+func (s ContactsService) ContactableInboxes(ctx context.Context, id int) ([]ContactInbox, error) {
 	return getContactableInboxes(ctx, s, id)
 }
 
-func getContactableInboxes(ctx context.Context, r Requester, id int) ([]Inbox, error) {
+func getContactableInboxes(ctx context.Context, r Requester, id int) ([]ContactInbox, error) {
 	path := fmt.Sprintf("/contacts/%d/contactable_inboxes", id)
 	var result struct {
-		Payload []Inbox `json:"payload"`
+		Payload []json.RawMessage `json:"payload"`
 	}
 	if err := r.do(ctx, http.MethodGet, r.accountPath(path), nil, &result); err != nil {
 		return nil, err
 	}
-	return result.Payload, nil
+
+	inboxes := make([]ContactInbox, 0, len(result.Payload))
+	for _, raw := range result.Payload {
+		// Preferred shape from Chatwoot API:
+		// {"source_id":"...", "inbox":{...}}
+		var probe struct {
+			Inbox json.RawMessage `json:"inbox"`
+		}
+		if err := json.Unmarshal(raw, &probe); err != nil {
+			return nil, err
+		}
+		if len(probe.Inbox) > 0 {
+			var ci ContactInbox
+			if err := json.Unmarshal(raw, &ci); err != nil {
+				return nil, err
+			}
+			inboxes = append(inboxes, ci)
+			continue
+		}
+
+		// Backward-compatible fallback for payload entries returned as plain inbox objects.
+		var inbox Inbox
+		if err := json.Unmarshal(raw, &inbox); err != nil {
+			return nil, err
+		}
+		inboxes = append(inboxes, ContactInbox{Inbox: inbox})
+	}
+
+	return inboxes, nil
 }
 
 // CreateInbox associates a contact with an inbox.

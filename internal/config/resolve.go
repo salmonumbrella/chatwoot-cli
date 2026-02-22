@@ -75,7 +75,7 @@ func ResolvePublicClientConfig(baseURLOverride string) (ClientConfig, error) {
 	}
 
 	if baseURL == "" {
-		return ClientConfig{}, fmt.Errorf("base URL not configured (set CHATWOOT_BASE_URL, run 'chatwoot auth login', or pass --base-url)")
+		return ClientConfig{}, fmt.Errorf("base URL not configured (set CHATWOOT_BASE_URL, run 'cw auth login', or pass --base-url)")
 	}
 
 	return ClientConfig{BaseURL: baseURL}, nil

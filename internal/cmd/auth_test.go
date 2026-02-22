@@ -3,6 +3,9 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -17,6 +20,23 @@ func withEmptyKeyring(t *testing.T) {
 		return keyring.NewArrayKeyring(nil), nil
 	})
 	t.Cleanup(cleanup)
+}
+
+func withPersistentKeyring(t *testing.T) {
+	t.Helper()
+	ring := keyring.NewArrayKeyring(nil)
+	cleanup := config.SetOpenKeyring(func(cfg keyring.Config) (keyring.Keyring, error) {
+		return ring, nil
+	})
+	t.Cleanup(cleanup)
+}
+
+func newAuthSkillTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"payload":[]}`))
+	}))
 }
 
 func TestMaskToken(t *testing.T) {
@@ -306,6 +326,159 @@ func TestAuthLoginCommand_ValidationErrors(t *testing.T) {
 	}
 }
 
+func TestAuthLoginCommand_EnvFile(t *testing.T) {
+	withPersistentKeyring(t)
+	server := newAuthSkillTestServer(t)
+	t.Cleanup(server.Close)
+	t.Setenv("CHATWOOT_ALLOW_PRIVATE", "1")
+	t.Setenv("HOME", t.TempDir())
+
+	envFile := t.TempDir() + "/chatwoot.env"
+	envContent := strings.Join([]string{
+		"CHATWOOT_BASE_URL=" + server.URL,
+		"CHATWOOT_API_TOKEN=env-token",
+		"CHATWOOT_ACCOUNT_ID=2",
+		"CHATWOOT_PROFILE=staging",
+		"CHATWOOT_PLATFORM_TOKEN=env-platform-token",
+		"",
+	}, "\n")
+	if err := os.WriteFile(envFile, []byte(envContent), 0o600); err != nil {
+		t.Fatalf("failed to write env file: %v", err)
+	}
+
+	err := Execute(context.Background(), []string{"auth", "login", "--env-file", envFile})
+	if err != nil {
+		t.Fatalf("auth login --env-file failed: %v", err)
+	}
+
+	account, err := config.LoadProfile("staging")
+	if err != nil {
+		t.Fatalf("failed to load saved profile: %v", err)
+	}
+	if account.BaseURL != server.URL {
+		t.Errorf("expected base URL %q, got %q", server.URL, account.BaseURL)
+	}
+	if account.APIToken != "env-token" {
+		t.Errorf("expected API token from env file, got %q", account.APIToken)
+	}
+	if account.AccountID != 2 {
+		t.Errorf("expected account ID 2, got %d", account.AccountID)
+	}
+	if account.PlatformToken != "env-platform-token" {
+		t.Errorf("expected platform token from env file, got %q", account.PlatformToken)
+	}
+}
+
+func TestAuthLoginCommand_EnvFileFlagPrecedence(t *testing.T) {
+	withPersistentKeyring(t)
+	server := newAuthSkillTestServer(t)
+	t.Cleanup(server.Close)
+	t.Setenv("CHATWOOT_ALLOW_PRIVATE", "1")
+	t.Setenv("HOME", t.TempDir())
+
+	envFile := t.TempDir() + "/chatwoot.env"
+	envContent := strings.Join([]string{
+		"CHATWOOT_BASE_URL=" + server.URL,
+		"CHATWOOT_API_TOKEN=env-token",
+		"CHATWOOT_ACCOUNT_ID=2",
+		"CHATWOOT_PROFILE=env-profile",
+		"",
+	}, "\n")
+	if err := os.WriteFile(envFile, []byte(envContent), 0o600); err != nil {
+		t.Fatalf("failed to write env file: %v", err)
+	}
+
+	err := Execute(context.Background(), []string{
+		"auth", "login",
+		"--env-file", envFile,
+		"--token", "flag-token",
+		"--account-id", "9",
+		"--profile", "flag-profile",
+	})
+	if err != nil {
+		t.Fatalf("auth login with flag overrides failed: %v", err)
+	}
+
+	account, err := config.LoadProfile("flag-profile")
+	if err != nil {
+		t.Fatalf("failed to load overridden profile: %v", err)
+	}
+	if account.APIToken != "flag-token" {
+		t.Errorf("expected token from flag override, got %q", account.APIToken)
+	}
+	if account.AccountID != 9 {
+		t.Errorf("expected account ID from flag override, got %d", account.AccountID)
+	}
+}
+
+func TestAuthLoginCommand_EnvFileInvalidAccountID(t *testing.T) {
+	envFile := t.TempDir() + "/chatwoot.env"
+	envContent := strings.Join([]string{
+		"CHATWOOT_BASE_URL=https://example.com",
+		"CHATWOOT_API_TOKEN=env-token",
+		"CHATWOOT_ACCOUNT_ID=not-a-number",
+		"",
+	}, "\n")
+	if err := os.WriteFile(envFile, []byte(envContent), 0o600); err != nil {
+		t.Fatalf("failed to write env file: %v", err)
+	}
+
+	err := Execute(context.Background(), []string{"auth", "login", "--env-file", envFile})
+	if err == nil {
+		t.Fatal("expected error for invalid CHATWOOT_ACCOUNT_ID in env file")
+	}
+	if !strings.Contains(err.Error(), "invalid CHATWOOT_ACCOUNT_ID") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestApplyAuthEnvFileRuntimeVars(t *testing.T) {
+	unsetEnv := func(key string) {
+		t.Helper()
+		original, existed := os.LookupEnv(key)
+		_ = os.Unsetenv(key)
+		t.Cleanup(func() {
+			if existed {
+				_ = os.Setenv(key, original)
+				return
+			}
+			_ = os.Unsetenv(key)
+		})
+	}
+
+	unsetEnv("CW_KEYRING_BACKEND")
+	unsetEnv("CW_KEYRING_PASSWORD")
+	unsetEnv("CW_CREDENTIALS_DIR")
+
+	applyAuthEnvFileRuntimeVars(map[string]string{
+		"CW_KEYRING_BACKEND":  "file",
+		"CW_KEYRING_PASSWORD": "from-env-file",
+		"CW_CREDENTIALS_DIR":  "/tmp/chatwoot-creds",
+	})
+
+	if got := os.Getenv("CW_KEYRING_BACKEND"); got != "file" {
+		t.Fatalf("CW_KEYRING_BACKEND = %q, want %q", got, "file")
+	}
+	if got := os.Getenv("CW_KEYRING_PASSWORD"); got != "from-env-file" {
+		t.Fatalf("CW_KEYRING_PASSWORD = %q, want %q", got, "from-env-file")
+	}
+	if got := os.Getenv("CW_CREDENTIALS_DIR"); got != "/tmp/chatwoot-creds" {
+		t.Fatalf("CW_CREDENTIALS_DIR = %q, want %q", got, "/tmp/chatwoot-creds")
+	}
+}
+
+func TestApplyAuthEnvFileRuntimeVars_DoesNotOverrideExistingEnv(t *testing.T) {
+	t.Setenv("CW_KEYRING_PASSWORD", "existing-password")
+
+	applyAuthEnvFileRuntimeVars(map[string]string{
+		"CW_KEYRING_PASSWORD": "from-env-file",
+	})
+
+	if got := os.Getenv("CW_KEYRING_PASSWORD"); got != "existing-password" {
+		t.Fatalf("CW_KEYRING_PASSWORD = %q, want %q", got, "existing-password")
+	}
+}
+
 func TestAuthStatusCommand_WithEnvVars(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/profile", jsonResponse(200, `{"id": 1, "name": "Test User", "email": "test@example.com"}`))
@@ -381,7 +554,7 @@ func TestAuthLoginCmd(t *testing.T) {
 	cmd := newAuthLoginCmd()
 
 	// Check that required flags exist
-	requiredFlags := []string{"url", "token", "account-id", "browser", "no-browser", "profile", "platform-token"}
+	requiredFlags := []string{"url", "token", "account-id", "browser", "no-browser", "profile", "platform-token", "env-file"}
 	for _, flag := range requiredFlags {
 		if cmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag %q not found", flag)

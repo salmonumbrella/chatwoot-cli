@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -18,12 +20,33 @@ const (
 	profilePrefix     = "profile:"
 	profileIndexKey   = "profiles_index"
 	currentProfileKey = "current_profile"
+
+	envKeyringBackend        = "CW_KEYRING_BACKEND"
+	envKeyringBackendLegacy  = "CHATWOOT_KEYRING_BACKEND"
+	envKeyringPassword       = "CW_KEYRING_PASSWORD"
+	envKeyringPasswordLegacy = "CHATWOOT_KEYRING_PASSWORD"
+	envCredentialsDir        = "CW_CREDENTIALS_DIR"
+	envCredentialsDirLegacy  = "CHATWOOT_CREDENTIALS_DIR"
+
+	keyringBackendAuto   = "auto"
+	keyringBackendFile   = "file"
+	keyringBackendSystem = "system"
 )
 
 // openKeyring is a package-level function for opening keyrings.
 // It can be replaced in tests to use a mock keyring.
 var openKeyring = func(cfg keyring.Config) (keyring.Keyring, error) {
 	return keyring.Open(cfg)
+}
+
+var userConfigDir = os.UserConfigDir
+
+var stdinHasTTY = func() bool {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
 // SetOpenKeyring allows replacing the keyring opener for testing.
@@ -56,16 +79,114 @@ type DashboardConfig struct {
 }
 
 // ErrNotConfigured is returned when no account is configured
-var ErrNotConfigured = errors.New("chatwoot not configured - run 'chatwoot auth login' first")
+var ErrNotConfigured = errors.New("chatwoot not configured - run 'cw auth login' first")
 
 // ErrDashboardNotFound is returned when a dashboard is not configured
 var ErrDashboardNotFound = errors.New("dashboard not configured")
 
 // keyringConfig returns the keyring configuration
 func keyringConfig() keyring.Config {
-	return keyring.Config{
+	cfg := keyring.Config{
 		ServiceName: serviceName,
 	}
+
+	backend := keyringBackendMode()
+	if backend == keyringBackendSystem {
+		return cfg
+	}
+
+	// Always configure file backend details in auto mode so keyring.Open can
+	// fall through to encrypted file storage when native backends are missing.
+	configureFileBackend(&cfg)
+
+	// Headless Linux should bypass other backends and use encrypted file storage.
+	if shouldForceFileBackend(runtime.GOOS, backend, os.Getenv("DBUS_SESSION_BUS_ADDRESS")) {
+		cfg.AllowedBackends = []keyring.BackendType{keyring.FileBackend}
+	}
+
+	return cfg
+}
+
+func keyringBackendMode() string {
+	backend := strings.ToLower(firstNonBlankEnv(envKeyringBackend, envKeyringBackendLegacy))
+	switch backend {
+	case "", keyringBackendAuto:
+		return keyringBackendAuto
+	case keyringBackendFile:
+		return keyringBackendFile
+	case keyringBackendSystem, "os", "native":
+		return keyringBackendSystem
+	default:
+		return keyringBackendAuto
+	}
+}
+
+func shouldForceFileBackend(goos, backend, dbusAddr string) bool {
+	if backend == keyringBackendFile {
+		return true
+	}
+	if backend != keyringBackendAuto {
+		return false
+	}
+	return goos == "linux" && strings.TrimSpace(dbusAddr) == ""
+}
+
+func configureFileBackend(cfg *keyring.Config) {
+	cfg.FileDir = keyringFileDir()
+	cfg.FilePasswordFunc = keyringFilePassword
+}
+
+func keyringFileDir() string {
+	base := firstNonBlankEnv(envCredentialsDir, envCredentialsDirLegacy)
+	if base == "" {
+		if dir, err := userConfigDir(); err == nil && strings.TrimSpace(dir) != "" {
+			base = filepath.Join(dir, serviceName)
+		}
+	}
+	if base == "" {
+		if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
+			base = filepath.Join(home, ".config", serviceName)
+		}
+	}
+	if base == "" {
+		base = filepath.Join(os.TempDir(), serviceName)
+	}
+	return filepath.Join(base, "keyring")
+}
+
+func keyringFilePassword(prompt string) (string, error) {
+	if password, ok := firstNonBlankSecretEnv(envKeyringPassword, envKeyringPasswordLegacy); ok {
+		return password, nil
+	}
+	if !stdinHasTTY() {
+		return "", fmt.Errorf("set %s when using file keyring in non-interactive environments", envKeyringPassword)
+	}
+	return keyring.TerminalPrompt(prompt)
+}
+
+func firstNonBlankEnv(keys ...string) string {
+	for _, key := range keys {
+		if value, ok := os.LookupEnv(key); ok {
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	return ""
+}
+
+func firstNonBlankSecretEnv(keys ...string) (string, bool) {
+	for _, key := range keys {
+		value, ok := os.LookupEnv(key)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		return value, true
+	}
+	return "", false
 }
 
 func profileKey(name string) string {

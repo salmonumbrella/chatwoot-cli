@@ -474,7 +474,7 @@ const setupTemplate = `<!DOCTYPE html>
     <div class="container">
         <div class="terminal-header">
             <div class="terminal-prompt">
-                chatwoot auth login
+                cw auth login
             </div>
         </div>
 

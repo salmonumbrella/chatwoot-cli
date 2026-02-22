@@ -64,7 +64,7 @@ func TestErrorCodeSuggestion(t *testing.T) {
 		code     ErrorCode
 		expected string
 	}{
-		{ErrUnauthorized, "Run 'chatwoot auth login' to authenticate"},
+		{ErrUnauthorized, "Run 'cw auth login' to authenticate"},
 		{ErrForbidden, "Check your account permissions"},
 		{ErrNotFound, "Verify the resource ID exists"},
 		{ErrRateLimited, "Wait a moment and retry"},

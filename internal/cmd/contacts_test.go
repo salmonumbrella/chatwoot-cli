@@ -847,7 +847,7 @@ func TestContactsContactableInboxesCommand_Empty(t *testing.T) {
 func TestContactsContactableInboxesCommand_JSON(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/123/contactable_inboxes", jsonResponse(200, `{
-			"payload": [{"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}]
+			"payload": [{"source_id": "src-123", "inbox": {"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}}]
 		}`))
 
 	setupTestEnvWithHandler(t, handler)
@@ -859,8 +859,34 @@ func TestContactsContactableInboxesCommand_JSON(t *testing.T) {
 		}
 	})
 
+	if !strings.Contains(output, `"inbox"`) {
+		t.Errorf("JSON output missing 'inbox' field: %s", output)
+	}
+	if !strings.Contains(output, `"source_id"`) {
+		t.Errorf("JSON output missing 'source_id' field: %s", output)
+	}
 	if !strings.Contains(output, `"id"`) {
 		t.Errorf("JSON output missing 'id' field: %s", output)
+	}
+}
+
+func TestContactsContactableInboxesCommand_JSONRootArrayQueryFallback(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/contactable_inboxes", jsonResponse(200, `{
+			"payload": [{"source_id": "src-123", "inbox": {"id": 1, "name": "Website", "channel_type": "Channel::WebWidget"}}]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "contactable-inboxes", "123", "-o", "json", "--jq", ".[].inbox.id"})
+		if err != nil {
+			t.Errorf("contacts contactable-inboxes JSON query failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1") {
+		t.Errorf("expected filtered output to contain inbox id, got: %s", output)
 	}
 }
 

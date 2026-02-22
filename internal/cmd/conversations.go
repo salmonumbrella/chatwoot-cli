@@ -1930,12 +1930,13 @@ func contextMessageSummaries(messages []api.MessageWithEmbeddings) ([]contextMes
 	return out, publicCount, privateCount, embeddedCount
 }
 
-func contextInboxSummaries(inboxes []api.Inbox) []contextInboxSummary {
-	if len(inboxes) == 0 {
+func contextInboxSummaries(contactInboxes []api.ContactInbox) []contextInboxSummary {
+	if len(contactInboxes) == 0 {
 		return nil
 	}
-	out := make([]contextInboxSummary, 0, len(inboxes))
-	for _, inbox := range inboxes {
+	out := make([]contextInboxSummary, 0, len(contactInboxes))
+	for _, contactInbox := range contactInboxes {
+		inbox := contactInbox.Inbox
 		out = append(out, contextInboxSummary{
 			ID:          inbox.ID,
 			Name:        inbox.Name,

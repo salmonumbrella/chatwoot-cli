@@ -52,12 +52,15 @@ cw auth login                            # Opens browser for interactive login
 **Terminal:**
 ```bash
 cw auth login --browser=false --url https://chatwoot.example.com --token YOUR_API_TOKEN --account-id 1
+
+# Load credentials from a .env file
+cw auth login --env-file .env
 ```
 
 ### 2. Verify Setup
 
 ```bash
-cw pr g                                  # Get current user profile
+cw pr                                    # Get current user profile (default: profile get)
 ```
 
 ### 3. List Conversations
@@ -115,6 +118,11 @@ export CHATWOOT_PLATFORM_TOKEN=your_platform_token
 export CHATWOOT_ALLOW_PRIVATE=1
 export CHATWOOT_OUTPUT=agent
 export CHATWOOT_RESOLVE_NAMES=1
+
+# Optional keyring controls (useful for headless Linux/CI)
+export CW_KEYRING_BACKEND=auto            # auto | file | system
+export CW_KEYRING_PASSWORD=strong-secret  # required for non-interactive file backend
+export CW_CREDENTIALS_DIR=~/.config/chatwoot-cli
 ```
 
 ## Security
@@ -126,6 +134,11 @@ Credentials saved with `cw auth login` are stored securely in your system's keyc
 - **Linux**: Secret Service (GNOME Keyring, KWallet)
 - **Windows**: Credential Manager
 
+Headless Linux fallback:
+- If `DBUS_SESSION_BUS_ADDRESS` is missing, `cw` automatically uses the encrypted file backend.
+- Default file location: `~/.config/chatwoot-cli/keyring/`
+- For non-interactive environments (CI/systemd), set `CW_KEYRING_PASSWORD`.
+
 ## Commands
 
 ### Authentication
@@ -133,6 +146,7 @@ Credentials saved with `cw auth login` are stored securely in your system's keyc
 ```bash
 cw auth login                            # Authenticate via browser
 cw auth login --no-browser --url <url> --token <t> --account-id <id>  # CLI login
+cw auth login --env-file .env           # Load CHATWOOT_* (and CW_KEYRING_*) vars from .env
 cw auth status                           # Show current config
 cw auth logout                           # Remove credentials
 ```

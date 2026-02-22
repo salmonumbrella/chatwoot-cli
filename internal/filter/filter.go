@@ -30,6 +30,23 @@ func applyWith(data interface{}, expression string, normalize func(string) strin
 		return nil, fmt.Errorf("invalid filter expression: %w", err)
 	}
 
+	results, err := runQuery(query, data)
+	if err != nil {
+		if items, ok := itemsQueryFallbackData(data, expression, err); ok {
+			if fallbackResults, fallbackErr := runQuery(query, items); fallbackErr == nil {
+				results = fallbackResults
+				err = nil
+			}
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return collapseQueryResults(results), nil
+}
+
+func runQuery(query *gojq.Query, data interface{}) ([]interface{}, error) {
 	iter := query.Run(data)
 
 	var results []interface{}
@@ -43,11 +60,44 @@ func applyWith(data interface{}, expression string, normalize func(string) strin
 		}
 		results = append(results, v)
 	}
-
-	if len(results) == 1 {
-		return results[0], nil
-	}
 	return results, nil
+}
+
+func collapseQueryResults(results []interface{}) interface{} {
+	if len(results) == 1 {
+		return results[0]
+	}
+	return results
+}
+
+func itemsQueryFallbackData(data interface{}, expression string, runErr error) (interface{}, bool) {
+	if runErr == nil || !looksLikeRootArrayQuery(expression) {
+		return nil, false
+	}
+	if !strings.Contains(runErr.Error(), "expected an object but got: array") {
+		return nil, false
+	}
+
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+
+	items, ok := m["items"]
+	if !ok {
+		return nil, false
+	}
+
+	if _, ok := items.([]interface{}); !ok {
+		return nil, false
+	}
+
+	return items, true
+}
+
+func looksLikeRootArrayQuery(expression string) bool {
+	expr := strings.TrimSpace(expression)
+	return strings.HasPrefix(expr, ".[]") || strings.HasPrefix(expr, "[.[]") || strings.HasPrefix(expr, "(.[]")
 }
 
 // Apply applies a JQ filter expression to the input data

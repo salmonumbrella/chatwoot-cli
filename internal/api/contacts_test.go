@@ -749,25 +749,47 @@ func TestGetContactableInboxes(t *testing.T) {
 		statusCode   int
 		responseBody string
 		expectError  bool
-		validateFunc func(*testing.T, []Inbox)
+		validateFunc func(*testing.T, []ContactInbox)
 	}{
 		{
-			name:       "successful get inboxes",
+			name:       "successful get inboxes (contact inbox shape)",
 			contactID:  123,
 			statusCode: http.StatusOK,
 			responseBody: `{
 				"payload": [
-					{"id": 1, "name": "Email Inbox", "channel_type": "Channel::Email"},
-					{"id": 2, "name": "Website", "channel_type": "Channel::WebWidget"}
+					{"source_id": "src-1", "inbox": {"id": 1, "name": "Email Inbox", "channel_type": "Channel::Email"}},
+					{"source_id": "src-2", "inbox": {"id": 2, "name": "Website", "channel_type": "Channel::WebWidget"}}
 				]
 			}`,
 			expectError: false,
-			validateFunc: func(t *testing.T, result []Inbox) {
+			validateFunc: func(t *testing.T, result []ContactInbox) {
 				if len(result) != 2 {
 					t.Errorf("Expected 2 inboxes, got %d", len(result))
 				}
-				if result[0].Name != "Email Inbox" {
-					t.Errorf("Expected name 'Email Inbox', got %s", result[0].Name)
+				if result[0].SourceID != "src-1" {
+					t.Errorf("Expected source_id 'src-1', got %s", result[0].SourceID)
+				}
+				if result[0].Inbox.Name != "Email Inbox" {
+					t.Errorf("Expected name 'Email Inbox', got %s", result[0].Inbox.Name)
+				}
+			},
+		},
+		{
+			name:       "successful get inboxes (legacy plain inbox shape)",
+			contactID:  123,
+			statusCode: http.StatusOK,
+			responseBody: `{
+				"payload": [
+					{"id": 1, "name": "Email Inbox", "channel_type": "Channel::Email"}
+				]
+			}`,
+			expectError: false,
+			validateFunc: func(t *testing.T, result []ContactInbox) {
+				if len(result) != 1 {
+					t.Errorf("Expected 1 inbox, got %d", len(result))
+				}
+				if result[0].Inbox.ID != 1 {
+					t.Errorf("Expected inbox id 1, got %d", result[0].Inbox.ID)
 				}
 			},
 		},
@@ -777,7 +799,7 @@ func TestGetContactableInboxes(t *testing.T) {
 			statusCode:   http.StatusOK,
 			responseBody: `{"payload": []}`,
 			expectError:  false,
-			validateFunc: func(t *testing.T, result []Inbox) {
+			validateFunc: func(t *testing.T, result []ContactInbox) {
 				if len(result) != 0 {
 					t.Errorf("Expected 0 inboxes, got %d", len(result))
 				}

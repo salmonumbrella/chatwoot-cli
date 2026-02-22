@@ -335,6 +335,29 @@ func TestReplyByContactSearch_NoMatches(t *testing.T) {
 	}
 }
 
+func TestReplyByContactSearch_NoMatches_DryRunGuidance(t *testing.T) {
+	_, cleanup := setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/contacts/search") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"payload": [], "meta": {}}`))
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	})
+	defer cleanup()
+
+	err := Execute(context.Background(), []string{"reply", "nonexistent", "--content", "Hello!", "--dry-run"})
+	if err == nil {
+		t.Fatal("Expected error for no matching contacts in dry-run mode")
+	}
+	if !strings.Contains(err.Error(), "dry-run still requires a real contact/conversation") {
+		t.Fatalf("expected dry-run guidance in error, got: %v", err)
+	}
+}
+
 func TestReplyByContactSearch_MultipleMatches(t *testing.T) {
 	_, cleanup := setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

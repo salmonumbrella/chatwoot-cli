@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/99designs/keyring"
@@ -540,16 +542,233 @@ func TestAccountSerialization(t *testing.T) {
 }
 
 func TestErrNotConfigured(t *testing.T) {
-	expectedMsg := "chatwoot not configured - run 'chatwoot auth login' first"
+	expectedMsg := "chatwoot not configured - run 'cw auth login' first"
 	if ErrNotConfigured.Error() != expectedMsg {
 		t.Errorf("ErrNotConfigured.Error() = %q, want %q", ErrNotConfigured.Error(), expectedMsg)
 	}
 }
 
 func TestKeyringConfig(t *testing.T) {
+	t.Setenv(envKeyringBackend, "")
+	t.Setenv(envKeyringBackendLegacy, "")
+	t.Setenv(envCredentialsDir, "")
+	t.Setenv(envCredentialsDirLegacy, "")
+
 	cfg := keyringConfig()
 	if cfg.ServiceName != serviceName {
 		t.Errorf("ServiceName = %q, want %q", cfg.ServiceName, serviceName)
+	}
+	if cfg.FileDir == "" {
+		t.Error("FileDir should be configured in auto backend mode")
+	}
+	if cfg.FilePasswordFunc == nil {
+		t.Error("FilePasswordFunc should be configured in auto backend mode")
+	}
+}
+
+func TestKeyringConfig_FileBackendOverride(t *testing.T) {
+	t.Setenv(envKeyringBackend, "file")
+	t.Setenv(envKeyringBackendLegacy, "")
+	t.Setenv(envCredentialsDirLegacy, "")
+
+	base := t.TempDir()
+	t.Setenv(envCredentialsDir, base)
+
+	cfg := keyringConfig()
+	if len(cfg.AllowedBackends) != 1 || cfg.AllowedBackends[0] != keyring.FileBackend {
+		t.Fatalf("AllowedBackends = %v, want [%s]", cfg.AllowedBackends, keyring.FileBackend)
+	}
+	expectedDir := filepath.Join(base, "keyring")
+	if cfg.FileDir != expectedDir {
+		t.Fatalf("FileDir = %q, want %q", cfg.FileDir, expectedDir)
+	}
+	if cfg.FilePasswordFunc == nil {
+		t.Fatal("FilePasswordFunc is nil; expected configured password function")
+	}
+}
+
+func TestKeyringConfig_SystemBackendOverride(t *testing.T) {
+	t.Setenv(envKeyringBackend, "system")
+
+	cfg := keyringConfig()
+	if cfg.FileDir != "" {
+		t.Fatalf("FileDir = %q, want empty for system backend", cfg.FileDir)
+	}
+	if cfg.FilePasswordFunc != nil {
+		t.Fatal("FilePasswordFunc should be nil for system backend")
+	}
+	if len(cfg.AllowedBackends) != 0 {
+		t.Fatalf("AllowedBackends = %v, want nil/empty for system backend", cfg.AllowedBackends)
+	}
+}
+
+func TestShouldForceFileBackend(t *testing.T) {
+	tests := []struct {
+		name     string
+		goos     string
+		backend  string
+		dbusAddr string
+		want     bool
+	}{
+		{
+			name:     "explicit file backend always forces file",
+			goos:     "darwin",
+			backend:  keyringBackendFile,
+			dbusAddr: "ignored",
+			want:     true,
+		},
+		{
+			name:     "auto backend on headless linux forces file",
+			goos:     "linux",
+			backend:  keyringBackendAuto,
+			dbusAddr: "",
+			want:     true,
+		},
+		{
+			name:     "auto backend on linux desktop does not force file",
+			goos:     "linux",
+			backend:  keyringBackendAuto,
+			dbusAddr: "unix:path=/run/user/1000/bus",
+			want:     false,
+		},
+		{
+			name:     "system backend never forces file",
+			goos:     "linux",
+			backend:  keyringBackendSystem,
+			dbusAddr: "",
+			want:     false,
+		},
+		{
+			name:     "auto backend on non-linux does not force file",
+			goos:     "windows",
+			backend:  keyringBackendAuto,
+			dbusAddr: "",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldForceFileBackend(tt.goos, tt.backend, tt.dbusAddr)
+			if got != tt.want {
+				t.Fatalf("shouldForceFileBackend(%q, %q, %q) = %v, want %v", tt.goos, tt.backend, tt.dbusAddr, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKeyringBackendMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		primary  string
+		legacy   string
+		wantMode string
+	}{
+		{
+			name:     "default auto",
+			primary:  "",
+			legacy:   "",
+			wantMode: keyringBackendAuto,
+		},
+		{
+			name:     "primary file backend",
+			primary:  "file",
+			legacy:   "",
+			wantMode: keyringBackendFile,
+		},
+		{
+			name:     "primary system backend",
+			primary:  "system",
+			legacy:   "",
+			wantMode: keyringBackendSystem,
+		},
+		{
+			name:     "legacy fallback",
+			primary:  "",
+			legacy:   "file",
+			wantMode: keyringBackendFile,
+		},
+		{
+			name:     "unknown value falls back to auto",
+			primary:  "weird",
+			legacy:   "",
+			wantMode: keyringBackendAuto,
+		},
+		{
+			name:     "native alias maps to system",
+			primary:  "native",
+			legacy:   "",
+			wantMode: keyringBackendSystem,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(envKeyringBackend, tt.primary)
+			t.Setenv(envKeyringBackendLegacy, tt.legacy)
+			got := keyringBackendMode()
+			if got != tt.wantMode {
+				t.Fatalf("keyringBackendMode() = %q, want %q", got, tt.wantMode)
+			}
+		})
+	}
+}
+
+func TestKeyringFileDir(t *testing.T) {
+	t.Setenv(envCredentialsDirLegacy, "")
+	base := t.TempDir()
+	t.Setenv(envCredentialsDir, base)
+
+	got := keyringFileDir()
+	want := filepath.Join(base, "keyring")
+	if got != want {
+		t.Fatalf("keyringFileDir() = %q, want %q", got, want)
+	}
+}
+
+func TestKeyringFileDir_DefaultsToUserConfigDir(t *testing.T) {
+	t.Setenv(envCredentialsDir, "")
+	t.Setenv(envCredentialsDirLegacy, "")
+
+	fakeConfigDir := t.TempDir()
+	original := userConfigDir
+	userConfigDir = func() (string, error) { return fakeConfigDir, nil }
+	t.Cleanup(func() { userConfigDir = original })
+
+	got := keyringFileDir()
+	want := filepath.Join(fakeConfigDir, serviceName, "keyring")
+	if got != want {
+		t.Fatalf("keyringFileDir() = %q, want %q", got, want)
+	}
+}
+
+func TestKeyringFilePassword_FromEnv(t *testing.T) {
+	t.Setenv(envKeyringPassword, "env-pass")
+	t.Setenv(envKeyringPasswordLegacy, "")
+
+	password, err := keyringFilePassword("prompt")
+	if err != nil {
+		t.Fatalf("keyringFilePassword() unexpected error: %v", err)
+	}
+	if password != "env-pass" {
+		t.Fatalf("keyringFilePassword() = %q, want %q", password, "env-pass")
+	}
+}
+
+func TestKeyringFilePassword_NonInteractiveError(t *testing.T) {
+	t.Setenv(envKeyringPassword, "")
+	t.Setenv(envKeyringPasswordLegacy, "")
+
+	original := stdinHasTTY
+	stdinHasTTY = func() bool { return false }
+	t.Cleanup(func() { stdinHasTTY = original })
+
+	_, err := keyringFilePassword("prompt")
+	if err == nil {
+		t.Fatal("expected error for missing keyring password in non-interactive mode")
+	}
+	if !strings.Contains(err.Error(), envKeyringPassword) {
+		t.Fatalf("error = %q, want to mention %s", err.Error(), envKeyringPassword)
 	}
 }
 
