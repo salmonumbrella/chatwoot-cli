@@ -1,0 +1,9 @@
+{
+  "code": "rate_limited",
+  "message": "rate limit exceeded, retry after 2s",
+  "retryable": true,
+  "suggestion": "Wait a moment and retry",
+  "context": {
+    "retry_after": "2s"
+  }
+}

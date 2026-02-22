@@ -1,0 +1,8 @@
+{
+  "id": 601,
+  "url": "https://example.com/webhook-updated",
+  "subscriptions": [
+    "message_created"
+  ],
+  "account_id": 1
+}

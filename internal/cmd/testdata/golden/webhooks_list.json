@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "id": 21,
+      "url": "https://example.com/a",
+      "subscriptions": [
+        "conversation_created"
+      ],
+      "account_id": 1
+    },
+    {
+      "id": 22,
+      "url": "https://example.com/b",
+      "subscriptions": [
+        "message_created",
+        "message_updated"
+      ],
+      "account_id": 1
+    }
+  ]
+}

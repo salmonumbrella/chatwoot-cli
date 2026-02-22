@@ -1,0 +1,8 @@
+{
+  "id": 11,
+  "name": "Sales",
+  "channel_type": "email",
+  "greeting_enabled": true,
+  "greeting_message": "Hi there",
+  "enable_auto_assignment": false
+}

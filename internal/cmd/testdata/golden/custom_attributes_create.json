@@ -1,0 +1,7 @@
+{
+  "id": 1103,
+  "attribute_display_name": "Segment",
+  "attribute_key": "segment",
+  "attribute_model": "contact_attribute",
+  "attribute_display_type": "text"
+}

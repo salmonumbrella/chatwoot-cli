@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": 1201,
+      "name": "Open",
+      "filter_type": "conversation",
+      "query": {
+        "status": "open"
+      }
+    },
+    {
+      "id": 1202,
+      "name": "VIP",
+      "filter_type": "contact",
+      "query": {
+        "custom_attribute": "vip"
+      }
+    }
+  ]
+}

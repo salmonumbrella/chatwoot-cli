@@ -1,0 +1,8 @@
+API error (HTTP 404): not found
+
+Suggestions:
+  - The resource doesn't exist
+  - Check the ID is correct
+  - The resource may have been deleted
+
+Request ID: req-404

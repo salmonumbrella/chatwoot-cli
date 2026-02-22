@@ -1,0 +1,23 @@
+{
+  "has_more": false,
+  "items": [
+    {
+      "id": 101,
+      "account_id": 1,
+      "inbox_id": 10,
+      "status": "open",
+      "contact_id": 501,
+      "muted": false,
+      "unread_count": 2,
+      "created_at": 1700000000,
+      "last_activity_at": 1700000500
+    }
+  ],
+  "meta": {
+    "all": false,
+    "page": 1,
+    "page_size": 20,
+    "pages_fetched": 1,
+    "total_items": 1
+  }
+}

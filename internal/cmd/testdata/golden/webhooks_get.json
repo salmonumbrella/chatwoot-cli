@@ -1,0 +1,9 @@
+{
+  "id": 22,
+  "url": "https://example.com/b",
+  "subscriptions": [
+    "message_created",
+    "message_updated"
+  ],
+  "account_id": 1
+}
