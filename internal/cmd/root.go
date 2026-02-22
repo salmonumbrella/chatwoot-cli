@@ -8,9 +8,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -140,8 +142,28 @@ func loadQueryFile(path string) (string, error) {
 //go:embed help.txt
 var helpText string
 
+// loadOpenClawEnv loads environment variables from ~/.openclaw/.env if the file
+// exists. Variables already set in the environment are not overwritten, so
+// explicit exports always take precedence.
+func loadOpenClawEnv() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	path := filepath.Join(home, ".openclaw", ".env")
+	if _, err := os.Stat(path); err != nil {
+		return
+	}
+	_ = godotenv.Load(path)
+}
+
 // Execute runs the root command
 func Execute(ctx context.Context, args []string) error {
+	// Auto-load credentials from ~/.openclaw/.env when present. This runs
+	// before the flag-default reset so that CHATWOOT_OUTPUT, CW_CREDENTIALS_DIR,
+	// and other env-driven defaults pick up the values.
+	loadOpenClawEnv()
+
 	// Reset flags to defaults for each execution. This is critical for test
 	// isolation — see the invariant comment on the flags declaration above.
 	flags = rootFlags{

@@ -877,3 +877,66 @@ func TestParseFields_JSONArray(t *testing.T) {
 		t.Fatalf("unexpected fields: %v", fields)
 	}
 }
+
+func TestLoadOpenClawEnv_SetsUnsetVars(t *testing.T) {
+	// Create a temporary directory to act as $HOME
+	tmpHome := t.TempDir()
+	openclawDir := filepath.Join(tmpHome, ".openclaw")
+	if err := os.MkdirAll(openclawDir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	envContent := "CHATWOOT_BASE_URL=https://openclaw.example.com\nCHATWOOT_API_TOKEN=oc-token\n"
+	if err := os.WriteFile(filepath.Join(openclawDir, ".env"), []byte(envContent), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+
+	// Point HOME so loadOpenClawEnv finds the file
+	t.Setenv("HOME", tmpHome)
+
+	// Ensure vars are truly unset before loading. t.Setenv registers cleanup
+	// so the original value is restored after the test.
+	t.Setenv("CHATWOOT_BASE_URL", "")
+	t.Setenv("CHATWOOT_API_TOKEN", "")
+	_ = os.Unsetenv("CHATWOOT_BASE_URL")
+	_ = os.Unsetenv("CHATWOOT_API_TOKEN")
+
+	loadOpenClawEnv()
+
+	if got := os.Getenv("CHATWOOT_BASE_URL"); got != "https://openclaw.example.com" {
+		t.Fatalf("CHATWOOT_BASE_URL = %q, want %q", got, "https://openclaw.example.com")
+	}
+	if got := os.Getenv("CHATWOOT_API_TOKEN"); got != "oc-token" {
+		t.Fatalf("CHATWOOT_API_TOKEN = %q, want %q", got, "oc-token")
+	}
+}
+
+func TestLoadOpenClawEnv_DoesNotOverwriteExisting(t *testing.T) {
+	tmpHome := t.TempDir()
+	openclawDir := filepath.Join(tmpHome, ".openclaw")
+	if err := os.MkdirAll(openclawDir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	envContent := "CHATWOOT_BASE_URL=https://openclaw.example.com\n"
+	if err := os.WriteFile(filepath.Join(openclawDir, ".env"), []byte(envContent), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("CHATWOOT_BASE_URL", "https://already-set.example.com")
+
+	loadOpenClawEnv()
+
+	if got := os.Getenv("CHATWOOT_BASE_URL"); got != "https://already-set.example.com" {
+		t.Fatalf("CHATWOOT_BASE_URL = %q, want %q (should not be overwritten)", got, "https://already-set.example.com")
+	}
+}
+
+func TestLoadOpenClawEnv_NoFileIsNoop(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	// Should not panic or error when ~/.openclaw/.env doesn't exist
+	loadOpenClawEnv()
+}
