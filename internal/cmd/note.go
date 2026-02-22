@@ -194,6 +194,9 @@ This is a convenience shortcut for:
 			}
 
 			if isAgent(cmd) {
+				if !flagOrAliasChanged(cmd, "compact-json") {
+					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
+				}
 				item := map[string]any{
 					"id":  result.ConversationID,
 					"mid": result.MessageID,

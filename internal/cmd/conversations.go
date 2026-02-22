@@ -1415,17 +1415,10 @@ func newConversationsAssignCmd() *cobra.Command {
 				}
 
 				if isAgent(cmd) {
-					item := map[string]any{"id": conv.ID}
-					if status := shortStatus(conv.Status); status != "" {
-						item["st"] = status
+					if !flagOrAliasChanged(cmd, "compact-json") {
+						cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
 					}
-					if conv.AssigneeID != nil {
-						item["ag"] = *conv.AssigneeID
-					}
-					if conv.TeamID != nil {
-						item["tm"] = *conv.TeamID
-					}
-					return printRawJSON(cmd, item)
+					return printRawJSON(cmd, buildAgentAssignResult(conv))
 				}
 
 				if isJSON(cmd) {

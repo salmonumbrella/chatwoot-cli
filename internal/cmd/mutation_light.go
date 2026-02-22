@@ -1,5 +1,7 @@
 package cmd
 
+import "github.com/chatwoot/chatwoot-cli/internal/api"
+
 type lightMessageMutationResult struct {
 	ID        int    `json:"id"`
 	MessageID int    `json:"mid,omitempty"`
@@ -122,4 +124,19 @@ func buildLightBulkMutationSummary(successCount, total int) lightBulkMutationSum
 		summary.Failed = failed
 	}
 	return summary
+}
+
+// buildAgentAssignResult constructs the compact agent-mode output for assign operations.
+func buildAgentAssignResult(conv *api.Conversation) map[string]any {
+	item := map[string]any{"id": conv.ID}
+	if status := shortStatus(conv.Status); status != "" {
+		item["st"] = status
+	}
+	if conv.AssigneeID != nil {
+		item["ag"] = *conv.AssigneeID
+	}
+	if conv.TeamID != nil {
+		item["tm"] = *conv.TeamID
+	}
+	return item
 }

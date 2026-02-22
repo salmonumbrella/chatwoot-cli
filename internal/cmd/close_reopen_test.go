@@ -129,6 +129,50 @@ func TestCloseCommand_AgentOutput_FlatSummary(t *testing.T) {
 	}
 }
 
+func TestCloseCommand_LightOutput_WithoutAgentMode(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "resolved", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"close", "123", "--li"})
+		if err != nil {
+			t.Fatalf("close --li failed: %v", err)
+		}
+	})
+
+	// In text mode (no -o flag), the command prints human text first, then
+	// the light JSON summary on the last line. Extract the JSON portion.
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	jsonLine := lines[len(lines)-1]
+
+	// Should not contain agent envelope keys.
+	if strings.Contains(jsonLine, `"kind"`) || strings.Contains(jsonLine, `"item"`) || strings.Contains(jsonLine, `"data"`) {
+		t.Fatalf("light output should not contain envelope keys, got: %s", jsonLine)
+	}
+	// Should be compact (single line, no indentation).
+	if strings.Contains(jsonLine, "\n  ") {
+		t.Fatalf("light output should be compact by default, got: %s", jsonLine)
+	}
+	var result struct {
+		OK  int `json:"ok"`
+		Tot int `json:"tot"`
+	}
+	if err := json.Unmarshal([]byte(jsonLine), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\njsonLine: %s\nfull output: %s", err, jsonLine, output)
+	}
+	if result.OK != 1 || result.Tot != 1 {
+		t.Fatalf("expected ok=1 tot=1, got ok=%d tot=%d", result.OK, result.Tot)
+	}
+	// Should NOT contain full field names from non-light mode.
+	if strings.Contains(jsonLine, `"closed"`) || strings.Contains(jsonLine, `"total"`) {
+		t.Fatalf("light output should use abbreviated keys (ok/tot), got: %s", jsonLine)
+	}
+}
+
 func TestCloseCommand_LightOutput(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
