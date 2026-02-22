@@ -748,6 +748,7 @@ func (e *handledError) ExitCode() int {
 // shortStatus compresses conversation status values for light mode output.
 // open→o, pending→p, resolved→r, snoozed→s.
 func shortStatus(s string) string {
+	s = strings.TrimSpace(s)
 	switch s {
 	case "open":
 		return "o"

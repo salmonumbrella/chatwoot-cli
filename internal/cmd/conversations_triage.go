@@ -44,7 +44,7 @@ func buildLightTriageItems(items []triageItem, includeInbox bool) []lightTriageI
 	for _, item := range items {
 		light := lightTriageItem{
 			ID:          item.ID,
-			Status:      shortStatus(strings.TrimSpace(item.Status)),
+			Status:      shortStatus(item.Status),
 			Unread:      item.Unread,
 			LastMessage: item.LastMessage,
 			ContactName: item.ContactName,

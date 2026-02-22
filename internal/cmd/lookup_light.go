@@ -77,7 +77,7 @@ func buildLightConversationLookups(conversations []api.Conversation) []lightConv
 func buildLightConversationLookup(conv api.Conversation) lightConversationLookup {
 	item := lightConversationLookup{
 		ID:             conv.ID,
-		Status:         shortStatus(strings.TrimSpace(conv.Status)),
+		Status:         shortStatus(conv.Status),
 		InboxID:        conv.InboxID,
 		UnreadCount:    conv.Unread,
 		LastActivityAt: conv.LastActivityAt,
@@ -259,7 +259,7 @@ type lightConversationGet struct {
 func buildLightConversationGet(conv api.Conversation) lightConversationGet {
 	item := lightConversationGet{
 		ID:             conv.ID,
-		Status:         shortStatus(strings.TrimSpace(conv.Status)),
+		Status:         shortStatus(conv.Status),
 		InboxID:        conv.InboxID,
 		UnreadCount:    conv.Unread,
 		LastActivityAt: conv.LastActivityAt,
