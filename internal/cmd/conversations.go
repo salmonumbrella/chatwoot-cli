@@ -911,6 +911,7 @@ func newConversationsCountsCmd() *cobra.Command {
 func newConversationsToggleStatusCmd() *cobra.Command {
 	var status string
 	var snoozedUntilStr string
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "toggle-status <id>",
@@ -971,6 +972,11 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 				return fmt.Errorf("failed to toggle status for conversation %d: %w", id, err)
 			}
 
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightToggleStatusResult(result.Payload.ConversationID, result.Payload.CurrentStatus, result.Payload.SnoozedUntil))
+			}
+
 			if isJSON(cmd) {
 				// Return payload directly for consistency
 				return printJSON(cmd, result.Payload)
@@ -988,8 +994,10 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&status, "status", "s", "", "New status (open|resolved|pending|snoozed) (required)")
 	cmd.Flags().StringVar(&snoozedUntilStr, "snoozed-until", "", "Snooze until time (Unix timestamp, RFC3339, or relative)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
 	flagAlias(cmd.Flags(), "status", "st")
 	flagAlias(cmd.Flags(), "snoozed-until", "su")
+	flagAlias(cmd.Flags(), "light", "li")
 	registerStaticCompletions(cmd, "status", []string{"open", "resolved", "pending", "snoozed"})
 
 	return cmd
@@ -1103,6 +1111,7 @@ func newConversationsResolveCmd() *cobra.Command {
 
 func newConversationsTogglePriorityCmd() *cobra.Command {
 	var priority string
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "toggle-priority <id>",
@@ -1146,6 +1155,15 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 				return fmt.Errorf("failed to get conversation %d after priority update: %w", id, err)
 			}
 
+			priorityValue := "none"
+			if conv.Priority != nil {
+				priorityValue = *conv.Priority
+			}
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightTogglePriorityResult(conv.ID, priorityValue))
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, conv)
 			}
@@ -1154,10 +1172,6 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 			if conv.DisplayID != nil {
 				displayID = *conv.DisplayID
 			}
-			priorityValue := "none"
-			if conv.Priority != nil {
-				priorityValue = *conv.Priority
-			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Conversation #%d priority updated to: %s\n", displayID, priorityValue)
 
 			return nil
@@ -1165,7 +1179,9 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&priority, "priority", "", "New priority (urgent|high|medium|low|none) (required)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
 	flagAlias(cmd.Flags(), "priority", "pri")
+	flagAlias(cmd.Flags(), "light", "li")
 	registerStaticCompletions(cmd, "priority", []string{"urgent", "high", "medium", "low", "none"})
 
 	return cmd
@@ -1264,6 +1280,7 @@ func newConversationsAssignCmd() *cobra.Command {
 		concurrency int
 		progress    bool
 		noProgress  bool
+		light       bool
 	)
 
 	cmd := &cobra.Command{
@@ -1357,6 +1374,11 @@ func newConversationsAssignCmd() *cobra.Command {
 					return fmt.Errorf("failed to get conversation %d after assignment: %w", id, err)
 				}
 
+				if light {
+					cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+					return printRawJSON(cmd, buildLightAssignResult(conv.ID, conv.AssigneeID, conv.TeamID))
+				}
+
 				if isJSON(cmd) {
 					return printJSON(cmd, conv)
 				}
@@ -1393,6 +1415,11 @@ func newConversationsAssignCmd() *cobra.Command {
 			)
 
 			successCount, failCount := countResults(results)
+
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightBulkAssignResult(results, successCount, failCount, agentID, resolvedTeamID))
+			}
 
 			if isJSON(cmd) {
 				var output []map[string]any
@@ -1434,11 +1461,13 @@ func newConversationsAssignCmd() *cobra.Command {
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Team ID to assign (deprecated, use --team)")
 	_ = cmd.Flags().MarkHidden("assignee-id")
 	_ = cmd.Flags().MarkHidden("team-id")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
 	flagAlias(cmd.Flags(), "agent", "ag")
 	flagAlias(cmd.Flags(), "team", "tm")
 	flagAlias(cmd.Flags(), "concurrency", "cc")
 	flagAlias(cmd.Flags(), "progress", "prg")
 	flagAlias(cmd.Flags(), "no-progress", "npr")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

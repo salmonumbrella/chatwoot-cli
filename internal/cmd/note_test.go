@@ -64,6 +64,51 @@ func TestNoteCommand_WithMention(t *testing.T) {
 	}
 }
 
+func TestNoteCommand_WithMentionAliasMTAndLight(t *testing.T) {
+	var received map[string]any
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/agents", jsonResponse(200, `[
+			{"id": 7, "name": "Lily Chen", "email": "lily@example.com", "role": "agent"}
+		]`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&received)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 99, "conversation_id": 123, "content": "ok", "message_type": 1, "private": true}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"note", "123", "--mt", "lily", "Please review", "--light", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("note --mt --light failed: %v", err)
+		}
+	})
+
+	content, _ := received["content"].(string)
+	if !strings.Contains(content, "mention://user/7/") {
+		t.Fatalf("expected content to include mention URL, got %q", content)
+	}
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) {
+		t.Fatalf("light output should bypass agent envelope, got: %s", output)
+	}
+
+	var result struct {
+		ID        int `json:"id"`
+		MessageID int `json:"mid"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 {
+		t.Fatalf("expected id 123, got %d", result.ID)
+	}
+	if result.MessageID != 99 {
+		t.Fatalf("expected mid 99, got %d", result.MessageID)
+	}
+}
+
 func TestNoteCommand_ResolveAndPendingExclusive(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 99, "conversation_id": 123, "content": "conflict", "message_type": 1, "private": true}`))

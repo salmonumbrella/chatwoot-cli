@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
@@ -243,4 +244,57 @@ func TestAssignCommand_JSONOutput(t *testing.T) {
 
 	err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--team", "2", "--output", "json", "--allow-private"})
 	assert.NoError(t, err)
+}
+
+func TestAssignCommand_LightOutput(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/api/v1/accounts/1/conversations/123/assignments":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 5})
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/conversations/123":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":          123,
+				"status":      "open",
+				"assignee_id": 5,
+				"team_id":     2,
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--team", "2", "--light", "-o", "agent", "--allow-private"})
+		assert.NoError(t, err)
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) {
+		t.Fatalf("light output should bypass agent envelope, got: %s", output)
+	}
+	var result struct {
+		ID      int  `json:"id"`
+		AgentID *int `json:"ag"`
+		TeamID  *int `json:"tm"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 {
+		t.Fatalf("expected id 123, got %d", result.ID)
+	}
+	if result.AgentID == nil || *result.AgentID != 5 {
+		t.Fatalf("expected ag=5, got %#v", result.AgentID)
+	}
+	if result.TeamID == nil || *result.TeamID != 2 {
+		t.Fatalf("expected tm=2, got %#v", result.TeamID)
+	}
 }

@@ -38,6 +38,48 @@ func TestCommentCommand_SendsMessage(t *testing.T) {
 	}
 }
 
+func TestCommentCommand_LightOutput(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{"id": 55, "conversation_id": 123, "content": "Hello", "message_type": 1, "private": false}`)).
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"payload": {"success": true, "current_status": "pending", "conversation_id": 123}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"comment", "123", "Hello", "--pending", "--light", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("comment --pending --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) {
+		t.Fatalf("light output should bypass agent envelope, got: %s", output)
+	}
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("light output should be compact by default, got: %s", output)
+	}
+
+	var result struct {
+		ID        int    `json:"id"`
+		MessageID int    `json:"mid"`
+		Status    string `json:"st"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 {
+		t.Fatalf("expected id 123, got %d", result.ID)
+	}
+	if result.MessageID != 55 {
+		t.Fatalf("expected mid 55, got %d", result.MessageID)
+	}
+	if result.Status != "p" {
+		t.Fatalf("expected short status p, got %q", result.Status)
+	}
+}
+
 func TestCommentAcceptsSideEffectFlags(t *testing.T) {
 	for _, name := range []string{"label", "priority", "snooze-for"} {
 		if rootCmd := newCommentCmd(); rootCmd.Flags().Lookup(name) == nil {

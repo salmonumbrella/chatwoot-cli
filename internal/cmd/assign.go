@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -12,6 +13,7 @@ func newAssignCmd() *cobra.Command {
 	var (
 		agent string
 		team  string
+		light bool
 	)
 
 	cmd := &cobra.Command{
@@ -93,6 +95,11 @@ At least one of --agent or --team must be specified.`,
 				return fmt.Errorf("failed to get conversation %d after assignment: %w", id, err)
 			}
 
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightAssignResult(conv.ID, conv.AssigneeID, conv.TeamID))
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, conv)
 			}
@@ -118,6 +125,8 @@ At least one of --agent or --team must be specified.`,
 	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign")
 	flagAlias(cmd.Flags(), "agent", "ag")
 	flagAlias(cmd.Flags(), "team", "tm")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

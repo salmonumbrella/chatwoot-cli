@@ -102,6 +102,9 @@ func TestConversationsListCommand_Light(t *testing.T) {
 			t.Fatalf("conversations list --li failed: %v", err)
 		}
 	})
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("expected --li output to be compact by default, got pretty JSON:\n%s", output)
+	}
 
 	var payload struct {
 		Items []struct {
@@ -282,6 +285,44 @@ func TestConversationsToggleStatusCommand(t *testing.T) {
 	}
 }
 
+func TestConversationsToggleStatusCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_status", jsonResponse(200, `{
+			"meta": {},
+			"payload": {
+				"success": true,
+				"conversation_id": 123,
+				"current_status": "pending"
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "toggle-status", "123", "--status", "pending", "--light", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations toggle-status --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) {
+		t.Fatalf("light output should bypass agent envelope, got: %s", output)
+	}
+	var result struct {
+		ID     int    `json:"id"`
+		Status string `json:"st"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 {
+		t.Fatalf("expected id 123, got %d", result.ID)
+	}
+	if result.Status != "p" {
+		t.Fatalf("expected short status p, got %q", result.Status)
+	}
+}
+
 func TestConversationsAssignCommand(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
@@ -307,6 +348,53 @@ func TestConversationsAssignCommand(t *testing.T) {
 
 	if !strings.Contains(output, "assigned") {
 		t.Errorf("Expected 'assigned' in output, got: %s", output)
+	}
+}
+
+func TestConversationsAssignCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/assignments", jsonResponse(200, `{
+			"id": 5,
+			"name": "Agent Name"
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"inbox_id": 1,
+			"contact_id": 456,
+			"status": "open",
+			"assignee_id": 5,
+			"team_id": 2,
+			"created_at": 1700000000
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123", "--agent", "5", "--team", "2", "--light", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations assign --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) {
+		t.Fatalf("light output should bypass agent envelope, got: %s", output)
+	}
+	var result struct {
+		ID      int  `json:"id"`
+		AgentID *int `json:"ag"`
+		TeamID  *int `json:"tm"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 {
+		t.Fatalf("expected id 123, got %d", result.ID)
+	}
+	if result.AgentID == nil || *result.AgentID != 5 {
+		t.Fatalf("expected ag=5, got %#v", result.AgentID)
+	}
+	if result.TeamID == nil || *result.TeamID != 2 {
+		t.Fatalf("expected tm=2, got %#v", result.TeamID)
 	}
 }
 
@@ -1395,6 +1483,41 @@ func TestConversationsTogglePriorityCommand_JSON(t *testing.T) {
 
 	if !strings.Contains(output, `"priority"`) {
 		t.Errorf("JSON output missing 'priority' field: %s", output)
+	}
+}
+
+func TestConversationsTogglePriorityCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/toggle_priority", jsonResponse(200, ``)).
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"priority": "urgent"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "toggle-priority", "123", "--priority", "urgent", "--light", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations toggle-priority --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) {
+		t.Fatalf("light output should bypass agent envelope, got: %s", output)
+	}
+	var result struct {
+		ID       int    `json:"id"`
+		Priority string `json:"pri"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse light output: %v\noutput: %s", err, output)
+	}
+	if result.ID != 123 {
+		t.Fatalf("expected id 123, got %d", result.ID)
+	}
+	if result.Priority != "u" {
+		t.Fatalf("expected short priority u, got %q", result.Priority)
 	}
 }
 
@@ -2538,6 +2661,9 @@ func TestConversationsTriage_Light_FilteredInbox(t *testing.T) {
 			t.Fatalf("conversations triage --inbox 48 --light --brief failed: %v", err)
 		}
 	})
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("expected --light output to be compact by default, got pretty JSON:\n%s", output)
+	}
 
 	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"data"`) {
 		t.Fatalf("light triage should bypass agent envelope, got: %s", output)
@@ -2582,6 +2708,52 @@ func TestConversationsTriage_Light_FilteredInbox(t *testing.T) {
 	}
 	if item.ContactName != "Shani Chiang" {
 		t.Fatalf("expected contact name Shani Chiang, got %q", item.ContactName)
+	}
+}
+
+func TestConversationsTriage_Light_CompactCanBeDisabled(t *testing.T) {
+	activityTime := time.Now().Add(-90 * time.Minute).Unix()
+
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Query().Get("status") {
+			case "open":
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":1}}}`)(w, r)
+			case "pending":
+				jsonResponse(200, `{
+					"data": {
+						"payload": [
+							{
+								"id": 43470,
+								"inbox_id": 48,
+								"status": "pending",
+								"unread_count": 10,
+								"last_activity_at": `+strconv.FormatInt(activityTime, 10)+`,
+								"last_non_activity_message": {"content": "Need help"},
+								"meta": {"sender": {"name": "Shani Chiang"}}
+							}
+						],
+						"meta": {"total_pages": 1}
+					}
+				}`)(w, r)
+			default:
+				jsonResponse(200, `{"data":{"payload":[],"meta":{"total_pages":1}}}`)(w, r)
+			}
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"conversations", "triage", "--inbox", "48", "--light", "--brief", "--compact-json=false",
+		})
+		if err != nil {
+			t.Fatalf("conversations triage --light --compact-json=false failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "\n  \"items\"") {
+		t.Fatalf("expected pretty JSON when compact is explicitly disabled, got:\n%s", output)
 	}
 }
 

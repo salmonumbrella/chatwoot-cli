@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -102,6 +103,21 @@ func parseBoolEnv(key string) bool {
 	default:
 		return false
 	}
+}
+
+func commandBoolFlagValue(cmd *cobra.Command, name string) (bool, bool) {
+	if cmd == nil {
+		return false, false
+	}
+	flag := cmd.Flags().Lookup(name)
+	if flag == nil {
+		return false, false
+	}
+	value, err := strconv.ParseBool(strings.TrimSpace(flag.Value.String()))
+	if err != nil {
+		return false, false
+	}
+	return value, true
 }
 
 func normalizeOutputFormat(value string) string {
@@ -228,8 +244,15 @@ func Execute(ctx context.Context, args []string) error {
 			}
 			ctx = outfmt.WithMode(ctx, mode)
 
-			// Set up compact output
-			ctx = outfmt.WithCompact(ctx, flags.Compact)
+			// Set up compact output. Light mode implies compact JSON by default,
+			// but users can explicitly override with --compact-json/--cj.
+			compact := flags.Compact
+			if !flagOrAliasChanged(cmd, "compact-json") {
+				if lightEnabled, ok := commandBoolFlagValue(cmd, "light"); ok && lightEnabled {
+					compact = true
+				}
+			}
+			ctx = outfmt.WithCompact(ctx, compact)
 
 			// Set up IO streams (allow silent/quiet to suppress stderr)
 			ioStreams := iocontext.DefaultIO()

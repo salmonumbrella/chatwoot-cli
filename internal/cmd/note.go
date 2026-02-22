@@ -8,6 +8,7 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,7 @@ func newNoteCmd() *cobra.Command {
 		labels    []string
 		priority  string
 		snoozeFor string
+		light     bool
 	)
 
 	cmd := &cobra.Command{
@@ -179,6 +181,19 @@ This is a convenience shortcut for:
 				URL:            u,
 			}
 
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				status := ""
+				if resolved {
+					status = "resolved"
+				} else if pendingSet {
+					status = "pending"
+				} else if snoozeFor != "" {
+					status = "snoozed"
+				}
+				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, status))
+			}
+
 			if isAgent(cmd) {
 				// In agent mode, omit the full Message object to keep
 				// mutation output compact (~9 lines vs ~22 lines).
@@ -209,6 +224,7 @@ This is a convenience shortcut for:
 	cmd.Flags().StringVarP(&content, "content", "c", "", "Note content (alternative to positional text)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated)")
 	flagAlias(cmd.Flags(), "mention", "mn")
+	flagAlias(cmd.Flags(), "mention", "mt")
 	cmd.Flags().BoolVarP(&resolve, "resolve", "R", false, "Resolve the conversation after sending")
 	cmd.Flags().BoolVarP(&pending, "pending", "p", false, "Set conversation to pending after sending")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Add labels after sending (repeatable)")
@@ -217,6 +233,8 @@ This is a convenience shortcut for:
 	flagAlias(cmd.Flags(), "priority", "pri")
 	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")
 	flagAlias(cmd.Flags(), "snooze-for", "for")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

@@ -759,6 +759,25 @@ func shortStatus(s string) string {
 	}
 }
 
+// shortPriority compresses conversation priority values for light mode output.
+// urgent→u, high→h, medium→m, low→l, none→n.
+func shortPriority(p string) string {
+	switch strings.TrimSpace(strings.ToLower(p)) {
+	case "urgent":
+		return "u"
+	case "high":
+		return "h"
+	case "medium":
+		return "m"
+	case "low":
+		return "l"
+	case "none":
+		return "n"
+	default:
+		return p
+	}
+}
+
 // ANSI color codes
 const (
 	colorReset  = "\033[0m"
