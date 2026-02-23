@@ -2,6 +2,9 @@ version: 2
 
 project_name: chatwoot-cli
 
+release:
+  mode: replace
+
 builds:
   # Darwin builds require CGO for keychain access
   - id: chatwoot-darwin
