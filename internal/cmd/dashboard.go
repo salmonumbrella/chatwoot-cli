@@ -20,6 +20,7 @@ func newDashboardCmd() *cobra.Command {
 	var conversationID int
 	var page int
 	var perPage int
+	var lineItems bool
 	var noResolve bool
 	var noResolveWarning bool
 	var resolveWarning string
@@ -40,6 +41,9 @@ Run 'cw config dashboard list' to see available dashboards.`,
   # With pagination
   cw dashboard orders --contact 180712 --page 2 --per-page 20
 
+  # Include line items for each order (compact support JSON)
+  cw dashboard orders --contact 180712 --lni
+
   # JSON output
   cw dashboard orders --contact 180712 --output json
 
@@ -54,6 +58,9 @@ Run 'cw config dashboard list' to see available dashboards.`,
 			}
 			if contactID == 0 && conversationID == 0 {
 				return fmt.Errorf("--contact or --conversation is required")
+			}
+			if lineItems && light {
+				return fmt.Errorf("--line-items and --light cannot be used together")
 			}
 			if conversationID > 0 {
 				resolvedID, err := resolveContactIDFromConversation(cmdContext(cmd), conversationID)
@@ -130,6 +137,27 @@ Run 'cw config dashboard list' to see available dashboards.`,
 			if err != nil {
 				return fmt.Errorf("dashboard query failed: %w", err)
 			}
+			if lineItems {
+				if err := enrichDashboardLineItems(cmdContext(cmd), client, result); err != nil {
+					return fmt.Errorf("dashboard line-item enrichment failed: %w", err)
+				}
+			}
+			if shouldAddDashboardNoOrdersPath(dashboardName, cfg, result) {
+				if err := addDashboardNoOrdersPath(cmdContext(cmd), contactID, result); err != nil {
+					addDashboardWarning(result, fmt.Sprintf("no-orders support path unavailable: %v", err))
+				}
+			}
+			if lineItems {
+				if resolveWarning != "" {
+					addDashboardWarning(result, resolveWarning)
+				}
+				// Line-items mode is agent-focused: always emit compact JSON payload.
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				if !flagOrAliasChanged(cmd, "compact-json") {
+					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
+				}
+				return printRawJSON(cmd, lineItemsDashboardResult(result))
+			}
 
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
@@ -162,6 +190,8 @@ Run 'cw config dashboard list' to see available dashboards.`,
 	cmd.Flags().IntVar(&conversationID, "conversation", 0, "Conversation ID to resolve contact (alternative to --contact)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().IntVar(&perPage, "per-page", 100, "Results per page")
+	cmd.Flags().BoolVar(&lineItems, "line-items", false, "Fetch and attach line_items/order_metadata for each order")
+	flagAlias(cmd.Flags(), "line-items", "lni")
 	cmd.Flags().BoolVar(&noResolve, "no-resolve", false, "Do not resolve --contact as a conversation ID")
 	flagAlias(cmd.Flags(), "no-resolve", "nr")
 	cmd.Flags().BoolVar(&noResolveWarning, "no-resolve-warning", false, "Suppress auto-resolve warning")
@@ -175,8 +205,83 @@ Run 'cw config dashboard list' to see available dashboards.`,
 	flagAlias(cmd.Flags(), "compact", "summary")
 	cmd.Flags().BoolVar(&light, "light", false, "Return compact summary with only the 3 most recent orders")
 	flagAlias(cmd.Flags(), "light", "li")
+	flagAlias(cmd.Flags(), "light", "lt")
 
 	return cmd
+}
+
+func enrichDashboardLineItems(ctx context.Context, client *api.DashboardClient, result map[string]any) error {
+	if client == nil || result == nil {
+		return nil
+	}
+
+	items, ok := result["items"].([]any)
+	if !ok || len(items) == 0 {
+		return nil
+	}
+
+	for i, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		orderID, ok := dashboardOrderID(item["id"])
+		if !ok {
+			continue
+		}
+
+		detail, err := client.QueryOrderDetail(ctx, orderID)
+		if err != nil {
+			return fmt.Errorf("order %s: %w", orderID, err)
+		}
+
+		if lineItems, ok := detail["line_items"]; ok {
+			item["line_items"] = lineItems
+		}
+		if metadata, ok := detail["order_metadata"]; ok {
+			item["order_metadata"] = metadata
+		}
+		if order, ok := detail["order"].(map[string]any); ok {
+			for key, value := range order {
+				if _, exists := item[key]; !exists {
+					item[key] = value
+				}
+			}
+		}
+
+		items[i] = item
+	}
+
+	result["items"] = items
+	return nil
+}
+
+func dashboardOrderID(v any) (string, bool) {
+	switch val := v.(type) {
+	case string:
+		id := strings.TrimSpace(val)
+		return id, id != ""
+	case json.Number:
+		id := strings.TrimSpace(val.String())
+		return id, id != ""
+	case float64:
+		if val == float64(int64(val)) {
+			return strconv.FormatInt(int64(val), 10), true
+		}
+		id := strings.TrimSpace(fmt.Sprintf("%v", val))
+		return id, id != ""
+	case int:
+		return strconv.Itoa(val), true
+	case int64:
+		return strconv.FormatInt(val, 10), true
+	default:
+		id := strings.TrimSpace(fmt.Sprintf("%v", val))
+		if id == "" || id == "<nil>" {
+			return "", false
+		}
+		return id, true
+	}
 }
 
 func resolveContactIDFromConversation(ctx context.Context, conversationID int) (int, error) {
@@ -316,6 +421,242 @@ func addDashboardWarning(result map[string]any, warning string) {
 	result["_warnings"] = []string{warning}
 }
 
+func shouldAddDashboardNoOrdersPath(dashboardName string, cfg *config.DashboardConfig, result map[string]any) bool {
+	if cfg == nil || result == nil {
+		return false
+	}
+	normalizedName := strings.ToLower(strings.TrimSpace(dashboardName))
+	endpoint := strings.ToLower(strings.TrimSpace(cfg.Endpoint))
+	name := strings.ToLower(strings.TrimSpace(cfg.Name))
+	isOrdersDashboard := strings.Contains(endpoint, "/chatwoot/contact/orders") ||
+		strings.Contains(name, "order") ||
+		strings.Contains(normalizedName, "order") ||
+		normalizedName == "ods"
+	if !isOrdersDashboard {
+		return false
+	}
+	items, ok := result["items"].([]any)
+	return !ok || len(items) == 0
+}
+
+func addDashboardNoOrdersPath(ctx context.Context, contactID int, result map[string]any) error {
+	if result == nil {
+		return nil
+	}
+
+	linkCheck := map[string]any{
+		"source":          "chatwoot_contact.custom_attributes",
+		"shopline_linked": false,
+		"shopify_linked":  false,
+		"matched_keys":    []string{},
+		"lookup":          "ok",
+	}
+
+	path := "no_orders_contact_unlinked"
+
+	if contactID > 0 {
+		client, err := getClient()
+		if err != nil {
+			linkCheck["lookup"] = "error"
+			linkCheck["error"] = err.Error()
+			path = "no_orders_link_status_unknown"
+		} else {
+			contact, err := client.Contacts().Get(ctx, contactID)
+			if err != nil {
+				linkCheck["lookup"] = "error"
+				linkCheck["error"] = err.Error()
+				path = "no_orders_link_status_unknown"
+			} else {
+				shoplineLinked, shopifyLinked, keys := detectCommerceAccountLinks(contact.CustomAttributes)
+				linkCheck["shopline_linked"] = shoplineLinked
+				linkCheck["shopify_linked"] = shopifyLinked
+				linkCheck["matched_keys"] = keys
+				if shoplineLinked || shopifyLinked {
+					path = "no_orders_contact_linked_check_store_api"
+				}
+			}
+		}
+	} else {
+		linkCheck["lookup"] = "skipped"
+		path = "no_orders_contact_id_missing"
+	}
+
+	steps := []any{
+		map[string]any{
+			"id":   "check_link",
+			"do":   "Check Chatwoot contact custom_attributes for Shopline/Shopify account IDs.",
+			"cmd":  fmt.Sprintf("cw contacts get %d -o json --jq '.custom_attributes'", contactID),
+			"when": "always",
+		},
+		map[string]any{
+			"id":   "query_store_orders",
+			"do":   "If linked, query store orders directly (Shopify CLI command or Shopline API).",
+			"cmd":  fmt.Sprintf("cw integrations shopify orders --contact-id %d", contactID),
+			"when": "if_linked",
+		},
+		map[string]any{
+			"id":   "request_order_screenshot",
+			"do":   "If still unresolved, ask the customer for a screenshot showing order number/details.",
+			"when": "if_no_orders",
+		},
+		map[string]any{
+			"id":   "link_contact_account",
+			"do":   "Link Chatwoot contact to Shopline/Shopify account via Isaac linking endpoint (when available).",
+			"when": "after_verification",
+		},
+	}
+
+	result["support_path"] = map[string]any{
+		"status":     "no_orders_found",
+		"path":       path,
+		"contact_id": contactID,
+		"link_check": linkCheck,
+		"steps":      steps,
+	}
+
+	return nil
+}
+
+func detectCommerceAccountLinks(attrs map[string]any) (shoplineLinked, shopifyLinked bool, matchedKeys []string) {
+	if len(attrs) == 0 {
+		return false, false, []string{}
+	}
+
+	for key, value := range attrs {
+		if !dashboardAttrHasValue(value) {
+			continue
+		}
+		lk := strings.ToLower(strings.TrimSpace(key))
+		lv := strings.ToLower(strings.TrimSpace(dashboardAttrString(value)))
+
+		isShopline := containsAnySubstring(lk, []string{"shopline", "shop_line", "sl_"}) ||
+			containsAnySubstring(lv, []string{"shopline"})
+		isShopify := containsAnySubstring(lk, []string{"shopify", "myshopify", "sf_"}) ||
+			containsAnySubstring(lv, []string{"shopify", "myshopify"})
+
+		if !isShopline && !isShopify {
+			continue
+		}
+		if isShopline {
+			shoplineLinked = true
+		}
+		if isShopify {
+			shopifyLinked = true
+		}
+		matchedKeys = append(matchedKeys, key)
+	}
+
+	sort.Strings(matchedKeys)
+	return shoplineLinked, shopifyLinked, matchedKeys
+}
+
+func dashboardAttrHasValue(v any) bool {
+	switch val := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(val) != ""
+	case json.Number:
+		return strings.TrimSpace(val.String()) != "" && val.String() != "0"
+	case float64:
+		return val != 0
+	case int:
+		return val != 0
+	case int64:
+		return val != 0
+	case bool:
+		return val
+	case []any:
+		return len(val) > 0
+	case map[string]any:
+		return len(val) > 0
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", v)) != ""
+	}
+}
+
+func dashboardAttrString(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case json.Number:
+		return val.String()
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+func containsAnySubstring(s string, subs []string) bool {
+	for _, sub := range subs {
+		if sub != "" && strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+func appendCompactNoOrdersPath(out map[string]any, result map[string]any) {
+	if out == nil || result == nil {
+		return
+	}
+	supportPath, ok := result["support_path"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	if path, ok := supportPath["path"]; ok {
+		out["path"] = path
+	}
+	if contactID, ok := supportPath["contact_id"]; ok {
+		out["cid"] = contactID
+	}
+
+	if linkCheck, ok := supportPath["link_check"].(map[string]any); ok {
+		lk := make(map[string]any)
+		if v, ok := linkCheck["shopline_linked"]; ok {
+			lk["sl"] = v
+		}
+		if v, ok := linkCheck["shopify_linked"]; ok {
+			lk["sf"] = v
+		}
+		if keys, ok := linkCheck["matched_keys"]; ok {
+			switch kv := keys.(type) {
+			case []any:
+				if len(kv) > 0 {
+					lk["k"] = kv
+				}
+			case []string:
+				if len(kv) > 0 {
+					anyKeys := make([]any, 0, len(kv))
+					for _, key := range kv {
+						anyKeys = append(anyKeys, key)
+					}
+					lk["k"] = anyKeys
+				}
+			}
+		}
+		if len(lk) > 0 {
+			out["lk"] = lk
+		}
+	}
+
+	if steps, ok := supportPath["steps"].([]any); ok {
+		next := make([]any, 0, len(steps))
+		for _, raw := range steps {
+			step, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			if id, ok := step["id"]; ok {
+				next = append(next, id)
+			}
+		}
+		if len(next) > 0 {
+			out["nx"] = next
+		}
+	}
+}
+
 // lightDashboardResult returns a strict token-minimized dashboard payload.
 // It keeps only:
 // - tier: membership tier (when present)
@@ -362,7 +703,110 @@ func lightDashboardResult(result map[string]any) map[string]any {
 		items = append(items, item)
 	}
 	out["it"] = items
+	appendCompactNoOrdersPath(out, result)
 
+	return out
+}
+
+// lineItemsDashboardResult returns a compact order+line-items payload for support workflows.
+// It keeps only high-signal fields needed for customer support decisions.
+func lineItemsDashboardResult(result map[string]any) map[string]any {
+	rawItems, _ := result["items"].([]any)
+	items := make([]any, 0, len(rawItems))
+	for _, raw := range rawItems {
+		order, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		item := make(map[string]any)
+		if v, ok := order["id"]; ok {
+			item["id"] = v
+		}
+		if v, ok := order["number"]; ok {
+			item["num"] = v
+		}
+		if v, ok := order["shopline_created_at"].(string); ok && v != "" {
+			if len(v) >= 10 {
+				item["dt"] = v[:10]
+			} else {
+				item["dt"] = v
+			}
+		} else if v, ok := order["created_at"].(string); ok && v != "" {
+			if len(v) >= 10 {
+				item["dt"] = v[:10]
+			} else {
+				item["dt"] = v
+			}
+		}
+		if v, ok := order["order_total"]; ok {
+			item["tot"] = v
+		}
+		if v, ok := order["order_status"]; ok {
+			item["st"] = shortOrderStatus(v)
+		}
+		if v, ok := order["payment_status"]; ok {
+			item["pay"] = v
+		}
+		if v, ok := order["delivery_status"]; ok {
+			item["dlv"] = v
+		}
+		if v, ok := order["line_items"].([]any); ok {
+			item["li"] = compactSupportLineItems(v)
+		}
+		items = append(items, item)
+	}
+	out := map[string]any{"it": items}
+	appendCompactNoOrdersPath(out, result)
+	if warnings, ok := result["_warnings"]; ok {
+		out["_warnings"] = warnings
+	}
+	return out
+}
+
+func compactSupportLineItems(lineItems []any) []any {
+	out := make([]any, 0, len(lineItems))
+	for _, raw := range lineItems {
+		line, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		item := make(map[string]any)
+
+		if v, ok := line["product_name"]; ok {
+			item["p"] = v
+		}
+
+		colorway, _ := line["colorway"].(string)
+		size, _ := line["size"].(string)
+		colorway = strings.TrimSpace(colorway)
+		size = strings.TrimSpace(size)
+		switch {
+		case colorway != "" && size != "":
+			item["v"] = colorway + " / " + size
+		case colorway != "":
+			item["v"] = colorway
+		case size != "":
+			item["v"] = size
+		}
+
+		if v, ok := line["quantity"]; ok {
+			item["q"] = v
+		}
+		if v, ok := line["total_ntd"]; ok {
+			item["tot"] = v
+		} else if v, ok := line["price_ntd"]; ok {
+			item["tot"] = v
+		}
+		if v, ok := line["is_refunded"]; ok {
+			item["rf"] = v
+		}
+		if v, ok := line["inventory_quantity"]; ok {
+			item["inv"] = v
+		}
+
+		out = append(out, item)
+	}
 	return out
 }
 
@@ -464,6 +908,9 @@ func compactDashboardResult(result map[string]any) map[string]any {
 	if pagination, ok := result["pagination"]; ok {
 		out["pg"] = pagination
 	}
+	if supportPath, ok := result["support_path"]; ok {
+		out["support_path"] = supportPath
+	}
 
 	return out
 }
@@ -496,7 +943,7 @@ func renderItemsTable(cmd *cobra.Command, items []any) {
 		return
 	}
 
-	preferredOrder := []string{"number", "id", "name", "status", "order_status", "payment_status", "delivery_status", "total", "order_total", "items", "total_items_count", "date", "created_at", "shopline_created_at"}
+	preferredOrder := []string{"number", "id", "name", "status", "order_status", "payment_status", "delivery_status", "total", "order_total", "line_items", "items", "total_items_count", "date", "created_at", "shopline_created_at"}
 
 	var columns []string
 	seen := make(map[string]bool)
@@ -511,6 +958,9 @@ func renderItemsTable(cmd *cobra.Command, items []any) {
 	// Limit to 6 columns to fit typical terminal width and maintain readability
 	if len(columns) > 6 {
 		columns = columns[:6]
+		if _, hasLineItems := firstItem["line_items"]; hasLineItems && !stringInSlice(columns, "line_items") {
+			columns[len(columns)-1] = "line_items"
+		}
 	}
 
 	if len(columns) == 0 {
@@ -538,6 +988,15 @@ func renderItemsTable(cmd *cobra.Command, items []any) {
 	}
 
 	_ = w.Flush()
+}
+
+func stringInSlice(values []string, target string) bool {
+	for _, v := range values {
+		if v == target {
+			return true
+		}
+	}
+	return false
 }
 
 func formatValue(v any) string {
