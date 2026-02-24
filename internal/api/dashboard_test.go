@@ -303,3 +303,122 @@ func TestDashboardClient_OrderDetailURL(t *testing.T) {
 		})
 	}
 }
+
+func TestDashboardClient_LinkOrderToContact(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Method = %q, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/public/chatwoot/orders/link" {
+			t.Errorf("Path = %q, want %q", r.URL.Path, "/api/public/chatwoot/orders/link")
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
+			t.Errorf("Authorization = %q, want %q", got, "Bearer secret-token")
+		}
+
+		var body LinkOrderRequest
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		if body.OrderNumber != "SO20240215001" {
+			t.Fatalf("OrderNumber = %q, want %q", body.OrderNumber, "SO20240215001")
+		}
+		if body.ContactID != 12345 {
+			t.Fatalf("ContactID = %d, want %d", body.ContactID, 12345)
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"customer_id":         "a1b2c3",
+			"chatwoot_contact_id": 12345,
+		})
+	}))
+	defer server.Close()
+
+	client := NewDashboardClient(server.URL+"/api/public/chatwoot/contact/orders", "Bearer secret-token")
+	resp, err := client.LinkOrderToContact(context.Background(), "SO20240215001", 12345)
+	if err != nil {
+		t.Fatalf("LinkOrderToContact failed: %v", err)
+	}
+
+	if resp.CustomerID != "a1b2c3" {
+		t.Fatalf("CustomerID = %q, want %q", resp.CustomerID, "a1b2c3")
+	}
+	if resp.ChatwootContactID != 12345 {
+		t.Fatalf("ChatwootContactID = %d, want %d", resp.ChatwootContactID, 12345)
+	}
+}
+
+func TestDashboardClient_LinkOrderToContactValidation(t *testing.T) {
+	client := NewDashboardClient("https://host/api/public/chatwoot/contact/orders", "Bearer token")
+
+	if _, err := client.LinkOrderToContact(context.Background(), "", 123); err == nil || !strings.Contains(err.Error(), "order number is required") {
+		t.Fatalf("expected order number validation error, got: %v", err)
+	}
+
+	if _, err := client.LinkOrderToContact(context.Background(), "SO1", 0); err == nil || !strings.Contains(err.Error(), "contact id must be positive") {
+		t.Fatalf("expected contact id validation error, got: %v", err)
+	}
+}
+
+func TestDashboardClient_OrderLinkURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		want     string
+		wantErr  string
+	}{
+		{
+			name:     "chatwoot/contact/orders suffix",
+			endpoint: "https://host/api/public/chatwoot/contact/orders",
+			want:     "https://host/api/public/chatwoot/orders/link",
+		},
+		{
+			name:     "contact/orders suffix",
+			endpoint: "https://host/api/contact/orders",
+			want:     "https://host/api/orders/link",
+		},
+		{
+			name:     "bare /orders suffix",
+			endpoint: "https://host/api/orders",
+			want:     "https://host/api/orders/link",
+		},
+		{
+			name:     "empty path",
+			endpoint: "https://host",
+			want:     "https://host/orders/link",
+		},
+		{
+			name:     "trailing slash stripped",
+			endpoint: "https://host/api/chatwoot/contact/orders/",
+			want:     "https://host/api/chatwoot/orders/link",
+		},
+		{
+			name:     "unrecognized path errors",
+			endpoint: "https://host/api/inventory",
+			wantErr:  "cannot derive order link URL",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DashboardClient{Endpoint: tt.endpoint}
+			got, err := c.orderLinkURL()
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("orderLinkURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

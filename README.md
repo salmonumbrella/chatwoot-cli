@@ -585,11 +585,13 @@ cw dh ods --cv 24445                      # Resolve contact from conversation al
 cw dh ods --ct 180712 --pg 2 --pp 20      # Paginate with short aliases
 cw dh ods --ct 180712 --lni               # Enrich with line-items (compact support JSON)
 cw dh ods --ct 180712 --light             # Dashboard light summary (top 3 compact orders)
+cw dh link ods --ct 180712 --on SO20240215001 --force  # Link order to contact (may merge contacts)
 cw dh ods --ct 180712 -o json -q '[.it[-3:] | .[] | {n: .number, ot}]'
 # `ods` must uniquely match a configured dashboard (e.g., "orders"). `ord` also works.
 # Full forms still work: `cw dash orders --contact ...`
 # If ODS returns zero items, `--li`/`--lni` now include a compact support path:
 # path + link-check flags (`lk.sl`/`lk.sf`) + next-step IDs (`nx`) for linking/order-recovery workflows.
+# `dashboard link` is destructive-adjacent (it can merge contacts), so use `--force` for scripts/JSON output.
 ```
 
 ### Survey
@@ -1000,6 +1002,7 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 | `--contact-id` | `--cid` | conversations create, integrations, reply |
 | `--contact` | `--ct` | dashboard |
 | `--conversation` | `--cv` | dashboard |
+| `--order-number` | `--on` | dashboard link |
 | `--team-id` | `--tid` | conversations list/create |
 | `--priority` | `--pri` | conversations, comment, note, reply |
 | `--page` | `--pg` | dashboard |

@@ -35,6 +35,18 @@ type DashboardRequest struct {
 	PerPage   int `json:"per_page"`
 }
 
+// LinkOrderRequest is the request body for linking an order to a contact.
+type LinkOrderRequest struct {
+	OrderNumber string `json:"order_number"`
+	ContactID   int    `json:"contact_id"`
+}
+
+// LinkOrderResponse is the response payload for a successful link operation.
+type LinkOrderResponse struct {
+	CustomerID        string `json:"customer_id"`
+	ChatwootContactID int    `json:"chatwoot_contact_id"`
+}
+
 // NewDashboardClient creates a new dashboard API client
 func NewDashboardClient(endpoint, authToken string) *DashboardClient {
 	return &DashboardClient{
@@ -70,6 +82,47 @@ func (c *DashboardClient) QueryOrderDetail(ctx context.Context, orderID string) 
 		return nil, err
 	}
 	return c.doJSON(ctx, http.MethodGet, detailURL, nil, "")
+}
+
+// LinkOrderToContact links an order number to the provided Chatwoot contact ID.
+func (c *DashboardClient) LinkOrderToContact(ctx context.Context, orderNumber string, contactID int) (*LinkOrderResponse, error) {
+	orderNumber = strings.TrimSpace(orderNumber)
+	if orderNumber == "" {
+		return nil, fmt.Errorf("order number is required")
+	}
+	if contactID <= 0 {
+		return nil, fmt.Errorf("contact id must be positive")
+	}
+
+	linkURL, err := c.orderLinkURL()
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := json.Marshal(LinkOrderRequest{
+		OrderNumber: orderNumber,
+		ContactID:   contactID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal link request: %w", err)
+	}
+
+	result, err := c.doJSON(ctx, http.MethodPost, linkURL, bytes.NewReader(body), "application/json")
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse link response: %w", err)
+	}
+
+	var resp LinkOrderResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse link response: %w", err)
+	}
+
+	return &resp, nil
 }
 
 func (c *DashboardClient) doJSON(ctx context.Context, method, endpoint string, body io.Reader, contentType string) (map[string]any, error) {
@@ -166,6 +219,35 @@ func (c *DashboardClient) orderDetailURL(orderID string) (string, error) {
 	parsed.RawPath = "" // let url.URL re-escape from Path
 	// Order detail is a clean path-only URL; drop any query params or fragment
 	// that may exist on the base endpoint — they belong to the listing endpoint.
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+
+	return parsed.String(), nil
+}
+
+func (c *DashboardClient) orderLinkURL() (string, error) {
+	parsed, err := url.Parse(c.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid dashboard endpoint %q: %w", c.Endpoint, err)
+	}
+
+	p := strings.TrimRight(parsed.Path, "/")
+
+	switch {
+	case strings.HasSuffix(p, "/chatwoot/contact/orders"):
+		p = strings.TrimSuffix(p, "/chatwoot/contact/orders") + "/chatwoot/orders/link"
+	case strings.HasSuffix(p, "/contact/orders"):
+		p = strings.TrimSuffix(p, "/contact/orders") + "/orders/link"
+	case strings.HasSuffix(p, "/orders"):
+		p = p + "/link"
+	case p == "":
+		p = "/orders/link"
+	default:
+		return "", fmt.Errorf("cannot derive order link URL from endpoint path %q: expected path ending in /orders or /contact/orders", p)
+	}
+
+	parsed.Path = path.Clean(p)
+	parsed.RawPath = ""
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 

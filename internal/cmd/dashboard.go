@@ -11,6 +11,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
@@ -43,6 +44,9 @@ Run 'cw config dashboard list' to see available dashboards.`,
 
   # Include line items for each order (compact support JSON)
   cw dashboard orders --contact 180712 --lni
+
+  # Link an order to a contact (may merge contacts)
+  cw dashboard link orders --contact 180712 --order-number SO20240215001 --force
 
   # JSON output
   cw dashboard orders --contact 180712 --output json
@@ -81,51 +85,9 @@ Run 'cw config dashboard list' to see available dashboards.`,
 				}
 			}
 
-			cfg, err := config.GetDashboard(dashboardName)
+			resolvedDashboardName, cfg, err := resolveDashboardConfig(dashboardName)
 			if err != nil {
-				// Try prefix and subsequence matching before giving up.
-				dashboards, listErr := config.ListDashboards()
-				if listErr == nil && len(dashboards) > 0 {
-					names := make([]string, 0, len(dashboards))
-					for name := range dashboards {
-						names = append(names, name)
-					}
-					sort.Strings(names)
-
-					// Prefix match: find all dashboard names that start with input.
-					lower := strings.ToLower(dashboardName)
-					var matches []string
-					for _, name := range names {
-						if strings.HasPrefix(strings.ToLower(name), lower) {
-							matches = append(matches, name)
-						}
-					}
-
-					// Subsequence fallback: if no prefix match, check if input
-					// characters appear in order within the name (e.g. "ods" matches
-					// "orders" because o-d-s appears as a subsequence of o-r-d-e-r-s).
-					if len(matches) == 0 {
-						for _, name := range names {
-							if isSubsequence(lower, strings.ToLower(name)) {
-								matches = append(matches, name)
-							}
-						}
-					}
-
-					switch len(matches) {
-					case 1:
-						cfg, err = config.GetDashboard(matches[0])
-						if err != nil {
-							return fmt.Errorf("dashboard %q not found", matches[0])
-						}
-					case 0:
-						return fmt.Errorf("dashboard %q not found. Available: %s", dashboardName, strings.Join(names, ", "))
-					default:
-						return fmt.Errorf("ambiguous dashboard %q: matches %s", dashboardName, strings.Join(matches, ", "))
-					}
-				} else {
-					return fmt.Errorf("dashboard %q not found. Run 'cw config dashboard add --help' to configure one", dashboardName)
-				}
+				return err
 			}
 
 			client := api.NewDashboardClient(cfg.Endpoint, cfg.AuthToken)
@@ -142,8 +104,8 @@ Run 'cw config dashboard list' to see available dashboards.`,
 					return fmt.Errorf("dashboard line-item enrichment failed: %w", err)
 				}
 			}
-			if shouldAddDashboardNoOrdersPath(dashboardName, cfg, result) {
-				if err := addDashboardNoOrdersPath(cmdContext(cmd), contactID, result); err != nil {
+			if shouldAddDashboardNoOrdersPath(resolvedDashboardName, cfg, result) {
+				if err := addDashboardNoOrdersPath(cmdContext(cmd), resolvedDashboardName, contactID, result); err != nil {
 					addDashboardWarning(result, fmt.Sprintf("no-orders support path unavailable: %v", err))
 				}
 			}
@@ -206,6 +168,154 @@ Run 'cw config dashboard list' to see available dashboards.`,
 	cmd.Flags().BoolVar(&light, "light", false, "Return compact summary with only the 3 most recent orders")
 	flagAlias(cmd.Flags(), "light", "li")
 	flagAlias(cmd.Flags(), "light", "lt")
+	cmd.AddCommand(newDashboardLinkCmd())
+
+	return cmd
+}
+
+func resolveDashboardConfig(dashboardName string) (string, *config.DashboardConfig, error) {
+	cfg, err := config.GetDashboard(dashboardName)
+	if err == nil {
+		return dashboardName, cfg, nil
+	}
+
+	// Try prefix and subsequence matching before giving up.
+	dashboards, listErr := config.ListDashboards()
+	if listErr == nil && len(dashboards) > 0 {
+		names := make([]string, 0, len(dashboards))
+		for name := range dashboards {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		// Prefix match: find all dashboard names that start with input.
+		lower := strings.ToLower(dashboardName)
+		var matches []string
+		for _, name := range names {
+			if strings.HasPrefix(strings.ToLower(name), lower) {
+				matches = append(matches, name)
+			}
+		}
+
+		// Subsequence fallback: if no prefix match, check if input
+		// characters appear in order within the name (e.g. "ods" matches
+		// "orders" because o-d-s appears as a subsequence of o-r-d-e-r-s).
+		if len(matches) == 0 {
+			for _, name := range names {
+				if isSubsequence(lower, strings.ToLower(name)) {
+					matches = append(matches, name)
+				}
+			}
+		}
+
+		switch len(matches) {
+		case 1:
+			cfg, err = config.GetDashboard(matches[0])
+			if err != nil {
+				return "", nil, fmt.Errorf("dashboard %q not found", matches[0])
+			}
+			return matches[0], cfg, nil
+		case 0:
+			return "", nil, fmt.Errorf("dashboard %q not found. Available: %s", dashboardName, strings.Join(names, ", "))
+		default:
+			return "", nil, fmt.Errorf("ambiguous dashboard %q: matches %s", dashboardName, strings.Join(matches, ", "))
+		}
+	}
+
+	return "", nil, fmt.Errorf("dashboard %q not found. Run 'cw config dashboard add --help' to configure one", dashboardName)
+}
+
+func newDashboardLinkCmd() *cobra.Command {
+	var contactID int
+	var orderNumber string
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "link <name>",
+		Short: "Link an order to a contact via dashboard API",
+		Long: `Link a Shopline order number to a Chatwoot contact.
+
+Warning: this operation may trigger contact merges in Chatwoot and cannot be undone.`,
+		Example: `  # Link an order to a contact (recommended for scripts)
+  cw dashboard link orders --contact 180712 --order-number SO20240215001 --force
+
+  # Same with short aliases
+  cw dh link ods --ct 180712 --on SO20240215001 --force`,
+		Args: cobra.ExactArgs(1),
+		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			dashboardName := args[0]
+
+			if contactID <= 0 {
+				return fmt.Errorf("--contact is required")
+			}
+			orderNumber = strings.TrimSpace(orderNumber)
+			if orderNumber == "" {
+				return fmt.Errorf("--order-number is required")
+			}
+
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation:   "link",
+				Resource:    "order",
+				Description: "Link Shopline order number to Chatwoot contact (may merge contacts).",
+				Details: map[string]any{
+					"dashboard":    dashboardName,
+					"contact_id":   contactID,
+					"order_number": orderNumber,
+				},
+				Warnings: []string{"This operation may merge contacts and cannot be undone."},
+			}); ok {
+				return err
+			}
+
+			if err := requireForceForJSON(cmd, force); err != nil {
+				return err
+			}
+
+			ok, err := confirmAction(cmd, confirmOptions{
+				Prompt:              yellow("Type 'link' to confirm (this may merge contacts and cannot be undone): "),
+				Expected:            "link",
+				CancelMessage:       "Order link cancelled.",
+				Force:               force,
+				RequireForceForJSON: true,
+			})
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
+			}
+
+			_, cfg, err := resolveDashboardConfig(dashboardName)
+			if err != nil {
+				return err
+			}
+
+			client := api.NewDashboardClient(cfg.Endpoint, cfg.AuthToken)
+			result, err := client.LinkOrderToContact(cmdContext(cmd), orderNumber, contactID)
+			if err != nil {
+				return fmt.Errorf("failed to link order %q to contact %d: %w", orderNumber, contactID, err)
+			}
+
+			payload := map[string]any{
+				"order_number":        orderNumber,
+				"customer_id":         result.CustomerID,
+				"chatwoot_contact_id": result.ChatwootContactID,
+			}
+
+			if isJSON(cmd) {
+				return printJSON(cmd, payload)
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Linked order %s to contact %d (customer: %s)\n", orderNumber, result.ChatwootContactID, result.CustomerID)
+			return nil
+		}),
+	}
+
+	cmd.Flags().IntVar(&contactID, "contact", 0, "Chatwoot contact ID to link the order to (required)")
+	cmd.Flags().StringVar(&orderNumber, "order-number", "", "Shopline order number to link (required)")
+	cmd.Flags().BoolVarP(&force, "force", "F", false, "Skip confirmation prompt (required for --output json)")
+	flagAlias(cmd.Flags(), "contact", "ct")
+	flagAlias(cmd.Flags(), "order-number", "on")
 
 	return cmd
 }
@@ -439,7 +549,7 @@ func shouldAddDashboardNoOrdersPath(dashboardName string, cfg *config.DashboardC
 	return !ok || len(items) == 0
 }
 
-func addDashboardNoOrdersPath(ctx context.Context, contactID int, result map[string]any) error {
+func addDashboardNoOrdersPath(ctx context.Context, dashboardName string, contactID int, result map[string]any) error {
 	if result == nil {
 		return nil
 	}
@@ -501,7 +611,8 @@ func addDashboardNoOrdersPath(ctx context.Context, contactID int, result map[str
 		},
 		map[string]any{
 			"id":   "link_contact_account",
-			"do":   "Link Chatwoot contact to Shopline/Shopify account via Isaac linking endpoint (when available).",
+			"do":   "Link a known order number to this contact (may merge contacts).",
+			"cmd":  fmt.Sprintf("cw dashboard link %s --contact %d --order-number <ORDER_NUMBER> --force -o json", dashboardCommandName(dashboardName), contactID),
 			"when": "after_verification",
 		},
 	}
@@ -515,6 +626,14 @@ func addDashboardNoOrdersPath(ctx context.Context, contactID int, result map[str
 	}
 
 	return nil
+}
+
+func dashboardCommandName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "orders"
+	}
+	return name
 }
 
 func detectCommerceAccountLinks(attrs map[string]any) (shoplineLinked, shopifyLinked bool, matchedKeys []string) {
