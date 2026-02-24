@@ -583,9 +583,13 @@ Query external dashboard APIs for contact data (requires configuration via `cw c
 cw dh ods --ct 180712                     # Short form: dashboard alias + fuzzy name + contact alias
 cw dh ods --cv 24445                      # Resolve contact from conversation alias
 cw dh ods --ct 180712 --pg 2 --pp 20      # Paginate with short aliases
+cw dh ods --ct 180712 --lni               # Enrich with line-items (compact support JSON)
+cw dh ods --ct 180712 --light             # Dashboard light summary (top 3 compact orders)
 cw dh ods --ct 180712 -o json -q '[.it[-3:] | .[] | {n: .number, ot}]'
 # `ods` must uniquely match a configured dashboard (e.g., "orders"). `ord` also works.
 # Full forms still work: `cw dash orders --contact ...`
+# If ODS returns zero items, `--li`/`--lni` now include a compact support path:
+# path + link-check flags (`lk.sl`/`lk.sf`) + next-step IDs (`nx`) for linking/order-recovery workflows.
 ```
 
 ### Survey
@@ -1000,6 +1004,8 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 | `--priority` | `--pri` | conversations, comment, note, reply |
 | `--page` | `--pg` | dashboard |
 | `--per-page` | `--pp` | dashboard |
+| `--line-items` | `--lni` | dashboard |
+| `--light` | `--li`, `--lt` | dashboard |
 | `--compact` | `--brief`, `--summary` | dashboard |
 | `--agent` | `--ag` | assign, conversations, handoff |
 | `--description` | `--desc` | campaigns, labels, platform, portals, teams |

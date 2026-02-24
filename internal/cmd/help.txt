@@ -101,6 +101,9 @@ Contact management:
 Orders & dashboards (Shopline-specific):
   cw dh ods --cv CONV -c       Orders from conversation (compact)
   cw dh ods --ct CONTACT -c    Orders by contact ID
+  cw dh ods --ct CONTACT --lni Orders + line items (compact support JSON)
+  cw dh ods --ct CONTACT --lt  Dashboard light summary (top 3 orders)
+  cw dh ods --ct CONTACT --li  Empty result includes no-order support path + next steps
 
 Real-time:
   cw c fw CONV                 Follow conversation (WebSocket)
@@ -124,6 +127,8 @@ Output formats:
   -o jsonl      Newline-delimited JSON (streaming/piping)
   -o text       Human-readable tabulated text
   --li          Light mode (where supported): minimal payload, compact by default
+  --lni         Dashboard-only alias for --line-items (compact support JSON)
+  --lt          Dashboard-only alias for --light (top-3 compact summary)
   --cj          Compact JSON (advanced/manual override)
   --jq EXPR     Built-in JQ filter (preferred over piping to jq)
   --fi F        Field selection: minimal, default, debug, or CSV
@@ -160,7 +165,9 @@ Light mode keys (--li):
   Automation:    id nm ev on
   Integrations:  id nm on
   Custom filters: id nm type
-  Dashboard (dh): tier n it[]{num,dt,tot,st}
+  Dashboard light (dh --li/--light/--lt): tier n it[]{num,dt,tot,st}
+  Dashboard line-items (dh --lni): it[]{id,num,dt,tot,st,pay,dlv,li[]{p,v,q,tot,rf,inv}}
+  Dashboard no-orders path (dh empty --li/--lni): path cid lk{sl,sf,k?} nx[]
   Dashboard st:  p=pending c=confirmed d=completed x=cancelled
 
 Flag aliases (long → short):
@@ -168,7 +175,7 @@ Flag aliases (long → short):
   --mention=mt|mn  --reason=rs  --note=nt  --inbox=ib  --limit=lt
   --waiting=wt  --unread-only=unread  --tail=tl  --dry-run=dr
   --fields=fi  --template=tpl  --items-only=io  --label=lb
-  --search=sq  --light=li  --explain=exp  --debug=dbg
+  --search=sq  --light=li|lt (dashboard supports both)  --line-items=lni (dashboard)  --explain=exp  --debug=dbg
 
 Exit codes:
   0  Success
