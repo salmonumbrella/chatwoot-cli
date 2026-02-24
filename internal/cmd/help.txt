@@ -104,6 +104,7 @@ Orders & dashboards (Shopline-specific):
   cw dh ods --ct CONTACT --lni Orders + line items (compact support JSON)
   cw dh ods --ct CONTACT --lt  Dashboard light summary (top 3 orders)
   cw dh ods --ct CONTACT --li  Empty result includes no-order support path + next steps
+  cw dh link ods --ct CONTACT --on SO... --force  Link order number to contact (may merge contacts)
 
 Real-time:
   cw c fw CONV                 Follow conversation (WebSocket)
@@ -175,7 +176,7 @@ Flag aliases (long → short):
   --mention=mt|mn  --reason=rs  --note=nt  --inbox=ib  --limit=lt
   --waiting=wt  --unread-only=unread  --tail=tl  --dry-run=dr
   --fields=fi  --template=tpl  --items-only=io  --label=lb
-  --search=sq  --light=li|lt (dashboard supports both)  --line-items=lni (dashboard)  --explain=exp  --debug=dbg
+  --search=sq  --light=li|lt (dashboard supports both)  --line-items=lni (dashboard)  --order-number=on (dashboard link)  --explain=exp  --debug=dbg
 
 Exit codes:
   0  Success

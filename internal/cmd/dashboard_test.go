@@ -55,6 +55,17 @@ func TestNewDashboardCmd(t *testing.T) {
 		t.Error("Expected --line-items flag")
 	}
 
+	hasLinkSubcommand := false
+	for _, sub := range cmd.Commands() {
+		if strings.HasPrefix(sub.Use, "link ") {
+			hasLinkSubcommand = true
+			break
+		}
+	}
+	if !hasLinkSubcommand {
+		t.Error("Expected link subcommand on dashboard command")
+	}
+
 	if err := cmd.Args(cmd, []string{}); err == nil {
 		t.Error("Expected error for no args")
 	}
@@ -2350,5 +2361,201 @@ func TestDashboardCommand_LineItemsAndLightConflict(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot be used together") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDashboardCommand_LinkOrderSuccess(t *testing.T) {
+	chatwootServer := httptest.NewServer(newRouteHandler())
+	t.Cleanup(chatwootServer.Close)
+
+	var requestBody map[string]any
+	dashboardServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
+			t.Fatalf("Authorization = %q, want %q", got, "Bearer test-token")
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %q, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/public/chatwoot/orders/link" {
+			t.Fatalf("path = %q, want /api/public/chatwoot/orders/link", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"customer_id": "a1b2c3d4",
+			"chatwoot_contact_id": 180712
+		}`))
+	}))
+	t.Cleanup(dashboardServer.Close)
+
+	ring := keyring.NewArrayKeyring(nil)
+	account := config.Account{
+		BaseURL:   chatwootServer.URL,
+		APIToken:  "test-token",
+		AccountID: 1,
+		Extensions: &config.Extensions{
+			Dashboards: map[string]*config.DashboardConfig{
+				"orders": {
+					Name:      "Orders",
+					Endpoint:  dashboardServer.URL + "/api/public/chatwoot/contact/orders",
+					AuthToken: "Bearer test-token",
+				},
+			},
+		},
+	}
+	data, _ := json.Marshal(account)
+	_ = ring.Set(keyring.Item{Key: "default", Data: data})
+	_ = ring.Set(keyring.Item{Key: "current_profile", Data: []byte("default")})
+
+	cleanup := config.SetOpenKeyring(func(cfg keyring.Config) (keyring.Keyring, error) {
+		return ring, nil
+	})
+	t.Cleanup(cleanup)
+
+	t.Setenv("CHATWOOT_TESTING", "1")
+	t.Setenv("CHATWOOT_OUTPUT", "text")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"dashboard", "link", "ods", "--ct", "180712", "--on", "SO20240215001", "--force", "-o", "json",
+		})
+		if err != nil {
+			t.Fatalf("dashboard link failed: %v", err)
+		}
+	})
+
+	if got := requestBody["order_number"]; got != "SO20240215001" {
+		t.Fatalf("order_number = %v, want SO20240215001", got)
+	}
+	if got, ok := requestBody["contact_id"].(float64); !ok || int(got) != 180712 {
+		t.Fatalf("contact_id = %v, want 180712", requestBody["contact_id"])
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse output JSON: %v\noutput: %s", err, output)
+	}
+	if got := result["order_number"]; got != "SO20240215001" {
+		t.Fatalf("order_number = %v, want SO20240215001", got)
+	}
+	if got := result["customer_id"]; got != "a1b2c3d4" {
+		t.Fatalf("customer_id = %v, want a1b2c3d4", got)
+	}
+}
+
+func TestDashboardCommand_LinkOrderRequiresForceInJSON(t *testing.T) {
+	chatwootHandler := newRouteHandler()
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("dashboard endpoint should not be called without --force in json mode")
+	})
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	err := Execute(context.Background(), []string{
+		"dashboard", "link", "orders", "--contact", "180712", "--order-number", "SO20240215001", "-o", "json",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing --force in json mode")
+	}
+	if !strings.Contains(err.Error(), "--force flag is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDashboardCommand_LinkOrderCancelledWithoutForce(t *testing.T) {
+	chatwootHandler := newRouteHandler()
+	dashboardCalls := 0
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		dashboardCalls++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	err := Execute(context.Background(), []string{
+		"dashboard", "link", "orders", "--contact", "180712", "--order-number", "SO20240215001",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dashboardCalls != 0 {
+		t.Fatalf("expected no API calls when confirmation is declined, got %d", dashboardCalls)
+	}
+}
+
+func TestDashboardCommand_LinkOrderDryRunSkipsAPICall(t *testing.T) {
+	chatwootHandler := newRouteHandler()
+	dashboardCalls := 0
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		dashboardCalls++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	err := Execute(context.Background(), []string{
+		"dashboard", "link", "orders", "--contact", "180712", "--order-number", "SO20240215001", "--dry-run",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dashboardCalls != 0 {
+		t.Fatalf("expected no API calls in dry-run mode, got %d", dashboardCalls)
+	}
+}
+
+func TestDashboardCommand_NoOrdersSupportPathIncludesLinkCmd(t *testing.T) {
+	chatwootHandler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/145536", jsonResponse(200, `{
+			"payload": {"id": 145536, "custom_attributes": {}}
+		}`))
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"items": [],
+			"pagination": {"page": 1, "total_pages": 0, "total_records": 0}
+		}`))
+	})
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"dashboard", "orders", "--contact", "145536", "--no-resolve", "-o", "json",
+		})
+		if err != nil {
+			t.Fatalf("dashboard orders query failed: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse output JSON: %v\noutput: %s", err, output)
+	}
+	supportPath, ok := result["support_path"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected support_path object, got %T", result["support_path"])
+	}
+	steps, ok := supportPath["steps"].([]any)
+	if !ok {
+		t.Fatalf("expected support_path.steps array, got %T", supportPath["steps"])
+	}
+
+	found := false
+	for _, raw := range steps {
+		step, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if step["id"] == "link_contact_account" {
+			cmd, _ := step["cmd"].(string)
+			if !strings.Contains(cmd, "cw dashboard link orders --contact 145536 --order-number <ORDER_NUMBER> --force -o json") {
+				t.Fatalf("unexpected link command: %q", cmd)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("did not find link_contact_account step in support_path.steps: %v", steps)
 	}
 }
