@@ -348,6 +348,23 @@ func TestDashboardClient_LinkOrderToContact(t *testing.T) {
 	}
 }
 
+func TestDashboardClient_LinkOrderToContactServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"contact merge conflict"}`))
+	}))
+	defer server.Close()
+
+	client := NewDashboardClient(server.URL+"/api/public/chatwoot/contact/orders", "Bearer token")
+	_, err := client.LinkOrderToContact(context.Background(), "SO1", 123)
+	if err == nil {
+		t.Fatal("expected error for 409 response")
+	}
+	if !strings.Contains(err.Error(), "status 409") {
+		t.Fatalf("error = %q, want it to contain 'status 409'", err.Error())
+	}
+}
+
 func TestDashboardClient_LinkOrderToContactValidation(t *testing.T) {
 	client := NewDashboardClient("https://host/api/public/chatwoot/contact/orders", "Bearer token")
 

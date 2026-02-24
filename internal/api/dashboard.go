@@ -107,14 +107,9 @@ func (c *DashboardClient) LinkOrderToContact(ctx context.Context, orderNumber st
 		return nil, fmt.Errorf("failed to marshal link request: %w", err)
 	}
 
-	result, err := c.doJSON(ctx, http.MethodPost, linkURL, bytes.NewReader(body), "application/json")
+	raw, err := c.doRaw(ctx, http.MethodPost, linkURL, bytes.NewReader(body), "application/json")
 	if err != nil {
 		return nil, err
-	}
-
-	raw, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse link response: %w", err)
 	}
 
 	var resp LinkOrderResponse
@@ -126,6 +121,20 @@ func (c *DashboardClient) LinkOrderToContact(ctx context.Context, orderNumber st
 }
 
 func (c *DashboardClient) doJSON(ctx context.Context, method, endpoint string, body io.Reader, contentType string) (map[string]any, error) {
+	raw, err := c.doRaw(ctx, method, endpoint, body, contentType)
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return result, nil
+}
+
+func (c *DashboardClient) doRaw(ctx context.Context, method, endpoint string, body io.Reader, contentType string) ([]byte, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -165,12 +174,7 @@ func (c *DashboardClient) doJSON(ctx context.Context, method, endpoint string, b
 		return nil, fmt.Errorf("dashboard API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
-	var result map[string]any
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return result, nil
+	return respBody, nil
 }
 
 func (c *DashboardClient) authorizationHeader() string {
