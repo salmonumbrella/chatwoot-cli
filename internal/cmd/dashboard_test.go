@@ -2445,6 +2445,35 @@ func TestDashboardCommand_LinkOrderSuccess(t *testing.T) {
 	}
 }
 
+func TestDashboardCommand_LinkOrderInvalidContact(t *testing.T) {
+	chatwootHandler := newRouteHandler()
+	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("dashboard endpoint should not be called with invalid contact")
+	})
+	setupDashboardTestEnv(t, chatwootHandler, dashboardHandler, "orders")
+
+	tests := []struct {
+		name      string
+		contactID string
+	}{
+		{"zero contact", "0"},
+		{"negative contact", "-1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Execute(context.Background(), []string{
+				"dashboard", "link", "orders", "--contact", tt.contactID, "--order-number", "SO1", "--force",
+			})
+			if err == nil {
+				t.Fatal("expected error for invalid --contact")
+			}
+			if !strings.Contains(err.Error(), "--contact is required") {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDashboardCommand_LinkOrderRequiresForceInJSON(t *testing.T) {
 	chatwootHandler := newRouteHandler()
 	dashboardHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
