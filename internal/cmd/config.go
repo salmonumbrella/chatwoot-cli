@@ -16,6 +16,7 @@ func newConfigCmd() *cobra.Command {
 
 	cmd.AddCommand(newConfigProfilesCmd())
 	cmd.AddCommand(newConfigDashboardCmd())
+	cmd.AddCommand(newConfigStoreKeysCmd())
 
 	return cmd
 }
