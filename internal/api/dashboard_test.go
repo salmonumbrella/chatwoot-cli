@@ -26,6 +26,11 @@ func TestDashboardClient_Query(t *testing.T) {
 			t.Errorf("Content-Type = %q, want application/json", ct)
 		}
 
+		accept := r.Header.Get("Accept")
+		if accept != "application/json" {
+			t.Errorf("Accept = %q, want application/json", accept)
+		}
+
 		var body DashboardRequest
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("Failed to decode body: %v", err)
@@ -127,5 +132,174 @@ func TestDashboardClient_QueryResponseAtLimit(t *testing.T) {
 	}
 	if resp == nil {
 		t.Fatal("Expected response, got nil")
+	}
+}
+
+func TestDashboardClient_QuerySupportsBearerToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
+			t.Errorf("Authorization = %q, want %q", got, "Bearer secret-token")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items":      []any{},
+			"pagination": map[string]any{"page": 1, "total_pages": 1},
+		})
+	}))
+	defer server.Close()
+
+	client := NewDashboardClient(server.URL, "Bearer secret-token")
+	if _, err := client.Query(context.Background(), DashboardRequest{ContactID: 123}); err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+}
+
+func TestDashboardClient_QueryOrderDetail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Method = %q, want GET", r.Method)
+		}
+		if r.URL.Path != "/api/public/chatwoot/orders/order-1" {
+			t.Errorf("Path = %q, want %q", r.URL.Path, "/api/public/chatwoot/orders/order-1")
+		}
+		if got := r.Header.Get("Authorization"); got != "Basic dGVzdEBleGFtcGxlLmNvbQ==" {
+			t.Errorf("Authorization = %q, want Basic dGVzdEBleGFtcGxlLmNvbQ==", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"order": map[string]any{"id": "order-1", "number": "SO-1"},
+			"line_items": []map[string]any{
+				{"product_name": "Sneaker", "quantity": 1},
+			},
+			"order_metadata": map[string]any{"payment_method": "linepay"},
+		})
+	}))
+	defer server.Close()
+
+	client := NewDashboardClient(server.URL+"/api/public/chatwoot/contact/orders", "test@example.com")
+	result, err := client.QueryOrderDetail(context.Background(), "order-1")
+	if err != nil {
+		t.Fatalf("QueryOrderDetail failed: %v", err)
+	}
+
+	lineItems, ok := result["line_items"].([]any)
+	if !ok {
+		t.Fatalf("line_items type = %T, want []any", result["line_items"])
+	}
+	if len(lineItems) != 1 {
+		t.Fatalf("len(line_items) = %d, want 1", len(lineItems))
+	}
+}
+
+func TestDashboardClient_AuthorizationHeaderNormalizesCasing(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		want  string
+	}{
+		{"uppercase BEARER", "BEARER my-token", "Bearer my-token"},
+		{"mixed BeArEr", "BeArEr my-token", "Bearer my-token"},
+		{"uppercase BASIC", "BASIC dXNlcjpwYXNz", "Basic dXNlcjpwYXNz"},
+		{"mixed BaSiC", "BaSiC dXNlcjpwYXNz", "Basic dXNlcjpwYXNz"},
+		{"correct Bearer", "Bearer my-token", "Bearer my-token"},
+		{"correct Basic", "Basic dXNlcjpwYXNz", "Basic dXNlcjpwYXNz"},
+		{"plain token", "test@example.com", "Basic dGVzdEBleGFtcGxlLmNvbQ=="},
+		{"empty token", "", ""},
+		{"whitespace only", "   ", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DashboardClient{AuthToken: tt.token}
+			got := c.authorizationHeader()
+			if got != tt.want {
+				t.Errorf("authorizationHeader() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDashboardClient_OrderDetailURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		orderID  string
+		want     string
+		wantErr  string
+	}{
+		{
+			name:     "chatwoot/contact/orders suffix",
+			endpoint: "https://host/api/public/chatwoot/contact/orders",
+			orderID:  "order-1",
+			want:     "https://host/api/public/chatwoot/orders/order-1",
+		},
+		{
+			name:     "contact/orders suffix",
+			endpoint: "https://host/api/contact/orders",
+			orderID:  "order-1",
+			want:     "https://host/api/orders/order-1",
+		},
+		{
+			name:     "bare /orders suffix",
+			endpoint: "https://host/api/orders",
+			orderID:  "order-1",
+			want:     "https://host/api/orders/order-1",
+		},
+		{
+			name:     "empty path",
+			endpoint: "https://host",
+			orderID:  "order-1",
+			want:     "https://host/orders/order-1",
+		},
+		{
+			name:     "trailing slash stripped",
+			endpoint: "https://host/api/chatwoot/contact/orders/",
+			orderID:  "order-1",
+			want:     "https://host/api/chatwoot/orders/order-1",
+		},
+		{
+			name:     "special chars in order ID escaped",
+			endpoint: "https://host/api/orders",
+			orderID:  "order/1",
+			want:     "https://host/api/orders/order%252F1",
+		},
+		{
+			name:     "empty order ID",
+			endpoint: "https://host/api/orders",
+			orderID:  "",
+			wantErr:  "order id is required",
+		},
+		{
+			name:     "whitespace-only order ID",
+			endpoint: "https://host/api/orders",
+			orderID:  "   ",
+			wantErr:  "order id is required",
+		},
+		{
+			name:     "unrecognized path errors",
+			endpoint: "https://host/api/inventory",
+			orderID:  "order-1",
+			wantErr:  "cannot derive order detail URL",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DashboardClient{Endpoint: tt.endpoint}
+			got, err := c.orderDetailURL(tt.orderID)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("orderDetailURL() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

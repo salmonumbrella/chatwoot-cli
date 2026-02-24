@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 	"time"
 )
 
@@ -57,13 +60,31 @@ func (c *DashboardClient) Query(ctx context.Context, req DashboardRequest) (map[
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))
+	return c.doJSON(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body), "application/json")
+}
+
+// QueryOrderDetail fetches order-level detail payload (line_items, metadata) by order ID.
+func (c *DashboardClient) QueryOrderDetail(ctx context.Context, orderID string) (map[string]any, error) {
+	detailURL, err := c.orderDetailURL(orderID)
+	if err != nil {
+		return nil, err
+	}
+	return c.doJSON(ctx, http.MethodGet, detailURL, nil, "")
+}
+
+func (c *DashboardClient) doJSON(ctx context.Context, method, endpoint string, body io.Reader, contentType string) (map[string]any, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.AuthToken)))
+	if contentType != "" {
+		httpReq.Header.Set("Content-Type", contentType)
+	}
+	if authHeader := c.authorizationHeader(); authHeader != "" {
+		httpReq.Header.Set("Authorization", authHeader)
+	}
+	httpReq.Header.Set("Accept", "application/json")
 
 	resp, err := c.HTTP.Do(httpReq)
 	if err != nil {
@@ -97,4 +118,56 @@ func (c *DashboardClient) Query(ctx context.Context, req DashboardRequest) (map[
 	}
 
 	return result, nil
+}
+
+func (c *DashboardClient) authorizationHeader() string {
+	token := strings.TrimSpace(c.AuthToken)
+	if token == "" {
+		return ""
+	}
+	lower := strings.ToLower(token)
+	if strings.HasPrefix(lower, "bearer ") {
+		return "Bearer " + token[7:]
+	}
+	if strings.HasPrefix(lower, "basic ") {
+		return "Basic " + token[6:]
+	}
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(token))
+}
+
+func (c *DashboardClient) orderDetailURL(orderID string) (string, error) {
+	orderID = strings.TrimSpace(orderID)
+	if orderID == "" {
+		return "", fmt.Errorf("order id is required")
+	}
+
+	parsed, err := url.Parse(c.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid dashboard endpoint %q: %w", c.Endpoint, err)
+	}
+
+	escaped := url.PathEscape(orderID)
+	p := strings.TrimRight(parsed.Path, "/")
+
+	switch {
+	case strings.HasSuffix(p, "/chatwoot/contact/orders"):
+		p = strings.TrimSuffix(p, "/chatwoot/contact/orders") + "/chatwoot/orders/" + escaped
+	case strings.HasSuffix(p, "/contact/orders"):
+		p = strings.TrimSuffix(p, "/contact/orders") + "/orders/" + escaped
+	case strings.HasSuffix(p, "/orders"):
+		p = p + "/" + escaped
+	case p == "":
+		p = "/orders/" + escaped
+	default:
+		return "", fmt.Errorf("cannot derive order detail URL from endpoint path %q: expected path ending in /orders or /contact/orders", p)
+	}
+
+	parsed.Path = path.Clean(p)
+	parsed.RawPath = "" // let url.URL re-escape from Path
+	// Order detail is a clean path-only URL; drop any query params or fragment
+	// that may exist on the base endpoint — they belong to the listing endpoint.
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+
+	return parsed.String(), nil
 }
