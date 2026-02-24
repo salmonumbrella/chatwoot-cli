@@ -73,7 +73,7 @@ func newDashboardAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "Full URL to the dashboard API endpoint (required)")
-	cmd.Flags().StringVar(&authToken, "auth-token", "", "Token for Basic auth (required)")
+	cmd.Flags().StringVar(&authToken, "auth-token", "", "Auth token/header (required): plain token => Basic auth; prefix with 'Bearer ' or 'Basic ' to use explicit scheme")
 	cmd.Flags().StringVar(&name, "name", "", "Display name for the dashboard (defaults to dashboard-name)")
 	_ = cmd.MarkFlagRequired("endpoint")
 	_ = cmd.MarkFlagRequired("auth-token")
