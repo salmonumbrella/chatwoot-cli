@@ -202,6 +202,10 @@ Auth:
   cw auth login --no-browser CLI flags (--url, --token, --account-id)
   cw st                      Show current config and auth status
 
+Store Keys:
+  cw config store-keys           List configured store key mappings
+  cw config store-keys discover 42  Auto-discover keys from a contact
+
 Discovery:
   cw --help-json             Full command tree as JSON (for agent discovery)
   cw CMD --help              Detailed help for any command
