@@ -240,6 +240,61 @@ func TestGetConfigSource(t *testing.T) {
 	})
 }
 
+func TestStatusShowsStoreKeys_Configured(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "abcd1234efgh5678")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "42")
+	t.Setenv("CW_CONTACT_LIGHT_STORE_KEYS", "alpha:key1,beta:key2")
+	output := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"status"})
+	})
+	if !strings.Contains(output, "Store Keys:") {
+		t.Errorf("expected 'Store Keys:' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "2 configured") {
+		t.Errorf("expected '2 configured' in output, got: %s", output)
+	}
+}
+
+func TestStatusShowsStoreKeys_NotConfigured(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "abcd1234efgh5678")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "42")
+	t.Setenv("CW_CONTACT_LIGHT_STORE_KEYS", "")
+	output := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"status"})
+	})
+	if !strings.Contains(output, "Store Keys:") {
+		t.Errorf("expected 'Store Keys:' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "not configured") {
+		t.Errorf("expected 'not configured' in output, got: %s", output)
+	}
+}
+
+func TestStatusShowsStoreKeys_JSON(t *testing.T) {
+	t.Setenv("CHATWOOT_BASE_URL", "https://chatwoot.example.com")
+	t.Setenv("CHATWOOT_API_TOKEN", "abcd1234efgh5678")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "42")
+	t.Setenv("CW_CONTACT_LIGHT_STORE_KEYS", "alpha:key1")
+	output := captureStdout(t, func() {
+		_ = Execute(context.Background(), []string{"status", "-o", "json"})
+	})
+	var info StatusInfo
+	if err := json.Unmarshal([]byte(output), &info); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	if info.StoreKeys == nil {
+		t.Fatal("expected store_keys in JSON output")
+	}
+	if info.StoreKeys.Count != 1 {
+		t.Errorf("expected count 1, got %d", info.StoreKeys.Count)
+	}
+	if !info.StoreKeys.Configured {
+		t.Error("expected configured to be true")
+	}
+}
+
 func TestStatusWithPing(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/health", jsonResponse(http.StatusOK, `{"status":"woot"}`))

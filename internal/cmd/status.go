@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,18 +12,26 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/config"
 )
 
+// StoreKeysInfo holds light-contact store key configuration status.
+type StoreKeysInfo struct {
+	Configured bool     `json:"configured"`
+	Count      int      `json:"count"`
+	Aliases    []string `json:"aliases,omitempty"`
+}
+
 // StatusInfo holds configuration and authentication status information
 type StatusInfo struct {
-	Authenticated   bool   `json:"authenticated"`
-	BaseURL         string `json:"base_url,omitempty"`
-	AccountID       int    `json:"account_id,omitempty"`
-	TokenPreview    string `json:"token_preview,omitempty"`
-	Profile         string `json:"profile,omitempty"`
-	CLIVersion      string `json:"cli_version"`
-	GoVersion       string `json:"go_version"`
-	Platform        string `json:"platform"`
-	ConfigSource    string `json:"config_source,omitempty"`
-	ServerReachable *bool  `json:"server_reachable,omitempty"`
+	Authenticated   bool           `json:"authenticated"`
+	BaseURL         string         `json:"base_url,omitempty"`
+	AccountID       int            `json:"account_id,omitempty"`
+	TokenPreview    string         `json:"token_preview,omitempty"`
+	Profile         string         `json:"profile,omitempty"`
+	CLIVersion      string         `json:"cli_version"`
+	GoVersion       string         `json:"go_version"`
+	Platform        string         `json:"platform"`
+	ConfigSource    string         `json:"config_source,omitempty"`
+	ServerReachable *bool          `json:"server_reachable,omitempty"`
+	StoreKeys       *StoreKeysInfo `json:"store_keys,omitempty"`
 }
 
 // getConfigSource determines where credentials are loaded from
@@ -91,6 +100,22 @@ before making API calls.`,
 				}
 			}
 
+			// Store keys config (always shown, regardless of auth)
+			stores := parseLightContactStoreMap(os.Getenv(envLightContactStoreMap))
+			skInfo := &StoreKeysInfo{
+				Configured: len(stores) > 0,
+				Count:      len(stores),
+			}
+			if len(stores) > 0 {
+				aliases := make([]string, 0, len(stores))
+				for alias := range stores {
+					aliases = append(aliases, alias)
+				}
+				sort.Strings(aliases)
+				skInfo.Aliases = aliases
+			}
+			info.StoreKeys = skInfo
+
 			// If --check flag is set, just exit with appropriate code
 			if checkOnly {
 				if !info.Authenticated {
@@ -134,6 +159,16 @@ before making API calls.`,
 			} else {
 				_, _ = fmt.Fprintf(w, "Authenticated:\t%s\n", red("no"))
 				_, _ = fmt.Fprintf(w, "Hint:\tRun 'cw auth login' to authenticate\n")
+			}
+
+			if info.StoreKeys != nil {
+				if info.StoreKeys.Configured {
+					_, _ = fmt.Fprintf(w, "Store Keys:\t%s (%s)\n",
+						green(fmt.Sprintf("%d configured", info.StoreKeys.Count)),
+						strings.Join(info.StoreKeys.Aliases, ", "))
+				} else {
+					_, _ = fmt.Fprintf(w, "Store Keys:\t%s\n", yellow("not configured"))
+				}
 			}
 
 			_, _ = fmt.Fprintln(w)
