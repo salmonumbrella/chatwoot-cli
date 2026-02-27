@@ -800,6 +800,7 @@ cw co filter --payload '[{"attribute_key":"email","filter_operator":"contains","
 cw c search --query "refund request"     # Search conversations
 cw c search "refund request" --li        # Light conversation search payload
 cw co search --query "john smith"        # Search contacts
+cw co search "john smith"                # Compatibility positional contact search
 cw s "john smith" --li                   # Light global search payload
 ```
 
@@ -1002,7 +1003,7 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 |------|-------|-------------|
 | `--status` | `--st` | conversations list/create/update |
 | `--inbox-id` | `--iid` | conversations, campaigns, contacts, csat, integrations |
-| `--contact-id` | `--cid` | conversations create, integrations, reply |
+| `--contact-id` | `--cid` | conversations create/list, integrations, reply |
 | `--contact` | `--ct` | dashboard |
 | `--conversation` | `--cv` | dashboard |
 | `--order-number` | `--on` | dashboard link |

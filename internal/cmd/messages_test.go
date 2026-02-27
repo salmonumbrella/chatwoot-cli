@@ -434,6 +434,78 @@ func TestMessagesCreateCommand(t *testing.T) {
 	}
 }
 
+func TestMessagesSendAliasCommand(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 457, "content": "Alias message", "message_type": 1, "private": false, "created_at": 1704067200}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"messages", "send", "123",
+		"--content", "Alias message",
+	})
+	if err != nil {
+		t.Errorf("messages send alias failed: %v", err)
+	}
+	if receivedBody["content"] != "Alias message" {
+		t.Errorf("expected content 'Alias message', got %v", receivedBody["content"])
+	}
+}
+
+func TestMessagesCreateCommand_MessageFlagAlias(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 458, "content": "Alias flag", "message_type": 1, "private": false, "created_at": 1704067200}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"messages", "create", "123",
+		"--message", "Alias flag",
+	})
+	if err != nil {
+		t.Errorf("messages create --message alias failed: %v", err)
+	}
+	if receivedBody["content"] != "Alias flag" {
+		t.Errorf("expected content 'Alias flag', got %v", receivedBody["content"])
+	}
+}
+
+func TestMessagesSendAliasCommand_WithMessageFlagAlias(t *testing.T) {
+	var receivedBody map[string]any
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 459, "content": "Alias combo", "message_type": 1, "private": false, "created_at": 1704067200}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"messages", "send", "123",
+		"--message", "Alias combo",
+	})
+	if err != nil {
+		t.Errorf("messages send --message alias failed: %v", err)
+	}
+	if receivedBody["content"] != "Alias combo" {
+		t.Errorf("expected content 'Alias combo', got %v", receivedBody["content"])
+	}
+}
+
 func TestMessagesCreateCommand_Private(t *testing.T) {
 	var receivedBody map[string]any
 	handler := newRouteHandler().

@@ -300,8 +300,13 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					if err != nil {
 						return err
 					}
+					pagesFetched++
 					if len(result.Items) == 0 {
-						break
+						if !result.HasMore {
+							break
+						}
+						currentPage++
+						continue
 					}
 					for _, item := range result.Items {
 						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl, light); err != nil {
@@ -309,7 +314,6 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						}
 						totalItems++
 					}
-					pagesFetched++
 
 					if !result.HasMore {
 						break
@@ -339,8 +343,13 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					if err != nil {
 						return err
 					}
+					pagesFetched++
 					if len(result.Items) == 0 {
-						break
+						if !result.HasMore {
+							break
+						}
+						currentPage++
+						continue
 					}
 					if !started {
 						f.StartTable(cfg.Headers)
@@ -350,7 +359,6 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						f.Row(cfg.RowFunc(item)...)
 						totalItems++
 					}
-					pagesFetched++
 
 					if !result.HasMore {
 						break
@@ -396,11 +404,15 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				if err != nil {
 					return err
 				}
+				pagesFetched++
 				if len(result.Items) == 0 {
-					break
+					if !result.HasMore {
+						break
+					}
+					currentPage++
+					continue
 				}
 				allItems = append(allItems, result.Items...)
-				pagesFetched++
 
 				if !result.HasMore {
 					break

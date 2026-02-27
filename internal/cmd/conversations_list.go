@@ -26,6 +26,7 @@ func printConversationsTable(out io.Writer, conversations []api.Conversation) {
 
 func newConversationsListCmd() *cobra.Command {
 	var inboxID string
+	var contactID int
 	var status string
 	var assigneeType string
 	var teamID int
@@ -50,6 +51,9 @@ func newConversationsListCmd() *cobra.Command {
 		Example: strings.TrimSpace(`
   # List open conversations
   cw conversations list --status open
+
+  # Filter by contact ID (compatibility)
+  cw conversations list --contact-id 123
 
   # Filter by inbox ID
   cw conversations list --inbox-id 1
@@ -130,6 +134,15 @@ func newConversationsListCmd() *cobra.Command {
 				}
 				items = filtered
 			}
+			if contactID > 0 {
+				filtered := make([]api.Conversation, 0, len(items))
+				for _, conv := range items {
+					if conversationContactID(conv) == contactID {
+						filtered = append(filtered, conv)
+					}
+				}
+				items = filtered
+			}
 			if since != "" {
 				sinceTime, err := cli.ParseRelativeTime(since, time.Now())
 				if err != nil {
@@ -162,6 +175,12 @@ func newConversationsListCmd() *cobra.Command {
 		return getClient()
 	})
 	cmd.Aliases = []string{"ls"}
+	cmd.PreRunE = RunE(func(cmd *cobra.Command, args []string) error {
+		if cmd.Flags().Changed("contact-id") && contactID <= 0 {
+			return fmt.Errorf("--contact-id must be greater than 0")
+		}
+		return nil
+	})
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "status", "inbox_id", "assignee_id"},
@@ -171,6 +190,7 @@ func newConversationsListCmd() *cobra.Command {
 	registerFieldSchema(cmd, "conversation")
 
 	cmd.Flags().StringVarP(&inboxID, "inbox-id", "I", "", "Filter by inbox ID or name")
+	cmd.Flags().IntVarP(&contactID, "contact-id", "C", 0, "Filter by contact ID (compatibility)")
 	cmd.Flags().StringVarP(&status, "status", "s", "all", "Filter by status (open|resolved|pending|snoozed|all)")
 	cmd.Flags().StringVar(&assigneeType, "assignee-type", "", "Filter by assignee type (me|assigned|unassigned)")
 	cmd.Flags().IntVar(&teamID, "team-id", 0, "Filter by team ID")
@@ -182,6 +202,7 @@ func newConversationsListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
 	flagAlias(cmd.Flags(), "status", "st")
 	flagAlias(cmd.Flags(), "inbox-id", "iid")
+	flagAlias(cmd.Flags(), "contact-id", "cid")
 	flagAlias(cmd.Flags(), "assignee-type", "at")
 	flagAlias(cmd.Flags(), "team-id", "tid")
 	flagAlias(cmd.Flags(), "unread-only", "unread")
@@ -192,6 +213,17 @@ func newConversationsListCmd() *cobra.Command {
 	registerStaticCompletions(cmd, "assignee-type", []string{"me", "assigned", "unassigned"})
 
 	return cmd
+}
+
+func conversationContactID(conv api.Conversation) int {
+	if conv.ContactID > 0 {
+		return conv.ContactID
+	}
+	sender, ok := conv.Meta["sender"].(map[string]any)
+	if !ok {
+		return 0
+	}
+	return anyToInt(sender["id"])
 }
 
 func conversationRow(conv api.Conversation) []string {

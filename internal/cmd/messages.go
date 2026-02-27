@@ -285,11 +285,14 @@ func newMessagesCreateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create <conversation-id>",
-		Aliases: []string{"mk"},
+		Aliases: []string{"mk", "send"},
 		Short:   "Create a message in a conversation",
 		Example: strings.TrimSpace(`
   # Send a text message
   cw messages create 123 --content "Hello!"
+
+  # Compatibility: send + --message
+  cw messages send 123 --message "Hello!"
 
   # Send a private note (internal, not visible to customer)
   cw messages create 123 --private --content "Internal note for team"
@@ -458,6 +461,7 @@ func newMessagesCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&messageType, "type", "outgoing", "Message type: outgoing|incoming")
 	cmd.Flags().StringArrayVar(&attachments, "attachment", nil, "File path to attach (can be repeated)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "Agent to mention/tag (name or email, can be repeated). Requires --private")
+	flagAlias(cmd.Flags(), "content", "message")
 	flagAlias(cmd.Flags(), "type", "ty")
 	flagAlias(cmd.Flags(), "attachment", "att")
 	flagAlias(cmd.Flags(), "mention", "mt")

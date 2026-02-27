@@ -1023,7 +1023,7 @@ const successTemplate = `<!DOCTYPE html>
                 <div class="terminal-output">Fetching conversations...</div>
                 <div class="terminal-line">
                     <span class="terminal-prompt">$</span>
-                    <span class="terminal-text">chatwoot contacts search "john"</span>
+                    <span class="terminal-text">chatwoot contacts search --query "john"</span>
                 </div>
                 <div class="terminal-output">Found 3 contacts</div>
                 <div class="terminal-line">
