@@ -870,11 +870,10 @@ func TestCreateConversation(t *testing.T) {
 		validatePayload func(*testing.T, map[string]any)
 	}{
 		{
-			name: "successful create with message",
+			name: "successful create",
 			request: CreateConversationRequest{
 				InboxID:   1,
 				ContactID: 123,
-				Message:   "Hello, starting a new conversation",
 				Status:    "open",
 			},
 			statusCode: http.StatusOK,
@@ -901,9 +900,6 @@ func TestCreateConversation(t *testing.T) {
 				}
 				if payload["contact_id"] != float64(123) {
 					t.Errorf("Expected contact_id 123, got %v", payload["contact_id"])
-				}
-				if payload["message"] != "Hello, starting a new conversation" {
-					t.Errorf("Expected message, got %v", payload["message"])
 				}
 			},
 		},

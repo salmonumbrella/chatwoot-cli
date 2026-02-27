@@ -41,7 +41,6 @@ func buildConversationQuery(params ListConversationsParams, includePage bool) ur
 type CreateConversationRequest struct {
 	InboxID          int            `json:"inbox_id"`
 	ContactID        int            `json:"contact_id"`
-	Message          string         `json:"message,omitempty"`
 	Status           string         `json:"status,omitempty"`
 	Assignee         *int           `json:"assignee_id,omitempty"`
 	TeamID           *int           `json:"team_id,omitempty"`
