@@ -1506,6 +1506,44 @@ func TestConversationsCreateCommand_WithInitialMessage_MessageSendFails(t *testi
 	}
 }
 
+func TestConversationsCreateCommand_WhitespaceOnlyMessage(t *testing.T) {
+	var messageCalled atomic.Bool
+
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"id": 321,
+			"status": "open",
+			"inbox_id": 1
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/321/messages", func(w http.ResponseWriter, r *http.Request) {
+			messageCalled.Store(true)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":999}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"conversations", "create",
+			"--inbox-id", "1",
+			"--contact-id", "123",
+			"--message", "   ",
+		})
+		if err != nil {
+			t.Fatalf("conversations create with whitespace message failed: %v", err)
+		}
+	})
+
+	if messageCalled.Load() {
+		t.Fatal("whitespace-only --message should NOT trigger messages create call")
+	}
+	if !strings.Contains(output, "Created conversation") {
+		t.Fatalf("expected create success output, got: %s", output)
+	}
+}
+
 func TestConversationsCreateCommand_MissingInboxID(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 
