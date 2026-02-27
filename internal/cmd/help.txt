@@ -86,7 +86,6 @@ Search:
 
 Contact lookup:
   cw co g 123 --li             By ID (light payload)
-  cw co g 123 --li --flat      Light payload without nested conversations
   cw co g john@example.com     By email
   cw co g +16042091231         By phone
   cw co g "John Smith"         By name (fuzzy match)
@@ -155,7 +154,7 @@ Light mode keys (--li):
   Conversations: id st ib ur la mc ct{id,nm} ag{id,nm} lm
   Triage (tri): id st ib? ur lm cnm
   Mutations:     id mid? st? ag? tm? pri? su? ok? tot? er?
-  Contacts:      id nm em ph tier <store_alias>... cvs[]{id,st,ib,lm} (use co g --li --flat to omit cvs)
+  Contacts:      id nm em ph tier <store_alias>...
   Messages:      id mt prv ct ts sn{nm} att[]
   Search:        q rs[]{type,id,nm,em,st,ib,cid,cnm,la,mc,snip} sm{}
   Context (ct):  id st ib ct{id,nm} msgs[]

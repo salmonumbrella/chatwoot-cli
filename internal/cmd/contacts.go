@@ -191,25 +191,6 @@ func contactGetRunE(cmd *cobra.Command, args []string) error {
 	if light {
 		cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 		lc := buildLightContact(contact)
-		flatLight, _ := cmd.Flags().GetBool("flat")
-
-		if !flatLight {
-			// Fetch open/pending conversations with last message.
-			convs, err := client.Contacts().Conversations(ctx, id)
-			if err == nil {
-				for _, conv := range convs {
-					if conv.Status != "open" && conv.Status != "pending" {
-						continue
-					}
-					lastMsg := extractLastNonActivityMessage(conv)
-					lc.Convs = append(lc.Convs, buildLightContactConversation(conv, lastMsg))
-				}
-			}
-			if lc.Convs == nil {
-				lc.Convs = []lightContactConv{}
-			}
-		}
-
 		return printRawJSON(cmd, lc)
 	}
 
@@ -306,7 +287,6 @@ Use 'cw contacts show <id>' as an alias for this command.`,
 	flagAlias(cmd.Flags(), "with-open-conversations", "woc")
 	cmd.Flags().Bool("light", false, "Return minimal contact payload with active conversations")
 	flagAlias(cmd.Flags(), "light", "li")
-	cmd.Flags().Bool("flat", false, "With --light, return only top-level contact fields (omit nested conversations)")
 
 	return cmd
 }
@@ -344,7 +324,6 @@ This is an alias for 'cw contacts get <id>'.`,
 	flagAlias(cmd.Flags(), "with-open-conversations", "woc")
 	cmd.Flags().Bool("light", false, "Return minimal contact payload with active conversations")
 	flagAlias(cmd.Flags(), "light", "li")
-	cmd.Flags().Bool("flat", false, "With --light, return only top-level contact fields (omit nested conversations)")
 
 	return cmd
 }
