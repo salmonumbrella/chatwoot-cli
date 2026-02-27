@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -133,6 +134,101 @@ func TestInboxesGetCommand_JSON(t *testing.T) {
 
 	if !strings.Contains(output, `"id"`) {
 		t.Errorf("JSON output missing 'id' field: %s", output)
+	}
+}
+
+func TestInboxesGetCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes/1", jsonResponse(200, `{
+			"id": 1,
+			"name": "Email Inbox",
+			"channel_type": "Channel::Email",
+			"enable_auto_assignment": true,
+			"greeting_enabled": true,
+			"greeting_message": "Welcome!",
+			"website_url": "https://example.com"
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "get", "1", "--li"})
+		if err != nil {
+			t.Fatalf("inboxes get --li failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("light output should be compact by default, got: %s", output)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
+	}
+	if payload["id"] != float64(1) {
+		t.Fatalf("expected id=1, got %#v", payload["id"])
+	}
+	if payload["nm"] != "Email Inbox" {
+		t.Fatalf("expected nm=Email Inbox, got %#v", payload["nm"])
+	}
+	if payload["ch"] != "Channel::Email" {
+		t.Fatalf("expected ch=Channel::Email, got %#v", payload["ch"])
+	}
+	if payload["aa"] != true {
+		t.Fatalf("expected aa=true, got %#v", payload["aa"])
+	}
+	if payload["ge"] != true {
+		t.Fatalf("expected ge=true, got %#v", payload["ge"])
+	}
+	if payload["gm"] != "Welcome!" {
+		t.Fatalf("expected gm=Welcome!, got %#v", payload["gm"])
+	}
+	if payload["wu"] != "https://example.com" {
+		t.Fatalf("expected wu=https://example.com, got %#v", payload["wu"])
+	}
+	if _, exists := payload["name"]; exists {
+		t.Fatalf("light payload should not include full key name: %#v", payload)
+	}
+}
+
+func TestInboxesListCommand_LightCompactArray(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/inboxes", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "Email Inbox", "channel_type": "Channel::Email", "enable_auto_assignment": true},
+				{"id": 2, "name": "Web Chat", "channel_type": "Channel::WebWidget", "enable_auto_assignment": false}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"inboxes", "list", "--li"})
+		if err != nil {
+			t.Fatalf("inboxes list --li failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("light output should be compact by default, got: %s", output)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(output), "[") {
+		t.Fatalf("expected raw items array for inboxes list --li, got: %s", output)
+	}
+	if strings.Contains(output, `"items"`) || strings.Contains(output, `"has_more"`) || strings.Contains(output, `"meta"`) {
+		t.Fatalf("light list output should not include envelopes, got: %s", output)
+	}
+
+	var payload []map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light JSON array: %v\noutput: %s", err, output)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected 2 inboxes, got %d", len(payload))
+	}
+	if payload[0]["nm"] != "Email Inbox" || payload[0]["ch"] != "Channel::Email" {
+		t.Fatalf("unexpected first light inbox: %#v", payload[0])
 	}
 }
 

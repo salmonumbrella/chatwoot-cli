@@ -1698,6 +1698,54 @@ func TestContactsGetLight(t *testing.T) {
 	}
 }
 
+func TestContactsGetLightFlat(t *testing.T) {
+	var conversationsCalls int32
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/contacts/136014":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"payload": {
+					"id": 136014,
+					"name": "Jane Doe",
+					"email": "jane@example.com",
+					"phone_number": "+886912345678",
+					"custom_attributes": {"tier": "gold"},
+					"created_at": 1700000000
+				}
+			}`))
+		case r.Method == "GET" && r.URL.Path == "/api/v1/accounts/1/contacts/136014/conversations":
+			atomic.AddInt32(&conversationsCalls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"payload":[]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "get", "136014", "--light", "--flat"})
+		if err != nil {
+			t.Fatalf("contacts get --light --flat failed: %v", err)
+		}
+	})
+
+	if atomic.LoadInt32(&conversationsCalls) != 0 {
+		t.Fatalf("--flat should skip conversations lookup, got %d calls", atomic.LoadInt32(&conversationsCalls))
+	}
+	if !strings.Contains(output, `"nm"`) || !strings.Contains(output, `"em"`) || !strings.Contains(output, `"ph"`) {
+		t.Fatalf("expected flattened light identity fields, got: %s", output)
+	}
+	if strings.Contains(output, `"cvs"`) {
+		t.Fatalf("flattened light output should not include nested conversations: %s", output)
+	}
+}
+
 func TestContactsListLight(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts", jsonResponse(200, `{

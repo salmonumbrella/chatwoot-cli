@@ -298,6 +298,7 @@ cw co g 123                              # Get contact by ID
 cw co show 123                           # Get contact (alias for get)
 cw co g +16042091231                     # Lookup contact by phone number
 cw co g 123 --li                         # Light: minimal contact payload + active conversations
+cw co g 123 --li --flat                  # Light flat: top-level contact fields only
 cw co ls --li                            # Light list: compact contacts
 cw co cr -n "John Doe" -e "john@example.com"  # Create a contact
 cw co up 123 --phone "+1234567890"       # Update phone number
@@ -353,7 +354,9 @@ cw po categories del help faq            # Delete category
 
 ```bash
 cw in ls                                 # List all inboxes
+cw in ls --li                            # Light list: compact inbox array
 cw in g 1                                # Get inbox details
+cw in g 1 --li                           # Light get: compact inbox fields
 cw in cr -n "Support" --channel-type api --greeting-enabled --greeting-message "Hi!"  # Create inbox
 cw in up 1 --timezone "America/New_York" --working-hours-enabled  # Update inbox settings
 ```
