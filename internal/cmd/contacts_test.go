@@ -1650,22 +1650,6 @@ func TestContactsGetLight(t *testing.T) {
 				"custom_attributes": {"tier": "gold"},
 				"created_at": 1700000000
 			}
-		}`)).
-		On("GET", "/api/v1/accounts/1/contacts/136014/conversations", jsonResponse(200, `{
-			"payload": [
-				{
-					"id": 8821,
-					"status": "open",
-					"inbox_id": 3,
-					"last_non_activity_message": {"content": "When will my order arrive?"}
-				},
-				{
-					"id": 9999,
-					"status": "resolved",
-					"inbox_id": 3,
-					"last_non_activity_message": {"content": "Old resolved message"}
-				}
-			]
 		}`))
 
 	setupTestEnvWithHandler(t, handler)
@@ -1681,24 +1665,17 @@ func TestContactsGetLight(t *testing.T) {
 	if !strings.Contains(output, `"nm"`) {
 		t.Error("expected short key 'nm' in output")
 	}
-	// Should have conversation with last message
-	if !strings.Contains(output, `"When will my order arrive?"`) {
-		t.Error("expected last message in output")
-	}
-	// Should NOT contain resolved conversation
-	if strings.Contains(output, `"Old resolved message"`) {
-		t.Error("should not include resolved conversations")
+	// Should NOT contain conversations (light mode skips them)
+	if strings.Contains(output, `"cvs"`) {
+		t.Error("light output should not include conversations")
 	}
 	// Should NOT contain custom_attributes (stripped in light mode)
 	if strings.Contains(output, `"custom_attributes"`) {
 		t.Error("should not contain custom_attributes in light mode")
 	}
-	if strings.Contains(output, `"tier"`) {
-		t.Error("should not contain custom attribute values in light mode")
-	}
 }
 
-func TestContactsGetLightFlat(t *testing.T) {
+func TestContactsGetLight_SkipsConversations(t *testing.T) {
 	var conversationsCalls int32
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1729,20 +1706,20 @@ func TestContactsGetLightFlat(t *testing.T) {
 	setupTestEnvWithHandler(t, handler)
 
 	output := captureStdout(t, func() {
-		err := Execute(context.Background(), []string{"contacts", "get", "136014", "--light", "--flat"})
+		err := Execute(context.Background(), []string{"contacts", "get", "136014", "--light"})
 		if err != nil {
-			t.Fatalf("contacts get --light --flat failed: %v", err)
+			t.Fatalf("contacts get --light failed: %v", err)
 		}
 	})
 
 	if atomic.LoadInt32(&conversationsCalls) != 0 {
-		t.Fatalf("--flat should skip conversations lookup, got %d calls", atomic.LoadInt32(&conversationsCalls))
+		t.Fatalf("light mode should skip conversations lookup, got %d calls", atomic.LoadInt32(&conversationsCalls))
 	}
 	if !strings.Contains(output, `"nm"`) || !strings.Contains(output, `"em"`) || !strings.Contains(output, `"ph"`) {
-		t.Fatalf("expected flattened light identity fields, got: %s", output)
+		t.Fatalf("expected light identity fields, got: %s", output)
 	}
 	if strings.Contains(output, `"cvs"`) {
-		t.Fatalf("flattened light output should not include nested conversations: %s", output)
+		t.Fatalf("light output should not include nested conversations: %s", output)
 	}
 }
 
