@@ -643,7 +643,7 @@ func newContactsSearchCmd() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:     "search",
+		Use:     "search [query]",
 		Aliases: []string{"q"},
 		Short:   "Search contacts",
 		Long: `Search for contacts by query string.
@@ -653,10 +653,22 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 		Example: `  # Search for contacts by name
   cw contacts search --query "John"
 
+  # Search using positional query (compatibility)
+  cw contacts search "John"
+
   # Search and output as JSON
   cw contacts search --query "acme" --output json | jq '.items[] | {id, name}'`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if query == "" {
+			positionalQuery := strings.TrimSpace(strings.Join(args, " "))
+			effectiveQuery := strings.TrimSpace(query)
+
+			if effectiveQuery != "" && positionalQuery != "" {
+				return fmt.Errorf("provide either --query or positional query, not both")
+			}
+			if effectiveQuery == "" {
+				effectiveQuery = positionalQuery
+			}
+			if effectiveQuery == "" {
 				return fmt.Errorf("--query is required")
 			}
 
@@ -665,7 +677,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return err
 			}
 
-			contacts, err := client.Contacts().Search(cmdContext(cmd), query, 1)
+			contacts, err := client.Contacts().Search(cmdContext(cmd), effectiveQuery, 1)
 			if err != nil {
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}
@@ -673,7 +685,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 			if isAgent(cmd) {
 				payload := agentfmt.SearchEnvelope{
 					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
-					Query:   query,
+					Query:   effectiveQuery,
 					Results: agentfmt.ContactSummaries(contacts.Payload),
 					Summary: map[string]int{"contacts": len(contacts.Payload)},
 				}
@@ -708,7 +720,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 	})
 	registerFieldSchema(cmd, "contact")
 
-	cmd.Flags().StringVar(&query, "query", "", "Search query string")
+	cmd.Flags().StringVar(&query, "query", "", "Search query string (optional if positional query is provided)")
 	flagAlias(cmd.Flags(), "query", "q")
 
 	return cmd

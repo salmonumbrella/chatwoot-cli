@@ -375,6 +375,113 @@ func TestListCommand_AllPagesFetchesMultiplePages(t *testing.T) {
 	}
 }
 
+func TestListCommand_AllPagesContinuesThroughEmptyPageWhenHasMore(t *testing.T) {
+	var calls []int
+	cfg := ListConfig[testItem]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			calls = append(calls, page)
+			switch page {
+			case 1:
+				return ListResult[testItem]{Items: []testItem{{ID: 1, Name: "first"}}, HasMore: true}, nil
+			case 2:
+				return ListResult[testItem]{Items: nil, HasMore: true}, nil
+			case 3:
+				return ListResult[testItem]{Items: []testItem{{ID: 3, Name: "third"}}, HasMore: false}, nil
+			default:
+				return ListResult[testItem]{Items: nil, HasMore: false}, nil
+			}
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	_ = cmd.Flags().Set("all", "true")
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSON)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(calls) != 3 || calls[0] != 1 || calls[1] != 2 || calls[2] != 3 {
+		t.Fatalf("expected fetch to be called for pages 1, 2, and 3, got %v", calls)
+	}
+
+	var payload struct {
+		Items []testItem `json:"items"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if len(payload.Items) != 2 {
+		t.Fatalf("expected 2 items from non-empty pages, got %d", len(payload.Items))
+	}
+	if payload.Items[0].ID != 1 || payload.Items[1].ID != 3 {
+		t.Fatalf("unexpected item IDs: %#v", payload.Items)
+	}
+}
+
+func TestListCommand_AllPagesContinuesThroughEmptyPageWhenHasMore_JSONL(t *testing.T) {
+	var calls []int
+	cfg := ListConfig[testItem]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			calls = append(calls, page)
+			switch page {
+			case 1:
+				return ListResult[testItem]{Items: []testItem{{ID: 1, Name: "first"}}, HasMore: true}, nil
+			case 2:
+				return ListResult[testItem]{Items: nil, HasMore: true}, nil
+			case 3:
+				return ListResult[testItem]{Items: []testItem{{ID: 3, Name: "third"}}, HasMore: false}, nil
+			default:
+				return ListResult[testItem]{Items: nil, HasMore: false}, nil
+			}
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	_ = cmd.Flags().Set("all", "true")
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.JSONL)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(calls) != 3 || calls[0] != 1 || calls[1] != 2 || calls[2] != 3 {
+		t.Fatalf("expected fetch to be called for pages 1, 2, and 3, got %v", calls)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 JSONL lines, got %d: %q", len(lines), out.String())
+	}
+
+	var first, third testItem
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatalf("failed to parse first JSONL line: %v", err)
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &third); err != nil {
+		t.Fatalf("failed to parse second JSONL line: %v", err)
+	}
+	if first.ID != 1 || third.ID != 3 {
+		t.Fatalf("unexpected JSONL item IDs: first=%d third=%d", first.ID, third.ID)
+	}
+}
+
 func TestListCommand_AllPagesRespectsMaxPages(t *testing.T) {
 	cfg := ListConfig[testItem]{
 		Use:     "list",

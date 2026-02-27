@@ -150,6 +150,50 @@ func TestContactsSearchCommand(t *testing.T) {
 	}
 }
 
+func TestContactsSearchCommand_PositionalQuery(t *testing.T) {
+	var receivedQuery string
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", func(w http.ResponseWriter, r *http.Request) {
+			receivedQuery = r.URL.Query().Get("q")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"payload": [
+					{"id": 2, "name": "Ruby Wang", "email": "ruby@example.com"}
+				],
+				"meta": {"count": 1}
+			}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "search", "Ruby"})
+		if err != nil {
+			t.Errorf("contacts search positional query failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Ruby Wang") {
+		t.Errorf("output missing 'Ruby Wang': %s", output)
+	}
+	if receivedQuery != "Ruby" {
+		t.Errorf("expected q=Ruby, got q=%q", receivedQuery)
+	}
+}
+
+func TestContactsSearchCommand_QueryConflict(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"contacts", "search", "--query", "Ruby", "Wang"})
+	if err == nil {
+		t.Fatal("expected error when both --query and positional query are provided")
+	}
+	if !strings.Contains(err.Error(), "either --query or positional query") {
+		t.Fatalf("expected conflict error, got: %v", err)
+	}
+}
+
 func TestContactsSearchCommand_MissingQuery(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 

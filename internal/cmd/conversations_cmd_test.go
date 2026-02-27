@@ -72,6 +72,120 @@ func TestConversationsListCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsListCommand_ContactIDCompatibilityFlag(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 10, "inbox_id": 1, "contact_id": 42, "status": "open", "unread_count": 0, "created_at": 1700000000},
+					{"id": 11, "inbox_id": 1, "contact_id": 99, "status": "open", "unread_count": 0, "created_at": 1700000001},
+					{"id": 12, "inbox_id": 1, "contact_id": 0, "status": "open", "unread_count": 0, "created_at": 1700000002, "meta": {"sender": {"id": 42}}}
+				],
+				"meta": {"total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--contact-id", "42", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --contact-id failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct {
+			ID int `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 conversations for contact 42, got %d", len(result.Items))
+	}
+	if result.Items[0].ID != 10 || result.Items[1].ID != 12 {
+		t.Fatalf("unexpected conversation IDs: %#v", result.Items)
+	}
+}
+
+func TestConversationsListCommand_ContactIDCompatibilityFlag_AllSkipsEmptyFilteredPages(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			page := r.URL.Query().Get("page")
+			if page == "" {
+				page = "1"
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			switch page {
+			case "1":
+				_, _ = w.Write([]byte(`{
+					"data": {
+						"payload": [
+							{"id": 20, "inbox_id": 1, "contact_id": 99, "status": "open", "unread_count": 0, "created_at": 1700000000}
+						],
+						"meta": {"total_pages": 3}
+					}
+				}`))
+			case "2":
+				_, _ = w.Write([]byte(`{
+					"data": {
+						"payload": [],
+						"meta": {"total_pages": 3}
+					}
+				}`))
+			default:
+				_, _ = w.Write([]byte(`{
+					"data": {
+						"payload": [
+							{"id": 22, "inbox_id": 1, "contact_id": 42, "status": "open", "unread_count": 0, "created_at": 1700000002}
+						],
+						"meta": {"total_pages": 3}
+					}
+				}`))
+			}
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "list", "--contact-id", "42", "--all", "--output", "json"})
+		if err != nil {
+			t.Errorf("conversations list --contact-id --all failed: %v", err)
+		}
+	})
+
+	var result struct {
+		Items []struct {
+			ID int `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 conversation for contact 42, got %d", len(result.Items))
+	}
+	if result.Items[0].ID != 22 {
+		t.Fatalf("expected conversation ID 22, got %d", result.Items[0].ID)
+	}
+}
+
+func TestConversationsListCommand_ContactIDCompatibilityFlag_InvalidValue(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+
+	err := Execute(context.Background(), []string{"conversations", "list", "--contact-id", "0"})
+	if err == nil {
+		t.Fatal("expected validation error for --contact-id 0")
+	}
+	if !strings.Contains(err.Error(), "--contact-id must be greater than 0") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestConversationsListCommand_Light(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
