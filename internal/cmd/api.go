@@ -248,12 +248,14 @@ func formatBodyJSONParseError(raw string, err error) error {
 
 	parseErr := err.Error()
 	if strings.Contains(parseErr, "string escape code") {
-		switch {
-		case strings.Contains(raw, `\!`):
-			hints = append(hints, `Found invalid escape "\!". Use "!" (no backslash) in JSON strings.`)
-		case strings.Contains(raw, `\?`):
-			hints = append(hints, `Found invalid escape "\?". Use "?" (no backslash) in JSON strings.`)
-		default:
+		// Detect common shell-mangled characters in the raw input.
+		for _, esc := range []string{`\!`, `\?`, `\'`, `\(`, `\)`, `\$`} {
+			if strings.Contains(raw, esc) {
+				char := esc[1:]
+				hints = append(hints, fmt.Sprintf(`Found invalid escape "%s". Use "%s" (no backslash) in JSON strings.`, esc, char))
+			}
+		}
+		if len(hints) == 1 { // only the "Tip:" prefix, no specific match
 			hints = append(hints, `Only JSON escapes are valid: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX.`)
 		}
 	}

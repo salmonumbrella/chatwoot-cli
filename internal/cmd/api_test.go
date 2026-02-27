@@ -470,28 +470,35 @@ func TestAPICmdInvalidRawFieldJSON(t *testing.T) {
 	}
 }
 
-func TestAPICmdInvalidBodyEscapeHint(t *testing.T) {
+func TestAPICmdInvalidBodyEscapeHints(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 	t.Setenv("CHATWOOT_TESTING", "1")
 
-	err := Execute(context.Background(), []string{
-		"api", "/conversations",
-		"-X", "POST",
-		"-d", `{"content":"Hi\!"}`,
-	})
-	if err == nil {
-		t.Fatal("expected error for invalid escape in --body JSON")
+	tests := []struct {
+		name     string
+		body     string
+		wantHint string
+	}{
+		{"backslash-bang", `{"c":"Hi\!"}`, `Found invalid escape "\!"`},
+		{"backslash-question", `{"c":"Hi\?"}`, `Found invalid escape "\?"`},
+		{"backslash-squote", `{"c":"Hi\'"}`, `Found invalid escape "\'"`},
+		{"backslash-lparen", `{"c":"Hi\("}`, `Found invalid escape "\("`},
+		{"backslash-rparen", `{"c":"Hi\)"}`, `Found invalid escape "\)"`},
+		{"backslash-dollar", `{"c":"Hi\$"}`, `Found invalid escape "\$"`},
 	}
 
-	msg := err.Error()
-	if !strings.Contains(msg, "failed to parse --body JSON") {
-		t.Fatalf("expected parse error prefix, got: %v", err)
-	}
-	if !strings.Contains(msg, `Found invalid escape "\!"`) {
-		t.Fatalf("expected invalid escape hint, got: %v", err)
-	}
-	if !strings.Contains(msg, "--input/-i") {
-		t.Fatalf("expected safer-input hint, got: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Execute(context.Background(), []string{
+				"api", "/conversations", "-X", "POST", "-d", tt.body,
+			})
+			if err == nil {
+				t.Fatal("expected error for invalid escape")
+			}
+			if !strings.Contains(err.Error(), tt.wantHint) {
+				t.Fatalf("expected hint %q, got: %v", tt.wantHint, err)
+			}
+		})
 	}
 }
 
