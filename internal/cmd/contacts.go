@@ -669,7 +669,7 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				effectiveQuery = positionalQuery
 			}
 			if effectiveQuery == "" {
-				return fmt.Errorf("--query is required")
+				return fmt.Errorf("query is required: use --query or provide as positional argument")
 			}
 
 			client, err := getClient()

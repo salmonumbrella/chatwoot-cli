@@ -177,12 +177,16 @@ func TestConversationsListCommand_ContactIDCompatibilityFlag_AllSkipsEmptyFilter
 func TestConversationsListCommand_ContactIDCompatibilityFlag_InvalidValue(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 
-	err := Execute(context.Background(), []string{"conversations", "list", "--contact-id", "0"})
-	if err == nil {
-		t.Fatal("expected validation error for --contact-id 0")
-	}
-	if !strings.Contains(err.Error(), "--contact-id must be greater than 0") {
-		t.Fatalf("unexpected error: %v", err)
+	for _, val := range []string{"0", "-1"} {
+		t.Run("value="+val, func(t *testing.T) {
+			err := Execute(context.Background(), []string{"conversations", "list", "--contact-id", val})
+			if err == nil {
+				t.Fatalf("expected validation error for --contact-id %s", val)
+			}
+			if !strings.Contains(err.Error(), "--contact-id must be greater than 0") {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 
