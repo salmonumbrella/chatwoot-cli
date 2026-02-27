@@ -482,6 +482,50 @@ func TestListCommand_AllPagesContinuesThroughEmptyPageWhenHasMore_JSONL(t *testi
 	}
 }
 
+func TestListCommand_AllPagesContinuesThroughEmptyPageWhenHasMore_Text(t *testing.T) {
+	var calls []int
+	cfg := ListConfig[testItem]{
+		Use:     "list",
+		Short:   "List items",
+		Headers: []string{"ID", "NAME"},
+		RowFunc: func(item testItem) []string { return []string{fmt.Sprintf("%d", item.ID), item.Name} },
+		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[testItem], error) {
+			calls = append(calls, page)
+			switch page {
+			case 1:
+				return ListResult[testItem]{Items: []testItem{{ID: 1, Name: "first"}}, HasMore: true}, nil
+			case 2:
+				return ListResult[testItem]{Items: nil, HasMore: true}, nil
+			case 3:
+				return ListResult[testItem]{Items: []testItem{{ID: 3, Name: "third"}}, HasMore: false}, nil
+			default:
+				return ListResult[testItem]{Items: nil, HasMore: false}, nil
+			}
+		},
+	}
+
+	cmd := NewListCommand(cfg, func(ctx context.Context) (*api.Client, error) { return nil, nil })
+	_ = cmd.Flags().Set("all", "true")
+
+	var out bytes.Buffer
+	ctx := outfmt.WithMode(context.Background(), outfmt.Text)
+	ctx = iocontext.WithIO(ctx, &iocontext.IO{Out: &out, ErrOut: ioDiscard{}, In: nil})
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(calls) != 3 || calls[0] != 1 || calls[1] != 2 || calls[2] != 3 {
+		t.Fatalf("expected fetch to be called for pages 1, 2, and 3, got %v", calls)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "first") || !strings.Contains(output, "third") {
+		t.Fatalf("expected text output to contain both 'first' and 'third', got %q", output)
+	}
+}
+
 func TestListCommand_AllPagesRespectsMaxPages(t *testing.T) {
 	cfg := ListConfig[testItem]{
 		Use:     "list",
