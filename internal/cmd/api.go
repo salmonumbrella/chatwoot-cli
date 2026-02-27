@@ -190,7 +190,7 @@ func buildRequestBody(fields, rawFields []string, inputFile, jsonBody string) (m
 	// Parse inline JSON body first (can be overridden by fields)
 	if jsonBody != "" {
 		if err := json.Unmarshal([]byte(jsonBody), &body); err != nil {
-			return nil, fmt.Errorf("failed to parse --body JSON: %w", err)
+			return nil, formatBodyJSONParseError(jsonBody, err)
 		}
 	}
 
@@ -237,6 +237,30 @@ func buildRequestBody(fields, rawFields []string, inputFile, jsonBody string) (m
 	}
 
 	return body, nil
+}
+
+func formatBodyJSONParseError(raw string, err error) error {
+	msg := fmt.Sprintf("failed to parse --body JSON: %v", err)
+
+	hints := []string{
+		"Tip: --body expects strict JSON.",
+	}
+
+	parseErr := err.Error()
+	if strings.Contains(parseErr, "string escape code") {
+		switch {
+		case strings.Contains(raw, `\!`):
+			hints = append(hints, `Found invalid escape "\!". Use "!" (no backslash) in JSON strings.`)
+		case strings.Contains(raw, `\?`):
+			hints = append(hints, `Found invalid escape "\?". Use "?" (no backslash) in JSON strings.`)
+		default:
+			hints = append(hints, `Only JSON escapes are valid: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX.`)
+		}
+	}
+
+	hints = append(hints, "For long payloads, prefer --input/-i (file/stdin) or --field/-f and --raw-field/-F.")
+
+	return fmt.Errorf("%s\n%s", msg, strings.Join(hints, "\n"))
 }
 
 // parseField parses a key=value field where value is a string

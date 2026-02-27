@@ -370,10 +370,11 @@ func newConversationsCreateCmd() *cobra.Command {
 				return err
 			}
 
+			initialMessage := strings.TrimSpace(message)
+
 			req := api.CreateConversationRequest{
 				InboxID:   inboxID,
 				ContactID: contactID,
-				Message:   message,
 				Status:    status,
 			}
 
@@ -388,6 +389,11 @@ func newConversationsCreateCmd() *cobra.Command {
 			conv, err := client.Conversations().Create(cmdContext(cmd), req)
 			if err != nil {
 				return fmt.Errorf("failed to create conversation: %w", err)
+			}
+			if initialMessage != "" {
+				if _, err := client.Messages().Create(cmdContext(cmd), conv.ID, initialMessage, false, "outgoing"); err != nil {
+					return fmt.Errorf("conversation %d created but failed to send initial message: %w", conv.ID, err)
+				}
 			}
 
 			if emitted, err := maybeEmit(cmd, emit, "conversation", conv.ID, conv); emitted {

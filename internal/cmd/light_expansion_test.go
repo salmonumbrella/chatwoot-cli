@@ -24,20 +24,18 @@ func TestInboxesListCommand_Light(t *testing.T) {
 		}
 	})
 
-	var payload struct {
-		Items []struct {
-			ID          int    `json:"id"`
-			Name        string `json:"nm"`
-			ChannelType string `json:"ch"`
-		} `json:"items"`
+	var payload []struct {
+		ID          int    `json:"id"`
+		Name        string `json:"nm"`
+		ChannelType string `json:"ch"`
 	}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
 		t.Fatalf("failed to parse light JSON: %v\noutput: %s", err, output)
 	}
-	if len(payload.Items) != 1 {
-		t.Fatalf("expected 1 item, got %d", len(payload.Items))
+	if len(payload) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(payload))
 	}
-	item := payload.Items[0]
+	item := payload[0]
 	if item.ID != 48 || item.Name != "Store LINE" || item.ChannelType != "Channel::Api" {
 		t.Fatalf("unexpected light item: %+v", item)
 	}

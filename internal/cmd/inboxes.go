@@ -8,6 +8,7 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -68,6 +69,7 @@ func newInboxesListCmd() *cobra.Command {
 		ForceJSON: func(_ *cobra.Command) bool {
 			return light
 		},
+		ForceJSONUnwrapItems: true,
 		Fetch: func(ctx context.Context, client *api.Client, page, pageSize int) (ListResult[api.Inbox], error) {
 			inboxes, err := client.Inboxes().List(ctx)
 			if err != nil {
@@ -96,7 +98,10 @@ func newInboxesListCmd() *cobra.Command {
 }
 
 func newInboxesGetCmd() *cobra.Command {
-	var emit string
+	var (
+		emit  string
+		light bool
+	)
 
 	cmd := &cobra.Command{
 		Use:     "get <id>",
@@ -131,6 +136,10 @@ func newInboxesGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightInboxGet(inbox))
+			}
 
 			if emitted, err := maybeEmit(cmd, emit, "inbox", inbox.ID, inbox); emitted {
 				return err
@@ -145,6 +154,8 @@ func newInboxesGetCmd() *cobra.Command {
 
 	cmd.Flags().Bool("url", false, "Print the Chatwoot web UI URL for this resource and exit")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Emit: json|id|url (overrides normal text output)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal inbox payload for lookup")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	registerFieldPresets(cmd, map[string][]string{
 		"minimal": {"id", "name", "channel_type"},

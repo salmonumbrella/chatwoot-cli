@@ -1416,6 +1416,96 @@ func TestConversationsCreateCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsCreateCommand_WithInitialMessage(t *testing.T) {
+	var createBody map[string]any
+	var messageBody map[string]any
+
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&createBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": 321,
+				"status": "open",
+				"inbox_id": 1
+			}`))
+		}).
+		On("POST", "/api/v1/accounts/1/conversations/321/messages", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&messageBody)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": 999,
+				"conversation_id": 321,
+				"content": "Hello from create",
+				"message_type": 1,
+				"private": false
+			}`))
+		})
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"conversations", "create",
+			"--inbox-id", "1",
+			"--contact-id", "123",
+			"--message", "Hello from create",
+		})
+		if err != nil {
+			t.Fatalf("conversations create --message failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Created conversation") {
+		t.Fatalf("expected create success output, got: %s", output)
+	}
+	if _, exists := createBody["message"]; exists {
+		t.Fatalf("create payload should not include message field: %#v", createBody)
+	}
+	if createBody["inbox_id"] != float64(1) {
+		t.Fatalf("expected create inbox_id=1, got %#v", createBody["inbox_id"])
+	}
+	if createBody["contact_id"] != float64(123) {
+		t.Fatalf("expected create contact_id=123, got %#v", createBody["contact_id"])
+	}
+	if messageBody["content"] != "Hello from create" {
+		t.Fatalf("expected message content, got %#v", messageBody["content"])
+	}
+	if messageBody["message_type"] != "outgoing" {
+		t.Fatalf("expected message_type outgoing, got %#v", messageBody["message_type"])
+	}
+	if messageBody["private"] != false {
+		t.Fatalf("expected private=false, got %#v", messageBody["private"])
+	}
+}
+
+func TestConversationsCreateCommand_WithInitialMessage_MessageSendFails(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"id": 321,
+			"status": "open",
+			"inbox_id": 1
+		}`)).
+		On("POST", "/api/v1/accounts/1/conversations/321/messages", jsonResponse(500, `{"error":"boom"}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	err := Execute(context.Background(), []string{
+		"conversations", "create",
+		"--inbox-id", "1",
+		"--contact-id", "123",
+		"--message", "Hello from create",
+	})
+	if err == nil {
+		t.Fatal("expected error when initial message send fails")
+	}
+	if !strings.Contains(err.Error(), "conversation 321 created but failed to send initial message") {
+		t.Fatalf("expected partial-failure error message, got: %v", err)
+	}
+}
+
 func TestConversationsCreateCommand_MissingInboxID(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 

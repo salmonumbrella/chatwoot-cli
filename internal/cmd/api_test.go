@@ -470,6 +470,31 @@ func TestAPICmdInvalidRawFieldJSON(t *testing.T) {
 	}
 }
 
+func TestAPICmdInvalidBodyEscapeHint(t *testing.T) {
+	setupTestEnv(t, jsonResponse(200, `{}`))
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	err := Execute(context.Background(), []string{
+		"api", "/conversations",
+		"-X", "POST",
+		"-d", `{"content":"Hi\!"}`,
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid escape in --body JSON")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "failed to parse --body JSON") {
+		t.Fatalf("expected parse error prefix, got: %v", err)
+	}
+	if !strings.Contains(msg, `Found invalid escape "\!"`) {
+		t.Fatalf("expected invalid escape hint, got: %v", err)
+	}
+	if !strings.Contains(msg, "--input/-i") {
+		t.Fatalf("expected safer-input hint, got: %v", err)
+	}
+}
+
 func TestAPICmdInvalidJqQuery(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

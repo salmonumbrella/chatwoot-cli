@@ -290,6 +290,33 @@ type lightInbox struct {
 	ChannelType string `json:"ch"`
 }
 
+// lightInboxGet is a compact inbox detail optimized for agent decisions.
+type lightInboxGet struct {
+	ID              int     `json:"id"`
+	Name            string  `json:"nm"`
+	ChannelType     string  `json:"ch"`
+	AutoAssign      bool    `json:"aa"`
+	GreetingEnabled bool    `json:"ge"`
+	GreetingMessage *string `json:"gm,omitempty"`
+	WebsiteURL      *string `json:"wu,omitempty"`
+}
+
+func buildLightInboxGet(inbox *api.Inbox) lightInboxGet {
+	if inbox == nil {
+		return lightInboxGet{}
+	}
+
+	return lightInboxGet{
+		ID:              inbox.ID,
+		Name:            inbox.Name,
+		ChannelType:     inbox.ChannelType,
+		AutoAssign:      inbox.EnableAutoAssignment,
+		GreetingEnabled: inbox.GreetingEnabled,
+		GreetingMessage: nullableString(inbox.GreetingMessage),
+		WebsiteURL:      nullableString(inbox.WebsiteURL),
+	}
+}
+
 func buildLightInboxes(inboxes []api.Inbox) []lightInbox {
 	if len(inboxes) == 0 {
 		return []lightInbox{}

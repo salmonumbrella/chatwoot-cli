@@ -86,6 +86,7 @@ Search:
 
 Contact lookup:
   cw co g 123 --li             By ID (light payload)
+  cw co g 123 --li --flat      Light payload without nested conversations
   cw co g john@example.com     By email
   cw co g +16042091231         By phone
   cw co g "John Smith"         By name (fuzzy match)
@@ -146,7 +147,7 @@ Common flags:
   -p            Set pending after action (on cmt, n, r)  ⎬ mutually exclusive
   --snooze-for  Snooze after action (on cmt, n, r)  ⎭
   -C CONTACT    Contact ID
-  --li          Light mode: minimal payload (on c ls/g/tri/f/q/ct/ts/tp/as, co g/ls/cv, m ls, s, cmt, n, as, x, ro, in ls, a ls, t ls, l ls, cr ls, ar ls, ig apps, cf ls, dh)
+  --li          Light mode: minimal payload (on c ls/g/tri/f/q/ct/ts/tp/as, co g/ls/cv, m ls, s, cmt, n, as, x, ro, in ls/g, a ls, t ls, l ls, cr ls, ar ls, ig apps, cf ls, dh)
   --dr          Preview without executing
   -y / --yes    Skip confirmations
 
@@ -154,11 +155,11 @@ Light mode keys (--li):
   Conversations: id st ib ur la mc ct{id,nm} ag{id,nm} lm
   Triage (tri): id st ib? ur lm cnm
   Mutations:     id mid? st? ag? tm? pri? su? ok? tot? er?
-  Contacts:      id nm em ph tier <store_alias>... cvs[]{id,st,ib,lm}
+  Contacts:      id nm em ph tier <store_alias>... cvs[]{id,st,ib,lm} (use co g --li --flat to omit cvs)
   Messages:      id mt prv ct ts sn{nm} att[]
   Search:        q rs[]{type,id,nm,em,st,ib,cid,cnm,la,mc,snip} sm{}
   Context (ct):  id st ib ct{id,nm} msgs[]
-  Inboxes:       id nm ch
+  Inboxes:       list=id nm ch; get=id nm ch aa ge gm? wu?
   Agents:        id nm av
   Teams:         id nm
   Labels:        id t
