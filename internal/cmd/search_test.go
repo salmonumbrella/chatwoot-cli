@@ -141,11 +141,14 @@ func TestSearchCommand_Light(t *testing.T) {
 	setupTestEnvWithHandler(t, handler)
 
 	output := captureStdout(t, func() {
-		err := Execute(context.Background(), []string{"search", "john", "--light"})
+		err := Execute(context.Background(), []string{"search", "john", "--li"})
 		if err != nil {
-			t.Fatalf("search --light failed: %v", err)
+			t.Fatalf("search --li failed: %v", err)
 		}
 	})
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("expected --li output to be compact by default, got pretty JSON:\n%s", output)
+	}
 
 	var payload struct {
 		Query   string `json:"q"`
