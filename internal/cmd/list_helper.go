@@ -68,6 +68,8 @@ type ListConfig[T any] struct {
 	ForceJSONUnwrapItems bool
 }
 
+const maxConsecutiveEmptyPages = 100
+
 func writeJSONLItem(w io.Writer, item any, query, tmpl string, light bool) error {
 	if query != "" {
 		var (
@@ -290,6 +292,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				currentPage := page
 				pagesFetched := 0
 				totalItems := 0
+				emptyPages := 0
 
 				for {
 					if maxPages > 0 && pagesFetched >= maxPages {
@@ -304,9 +307,14 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						if !result.HasMore {
 							break
 						}
+						emptyPages++
+						if emptyPages >= maxConsecutiveEmptyPages {
+							return fmt.Errorf("safety limit reached: %d consecutive empty pages from API", emptyPages)
+						}
 						currentPage++
 						continue
 					}
+					emptyPages = 0
 					pagesFetched++
 					for _, item := range result.Items {
 						if err := writeJSONLItem(ioStreams.Out, item, query, tmpl, light); err != nil {
@@ -329,6 +337,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				pagesFetched := 0
 				totalItems := 0
 				started := false
+				emptyPages := 0
 
 				for {
 					if maxPages > 0 && pagesFetched >= maxPages {
@@ -347,9 +356,14 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 						if !result.HasMore {
 							break
 						}
+						emptyPages++
+						if emptyPages >= maxConsecutiveEmptyPages {
+							return fmt.Errorf("safety limit reached: %d consecutive empty pages from API", emptyPages)
+						}
 						currentPage++
 						continue
 					}
+					emptyPages = 0
 					pagesFetched++
 					if !started {
 						f.StartTable(cfg.Headers)
@@ -394,6 +408,7 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			allItems := make([]T, 0)
 			currentPage := page
 			pagesFetched := 0
+			emptyPages := 0
 
 			for {
 				if maxPages > 0 && pagesFetched >= maxPages {
@@ -408,9 +423,14 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 					if !result.HasMore {
 						break
 					}
+					emptyPages++
+					if emptyPages >= maxConsecutiveEmptyPages {
+						return fmt.Errorf("safety limit reached: %d consecutive empty pages from API", emptyPages)
+					}
 					currentPage++
 					continue
 				}
+				emptyPages = 0
 				pagesFetched++
 				allItems = append(allItems, result.Items...)
 

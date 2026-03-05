@@ -984,9 +984,7 @@ func newConversationsToggleStatusCmd() *cobra.Command {
 			}
 
 			if isAgent(cmd) {
-				if !flagOrAliasChanged(cmd, "compact-json") {
-					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
-				}
+				applyCompactDefault(cmd)
 				item := map[string]any{
 					"id": result.Payload.ConversationID,
 					"ok": result.Payload.Success,
@@ -1186,9 +1184,7 @@ func newConversationsTogglePriorityCmd() *cobra.Command {
 			}
 
 			if isAgent(cmd) {
-				if !flagOrAliasChanged(cmd, "compact-json") {
-					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
-				}
+				applyCompactDefault(cmd)
 				item := map[string]any{
 					"id":  conv.ID,
 					"pri": shortPriority(priorityValue),
@@ -1421,9 +1417,7 @@ func newConversationsAssignCmd() *cobra.Command {
 				}
 
 				if isAgent(cmd) {
-					if !flagOrAliasChanged(cmd, "compact-json") {
-						cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
-					}
+					applyCompactDefault(cmd)
 					return printRawJSON(cmd, buildAgentAssignResult(conv))
 				}
 

@@ -458,6 +458,20 @@ func flagOrAliasChanged(cmd *cobra.Command, name string) bool {
 	return aliasChanged(cmd.Flags()) || aliasChanged(cmd.InheritedFlags())
 }
 
+// applyCompactDefault defaults compact-json to true unless explicitly set.
+func applyCompactDefault(cmd *cobra.Command) {
+	if !flagOrAliasChanged(cmd, "compact-json") {
+		cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
+	}
+}
+
+// applyLightDefaults sets light mode and defaults compact-json to true
+// unless the user explicitly set --compact-json/--cj.
+func applyLightDefaults(cmd *cobra.Command) {
+	cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+	applyCompactDefault(cmd)
+}
+
 // validateSlug validates a portal/article/category slug
 func validateSlug(slug string) error {
 	if slug == "" {
