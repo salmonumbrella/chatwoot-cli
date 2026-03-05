@@ -89,12 +89,14 @@ This is useful when searching for "Jack" finds the person who messages through
 a contact named "Welgrow Support".
 
 This command is optimized for agent workflows, enabling quick discovery
-of relevant resources with a single query.`,
+of relevant resources with a single query.
+
+Light mode (--light/--li) already uses compact JSON output by default.`,
 		Example: `  # Search for "john" across all supported types
   cw search john
 
-  # Search only contacts
-  cw search john --type contacts
+  # Search only contacts in light mode (compact by default)
+  cw search john --type contacts --light
 
   # Search only conversations
   cw search "support issue" --type conversations
@@ -108,8 +110,11 @@ of relevant resources with a single query.`,
   # Limit results per type
   cw search john --limit 10
 
-  # JSON output for scripting
-  cw search john --output json
+  # Emit best contact ID for command chaining (scalar in text/agent output)
+  cw search john --type contacts --best --emit id
+
+  # Emit best contact ID as JSON
+  cw search john --type contacts --best --emit id --output json
 
   # Select a result and emit a typed JSON wrapper
   cw search john --select --output json
@@ -540,16 +545,25 @@ of relevant resources with a single query.`,
 					return fmt.Errorf("cannot emit URL: base URL/account not configured")
 				}
 
-				// Emit plain scalar values for easy command chaining.
-				if !isJSON(cmd) && !isAgent(cmd) {
+				// For --emit id/url, prefer scalar output for easy command chaining.
+				// Keep JSON/jsonl as structured wrappers for scripted callers.
+				if emit == "id" || emit == "url" {
+					mode := outfmt.ModeFromContext(cmd.Context())
+					if mode == outfmt.JSON || mode == outfmt.JSONL {
+						switch emit {
+						case "id":
+							return printJSON(cmd, map[string]any{"id": bestID})
+						case "url":
+							return printJSON(cmd, map[string]any{"url": bestURL})
+						}
+					}
 					switch emit {
 					case "id":
 						_, _ = fmt.Fprintln(cmd.OutOrStdout(), bestID)
-						return nil
 					case "url":
 						_, _ = fmt.Fprintln(cmd.OutOrStdout(), bestURL)
-						return nil
 					}
+					return nil
 				}
 
 				if isAgent(cmd) {
@@ -600,13 +614,6 @@ of relevant resources with a single query.`,
 						out["item"] = bestResult.Conversation
 					case "sender":
 						out["item"] = bestResult.Sender
-					}
-					// For --emit id/url in JSON mode, return a wrapper plus scalar field.
-					switch emit {
-					case "id":
-						out = map[string]any{"id": bestID}
-					case "url":
-						out = map[string]any{"url": bestURL}
 					}
 					return printJSON(cmd, out)
 				}

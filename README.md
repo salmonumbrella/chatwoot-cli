@@ -72,9 +72,9 @@ cw c ls --st open                        # List open conversations
 ### 4. Search (Agent-Friendly)
 
 ```bash
-cw s "john"                              # Search across contacts + conversations
-cw s "refund" --best                     # Auto-pick the best result (no interactive prompt)
-cw s "refund" --best --emit id           # Emit just an ID for chaining (no jq)
+cw s "john" -t contacts --li             # Contact lookup in light mode (compact by default)
+cw s "john" -t contacts --best -E id     # Emit best contact ID (scalar in text/agent mode)
+cw s "john" -t contacts --best -E id -j  # Emit best contact ID as JSON ({"id":...})
 ```
 
 ## Configuration
@@ -801,7 +801,9 @@ cw c search --query "refund request"     # Search conversations
 cw c search "refund request" --li        # Light conversation search payload
 cw co search --query "john smith"        # Search contacts
 cw co search "john smith"                # Compatibility positional contact search
-cw s "john smith" --li                   # Light global search payload
+cw s "john smith" -t contacts --li       # Light contact lookup payload (compact by default)
+cw s "john smith" -t contacts --best -E id  # Best contact ID for chaining
+cw s "john smith" -t senders --li        # Fallback for shared-channel sender names
 ```
 
 ## Common Workflows
