@@ -186,7 +186,11 @@ This is a convenience shortcut for:
 			}
 
 			if light {
-				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				ctx := outfmt.WithLight(cmd.Context(), true)
+				if !flagOrAliasChanged(cmd, "compact-json") {
+					ctx = outfmt.WithCompact(ctx, true)
+				}
+				cmd.SetContext(ctx)
 				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, status))
 			}
 

@@ -725,7 +725,11 @@ of relevant resources with a single query.`,
 			}
 
 			if light {
-				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				ctx := outfmt.WithLight(cmd.Context(), true)
+				if !flagOrAliasChanged(cmd, "compact-json") {
+					ctx = outfmt.WithCompact(ctx, true)
+				}
+				cmd.SetContext(ctx)
 				return printRawJSON(cmd, buildLightSearchPayload(results))
 			}
 

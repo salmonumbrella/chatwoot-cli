@@ -48,9 +48,9 @@ func TestCommentCommand_LightOutput(t *testing.T) {
 	setupTestEnvWithHandler(t, handler)
 
 	output := captureStdout(t, func() {
-		err := Execute(context.Background(), []string{"comment", "123", "Hello", "--pending", "--light", "-o", "agent"})
+		err := Execute(context.Background(), []string{"comment", "123", "Hello", "--pending", "--li", "-o", "agent"})
 		if err != nil {
-			t.Fatalf("comment --pending --light failed: %v", err)
+			t.Fatalf("comment --pending --li failed: %v", err)
 		}
 	})
 
@@ -98,6 +98,9 @@ func TestCommentCommand_AgentOutput_CompactAliases(t *testing.T) {
 
 	if strings.Contains(output, `"kind"`) || strings.Contains(output, `"item"`) || strings.Contains(output, `"data"`) {
 		t.Fatalf("agent output should be flat summary, got: %s", output)
+	}
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("agent output should be compact by default, got: %s", output)
 	}
 	var result struct {
 		ID     int    `json:"id"`
