@@ -732,11 +732,7 @@ Light mode (--light/--li) already uses compact JSON output by default.`,
 			}
 
 			if light {
-				ctx := outfmt.WithLight(cmd.Context(), true)
-				if !flagOrAliasChanged(cmd, "compact-json") {
-					ctx = outfmt.WithCompact(ctx, true)
-				}
-				cmd.SetContext(ctx)
+				applyLightDefaults(cmd)
 				return printRawJSON(cmd, buildLightSearchPayload(results))
 			}
 
@@ -847,7 +843,7 @@ Light mode (--light/--li) already uses compact JSON output by default.`,
 	cmd.Flags().BoolVar(&best, "best", false, "Auto-select the best result (no interactive prompt)")
 	flagAlias(cmd.Flags(), "best", "b")
 	cmd.Flags().StringVarP(&emit, "emit", "E", "", "Output format with --best: json (default), id, or url")
-	cmd.Flags().BoolVar(&light, "light", false, "Return minimal search payload for lookup")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal search payload for lookup (defaults to compact JSON; override with --cj=false)")
 	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd

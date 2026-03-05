@@ -7,7 +7,6 @@ import (
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
-	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
@@ -186,18 +185,12 @@ This is a convenience shortcut for:
 			}
 
 			if light {
-				ctx := outfmt.WithLight(cmd.Context(), true)
-				if !flagOrAliasChanged(cmd, "compact-json") {
-					ctx = outfmt.WithCompact(ctx, true)
-				}
-				cmd.SetContext(ctx)
+				applyLightDefaults(cmd)
 				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, status))
 			}
 
 			if isAgent(cmd) {
-				if !flagOrAliasChanged(cmd, "compact-json") {
-					cmd.SetContext(outfmt.WithCompact(cmd.Context(), true))
-				}
+				applyCompactDefault(cmd)
 				item := map[string]any{
 					"id":  result.ConversationID,
 					"mid": result.MessageID,
@@ -232,7 +225,7 @@ This is a convenience shortcut for:
 	flagAlias(cmd.Flags(), "priority", "pri")
 	cmd.Flags().StringVar(&snoozeFor, "snooze-for", "", "Snooze after sending (e.g., 2h, 30m)")
 	flagAlias(cmd.Flags(), "snooze-for", "for")
-	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload (defaults to compact JSON; override with --cj=false)")
 	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
