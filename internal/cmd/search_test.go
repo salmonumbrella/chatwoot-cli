@@ -253,6 +253,72 @@ func TestSearchCommand_Best_EmitID(t *testing.T) {
 	}
 }
 
+func TestSearchCommand_Best_EmitID_AgentOutputScalar(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1, "last_activity_at": 2000}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_OUTPUT", "agent")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--best", "--emit", "id"})
+		if err != nil {
+			t.Errorf("search --best --emit id with agent output failed: %v", err)
+		}
+	})
+	if strings.TrimSpace(output) != "100" {
+		t.Fatalf("expected scalar best ID 100 in agent mode, got %q", output)
+	}
+}
+
+func TestSearchCommand_Best_EmitID_JSONWrapper(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1, "last_activity_at": 2000}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--best", "--emit", "id", "--output", "json"})
+		if err != nil {
+			t.Errorf("search --best --emit id --output json failed: %v", err)
+		}
+	})
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if int(payload["id"].(float64)) != 100 {
+		t.Fatalf("expected JSON id 100, got %#v", payload["id"])
+	}
+}
+
 func TestSearchCommand_Best_AgentEnvelope(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{

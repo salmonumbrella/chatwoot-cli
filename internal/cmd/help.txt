@@ -78,11 +78,12 @@ Triage & filtering:
   cw c f --pl '[{"ak":"st","fo":"eq","v":["open"]}]'  Inline filter (shortcodes)
 
 Search:
-  cw s "query" --li            Global search (light payload, saves tokens)
-  cw s "query" -t ct --li      Contacts only
+  cw s "query" -t ct --li      Contacts only (smallest name lookup payload)
+  cw s "query" --li            Global search (contacts + conversations; larger payload)
   cw s "query" -t cv           Conversations only
   cw s "query" -t s            Message senders
-  cw s "query" --best -E id    Auto-pick best result, emit ID
+  cw s "query" -t ct --best -E id      Best contact ID (scalar in text/agent)
+  cw s "query" -t ct --best -E id -j   Best contact ID as JSON
 
 Contact lookup:
   cw co g 123 --li             By ID (light payload)
