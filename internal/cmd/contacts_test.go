@@ -182,6 +182,50 @@ func TestContactsSearchCommand_PositionalQuery(t *testing.T) {
 	}
 }
 
+func TestContactsSearchCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Smith", "email": "john.smith@example.com", "phone_number": "+15551234567", "custom_attributes": {"membership_tier": "gold"}}
+			],
+			"meta": {"count": 1}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "search", "--query", "John", "--light"})
+		if err != nil {
+			t.Fatalf("contacts search --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("expected compact JSON for --light, got pretty output:\n%s", output)
+	}
+
+	var payload struct {
+		Items []struct {
+			ID    int    `json:"id"`
+			Name  string `json:"nm"`
+			Email string `json:"em"`
+			Tier  string `json:"tier"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light contacts search output: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 light contact, got %d", len(payload.Items))
+	}
+	if payload.Items[0].ID != 1 || payload.Items[0].Name != "John Smith" || payload.Items[0].Email != "john.smith@example.com" {
+		t.Fatalf("unexpected light contact payload: %#v", payload.Items[0])
+	}
+	if payload.Items[0].Tier != "gold" {
+		t.Fatalf("expected tier gold, got %#v", payload.Items[0])
+	}
+}
+
 func TestContactsSearchCommand_QueryConflict(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 
@@ -585,6 +629,89 @@ func TestContactsConversationsCommand_Light(t *testing.T) {
 	}
 	if strings.Contains(output, `"custom_attributes"`) {
 		t.Fatal("light output should not include custom_attributes")
+	}
+}
+
+func TestContactsConversationsCommand_Filters(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "status": "open", "inbox_id": 13, "unread_count": 1},
+				{"id": 2, "status": "resolved", "inbox_id": 13, "unread_count": 0},
+				{"id": 3, "status": "open", "inbox_id": 48, "unread_count": 2}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "conversations", "123", "--inbox-id", "13", "--status", "open", "--limit", "1", "-o", "json"})
+		if err != nil {
+			t.Fatalf("contacts conversations filters failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 filtered conversation, got %d", len(items))
+	}
+	if items[0]["id"] != float64(1) {
+		t.Fatalf("expected conversation id 1, got %v", items[0]["id"])
+	}
+}
+
+func TestContactsConversationsCommand_FilterAliases_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/123/conversations", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "status": "open", "inbox_id": 13, "unread_count": 1, "last_activity_at": 1700000001},
+				{"id": 2, "status": "pending", "inbox_id": 13, "unread_count": 0, "last_activity_at": 1700000002},
+				{"id": 3, "status": "open", "inbox_id": 48, "unread_count": 2, "last_activity_at": 1700000003}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"contacts", "conversations", "123", "--ib", "13", "--st", "pending", "--l", "1", "--li"})
+		if err != nil {
+			t.Fatalf("contacts conversations alias filters failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Items []struct {
+			ID      int    `json:"id"`
+			Status  string `json:"st"`
+			InboxID int    `json:"ib"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse filtered light output: %v\noutput: %s", err, output)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 filtered conversation, got %d", len(payload.Items))
+	}
+	if payload.Items[0].ID != 2 || payload.Items[0].Status != "p" || payload.Items[0].InboxID != 13 {
+		t.Fatalf("unexpected filtered light payload: %#v", payload.Items[0])
+	}
+}
+
+func TestContactsConversationsCommand_InvalidFilters(t *testing.T) {
+	err := Execute(context.Background(), []string{"contacts", "conversations", "123", "--inbox-id", "0"})
+	if err == nil {
+		t.Fatal("expected inbox-id validation error")
+	}
+	if !strings.Contains(err.Error(), "--inbox-id must be at least 1") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	err = Execute(context.Background(), []string{"contacts", "conversations", "123", "--limit", "0"})
+	if err == nil {
+		t.Fatal("expected limit validation error")
+	}
+	if !strings.Contains(err.Error(), "--limit must be at least 1") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

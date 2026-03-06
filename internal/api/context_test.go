@@ -305,6 +305,166 @@ func TestGetConversationContextPaginatesMessages(t *testing.T) {
 	}
 }
 
+func TestGetConversationContextWithOptions_AppliesFilters(t *testing.T) {
+	conversationResponse := `{
+		"id": 123,
+		"account_id": 1,
+		"inbox_id": 5,
+		"status": "open",
+		"contact_id": 0,
+		"created_at": 1700000000
+	}`
+	messagesResponse := `{
+		"payload": [
+			{
+				"id": 1,
+				"conversation_id": 123,
+				"content": "public one",
+				"content_type": "text",
+				"message_type": 0,
+				"private": false,
+				"created_at": 1700000001,
+				"attachments": [
+					{"id": 10, "file_type": "image", "data_url": "https://example.com/a.jpg", "file_size": 123}
+				]
+			},
+			{
+				"id": 2,
+				"conversation_id": 123,
+				"content": "internal note",
+				"content_type": "text",
+				"message_type": 1,
+				"private": true,
+				"created_at": 1700000002
+			},
+			{
+				"id": 3,
+				"conversation_id": 123,
+				"content": "public two",
+				"content_type": "text",
+				"message_type": 1,
+				"private": false,
+				"created_at": 1700000003,
+				"attachments": [
+					{"id": 11, "file_type": "image", "data_url": "https://example.com/b.jpg", "file_size": 456}
+				]
+			}
+		]
+	}`
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case strings.Contains(r.URL.Path, "/messages"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(messagesResponse))
+		case strings.Contains(r.URL.Path, "/conversations/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(conversationResponse))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer apiServer.Close()
+
+	client := newTestClient(apiServer.URL, "test-token", 1)
+	result, err := client.GetConversationContextWithOptions(context.Background(), 123, ConversationContextOptions{
+		Tail:               1,
+		PublicOnly:         true,
+		ExcludeAttachments: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Messages) != 1 {
+		t.Fatalf("expected 1 returned message, got %d", len(result.Messages))
+	}
+	if result.Messages[0].ID != 3 {
+		t.Fatalf("expected last public message id 3, got %d", result.Messages[0].ID)
+	}
+	if len(result.Messages[0].Attachments) != 0 {
+		t.Fatalf("expected attachments to be excluded, got %#v", result.Messages[0].Attachments)
+	}
+	if result.Meta == nil {
+		t.Fatal("expected context meta")
+	}
+	if result.Meta.TotalMessages != 3 || result.Meta.ReturnedMessages != 1 {
+		t.Fatalf("unexpected context meta counts: %#v", result.Meta)
+	}
+	if !result.Meta.Truncated || !result.Meta.PublicOnly || !result.Meta.ExcludeAttachments {
+		t.Fatalf("unexpected context meta flags: %#v", result.Meta)
+	}
+}
+
+func TestGetConversationContextWithOptions_TailUsesChronologicalOrderAcrossPages(t *testing.T) {
+	conversationResponse := `{
+		"id": 123,
+		"account_id": 1,
+		"inbox_id": 5,
+		"status": "open",
+		"contact_id": 0,
+		"created_at": 1700000000
+	}`
+
+	page1 := `{"payload":[
+		{"id":3,"conversation_id":123,"content":"latest","content_type":"text","message_type":1,"private":false,"created_at":1700000003},
+		{"id":2,"conversation_id":123,"content":"middle","content_type":"text","message_type":0,"private":false,"created_at":1700000002}
+	]}`
+	page2 := `{"payload":[
+		{"id":1,"conversation_id":123,"content":"oldest","content_type":"text","message_type":0,"private":false,"created_at":1700000001}
+	]}`
+	empty := `{"payload":[]}`
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case strings.Contains(r.URL.Path, "/messages"):
+			switch r.URL.Query().Get("before") {
+			case "":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(page1))
+			case "2":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(page2))
+			default:
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(empty))
+			}
+		case strings.Contains(r.URL.Path, "/conversations/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(conversationResponse))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer apiServer.Close()
+
+	client := newTestClient(apiServer.URL, "test-token", 1)
+	result, err := client.GetConversationContextWithOptions(context.Background(), 123, ConversationContextOptions{Tail: 1})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Messages) != 1 {
+		t.Fatalf("expected 1 returned message, got %d", len(result.Messages))
+	}
+	if result.Messages[0].ID != 3 || result.Messages[0].Content != "latest" {
+		t.Fatalf("expected most recent message after chronological tailing, got %#v", result.Messages[0])
+	}
+	if result.Meta == nil {
+		t.Fatal("expected context meta")
+	}
+	if result.Meta.TotalMessages != 3 || result.Meta.ReturnedMessages != 1 || result.Meta.Tail != 1 {
+		t.Fatalf("unexpected context meta counts: %#v", result.Meta)
+	}
+	if !result.Meta.Truncated {
+		t.Fatalf("expected truncated meta flag, got %#v", result.Meta)
+	}
+}
+
 func TestGetConversationContextWithImageEmbedding(t *testing.T) {
 	// Create a test image server
 	imageData := []byte("fake image data for testing")

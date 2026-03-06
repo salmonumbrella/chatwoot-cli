@@ -27,11 +27,14 @@ Aliases (subcommand → short):
 Reading conversations:
   cw ct CONV                   Full AI context (messages + metadata)
   cw ct CONV --li              Light compact JSON (saves tokens)
+  cw ct CONV --tl 20 --pub     Last 20 public messages only
+  cw ct CONV --xa              Skip attachment metadata / embeds
   cw m ls CONV                 List messages (oldest first, newest at end)
   cw m ls CONV --sla           Messages since last agent reply
+  cw m ls CONV --sla --in --tl 3 --li   Last 3 incoming customer messages
   cw m ls CONV --tr            Human-readable transcript
   cw c tr CONV                 Full transcript (includes private notes)
-  cw m ls CONV --jq '.it[-6:]' Last 6 messages
+  cw m ls CONV --tl 6          Last 6 messages
   cw m ls CONV --kw "keyword"  Filter by content keyword
 
 Replying:
@@ -60,6 +63,7 @@ Assignment & escalation:
   cw as CONV --ag 5 --li       Assign with light mutation payload
   cw as CONV --tm 2            Assign to team
   cw ho CONV --ag NAME --rs "..."  Escalate (note + assign + priority)
+  cw ho CONV --tm 2 --rs "..." --li  Escalate with compact mutation output
 
 Listing conversations:
   cw c ls -s o                 Open conversations
@@ -91,6 +95,7 @@ Contact lookup:
   cw co g +16042091231         By phone
   cw co g "John Smith"         By name (fuzzy match)
   cw co cv CONTACT --li        Contact's conversations (light)
+  cw co cv CONTACT --ib 13 --st open --l 1 --li   Inbox-specific thread lookup
 
 Contact management:
   cw co up ID -n "name" -e "email"  Update fields
@@ -175,7 +180,7 @@ Light mode keys (--li):
 Flag aliases (long → short):
   --agent=ag  --team=tm  --priority=pri  --ids=id  --folder=view
   --mention=mt|mn  --reason=rs  --note=nt  --inbox=ib  --limit=lt
-  --waiting=wt  --unread-only=unread  --tail=tl  --dry-run=dr
+  --waiting=wt  --unread-only=unread  --tail=tl  --public-only=pub  --exclude-attachments=xa  --dry-run=dr
   --fields=fi  --template=tpl  --items-only=io  --label=lb
   --search=sq  --light=li|lt (dashboard supports both)  --line-items=lni (dashboard)  --order-number=on (dashboard link)  --explain=exp  --debug=dbg
 
@@ -210,6 +215,7 @@ Store Keys:
 
 Discovery:
   cw --help-json             Full command tree as JSON (for agent discovery)
+  cw CMD --help-json         Per-command contract (flags, args, mutates, dry-run, fields)
   cw CMD --help              Detailed help for any command
 
 Use "cw CMD --help" for detailed help on any command.

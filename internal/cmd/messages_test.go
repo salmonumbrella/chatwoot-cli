@@ -170,6 +170,68 @@ func TestMessagesListCommand_Light_QueryKeepsItemsCompatibility(t *testing.T) {
 	}
 }
 
+func TestMessagesListCommand_FilteredTailLight(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Agent intro", "message_type": 1, "private": false, "created_at": 1704067200},
+				{"id": 2, "content": "Customer first", "message_type": 0, "private": false, "created_at": 1704067201},
+				{"id": 3, "content": "Customer second", "message_type": 0, "private": false, "created_at": 1704067202},
+				{"id": 4, "content": "Private note", "message_type": 1, "private": true, "created_at": 1704067203},
+				{"id": 5, "content": "Customer third", "message_type": 0, "private": false, "created_at": 1704067204}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"messages", "list", "123", "--incoming-only", "--public-only", "--tail", "2", "--li"})
+		if err != nil {
+			t.Fatalf("messages list filtered light failed: %v", err)
+		}
+	})
+
+	var payload []struct {
+		ID int `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse filtered light output: %v\noutput: %s", err, output)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected 2 filtered messages, got %d", len(payload))
+	}
+	if payload[0].ID != 3 || payload[1].ID != 5 {
+		t.Fatalf("expected tail ids [3 5], got %#v", payload)
+	}
+}
+
+func TestMessagesListCommand_FilterAliases_JSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "Customer hello", "message_type": 0, "private": false, "created_at": 1704067200},
+				{"id": 2, "content": "Private note", "message_type": 1, "private": true, "created_at": 1704067201},
+				{"id": 3, "content": "Agent reply", "message_type": 1, "private": false, "created_at": 1704067202}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		if err := Execute(context.Background(), []string{"messages", "list", "123", "--oo", "--pub", "-o", "json"}); err != nil {
+			t.Fatalf("messages list --oo --pub failed: %v", err)
+		}
+	})
+
+	items := decodeItems(t, output)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 outgoing public message, got %d", len(items))
+	}
+	if items[0]["id"] != float64(3) {
+		t.Fatalf("expected message id 3, got %v", items[0]["id"])
+	}
+}
+
 func TestMessagesListCommand_LightTranscriptConflict(t *testing.T) {
 	setupTestEnv(t, jsonResponse(200, `{}`))
 
@@ -360,6 +422,26 @@ func TestMessagesListCommand_InvalidKeyword(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--keyword must be non-empty") {
 		t.Fatalf("expected keyword validation error, got: %v", err)
+	}
+}
+
+func TestMessagesListCommand_InvalidTail(t *testing.T) {
+	err := Execute(context.Background(), []string{"messages", "list", "123", "--tail", "0"})
+	if err == nil {
+		t.Fatal("expected error for zero tail")
+	}
+	if !strings.Contains(err.Error(), "--tail must be at least 1") {
+		t.Fatalf("expected tail validation error, got: %v", err)
+	}
+}
+
+func TestMessagesListCommand_ConflictingTypeFilters(t *testing.T) {
+	err := Execute(context.Background(), []string{"messages", "list", "123", "--incoming-only", "--outgoing-only"})
+	if err == nil {
+		t.Fatal("expected conflict error")
+	}
+	if !strings.Contains(err.Error(), "--incoming-only cannot be combined with --outgoing-only") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -586,6 +668,46 @@ func TestMessagesCreateCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestMessagesCreateCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"id": 456,
+			"content": "Test message",
+			"message_type": 1,
+			"private": false,
+			"created_at": 1704067200
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"messages", "create", "123",
+			"--content", "Test message",
+			"--light",
+			"-o", "agent",
+		})
+		if err != nil {
+			t.Fatalf("messages create --light failed: %v", err)
+		}
+	})
+
+	if strings.Contains(output, "\n  ") {
+		t.Fatalf("expected compact JSON for light create output, got:\n%s", output)
+	}
+
+	var payload struct {
+		ID        int `json:"id"`
+		MessageID int `json:"mid"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light create output: %v\noutput: %s", err, output)
+	}
+	if payload.ID != 123 || payload.MessageID != 456 {
+		t.Fatalf("unexpected light create payload: %#v", payload)
+	}
+}
+
 func TestMessagesCreateCommand_MissingContent(t *testing.T) {
 	t.Setenv("CHATWOOT_BASE_URL", "https://test.chatwoot.com")
 	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
@@ -789,6 +911,77 @@ func TestMessagesUpdateCommand_JSON(t *testing.T) {
 	var message map[string]any
 	if err := json.Unmarshal([]byte(output), &message); err != nil {
 		t.Errorf("output is not valid JSON: %v, output: %s", err, output)
+	}
+}
+
+func TestMessagesUpdateCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("PATCH", "/api/v1/accounts/1/conversations/123/messages/456", jsonResponse(200, `{
+			"id": 456,
+			"content": "Updated content",
+			"message_type": 1,
+			"private": false,
+			"created_at": 1704067200
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"messages", "update", "123", "456",
+			"--content", "Updated content",
+			"--light",
+			"-o", "agent",
+		})
+		if err != nil {
+			t.Fatalf("messages update --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ID        int `json:"id"`
+		MessageID int `json:"mid"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light update output: %v\noutput: %s", err, output)
+	}
+	if payload.ID != 123 || payload.MessageID != 456 {
+		t.Fatalf("unexpected light update payload: %#v", payload)
+	}
+}
+
+func TestMessagesRetryCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("POST", "/api/v1/accounts/1/conversations/123/messages/456/retry", jsonResponse(200, `{
+			"id": 456,
+			"content": "Retried content",
+			"message_type": 1,
+			"private": false,
+			"created_at": 1704067200
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"messages", "retry", "123", "456",
+			"--light",
+			"-o", "agent",
+		})
+		if err != nil {
+			t.Fatalf("messages retry --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ID        int `json:"id"`
+		MessageID int `json:"mid"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light retry output: %v\noutput: %s", err, output)
+	}
+	if payload.ID != 123 || payload.MessageID != 456 {
+		t.Fatalf("unexpected light retry payload: %#v", payload)
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/cli"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/heuristics"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
@@ -1350,11 +1351,6 @@ func newConversationsAssignCmd() *cobra.Command {
 				return err
 			}
 
-			client, err := getClient()
-			if err != nil {
-				return err
-			}
-
 			// Backwards-compat: map deprecated int flags into string flags if set.
 			if agent == "" && assigneeID > 0 {
 				agent = fmt.Sprintf("%d", assigneeID)
@@ -1363,9 +1359,16 @@ func newConversationsAssignCmd() *cobra.Command {
 				team = fmt.Sprintf("%d", teamID)
 			}
 
+			dryRunRequested := isDryRun(cmd)
+
 			// Interactive prompts only for single ID when no flags provided
-			if len(ids) == 1 && agent == "" && team == "" {
+			var client *api.Client
+			if len(ids) == 1 && agent == "" && team == "" && !dryRunRequested {
 				if isInteractive() {
+					client, err = getClient()
+					if err != nil {
+						return err
+					}
 					selectedAgent, err := promptAgentID(cmdContext(cmd), client)
 					if err != nil {
 						return err
@@ -1383,6 +1386,48 @@ func newConversationsAssignCmd() *cobra.Command {
 				}
 			}
 
+			agent = strings.TrimSpace(agent)
+			team = strings.TrimSpace(team)
+			if agent == "" && team == "" {
+				return fmt.Errorf("at least one of --agent or --team is required")
+			}
+
+			if dryRunRequested {
+				details := map[string]any{
+					"conversation_ids":   ids,
+					"conversation_count": len(ids),
+				}
+				if len(ids) == 1 {
+					details = buildAssignPreviewDetails(ids[0], agent, team)
+				} else {
+					if parsedAgentID, parseErr := parseIDOrURL(agent, "agent"); parseErr == nil {
+						details["agent_id"] = parsedAgentID
+					} else if agent != "" {
+						details["agent"] = agent
+					}
+					if parsedTeamID, parseErr := parseIDOrURL(team, "team"); parseErr == nil {
+						details["team_id"] = parsedTeamID
+					} else if team != "" {
+						details["team"] = team
+					}
+				}
+				if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+					Operation:   "assign",
+					Resource:    "conversations",
+					Description: "Preview conversation assignment without executing the API request",
+					Details:     details,
+				}); ok {
+					return err
+				}
+			}
+
+			if client == nil {
+				client, err = getClient()
+				if err != nil {
+					return err
+				}
+			}
+
 			ctx := cmdContext(cmd)
 
 			agentID, err := resolveAgentID(ctx, client, agent)
@@ -1392,10 +1437,6 @@ func newConversationsAssignCmd() *cobra.Command {
 			resolvedTeamID, err := resolveTeamID(ctx, client, team)
 			if err != nil {
 				return err
-			}
-
-			if agentID == 0 && resolvedTeamID == 0 {
-				return fmt.Errorf("at least one of --agent or --team is required")
 			}
 
 			// Single ID: simple output
@@ -1510,6 +1551,7 @@ func newConversationsAssignCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "progress", "prg")
 	flagAlias(cmd.Flags(), "no-progress", "npr")
 	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
 }
@@ -1771,7 +1813,10 @@ func newConversationsCustomAttributesCmd() *cobra.Command {
 
 func newConversationsContextCmd() *cobra.Command {
 	var embedImages bool
+	var excludeAttachments bool
 	var light bool
+	var publicOnly bool
+	var tail int
 
 	cmd := &cobra.Command{
 		Use:   "context <id>",
@@ -1802,14 +1847,22 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 			if err != nil {
 				return err
 			}
+			if cmd.Flags().Changed("tail") && tail < 1 {
+				return fmt.Errorf("--tail must be at least 1")
+			}
 
 			client, err := getClient()
 			if err != nil {
 				return err
 			}
 
-			requestEmbeddedImages := embedImages && !light
-			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, requestEmbeddedImages)
+			requestEmbeddedImages := embedImages && !light && !excludeAttachments
+			ctx, err := client.Context().GetConversationWithOptions(cmdContext(cmd), id, api.ConversationContextOptions{
+				EmbedImages:        requestEmbeddedImages,
+				Tail:               tail,
+				PublicOnly:         publicOnly,
+				ExcludeAttachments: excludeAttachments,
+			})
 			if err != nil {
 				return fmt.Errorf("failed to get conversation context: %w", err)
 			}
@@ -1851,7 +1904,23 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 					"message_count":    len(ctx.Messages),
 					"public_messages":  publicCount,
 					"private_messages": privateCount,
-					"embed_images":     embedImages,
+					"embed_images":     requestEmbeddedImages,
+				}
+				if ctx.Meta != nil {
+					meta["total_messages"] = ctx.Meta.TotalMessages
+					meta["returned_messages"] = ctx.Meta.ReturnedMessages
+					if ctx.Meta.Tail > 0 {
+						meta["tail"] = ctx.Meta.Tail
+					}
+					if ctx.Meta.Truncated {
+						meta["truncated"] = true
+					}
+					if ctx.Meta.PublicOnly {
+						meta["public_only"] = true
+					}
+					if ctx.Meta.ExcludeAttachments {
+						meta["exclude_attachments"] = true
+					}
 				}
 				if embeddedCount > 0 {
 					meta["embedded_attachments"] = embeddedCount
@@ -1923,10 +1992,15 @@ embeds images as base64 data URIs that AI vision models can consume directly.`,
 	}
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
+	cmd.Flags().BoolVar(&excludeAttachments, "exclude-attachments", false, "Omit attachment metadata from returned context")
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal context payload (id, st, inbox, contact, msgs)")
+	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from returned context")
+	cmd.Flags().IntVar(&tail, "tail", 0, "Limit returned context to the last N messages after filtering")
 	flagAlias(cmd.Flags(), "embed-images", "embed")
 	flagAlias(cmd.Flags(), "embed-images", "em")
+	flagAlias(cmd.Flags(), "exclude-attachments", "xa")
 	flagAlias(cmd.Flags(), "light", "li")
+	flagAlias(cmd.Flags(), "public-only", "pub")
 
 	return cmd
 }
@@ -2272,6 +2346,8 @@ func searchAllConversations(cmd *cobra.Command, client *api.Client, query string
 }
 
 func newConversationsAttachmentsCmd() *cobra.Command {
+	var light bool
+
 	cmd := &cobra.Command{
 		Use:   "attachments <conversation-id>",
 		Short: "List attachments in a conversation",
@@ -2282,9 +2358,15 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 
   # JSON output with URLs
   cw conversations attachments 123 -o json
+
+  # Compact attachment listing without signed URLs
+  cw conversations attachments 123 --light --compact-json
 `),
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
+			}
 			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err
@@ -2300,6 +2382,11 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 				return fmt.Errorf("failed to get attachments for conversation %d: %w", id, err)
 			}
 
+			if light {
+				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
+				return printRawJSON(cmd, buildLightConversationAttachments(id, attachments))
+			}
+
 			if isJSON(cmd) {
 				return printJSON(cmd, attachments)
 			}
@@ -2310,10 +2397,10 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 			}
 
 			w := newTabWriterFromCmd(cmd)
-			_, _ = fmt.Fprintln(w, "ID\tTYPE\tSIZE\tURL")
-			for _, att := range attachments {
+			_, _ = fmt.Fprintln(w, "INDEX\tID\tTYPE\tSIZE\tNAME\tURL")
+			for idx, att := range attachments {
 				size := formatFileSize(att.FileSize)
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", att.ID, att.FileType, size, att.DataURL)
+				_, _ = fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%s\t%s\n", idx+1, att.ID, att.FileType, size, api.AttachmentDisplayName(att), att.DataURL)
 			}
 			_ = w.Flush()
 
@@ -2321,6 +2408,10 @@ func newConversationsAttachmentsCmd() *cobra.Command {
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal attachment payload (index, type, size, name)")
+	flagAlias(cmd.Flags(), "light", "li")
+	cmd.AddCommand(newConversationsAttachmentsExtractCmd())
 
 	return cmd
 }

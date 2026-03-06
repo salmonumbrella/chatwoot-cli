@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/iocontext"
@@ -14,12 +15,31 @@ import (
 
 const maxEmbeddedAttachmentBytes = 5 * 1024 * 1024
 
+// ConversationContextOptions controls how much context is returned.
+type ConversationContextOptions struct {
+	EmbedImages        bool
+	Tail               int
+	PublicOnly         bool
+	ExcludeAttachments bool
+}
+
+// ConversationContextMeta describes how the returned context was filtered.
+type ConversationContextMeta struct {
+	TotalMessages      int  `json:"total_messages"`
+	ReturnedMessages   int  `json:"returned_messages"`
+	Tail               int  `json:"tail,omitempty"`
+	Truncated          bool `json:"truncated,omitempty"`
+	PublicOnly         bool `json:"public_only,omitempty"`
+	ExcludeAttachments bool `json:"exclude_attachments,omitempty"`
+}
+
 // ConversationContext contains full context for AI consumption
 type ConversationContext struct {
-	Conversation *Conversation           `json:"conversation"`
-	Contact      *Contact                `json:"contact,omitempty"`
-	Messages     []MessageWithEmbeddings `json:"messages"`
-	Summary      string                  `json:"summary,omitempty"`
+	Conversation *Conversation            `json:"conversation"`
+	Contact      *Contact                 `json:"contact,omitempty"`
+	Messages     []MessageWithEmbeddings  `json:"messages"`
+	Summary      string                   `json:"summary,omitempty"`
+	Meta         *ConversationContextMeta `json:"meta,omitempty"`
 }
 
 // MessageWithEmbeddings extends Message with embedded attachment data
@@ -47,11 +67,21 @@ type EmbeddedAttachment struct {
 
 // GetConversation retrieves full conversation context for AI consumption
 func (s ContextService) GetConversation(ctx context.Context, conversationID int, embedImages bool) (*ConversationContext, error) {
-	return s.GetConversationContext(ctx, conversationID, embedImages)
+	return s.GetConversationWithOptions(ctx, conversationID, ConversationContextOptions{EmbedImages: embedImages})
 }
 
-// GetConversationContext retrieves full conversation context for AI consumption (internal implementation)
+// GetConversationWithOptions retrieves conversation context using the provided options.
+func (s ContextService) GetConversationWithOptions(ctx context.Context, conversationID int, opts ConversationContextOptions) (*ConversationContext, error) {
+	return s.GetConversationContextWithOptions(ctx, conversationID, opts)
+}
+
+// GetConversationContext retrieves full conversation context for AI consumption.
 func (c *Client) GetConversationContext(ctx context.Context, conversationID int, embedImages bool) (*ConversationContext, error) {
+	return c.GetConversationContextWithOptions(ctx, conversationID, ConversationContextOptions{EmbedImages: embedImages})
+}
+
+// GetConversationContextWithOptions retrieves full conversation context for AI consumption.
+func (c *Client) GetConversationContextWithOptions(ctx context.Context, conversationID int, opts ConversationContextOptions) (*ConversationContext, error) {
 	// Get conversation details
 	conv, err := getConversation(ctx, c, conversationID)
 	if err != nil {
@@ -63,6 +93,8 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get messages: %w", err)
 	}
+	messages = sortConversationMessagesChronologically(messages)
+	messages, meta := applyConversationContextOptions(messages, opts)
 
 	// Get contact if available
 	var contact *Contact
@@ -85,6 +117,9 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 
 		// Process attachments
 		for _, att := range msg.Attachments {
+			if opts.ExcludeAttachments {
+				continue
+			}
 			ea := EmbeddedAttachment{
 				ID:       att.ID,
 				FileType: att.FileType,
@@ -93,7 +128,7 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 			}
 
 			// Embed image data if requested
-			if embedImages && isImageType(att.FileType) {
+			if opts.EmbedImages && isImageType(att.FileType) {
 				if att.FileSize > 0 && att.FileSize > maxEmbeddedAttachmentBytes {
 					ioStreams := iocontext.GetIO(ctx)
 					_, _ = fmt.Fprintf(ioStreams.ErrOut, "Warning: skipping image embed (attachment %d exceeds %d bytes)\n", att.ID, maxEmbeddedAttachmentBytes)
@@ -119,12 +154,69 @@ func (c *Client) GetConversationContext(ctx context.Context, conversationID int,
 		Conversation: conv,
 		Contact:      contact,
 		Messages:     messagesWithEmbeddings,
+		Meta:         meta,
 	}
 
 	// Generate a brief summary
 	result.Summary = generateContextSummary(result)
 
 	return result, nil
+}
+
+func sortConversationMessagesChronologically(messages []Message) []Message {
+	if len(messages) < 2 {
+		return messages
+	}
+
+	sorted := append([]Message(nil), messages...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].CreatedAt == sorted[j].CreatedAt {
+			return false
+		}
+		return sorted[i].CreatedAt < sorted[j].CreatedAt
+	})
+	return sorted
+}
+
+func applyConversationContextOptions(messages []Message, opts ConversationContextOptions) ([]Message, *ConversationContextMeta) {
+	meta := &ConversationContextMeta{
+		TotalMessages:      len(messages),
+		ReturnedMessages:   len(messages),
+		PublicOnly:         opts.PublicOnly,
+		ExcludeAttachments: opts.ExcludeAttachments,
+	}
+	if opts.Tail > 0 {
+		meta.Tail = opts.Tail
+	}
+	if len(messages) == 0 {
+		return nil, meta
+	}
+
+	filtered := make([]Message, 0, len(messages))
+	for _, msg := range messages {
+		if opts.PublicOnly && msg.Private {
+			continue
+		}
+		filtered = append(filtered, msg)
+	}
+
+	preTailCount := len(filtered)
+	if opts.Tail > 0 && len(filtered) > opts.Tail {
+		filtered = append([]Message(nil), filtered[len(filtered)-opts.Tail:]...)
+		meta.Truncated = true
+	}
+	meta.ReturnedMessages = len(filtered)
+
+	// Preserve a non-nil empty slice so callers can distinguish "no messages"
+	// from an unset field consistently.
+	if len(filtered) == 0 {
+		return []Message{}, meta
+	}
+
+	if preTailCount == len(filtered) {
+		filtered = append([]Message(nil), filtered...)
+	}
+	return filtered, meta
 }
 
 // downloadAndEncode downloads a URL and returns a base64 data URI

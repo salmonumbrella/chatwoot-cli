@@ -46,6 +46,135 @@ func TestCtxCommand_Agent_WithURL(t *testing.T) {
 	}
 }
 
+func TestCtxCommand_JSONMetadata_WithContextControls(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 0,
+			"status": "open",
+			"inbox_id": 1,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{
+					"id": 1,
+					"content": "public one",
+					"message_type": 0,
+					"private": false,
+					"created_at": 1700000001,
+					"attachments": [{"id": 10, "file_type": "image", "data_url": "https://example.com/a.jpg", "file_size": 123}]
+				},
+				{
+					"id": 2,
+					"content": "internal note",
+					"message_type": 1,
+					"private": true,
+					"created_at": 1700000002
+				},
+				{
+					"id": 3,
+					"content": "public two",
+					"message_type": 1,
+					"private": false,
+					"created_at": 1700000003,
+					"attachments": [{"id": 11, "file_type": "image", "data_url": "https://example.com/b.jpg", "file_size": 456}]
+				}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"ctx", "123", "--tail", "1", "--public-only", "--exclude-attachments", "-o", "json"})
+		if err != nil {
+			t.Fatalf("ctx --output json with context controls failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Messages []struct {
+			ID          int   `json:"id"`
+			Private     bool  `json:"private"`
+			Attachments []any `json:"attachments"`
+		} `json:"messages"`
+		Meta struct {
+			TotalMessages      int  `json:"total_messages"`
+			ReturnedMessages   int  `json:"returned_messages"`
+			Tail               int  `json:"tail"`
+			Truncated          bool `json:"truncated"`
+			PublicOnly         bool `json:"public_only"`
+			ExcludeAttachments bool `json:"exclude_attachments"`
+		} `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if len(payload.Messages) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(payload.Messages))
+	}
+	if payload.Messages[0].ID != 3 || payload.Messages[0].Private {
+		t.Fatalf("unexpected filtered message payload: %#v", payload.Messages[0])
+	}
+	if len(payload.Messages[0].Attachments) != 0 {
+		t.Fatalf("expected attachments to be excluded, got %#v", payload.Messages[0].Attachments)
+	}
+	if payload.Meta.TotalMessages != 3 || payload.Meta.ReturnedMessages != 1 || payload.Meta.Tail != 1 {
+		t.Fatalf("unexpected context meta counts: %#v", payload.Meta)
+	}
+	if !payload.Meta.Truncated || !payload.Meta.PublicOnly || !payload.Meta.ExcludeAttachments {
+		t.Fatalf("unexpected context meta flags: %#v", payload.Meta)
+	}
+}
+
+func TestCtxCommand_AgentMetadata_ReportsEffectiveEmbedImages(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 0,
+			"status": "open",
+			"inbox_id": 1,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "public one", "message_type": 0, "private": false, "created_at": 1700000001}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"ctx", "123", "--embed-images", "--exclude-attachments", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("ctx -o agent with effective embed override failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Kind string `json:"kind"`
+		Item struct {
+			Meta struct {
+				EmbedImages        bool `json:"embed_images"`
+				ExcludeAttachments bool `json:"exclude_attachments"`
+			} `json:"meta"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if payload.Kind != "ctx" {
+		t.Fatalf("expected kind ctx, got %q", payload.Kind)
+	}
+	if payload.Item.Meta.EmbedImages {
+		t.Fatalf("expected embed_images=false when attachments are excluded, got %#v", payload.Item.Meta)
+	}
+	if !payload.Item.Meta.ExcludeAttachments {
+		t.Fatalf("expected exclude_attachments=true, got %#v", payload.Item.Meta)
+	}
+}
+
 func TestCtxCommand_LightAlias(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{

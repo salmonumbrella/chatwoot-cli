@@ -640,7 +640,10 @@ func newContactsDeleteCmd() *cobra.Command {
 }
 
 func newContactsSearchCmd() *cobra.Command {
-	var query string
+	var (
+		query string
+		light bool
+	)
 
 	cmd := &cobra.Command{
 		Use:     "search [query]",
@@ -682,6 +685,10 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 				return fmt.Errorf("failed to search contacts: %w", err)
 			}
 
+			if light {
+				applyLightDefaults(cmd)
+				return printRawJSON(cmd, buildLightContacts(contacts.Payload))
+			}
 			if isAgent(cmd) {
 				payload := agentfmt.SearchEnvelope{
 					Kind:    agentfmt.KindFromCommandPath(cmd.CommandPath()),
@@ -722,6 +729,8 @@ JSON output returns an object with an "items" array for easy jq processing.`,
 
 	cmd.Flags().StringVar(&query, "query", "", "Search query string (optional if positional query is provided)")
 	flagAlias(cmd.Flags(), "query", "q")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal contact payload for lookup (defaults to compact JSON; override with --cj=false)")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
@@ -812,7 +821,12 @@ Available query operators: and, or`,
 }
 
 func newContactsConversationsCmd() *cobra.Command {
-	var light bool
+	var (
+		light   bool
+		inboxID int
+		status  string
+		limit   int
+	)
 
 	cmd := &cobra.Command{
 		Use:     "conversations <identifier>",
@@ -828,9 +842,30 @@ Accepts contact ID, email address, phone number, or name to search for the conta
   cw contacts conversations john@example.com
 
   # Get conversations by name
-  cw contacts conversations "John Smith"`,
+  cw contacts conversations "John Smith"
+
+  # Keep only inbox 13 conversations
+  cw contacts conversations 123 --inbox-id 13 --li
+
+  # Keep only open conversations and cap to 1 result
+  cw contacts conversations 123 --status open --limit 1 --li`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("inbox-id") && inboxID < 1 {
+				return fmt.Errorf("--inbox-id must be at least 1")
+			}
+			if cmd.Flags().Changed("limit") && limit < 1 {
+				return fmt.Errorf("--limit must be at least 1")
+			}
+			status = strings.TrimSpace(status)
+			if status != "" {
+				var err error
+				status, err = validateStatus(status)
+				if err != nil {
+					return err
+				}
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -846,6 +881,7 @@ Accepts contact ID, email address, phone number, or name to search for the conta
 			if err != nil {
 				return fmt.Errorf("failed to get conversations for contact %d: %w", id, err)
 			}
+			conversations = filterContactConversations(conversations, inboxID, status, limit)
 			if light {
 				cmd.SetContext(outfmt.WithLight(cmd.Context(), true))
 				return printRawJSON(cmd, buildLightConversationLookups(conversations))
@@ -887,8 +923,36 @@ Accepts contact ID, email address, phone number, or name to search for the conta
 
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal conversation payload for lookup")
 	flagAlias(cmd.Flags(), "light", "li")
+	cmd.Flags().IntVar(&inboxID, "inbox-id", 0, "Keep only conversations from this inbox ID")
+	flagAlias(cmd.Flags(), "inbox-id", "ib")
+	cmd.Flags().StringVar(&status, "status", "", "Keep only conversations with this status (open|resolved|pending|snoozed)")
+	flagAlias(cmd.Flags(), "status", "st")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Keep only the first N matching conversations after filtering")
+	flagAlias(cmd.Flags(), "limit", "l")
 
 	return cmd
+}
+
+func filterContactConversations(conversations []api.Conversation, inboxID int, status string, limit int) []api.Conversation {
+	if len(conversations) == 0 {
+		return conversations
+	}
+
+	filtered := make([]api.Conversation, 0, len(conversations))
+	for _, conv := range conversations {
+		if inboxID > 0 && conv.InboxID != inboxID {
+			continue
+		}
+		if status != "" && conv.Status != status {
+			continue
+		}
+		filtered = append(filtered, conv)
+		if limit > 0 && len(filtered) >= limit {
+			break
+		}
+	}
+
+	return filtered
 }
 
 func newContactsLabelsCmd() *cobra.Command {

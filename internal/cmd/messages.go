@@ -43,8 +43,12 @@ func newMessagesListCmd() *cobra.Command {
 	var all bool
 	var maxPages int
 	var limit int
+	var tail int
 	var transcript bool
 	var sinceLastAgent bool
+	var incomingOnly bool
+	var outgoingOnly bool
+	var publicOnly bool
 	var keyword string
 	var light bool
 
@@ -55,7 +59,7 @@ func newMessagesListCmd() *cobra.Command {
 		Long: `List messages in a conversation.
 
 Messages are returned in chronological order: oldest first, most recent at the
-end of the array. To get the last N messages, use jq '.items[-N:]'.`,
+end of the array. Use --tail to return the last N messages after filtering.`,
 		Example: `  # List recent messages
   cw messages list 123
 
@@ -65,11 +69,14 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
   # Limit messages (paginates as needed)
   cw messages list 123 --limit 500
 
-  # JSON output - returns an object with an "items" array
-  cw messages list 123 --all --output json | jq '[.items[] | select(.private)]'
+  # Get the last 6 messages (most recent)
+  cw messages list 123 --tail 6
 
-  # Get last 6 messages (most recent) - messages are oldest-first in the array
-  cw messages list 123 --json | jq '.items[-6:]'
+  # Customer-only triage view
+  cw messages list 123 --incoming-only --tail 6 --li
+
+  # Exclude private notes
+  cw messages list 123 --public-only
 
   # Filter messages by keyword (case-insensitive)
   cw messages list 123 --keyword refund
@@ -86,12 +93,18 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 			if cmd.Flags().Changed("limit") && limit < 1 {
 				return fmt.Errorf("--limit must be at least 1")
 			}
+			if cmd.Flags().Changed("tail") && tail < 1 {
+				return fmt.Errorf("--tail must be at least 1")
+			}
 			keyword = strings.TrimSpace(keyword)
 			if cmd.Flags().Changed("keyword") && keyword == "" {
 				return fmt.Errorf("--keyword must be non-empty")
 			}
 			if light && transcript {
 				return fmt.Errorf("--light cannot be combined with --transcript")
+			}
+			if incomingOnly && outgoingOnly {
+				return fmt.Errorf("--incoming-only cannot be combined with --outgoing-only")
 			}
 
 			client, err := getClient()
@@ -139,6 +152,25 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 					}
 				}
 				messages = filtered
+			}
+			if incomingOnly || outgoingOnly || publicOnly {
+				filtered := make([]api.Message, 0, len(messages))
+				for _, msg := range messages {
+					if incomingOnly && msg.MessageType != api.MessageTypeIncoming {
+						continue
+					}
+					if outgoingOnly && msg.MessageType != api.MessageTypeOutgoing {
+						continue
+					}
+					if publicOnly && msg.Private {
+						continue
+					}
+					filtered = append(filtered, msg)
+				}
+				messages = filtered
+			}
+			if tail > 0 && len(messages) > tail {
+				messages = messages[len(messages)-tail:]
 			}
 
 			totalMessages := len(messages)
@@ -261,10 +293,19 @@ end of the array. To get the last N messages, use jq '.items[-N:]'.`,
 	cmd.Flags().IntVarP(&maxPages, "max-pages", "M", 100, "Maximum pages to fetch when using --all or --limit")
 	flagAlias(cmd.Flags(), "max-pages", "mp")
 	cmd.Flags().IntVarP(&limit, "limit", "l", 0, "Maximum messages to return (paginates as needed; 0 means no limit)")
+	cmd.Flags().IntVar(&tail, "tail", 0, "Return only the last N messages after filtering")
+	flagAlias(cmd.Flags(), "tail", "tl")
 	cmd.Flags().BoolVar(&transcript, "transcript", false, "Output as readable conversation transcript")
 	flagAlias(cmd.Flags(), "transcript", "tr")
 	cmd.Flags().BoolVar(&sinceLastAgent, "since-last-agent", false, "Only show messages since the last agent reply")
 	flagAlias(cmd.Flags(), "since-last-agent", "sla")
+	cmd.Flags().BoolVar(&incomingOnly, "incoming-only", false, "Keep only incoming customer messages")
+	flagAlias(cmd.Flags(), "incoming-only", "in")
+	cmd.Flags().BoolVar(&outgoingOnly, "outgoing-only", false, "Keep only outgoing agent messages")
+	flagAlias(cmd.Flags(), "outgoing-only", "oo")
+	flagAlias(cmd.Flags(), "outgoing-only", "out")
+	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from results")
+	flagAlias(cmd.Flags(), "public-only", "pub")
 	cmd.Flags().StringVar(&keyword, "keyword", "", "Filter messages by keyword in content (case-insensitive)")
 	flagAlias(cmd.Flags(), "keyword", "kw")
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal message payload for lookup")
@@ -281,6 +322,7 @@ func newMessagesCreateCmd() *cobra.Command {
 		messageType string
 		attachments []string
 		mentions    []string
+		light       bool
 	)
 
 	cmd := &cobra.Command{
@@ -435,6 +477,21 @@ func newMessagesCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create message in conversation %d: %w", conversationID, err)
 			}
 
+			if light {
+				applyLightDefaults(cmd)
+				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, ""))
+			}
+			if isAgent(cmd) {
+				applyCompactDefault(cmd)
+				item := map[string]any{
+					"id":  conversationID,
+					"mid": message.ID,
+				}
+				if private {
+					item["prv"] = true
+				}
+				return printRawJSON(cmd, item)
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, message)
 			}
@@ -465,6 +522,9 @@ func newMessagesCreateCmd() *cobra.Command {
 	flagAlias(cmd.Flags(), "type", "ty")
 	flagAlias(cmd.Flags(), "attachment", "att")
 	flagAlias(cmd.Flags(), "mention", "mt")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload (defaults to compact JSON; override with --cj=false)")
+	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
 }
@@ -521,12 +581,16 @@ func newMessagesDeleteCmd() *cobra.Command {
 		}),
 	}
 
+	registerCommandContract(cmd, true, true)
 	return cmd
 }
 
 // newMessagesUpdateCmd creates the update subcommand
 func newMessagesUpdateCmd() *cobra.Command {
-	var content string
+	var (
+		content string
+		light   bool
+	)
 
 	cmd := &cobra.Command{
 		Use:     "update <conversation-id> <message-id>",
@@ -577,6 +641,17 @@ func newMessagesUpdateCmd() *cobra.Command {
 				return fmt.Errorf("failed to update message %d: %w", messageID, err)
 			}
 
+			if light {
+				applyLightDefaults(cmd)
+				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, ""))
+			}
+			if isAgent(cmd) {
+				applyCompactDefault(cmd)
+				return printRawJSON(cmd, map[string]any{
+					"id":  conversationID,
+					"mid": message.ID,
+				})
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, message)
 			}
@@ -590,6 +665,9 @@ func newMessagesUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&content, "content", "c", "", "New message content (required)")
 	_ = cmd.MarkFlagRequired("content")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload (defaults to compact JSON; override with --cj=false)")
+	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
 }
@@ -663,6 +741,8 @@ Requires an AI integration to be configured in your Chatwoot instance.`,
 
 // newMessagesRetryCmd creates the retry subcommand
 func newMessagesRetryCmd() *cobra.Command {
+	var light bool
+
 	cmd := &cobra.Command{
 		Use:   "retry <conversation-id> <message-id>",
 		Short: "Retry sending a failed message",
@@ -699,6 +779,17 @@ temporary failures (e.g., network issues, rate limiting).`,
 				return fmt.Errorf("failed to retry message %d: %w", messageID, err)
 			}
 
+			if light {
+				applyLightDefaults(cmd)
+				return printRawJSON(cmd, buildLightMessageMutationResult(conversationID, message.ID, ""))
+			}
+			if isAgent(cmd) {
+				applyCompactDefault(cmd)
+				return printRawJSON(cmd, map[string]any{
+					"id":  conversationID,
+					"mid": message.ID,
+				})
+			}
 			if isJSON(cmd) {
 				return printJSON(cmd, message)
 			}
@@ -709,6 +800,10 @@ temporary failures (e.g., network issues, rate limiting).`,
 			return nil
 		}),
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload (defaults to compact JSON; override with --cj=false)")
+	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, false)
 
 	return cmd
 }

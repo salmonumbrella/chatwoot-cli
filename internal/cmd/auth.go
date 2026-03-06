@@ -271,7 +271,8 @@ func runBrowserSetup(out io.Writer, profile string) error {
 	return nil
 }
 
-// generateWorkspaceSkill creates a Claude skill file with workspace context.
+// generateWorkspaceSkill creates a workspace skill file with workspace context
+// and agent operating guidance.
 // Errors are non-fatal and just logged as warnings.
 func generateWorkspaceSkill(ctx context.Context, out io.Writer, account config.Account) {
 	_, _ = fmt.Fprintln(out, "Generating workspace skill...")
@@ -295,7 +296,8 @@ func newAuthSkillCmd() *cobra.Command {
 Regenerate the Claude workspace skill file with current workspace data.
 
 The skill file is created at ~/.claude/skills/chatwoot-workspace/SKILL.md
-and contains workspace-specific context like inboxes, agents, teams, and labels.
+and contains workspace-specific context plus agent operating guidance for safe,
+token-efficient CLI usage.
 
 This is automatically done during 'auth login', but you can regenerate it
 if your workspace configuration changes.
