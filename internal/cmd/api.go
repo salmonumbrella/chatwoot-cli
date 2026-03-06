@@ -177,11 +177,7 @@ func apiJSONBody(respBody []byte) any {
 	if !json.Valid(respBody) {
 		return string(respBody)
 	}
-	pretty := &bytes.Buffer{}
-	if err := json.Indent(pretty, respBody, "", "  "); err != nil {
-		return json.RawMessage(respBody)
-	}
-	return json.RawMessage(pretty.Bytes())
+	return json.RawMessage(respBody)
 }
 
 // buildRequestBody constructs the request body from fields and/or input file/inline JSON

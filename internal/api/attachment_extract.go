@@ -154,9 +154,8 @@ func (c *Client) ExtractConversationAttachments(ctx context.Context, conversatio
 		}
 
 		text, extractor, err := extractAttachmentText(ctx, download.Path, download.Name, download.MIMEType)
-		cleanup := download.Cleanup
-		if cleanup != nil {
-			defer cleanup()
+		if download.Cleanup != nil {
+			download.Cleanup()
 		}
 		if err != nil {
 			return nil, fmt.Errorf("attachment %d: %w", candidate.Index, err)
