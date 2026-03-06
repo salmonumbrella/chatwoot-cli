@@ -422,6 +422,7 @@ func TestHandleComplete(t *testing.T) {
 		server, _ := NewSetupServer("default")
 
 		req := httptest.NewRequest(http.MethodPost, "/complete", nil)
+		req.Header.Set("X-CSRF-Token", server.csrfToken)
 		rec := httptest.NewRecorder()
 
 		done := make(chan struct{})
@@ -454,6 +455,7 @@ func TestHandleComplete(t *testing.T) {
 		}
 
 		req := httptest.NewRequest(http.MethodPost, "/complete", nil)
+		req.Header.Set("X-CSRF-Token", server.csrfToken)
 		rec := httptest.NewRecorder()
 
 		go server.handleComplete(rec, req)
@@ -472,6 +474,7 @@ func TestHandleComplete(t *testing.T) {
 		server, _ := NewSetupServer("default")
 
 		req := httptest.NewRequest(http.MethodPost, "/complete", nil)
+		req.Header.Set("X-CSRF-Token", server.csrfToken)
 		rec := httptest.NewRecorder()
 
 		done := make(chan struct{})
@@ -734,6 +737,7 @@ func TestStartServerLifecycle(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		req := httptest.NewRequest(http.MethodPost, "/complete", nil)
+		req.Header.Set("X-CSRF-Token", server.csrfToken)
 		rec := httptest.NewRecorder()
 		go server.handleComplete(rec, req)
 
@@ -939,8 +943,8 @@ func TestValidateWithUnreachableHost(t *testing.T) {
 		}
 
 		errMsg, ok := response["error"].(string)
-		if !ok || !strings.Contains(errMsg, "Connection failed") {
-			t.Errorf("handleValidate() error = %v, want error containing 'Connection failed'", response["error"])
+		if !ok || !strings.Contains(errMsg, "DNS resolution failed") {
+			t.Errorf("handleValidate() error = %v, want error containing 'DNS resolution failed'", response["error"])
 		}
 	})
 
@@ -995,8 +999,8 @@ func TestSubmitWithUnreachableHost(t *testing.T) {
 		}
 
 		errMsg, ok := response["error"].(string)
-		if !ok || !strings.Contains(errMsg, "Connection failed") {
-			t.Errorf("handleSubmit() error = %v, want error containing 'Connection failed'", response["error"])
+		if !ok || !strings.Contains(errMsg, "DNS resolution failed") {
+			t.Errorf("handleSubmit() error = %v, want error containing 'DNS resolution failed'", response["error"])
 		}
 	})
 }
@@ -1037,6 +1041,7 @@ func TestJSONResponseFormat(t *testing.T) {
 	t.Run("complete endpoint returns JSON", func(t *testing.T) {
 		server, _ := NewSetupServer("default")
 		req := httptest.NewRequest(http.MethodPost, "/complete", nil)
+		req.Header.Set("X-CSRF-Token", server.csrfToken)
 		rec := httptest.NewRecorder()
 
 		done := make(chan struct{})

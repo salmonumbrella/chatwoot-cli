@@ -143,14 +143,14 @@ func newDashboardShowCmd() *cobra.Command {
 					"name":       name,
 					"display":    cfg.Name,
 					"endpoint":   cfg.Endpoint,
-					"auth_token": cfg.AuthToken,
+					"auth_token": maskToken(cfg.AuthToken),
 				})
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Dashboard: %s\n", name)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Display Name: %s\n", cfg.Name)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Endpoint: %s\n", cfg.Endpoint)
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Auth Token: %s\n", cfg.AuthToken)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Auth Token: %s\n", maskToken(cfg.AuthToken))
 
 			return nil
 		}),

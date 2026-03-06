@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
@@ -387,7 +386,7 @@ operations (status, priority, labels, assignment).`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Read input from stdin
 			var items []BatchUpdateItem
-			decoder := json.NewDecoder(os.Stdin)
+			decoder := json.NewDecoder(cmd.InOrStdin())
 			if err := decoder.Decode(&items); err != nil {
 				return fmt.Errorf("failed to parse JSON input: %w", err)
 			}

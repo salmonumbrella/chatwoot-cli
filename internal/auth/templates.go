@@ -1018,12 +1018,12 @@ const successTemplate = `<!DOCTYPE html>
             <div class="terminal-body">
                 <div class="terminal-line">
                     <span class="terminal-prompt">$</span>
-                    <span class="terminal-text">chatwoot conversations list</span>
+                    <span class="terminal-text">cw c ls</span>
                 </div>
                 <div class="terminal-output">Fetching conversations...</div>
                 <div class="terminal-line">
                     <span class="terminal-prompt">$</span>
-                    <span class="terminal-text">chatwoot contacts search --query "john"</span>
+                    <span class="terminal-text">cw co search --query "john"</span>
                 </div>
                 <div class="terminal-output">Found 3 contacts</div>
                 <div class="terminal-line">
@@ -1036,7 +1036,7 @@ const successTemplate = `<!DOCTYPE html>
         <div class="message">
             <div class="message-icon">&#8592;</div>
             <div class="message-title">Return to your terminal</div>
-            <div class="message-text">You can close this window and start using the CLI. Try running <code>chatwoot --help</code> to see all available commands.</div>
+            <div class="message-text">You can close this window and start using the CLI. Try running <code>cw --help</code> to see all available commands.</div>
         </div>
 
         <div class="footer">
@@ -1049,7 +1049,7 @@ const successTemplate = `<!DOCTYPE html>
 
     <script>
         // Signal completion to server
-        fetch('/complete', { method: 'POST' }).catch(() => {});
+        fetch('/complete', { method: 'POST', headers: {'X-CSRF-Token': '{{.CSRFToken}}'} }).catch(() => {});
     </script>
 </body>
 </html>`

@@ -44,7 +44,7 @@ func newConversationsWatchCmd() *cobra.Command {
 				return fmt.Errorf("--interval must be greater than 0")
 			}
 
-			status, err := validateStatusWithAll(status)
+			validStatus, err := validateStatusWithAll(status)
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func newConversationsWatchCmd() *cobra.Command {
 			defer ticker.Stop()
 
 			// Initial fetch
-			if err := fetchAndDisplayConversations(ctx, cmd, client, status, inboxID, limit, seen); err != nil {
+			if err := fetchAndDisplayConversations(ctx, cmd, client, validStatus, inboxID, limit, seen); err != nil {
 				return err
 			}
 
@@ -80,7 +80,7 @@ func newConversationsWatchCmd() *cobra.Command {
 					}
 					return nil // Not an error - user requested stop
 				case <-ticker.C:
-					if err := fetchAndDisplayConversations(ctx, cmd, client, status, inboxID, limit, seen); err != nil {
+					if err := fetchAndDisplayConversations(ctx, cmd, client, validStatus, inboxID, limit, seen); err != nil {
 						// Log error but continue watching
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error fetching: %v\n", err)
 					}

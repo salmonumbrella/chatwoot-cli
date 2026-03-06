@@ -295,6 +295,9 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				emptyPages := 0
 
 				for {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
 					if maxPages > 0 && pagesFetched >= maxPages {
 						return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, totalItems)
 					}
@@ -340,6 +343,9 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 				emptyPages := 0
 
 				for {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
 					if maxPages > 0 && pagesFetched >= maxPages {
 						return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, totalItems)
 					}
@@ -411,6 +417,9 @@ func NewListCommand[T any](cfg ListConfig[T], getClient func(context.Context) (*
 			emptyPages := 0
 
 			for {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
 				if maxPages > 0 && pagesFetched >= maxPages {
 					return fmt.Errorf("safety limit reached: fetched %d pages (%d items). Use --max-pages to increase the limit", maxPages, len(allItems))
 				}

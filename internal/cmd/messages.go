@@ -862,7 +862,7 @@ Messages are sent concurrently for efficiency.`,
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			// Read input from stdin
 			var items []BatchSendItem
-			decoder := json.NewDecoder(os.Stdin)
+			decoder := json.NewDecoder(cmd.InOrStdin())
 			if err := decoder.Decode(&items); err != nil {
 				return fmt.Errorf("failed to parse JSON input: %w", err)
 			}

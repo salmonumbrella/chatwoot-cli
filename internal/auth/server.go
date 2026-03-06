@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chatwoot/chatwoot-cli/internal/api"
@@ -32,6 +33,7 @@ type SetupResult struct {
 type SetupServer struct {
 	result        chan SetupResult
 	shutdown      chan struct{}
+	shutdownOnce  sync.Once
 	pendingResult *SetupResult
 	csrfToken     string
 	profile       string
@@ -289,6 +291,7 @@ func (s *SetupServer) handleSuccess(w http.ResponseWriter, r *http.Request) {
 	data := map[string]string{
 		"UserName":  r.URL.Query().Get("name"),
 		"UserEmail": r.URL.Query().Get("email"),
+		"CSRFToken": s.csrfToken,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -297,10 +300,14 @@ func (s *SetupServer) handleSuccess(w http.ResponseWriter, r *http.Request) {
 
 // handleComplete signals that setup is done
 func (s *SetupServer) handleComplete(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-CSRF-Token") != s.csrfToken {
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": "invalid CSRF token"})
+		return
+	}
 	if s.pendingResult != nil {
 		s.result <- *s.pendingResult
 	}
-	close(s.shutdown)
+	s.shutdownOnce.Do(func() { close(s.shutdown) })
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
