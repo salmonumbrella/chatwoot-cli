@@ -943,8 +943,8 @@ func TestValidateWithUnreachableHost(t *testing.T) {
 		}
 
 		errMsg, ok := response["error"].(string)
-		if !ok || !strings.Contains(errMsg, "DNS resolution failed") {
-			t.Errorf("handleValidate() error = %v, want error containing 'DNS resolution failed'", response["error"])
+		if !ok || !strings.Contains(errMsg, "Connection failed") {
+			t.Errorf("handleValidate() error = %v, want error containing 'Connection failed'", response["error"])
 		}
 	})
 
@@ -999,8 +999,8 @@ func TestSubmitWithUnreachableHost(t *testing.T) {
 		}
 
 		errMsg, ok := response["error"].(string)
-		if !ok || !strings.Contains(errMsg, "DNS resolution failed") {
-			t.Errorf("handleSubmit() error = %v, want error containing 'DNS resolution failed'", response["error"])
+		if !ok || !strings.Contains(errMsg, "Connection failed") {
+			t.Errorf("handleSubmit() error = %v, want error containing 'Connection failed'", response["error"])
 		}
 	})
 }
