@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 )
 
 func TestAPICmdGetRequest(t *testing.T) {
@@ -174,6 +176,348 @@ func TestAPICmdInputFromStdin(t *testing.T) {
 	}
 	if receivedBody["email"] != "test@example.com" {
 		t.Errorf("expected email='test@example.com', got %v", receivedBody["email"])
+	}
+}
+
+func TestBuildRequestBody_AllowsTopLevelJSONArray(t *testing.T) {
+	body, err := buildRequestBody(nil, nil, "", `[{"id":1}]`)
+	if err != nil {
+		t.Fatalf("buildRequestBody returned error: %v", err)
+	}
+
+	items, ok := any(body).([]any)
+	if !ok {
+		t.Fatalf("expected top-level array body, got %T: %v", body, body)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+}
+
+func TestBuildRequestBody_AllowsTopLevelJSONScalar(t *testing.T) {
+	body, err := buildRequestBody(nil, nil, "", `123`)
+	if err != nil {
+		t.Fatalf("buildRequestBody returned error: %v", err)
+	}
+
+	value, ok := body.(json.Number)
+	if !ok {
+		t.Fatalf("expected numeric scalar body, got %T: %v", body, body)
+	}
+	if value.String() != "123" {
+		t.Fatalf("expected numeric scalar 123, got %v", value)
+	}
+}
+
+func TestBuildRequestBody_PreservesLargeIntegerPrecision(t *testing.T) {
+	body, err := buildRequestBody(nil, nil, "", `9007199254740993`)
+	if err != nil {
+		t.Fatalf("buildRequestBody returned error: %v", err)
+	}
+
+	value, ok := body.(json.Number)
+	if !ok {
+		t.Fatalf("expected json.Number body, got %T: %v", body, body)
+	}
+	if value.String() != "9007199254740993" {
+		t.Fatalf("expected exact large integer, got %s", value.String())
+	}
+}
+
+func TestBuildRequestBody_PreservesExplicitJSONNull(t *testing.T) {
+	body, err := buildRequestBody(nil, nil, "", `null`)
+	if err != nil {
+		t.Fatalf("buildRequestBody returned error: %v", err)
+	}
+
+	raw, ok := body.(json.RawMessage)
+	if !ok {
+		t.Fatalf("expected json.RawMessage for explicit null, got %T: %v", body, body)
+	}
+	if string(raw) != "null" {
+		t.Fatalf("expected explicit null body, got %q", raw)
+	}
+}
+
+func TestBuildRequestBody_RejectsMergingFieldsWithNonObjectBody(t *testing.T) {
+	_, err := buildRequestBody([]string{"status=open"}, nil, "", `[{"id":1}]`)
+	if err == nil {
+		t.Fatal("expected merge with non-object body to fail")
+	}
+	if !strings.Contains(err.Error(), "cannot use --field or --raw-field with a non-object JSON body") {
+		t.Fatalf("expected non-object merge error, got: %v", err)
+	}
+}
+
+func TestBuildRequestBody_RejectsOversizedBody(t *testing.T) {
+	oversized := `{"content":"` + strings.Repeat("a", validation.MaxJSONPayload) + `"}`
+
+	_, err := buildRequestBody(nil, nil, "", oversized)
+	if err == nil {
+		t.Fatal("expected oversized JSON body error")
+	}
+	if !strings.Contains(err.Error(), "JSON payload exceeds maximum size") {
+		t.Fatalf("expected payload size error, got: %v", err)
+	}
+}
+
+func TestBuildRequestBody_RejectsOversizedRawField(t *testing.T) {
+	oversizedRaw := `payload="` + strings.Repeat("a", validation.MaxJSONPayload) + `"`
+
+	_, err := buildRequestBody(nil, []string{oversizedRaw}, "", "")
+	if err == nil {
+		t.Fatal("expected oversized raw field error")
+	}
+	if !strings.Contains(err.Error(), "JSON payload exceeds maximum size") {
+		t.Fatalf("expected payload size error, got: %v", err)
+	}
+}
+
+func TestAPICmdInputFile_AllowsTopLevelJSONArray(t *testing.T) {
+	var receivedBody any
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &receivedBody)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	tmpfile, err := os.CreateTemp("", "input-array*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
+
+	jsonContent := `[{"name":"Test Contact"}]`
+	if _, err := tmpfile.WriteString(jsonContent); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tmpfile.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/contacts",
+			"-X", "POST",
+			"-i", tmpfile.Name(),
+		})
+		if err != nil {
+			t.Errorf("api command with array input file failed: %v", err)
+		}
+	})
+
+	items, ok := receivedBody.([]any)
+	if !ok {
+		t.Fatalf("expected top-level array request body, got %T: %v", receivedBody, receivedBody)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+}
+
+func TestAPICmdInputFromStdin_AllowsTopLevelJSONScalar(t *testing.T) {
+	var receivedBody any
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &receivedBody)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStdin := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	if _, err := io.WriteString(w, `123`); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Close()
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/contacts",
+			"-X", "POST",
+			"-i", "-",
+		})
+		if err != nil {
+			t.Errorf("api command with scalar stdin input failed: %v", err)
+		}
+	})
+
+	value, ok := receivedBody.(float64)
+	if !ok {
+		t.Fatalf("expected top-level scalar request body, got %T: %v", receivedBody, receivedBody)
+	}
+	if value != 123 {
+		t.Fatalf("expected scalar value 123, got %v", value)
+	}
+}
+
+func TestAPICmdBody_PreservesTopLevelJSONNull(t *testing.T) {
+	var receivedBody []byte
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/contacts",
+			"-X", "POST",
+			"-d", "null",
+		})
+		if err != nil {
+			t.Errorf("api command with null body failed: %v", err)
+		}
+	})
+
+	if string(receivedBody) != "null" {
+		t.Fatalf("expected explicit null request body, got %q", receivedBody)
+	}
+}
+
+func TestAPICmdBody_PreservesLargeIntegerPrecision(t *testing.T) {
+	var receivedBody []byte
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/contacts",
+			"-X", "POST",
+			"-d", "9007199254740993",
+		})
+		if err != nil {
+			t.Errorf("api command with large integer body failed: %v", err)
+		}
+	})
+
+	if string(receivedBody) != "9007199254740993" {
+		t.Fatalf("expected exact large integer request body, got %q", receivedBody)
+	}
+}
+
+func TestAPICmdRawField_PreservesLargeIntegerPrecision(t *testing.T) {
+	var receivedBody []byte
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	_ = captureStdout(t, func() {
+		err := Execute(context.Background(), []string{
+			"api", "/contacts",
+			"-X", "POST",
+			"-F", "external_id=9007199254740993",
+		})
+		if err != nil {
+			t.Errorf("api command with large integer raw field failed: %v", err)
+		}
+	})
+
+	if string(receivedBody) != `{"external_id":9007199254740993}` {
+		t.Fatalf("expected exact large integer raw field request body, got %q", receivedBody)
+	}
+}
+
+func TestAPICmdRejectsOversizedBodyBeforeHTTPRequest(t *testing.T) {
+	called := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	oversized := `{"content":"` + strings.Repeat("a", validation.MaxJSONPayload) + `"}`
+	err := Execute(context.Background(), []string{
+		"api", "/contacts",
+		"-X", "POST",
+		"-d", oversized,
+	})
+	if err == nil {
+		t.Fatal("expected oversized JSON body error")
+	}
+	if !strings.Contains(err.Error(), "JSON payload exceeds maximum size") {
+		t.Fatalf("expected payload size error, got: %v", err)
+	}
+	if called {
+		t.Fatal("oversized body should fail before any HTTP request")
+	}
+}
+
+func TestAPICmdRejectsOversizedInputBeforeHTTPRequest(t *testing.T) {
+	called := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	setupTestEnv(t, handler)
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	tmpfile, err := os.CreateTemp("", "oversized-input*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
+
+	if _, err := tmpfile.WriteString(strings.Repeat("a", validation.MaxJSONPayload+1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	err = Execute(context.Background(), []string{
+		"api", "/contacts",
+		"-X", "POST",
+		"-i", tmpfile.Name(),
+	})
+	if err == nil {
+		t.Fatal("expected oversized input error")
+	}
+	if !strings.Contains(err.Error(), "JSON payload exceeds maximum size") {
+		t.Fatalf("expected payload size error, got: %v", err)
+	}
+	if called {
+		t.Fatal("oversized input should fail before any HTTP request")
 	}
 }
 

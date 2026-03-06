@@ -62,6 +62,33 @@ type lightSearchResult struct {
 	Snippet        *string `json:"snip,omitempty"`
 }
 
+type lightConversationAttachment struct {
+	Index    int     `json:"i"`
+	ID       *int    `json:"id,omitempty"`
+	FileType string  `json:"t,omitempty"`
+	Bytes    int     `json:"b,omitempty"`
+	Name     *string `json:"n,omitempty"`
+}
+
+type lightConversationAttachmentExtraction struct {
+	ID    int                             `json:"id"`
+	Items []lightExtractedConversationDoc `json:"items"`
+	Meta  map[string]any                  `json:"meta,omitempty"`
+}
+
+type lightExtractedConversationDoc struct {
+	Index     int     `json:"i"`
+	ID        *int    `json:"id,omitempty"`
+	FileType  string  `json:"t,omitempty"`
+	Name      *string `json:"n,omitempty"`
+	MIMEType  *string `json:"m,omitempty"`
+	Bytes     int64   `json:"b,omitempty"`
+	TextChars int     `json:"ch,omitempty"`
+	Extractor *string `json:"x,omitempty"`
+	Truncated bool    `json:"tr,omitempty"`
+	Text      *string `json:"txt,omitempty"`
+}
+
 func buildLightConversationLookups(conversations []api.Conversation) []lightConversationLookup {
 	if len(conversations) == 0 {
 		return []lightConversationLookup{}
@@ -177,71 +204,151 @@ func buildLightSearchPayload(results SearchResults) lightSearchPayload {
 	}
 
 	for _, r := range results.Results {
-		item := lightSearchResult{Type: r.Type}
-
-		switch r.Type {
-		case "contact":
-			if r.Contact != nil {
-				item.ID = r.Contact.ID
-				item.Name = nullableString(r.Contact.Name)
-				item.Email = nullableString(r.Contact.Email)
-				if r.Contact.LastActivityAt != nil {
-					last := *r.Contact.LastActivityAt
-					item.LastActivityAt = &last
-				}
-			}
-
-		case "conversation":
-			if r.Conversation != nil {
-				item.ID = r.Conversation.ID
-				item.Status = nullableString(shortStatus(r.Conversation.Status))
-				if r.Conversation.InboxID > 0 {
-					inboxID := r.Conversation.InboxID
-					item.InboxID = &inboxID
-				}
-				if r.Conversation.LastActivityAt > 0 {
-					last := r.Conversation.LastActivityAt
-					item.LastActivityAt = &last
-				}
-				if r.Conversation.Meta != nil {
-					if sender, ok := r.Conversation.Meta["sender"].(map[string]any); ok {
-						if name, ok := sender["name"].(string); ok {
-							item.ContactName = nullableString(name)
-						}
-					}
-				}
-				if snippet, ok := results.Snippets[strconv.Itoa(r.Conversation.ID)]; ok {
-					item.Snippet = nullableString(snippet.Content)
-				}
-			}
-
-		case "sender":
-			if r.Sender != nil {
-				item.ID = r.Sender.ConversationID
-				item.Name = nullableString(r.Sender.Name)
-				item.ContactName = nullableString(r.Sender.ContactName)
-				if r.Sender.ContactID > 0 {
-					cid := r.Sender.ContactID
-					item.ContactID = &cid
-				}
-				if r.Sender.LastMessageAt > 0 {
-					last := r.Sender.LastMessageAt
-					item.LastActivityAt = &last
-				}
-				if r.Sender.MessageCount > 0 {
-					count := r.Sender.MessageCount
-					item.MessageCount = &count
-				}
-			}
-		}
-
-		payload.Results = append(payload.Results, item)
+		payload.Results = append(payload.Results, buildLightSearchResult(r, results.Snippets))
 	}
 
 	if payload.Results == nil {
 		payload.Results = []lightSearchResult{}
 	}
 	return payload
+}
+
+func buildLightSearchResult(r UnifiedSearchResult, snippets map[string]SnippetInfo) lightSearchResult {
+	item := lightSearchResult{Type: r.Type}
+
+	switch r.Type {
+	case "contact":
+		if r.Contact != nil {
+			item.ID = r.Contact.ID
+			item.Name = nullableString(r.Contact.Name)
+			item.Email = nullableString(r.Contact.Email)
+			if r.Contact.LastActivityAt != nil {
+				last := *r.Contact.LastActivityAt
+				item.LastActivityAt = &last
+			}
+		}
+
+	case "conversation":
+		if r.Conversation != nil {
+			item.ID = r.Conversation.ID
+			item.Status = nullableString(shortStatus(r.Conversation.Status))
+			if r.Conversation.InboxID > 0 {
+				inboxID := r.Conversation.InboxID
+				item.InboxID = &inboxID
+			}
+			if r.Conversation.LastActivityAt > 0 {
+				last := r.Conversation.LastActivityAt
+				item.LastActivityAt = &last
+			}
+			if r.Conversation.Meta != nil {
+				if sender, ok := r.Conversation.Meta["sender"].(map[string]any); ok {
+					if name, ok := sender["name"].(string); ok {
+						item.ContactName = nullableString(name)
+					}
+				}
+			}
+			if snippet, ok := snippets[strconv.Itoa(r.Conversation.ID)]; ok {
+				item.Snippet = nullableString(snippet.Content)
+			}
+		}
+
+	case "sender":
+		if r.Sender != nil {
+			item.ID = r.Sender.ConversationID
+			item.Name = nullableString(r.Sender.Name)
+			item.ContactName = nullableString(r.Sender.ContactName)
+			if r.Sender.ContactID > 0 {
+				cid := r.Sender.ContactID
+				item.ContactID = &cid
+			}
+			if r.Sender.LastMessageAt > 0 {
+				last := r.Sender.LastMessageAt
+				item.LastActivityAt = &last
+			}
+			if r.Sender.MessageCount > 0 {
+				count := r.Sender.MessageCount
+				item.MessageCount = &count
+			}
+		}
+	}
+
+	return item
+}
+
+func buildLightSearchResultFromContact(contact api.Contact) lightSearchResult {
+	contactCopy := contact
+	return buildLightSearchResult(UnifiedSearchResult{
+		Type:    "contact",
+		ID:      contactCopy.ID,
+		Contact: &contactCopy,
+	}, nil)
+}
+
+func buildLightSearchResultFromConversation(conv api.Conversation) lightSearchResult {
+	convCopy := conv
+	return buildLightSearchResult(UnifiedSearchResult{
+		Type:         "conversation",
+		ID:           convCopy.ID,
+		Conversation: &convCopy,
+	}, nil)
+}
+
+func buildLightConversationAttachments(conversationID int, attachments []api.Attachment) map[string]any {
+	items := make([]lightConversationAttachment, 0, len(attachments))
+	for idx, att := range attachments {
+		item := lightConversationAttachment{
+			Index:    idx + 1,
+			FileType: att.FileType,
+			Bytes:    att.FileSize,
+		}
+		if att.ID > 0 {
+			item.ID = nullableInt(att.ID)
+		}
+		if name := api.AttachmentDisplayName(att); name != "" {
+			item.Name = nullableString(name)
+		}
+		items = append(items, item)
+	}
+	if items == nil {
+		items = []lightConversationAttachment{}
+	}
+	return map[string]any{
+		"id":    conversationID,
+		"items": items,
+	}
+}
+
+func buildLightConversationAttachmentExtraction(result *api.ConversationAttachmentExtractResult) lightConversationAttachmentExtraction {
+	items := make([]lightExtractedConversationDoc, 0, len(result.Items))
+	for _, item := range result.Items {
+		lightItem := lightExtractedConversationDoc{
+			Index:     item.Index,
+			FileType:  item.FileType,
+			Bytes:     item.DownloadedBytes,
+			TextChars: item.TextChars,
+			Truncated: item.Truncated,
+		}
+		if item.ID > 0 {
+			lightItem.ID = nullableInt(item.ID)
+		}
+		lightItem.Name = nullableString(item.Name)
+		lightItem.MIMEType = nullableString(item.MIMEType)
+		lightItem.Extractor = nullableString(item.Extractor)
+		lightItem.Text = nullableString(item.Text)
+		items = append(items, lightItem)
+	}
+	if items == nil {
+		items = []lightExtractedConversationDoc{}
+	}
+	return lightConversationAttachmentExtraction{
+		ID:    result.ConversationID,
+		Items: items,
+		Meta: map[string]any{
+			"sel": result.Meta.SelectedAttachments,
+			"ok":  result.Meta.ExtractedAttachments,
+			"db":  result.Meta.DownloadedBytes,
+		},
+	}
 }
 
 // lightConversationGet is a compact conversation detail for agent reads.

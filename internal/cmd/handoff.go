@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
 	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +15,7 @@ func newHandoffCmd() *cobra.Command {
 		team     string
 		reason   string
 		priority string
+		light    bool
 	)
 
 	cmd := &cobra.Command{
@@ -53,6 +54,34 @@ This replaces the three-command sequence of note + assign + update.
 				return fmt.Errorf("at least one of --agent or --team is required")
 			}
 
+			if strings.TrimSpace(reason) != "" {
+				if err := validation.ValidateMessageContent(reason); err != nil {
+					return err
+				}
+			}
+
+			if priority != "" {
+				if priority, err = validatePriority(priority); err != nil {
+					return err
+				}
+			}
+
+			details := buildAssignPreviewDetails(conversationID, agent, team)
+			if priority != "" {
+				details["priority"] = priority
+			}
+			if strings.TrimSpace(reason) != "" {
+				details["reason"] = reason
+			}
+
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation: "handoff",
+				Resource:  "conversation",
+				Details:   details,
+			}); ok {
+				return err
+			}
+
 			client, err := getClient()
 			if err != nil {
 				return err
@@ -70,34 +99,16 @@ This replaces the three-command sequence of note + assign + update.
 				return err
 			}
 
-			if priority != "" {
-				if priority, err = validatePriority(priority); err != nil {
-					return err
-				}
-			}
-
-			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
-				Operation: "handoff",
-				Resource:  "conversation",
-				Details: map[string]any{
-					"conversation_id": conversationID,
-					"agent_id":        agentID,
-					"team_id":         teamID,
-					"priority":        priority,
-					"reason":          reason,
-				},
-			}); ok {
-				return err
-			}
-
 			var actions []string
+			noteID := 0
 
 			// Step 1: Send private note with reason.
 			if strings.TrimSpace(reason) != "" {
-				_, err := client.Messages().Create(ctx, conversationID, reason, true, "outgoing")
+				msg, err := client.Messages().Create(ctx, conversationID, reason, true, "outgoing")
 				if err != nil {
 					return fmt.Errorf("failed to send handoff note: %w", err)
 				}
+				noteID = msg.ID
 				actions = append(actions, "noted")
 			}
 
@@ -116,29 +127,43 @@ This replaces the three-command sequence of note + assign + update.
 				actions = append(actions, "priority set")
 			}
 
+			conv, err := client.Conversations().Get(ctx, conversationID)
+			if err != nil {
+				return fmt.Errorf("handoff completed but failed to fetch conversation %d: %w", conversationID, err)
+			}
+			priorityValue := ""
+			if conv.Priority != nil {
+				priorityValue = *conv.Priority
+			}
+
 			out := map[string]any{
 				"action":          "handoff",
 				"conversation_id": conversationID,
 				"actions":         actions,
 			}
-			if agentID > 0 {
-				out["agent_id"] = agentID
+			if conv.AssigneeID != nil {
+				out["agent_id"] = *conv.AssigneeID
 			}
-			if teamID > 0 {
-				out["team_id"] = teamID
+			if conv.TeamID != nil {
+				out["team_id"] = *conv.TeamID
 			}
-			if priority != "" {
-				out["priority"] = priority
+			if conv.Priority != nil {
+				out["priority"] = *conv.Priority
 			}
 			if reason != "" {
 				out["reason"] = reason
 			}
+			if noteID > 0 {
+				out["message_id"] = noteID
+			}
 
+			if light {
+				applyLightDefaults(cmd)
+				return printRawJSON(cmd, buildLightHandoffResult(conversationID, noteID, conv.AssigneeID, conv.TeamID, priorityValue))
+			}
 			if isAgent(cmd) {
-				return printJSON(cmd, agentfmt.ItemEnvelope{
-					Kind: "handoff",
-					Item: out,
-				})
+				applyCompactDefault(cmd)
+				return printRawJSON(cmd, buildLightHandoffResult(conversationID, noteID, conv.AssigneeID, conv.TeamID, priorityValue))
 			}
 			if isJSON(cmd) {
 				return printJSON(cmd, out)
@@ -153,10 +178,13 @@ This replaces the three-command sequence of note + assign + update.
 	cmd.Flags().StringVar(&team, "team", "", "Team ID or name to assign")
 	cmd.Flags().StringVar(&reason, "reason", "", "Handoff reason (sent as private note)")
 	cmd.Flags().StringVar(&priority, "priority", "", "Set priority (urgent|high|medium|low|none)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload (defaults to compact JSON; override with --cj=false)")
 	flagAlias(cmd.Flags(), "agent", "ag")
+	flagAlias(cmd.Flags(), "light", "li")
 	flagAlias(cmd.Flags(), "priority", "pri")
 	flagAlias(cmd.Flags(), "reason", "rs")
 	flagAlias(cmd.Flags(), "team", "tm")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
 }

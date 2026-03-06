@@ -193,7 +193,10 @@ cw x 123 456                             # Close (resolve) conversations
 cw ro 123                                # Reopen a closed conversation
 cw sn 123 --for 2h                       # Snooze for 2 hours
 cw ho 123 --ag lily --reason "Needs billing"  # Escalate with reason
+cw ho 123 --tm 2 --reason "Vendor handoff" --li  # Escalate with compact mutation output
 cw as 123 --ag 5 --team 2                # Assign to agent and team
+cw as 123 --ag 5 --dr -o json            # Preview assignment without mutating
+cw x 123 --dr                            # Preview resolve without mutating
 cw ct 123 -o agent                       # Get AI context for conversation
 cw ref 123                               # Resolve ID to typed reference
 ```
@@ -213,6 +216,9 @@ cw c g 123                               # Get conversation details
 cw c counts                              # Get counts by status
 cw c meta                                # Get account metadata
 cw c attachments 123                     # List attachments for conversation
+cw c attachments 123 --light --compact-json   # Compact attachment inventory without signed URLs
+cw c attachments extract 123 -o agent    # Extract text from document attachments
+cw c attachments extract 123 --limit 0 --light --compact-json  # Extract all supported docs with compact keys
 cw c toggle-status 123 --st resolved     # Change conversation status
 cw c toggle-priority 123 --pri high      # Set conversation priority
 cw c assign 123 --ag 5 --team 2          # Assign to agent and team
@@ -221,6 +227,8 @@ cw c labels 123                          # List labels on conversation
 cw c labels-add 123 --labels "urgent,vip"  # Add labels to conversation
 cw c custom-attributes 123 --payload '{"key":"value"}'  # Set custom attributes
 cw c context 123 --embed                 # Get full AI context with embedded images
+cw c context 123 --tail 20 --public-only -o agent  # Last 20 public messages only
+cw c context 123 --tail 20 --exclude-attachments -o json  # Smaller context, no attachment metadata
 cw c context 123 -o agent                # Agent-friendly context envelope
 cw c context 123 -o agent --rn           # Context with resolved names
 cw c transcript 123                      # Render transcript locally
@@ -529,12 +537,16 @@ cw ap /conversations/123                 # GET request (default)
 cw ap /conversations -X POST -f inbox_id=1 -f contact_id=5  # POST with fields
 cw ap /conversations/123 -X PATCH -F 'labels=["bug","urgent"]'  # PATCH with JSON array
 cw ap /automation_rules/14 -X PATCH -d '{"automation_rule":{"active":true}}'  # Inline JSON body
+cw ap /custom/bulk -X POST -d '[{"id":1},{"id":2}]'  # Top-level JSON array body
 cw ap /contacts -X POST -i body.json     # Body from file
 echo '{"name":"Test"}' | cw ap /contacts -X POST -i -  # Body from stdin
+printf '"ping"' | cw ap /custom/echo -X POST -i -      # Top-level scalar body from stdin
 cw ap /contacts -o json --jq '.payload[0].name'  # Filter response with jq
 cw ap /conversations/123 -X DELETE -s    # Silent mode (no output)
 cw ap /conversations/123 --include       # Show response headers
 ```
+
+`-d` / `-i` accept any valid JSON value: object, array, scalar, or `null`. Use `-f` / `-F` when you want the CLI to build an object body from fields. Raw JSON request bodies are capped at 1 MiB; multipart attachment uploads are separate and are not subject to that JSON-body limit.
 
 ### Snooze
 
@@ -772,9 +784,15 @@ Get complete conversation data optimized for use by LLMs:
 ```bash
 cw c context 123 --embed                 # Text format with embedded images
 cw c context 123 --embed -o json         # JSON format for programmatic access
+cw c context 123 --tail 20 --public-only -o json   # Last 20 public messages only
+cw c context 123 --tail 20 --exclude-attachments -o agent  # Smaller agent payload
+cw c attachments extract 123 -o agent    # Explicit document extraction for agents
+cw c attachments extract 123 --index 3 --light --compact-json  # Compact text extraction for one document
 ```
 
-The `--embed` flag converts images to base64 data URIs that AI vision models can process directly.
+The `--embed` flag converts images to base64 data URIs that AI vision models can process directly. `--tail` is applied after filtering, `--public-only` removes private notes, and `--exclude-attachments` omits attachment metadata and disables image embedding. Embedded images are capped at 5 MiB per attachment.
+
+For documents, use `cw c attachments extract` instead of `ctx`. It keeps document downloads explicit, streams them to disk, enforces per-file and total byte limits by default, and extracts bounded text from supported `pdf`, `docx`, text-like files, and `xlsx` spreadsheets.
 
 ### Pagination
 
@@ -835,12 +853,12 @@ cw co conversations 123 -o agent --rn    # Agent output with resolved names
 
 All commands support these flags:
 
-- `-o <format>` / `--output <format>` - Output format: `text`, `json`, or `jsonl` (default: text)
+- `-o <format>` / `--output <format>` - Output format: `text`, `json`, `jsonl`, or `agent` (default: text)
 - `--json` - Alias for `-o json`
 - `--color <mode>` - Color mode: `auto`, `always`, or `never` (default: auto)
 - `--allow-private` - Allow private/localhost URLs (unsafe)
 - `--debug` - Enable verbose debug logging
-- `--dr` / `--dry-run` - Preview changes without executing mutations
+- `--dr` / `--dry-run` - Preview changes without executing mutations, including `assign`, `close`, and `reopen`
 - `--timeout <duration>` - HTTP request timeout (default: 30s)
 - `--idem <key|auto>` / `--idempotency-key <key|auto>` - Idempotency key for write requests (use `auto` for per-request keys)
 - `-q <expr>` / `--query <expr>` / `--jq <expr>` - JQ expression to filter JSON output (supports key aliases in path contexts)
@@ -1027,6 +1045,8 @@ Commonly used flags have short aliases to reduce typing. Single-letter aliases a
 | `--snooze-for` | `--for` | comment, note, reply |
 | `--include-snippet` | `--snippet` | search |
 | `--embed-images` | `--embed` | conversations context, ctx |
+| `--public-only` | `--pub` | conversations context, ctx, transcript |
+| `--exclude-attachments` | `--xa` | conversations context, ctx |
 | `--context-messages` | `--cm` | conversations follow |
 | `--only-unassigned` | `--unassigned` | conversations follow |
 | `--exclude-private` | `--pub` | conversations follow |
@@ -1215,6 +1235,17 @@ The exact fields in each preset vary by resource. For example:
 - **conversations debug**: includes `labels`, `meta`, `custom_attributes`, `unread_count`
 
 Field presets work with JSON output (`-o json` or `--json`). Commands without registered presets treat preset names as literal field names.
+
+### Command Contracts
+
+`--help-json` exposes a machine-readable contract for any command, not just top-level discovery:
+
+```bash
+cw c ls --help-json
+cw ct --help-json
+```
+
+Per-command contracts include flags, positional args, subcommands, and any registered field schema / field presets. Mutation metadata and dry-run support are included for commands that declare those capabilities.
 
 ## Shell Completions
 

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -184,32 +185,56 @@ func apiJSONBody(respBody []byte) any {
 }
 
 // buildRequestBody constructs the request body from fields and/or input file/inline JSON
-func buildRequestBody(fields, rawFields []string, inputFile, jsonBody string) (map[string]any, error) {
-	body := make(map[string]any)
+func buildRequestBody(fields, rawFields []string, inputFile, jsonBody string) (any, error) {
+	mergeFields := len(fields) > 0 || len(rawFields) > 0
 
-	// Parse inline JSON body first (can be overridden by fields)
+	var (
+		bodyValue any
+		hasBody   bool
+	)
+
+	// Parse inline JSON body first (can be overridden by fields when the body is an object).
 	if jsonBody != "" {
-		if err := json.Unmarshal([]byte(jsonBody), &body); err != nil {
-			return nil, formatBodyJSONParseError(jsonBody, err)
+		value, err := parseJSONValue([]byte(jsonBody), true, jsonBody)
+		if err != nil {
+			return nil, err
 		}
+		bodyValue = value
+		hasBody = true
 	}
 
-	// Read from input file (can be overridden by fields)
+	// Read from input file (can be overridden by fields when the body is an object).
 	if inputFile != "" {
-		var inputData []byte
-		var err error
-
-		if inputFile == "-" {
-			inputData, err = io.ReadAll(os.Stdin)
-		} else {
-			inputData, err = os.ReadFile(inputFile)
-		}
+		inputData, err := readInputData(inputFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read input: %w", err)
+			return nil, err
 		}
+		value, err := parseJSONValue(inputData, false, inputFile)
+		if err != nil {
+			return nil, err
+		}
+		bodyValue = value
+		hasBody = true
+	}
 
-		if err := json.Unmarshal(inputData, &body); err != nil {
-			return nil, fmt.Errorf("failed to parse input JSON: %w", err)
+	if !mergeFields {
+		if !hasBody {
+			return nil, nil
+		}
+		if err := validateRequestBodySize(bodyValue); err != nil {
+			return nil, err
+		}
+		return bodyValue, nil
+	}
+
+	body := make(map[string]any)
+	if hasBody {
+		obj, ok := bodyValue.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cannot use --field or --raw-field with a non-object JSON body")
+		}
+		for k, v := range obj {
+			body[k] = v
 		}
 	}
 
@@ -231,12 +256,94 @@ func buildRequestBody(fields, rawFields []string, inputFile, jsonBody string) (m
 		body[key] = value
 	}
 
-	// Return nil if no body content
 	if len(body) == 0 {
 		return nil, nil
 	}
+	if err := validateRequestBodySize(body); err != nil {
+		return nil, err
+	}
 
 	return body, nil
+}
+
+func readInputData(inputFile string) ([]byte, error) {
+	if inputFile == "-" {
+		limited := io.LimitReader(os.Stdin, validation.MaxJSONPayload+1)
+		inputData, err := io.ReadAll(limited)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read input: %w", err)
+		}
+		if len(inputData) > validation.MaxJSONPayload {
+			return nil, fmt.Errorf("JSON payload exceeds maximum size of %d bytes (got more than %d)", validation.MaxJSONPayload, validation.MaxJSONPayload)
+		}
+		return inputData, nil
+	}
+
+	info, err := os.Stat(inputFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to read input: %w", err)
+		}
+		return nil, fmt.Errorf("failed to stat input: %w", err)
+	}
+	if info.Size() > validation.MaxJSONPayload {
+		return nil, fmt.Errorf("JSON payload exceeds maximum size of %d bytes (got %d)", validation.MaxJSONPayload, info.Size())
+	}
+
+	inputData, err := os.ReadFile(inputFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input: %w", err)
+	}
+	return inputData, nil
+}
+
+func parseJSONValue(data []byte, inline bool, source string) (any, error) {
+	if err := validation.ValidateJSONPayload(string(data)); err != nil {
+		return nil, err
+	}
+
+	trimmed := bytes.TrimSpace(data)
+	body, err := decodeJSONValue(data)
+	if err != nil {
+		if inline {
+			return nil, formatBodyJSONParseError(source, err)
+		}
+		return nil, fmt.Errorf("failed to parse input JSON: %w", err)
+	}
+	if body == nil && bytes.Equal(trimmed, []byte("null")) {
+		return json.RawMessage("null"), nil
+	}
+	return body, nil
+}
+
+func decodeJSONValue(data []byte) (any, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("invalid JSON: multiple top-level values")
+		}
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func validateRequestBodySize(body any) error {
+	if body == nil {
+		return nil
+	}
+
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body for validation: %w", err)
+	}
+	return validation.ValidateJSONPayload(string(payload))
 }
 
 func formatBodyJSONParseError(raw string, err error) error {
@@ -284,9 +391,13 @@ func parseRawField(field string) (string, any, error) {
 	key := parts[0]
 	valueStr := parts[1]
 
+	if err := validation.ValidateJSONPayload(valueStr); err != nil {
+		return "", nil, fmt.Errorf("invalid JSON in raw field %q: %w", key, err)
+	}
+
 	// Try to parse as JSON
-	var value any
-	if err := json.Unmarshal([]byte(valueStr), &value); err != nil {
+	value, err := decodeJSONValue([]byte(valueStr))
+	if err != nil {
 		return "", nil, fmt.Errorf("invalid JSON in raw field %q: %w", key, err)
 	}
 

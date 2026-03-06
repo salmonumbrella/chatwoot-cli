@@ -5,13 +5,17 @@ import (
 	"strings"
 
 	"github.com/chatwoot/chatwoot-cli/internal/agentfmt"
+	"github.com/chatwoot/chatwoot-cli/internal/api"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
 
 func newCtxCmd() *cobra.Command {
 	var embedImages bool
+	var excludeAttachments bool
 	var light bool
+	var publicOnly bool
+	var tail int
 
 	cmd := &cobra.Command{
 		Use:     "ctx <conversation-id|url>",
@@ -39,14 +43,22 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 			if err != nil {
 				return err
 			}
+			if cmd.Flags().Changed("tail") && tail < 1 {
+				return fmt.Errorf("--tail must be at least 1")
+			}
 
 			client, err := getClient()
 			if err != nil {
 				return err
 			}
 
-			requestEmbeddedImages := embedImages && !light
-			ctx, err := client.Context().GetConversation(cmdContext(cmd), id, requestEmbeddedImages)
+			requestEmbeddedImages := embedImages && !light && !excludeAttachments
+			ctx, err := client.Context().GetConversationWithOptions(cmdContext(cmd), id, api.ConversationContextOptions{
+				EmbedImages:        requestEmbeddedImages,
+				Tail:               tail,
+				PublicOnly:         publicOnly,
+				ExcludeAttachments: excludeAttachments,
+			})
 			if err != nil {
 				return fmt.Errorf("failed to get conversation context: %w", err)
 			}
@@ -88,7 +100,23 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 					"message_count":    len(ctx.Messages),
 					"public_messages":  publicCount,
 					"private_messages": privateCount,
-					"embed_images":     embedImages,
+					"embed_images":     requestEmbeddedImages,
+				}
+				if ctx.Meta != nil {
+					meta["total_messages"] = ctx.Meta.TotalMessages
+					meta["returned_messages"] = ctx.Meta.ReturnedMessages
+					if ctx.Meta.Tail > 0 {
+						meta["tail"] = ctx.Meta.Tail
+					}
+					if ctx.Meta.Truncated {
+						meta["truncated"] = true
+					}
+					if ctx.Meta.PublicOnly {
+						meta["public_only"] = true
+					}
+					if ctx.Meta.ExcludeAttachments {
+						meta["exclude_attachments"] = true
+					}
 				}
 				if embeddedCount > 0 {
 					meta["embedded_attachments"] = embeddedCount
@@ -125,10 +153,15 @@ Accepts a conversation ID or a pasted Chatwoot URL.`,
 	}
 
 	cmd.Flags().BoolVar(&embedImages, "embed-images", false, "Embed images as base64 data URIs for AI vision")
+	cmd.Flags().BoolVar(&excludeAttachments, "exclude-attachments", false, "Omit attachment metadata from returned context")
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal context payload (id, st, inbox, contact, msgs)")
+	cmd.Flags().BoolVar(&publicOnly, "public-only", false, "Exclude private notes from returned context")
+	cmd.Flags().IntVar(&tail, "tail", 0, "Limit returned context to the last N messages after filtering")
 	flagAlias(cmd.Flags(), "embed-images", "embed")
 	flagAlias(cmd.Flags(), "embed-images", "em")
+	flagAlias(cmd.Flags(), "exclude-attachments", "xa")
 	flagAlias(cmd.Flags(), "light", "li")
+	flagAlias(cmd.Flags(), "public-only", "pub")
 
 	return cmd
 }

@@ -566,6 +566,18 @@ Light mode (--light/--li) already uses compact JSON output by default.`,
 					return nil
 				}
 
+				if light {
+					applyLightDefaults(cmd)
+					payload := map[string]any{
+						"type": bestResult.Type,
+						"item": buildLightSearchResult(bestResult, results.Snippets),
+					}
+					if bestURL != "" {
+						payload["url"] = bestURL
+					}
+					return printRawJSON(cmd, payload)
+				}
+
 				if isAgent(cmd) {
 					type agentBest struct {
 						Type string `json:"type"`
@@ -682,6 +694,17 @@ Light mode (--light/--li) already uses compact JSON output by default.`,
 				}
 				chosen := selections[selectedID]
 				if chosen.contact != nil {
+					if light {
+						applyLightDefaults(cmd)
+						item := buildLightSearchResultFromContact(*chosen.contact)
+						if selectRaw {
+							return printRawJSON(cmd, item)
+						}
+						return printRawJSON(cmd, map[string]any{
+							"type": "contact",
+							"item": item,
+						})
+					}
 					if isJSON(cmd) {
 						if selectRaw {
 							return printRawJSON(cmd, chosen.contact)
@@ -705,6 +728,17 @@ Light mode (--light/--li) already uses compact JSON output by default.`,
 					return printContactDetails(cmd.OutOrStdout(), chosen.contact)
 				}
 				if chosen.conversation != nil {
+					if light {
+						applyLightDefaults(cmd)
+						item := buildLightSearchResultFromConversation(*chosen.conversation)
+						if selectRaw {
+							return printRawJSON(cmd, item)
+						}
+						return printRawJSON(cmd, map[string]any{
+							"type": "conversation",
+							"item": item,
+						})
+					}
 					if isJSON(cmd) {
 						if selectRaw {
 							return printRawJSON(cmd, chosen.conversation)

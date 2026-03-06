@@ -246,6 +246,92 @@ func TestAssignCommand_JSONOutput(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAssignCommand_DryRun_JSONOutput(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	requestCount := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--dry-run", "--output", "json", "--allow-private"})
+		assert.NoError(t, err)
+	})
+
+	assert.Equal(t, 0, requestCount, "dry-run should not make HTTP requests")
+
+	var result map[string]any
+	err := json.Unmarshal([]byte(output), &result)
+	require.NoError(t, err)
+	assert.Equal(t, true, result["dry_run"])
+	assert.Equal(t, "assign", result["operation"])
+	assert.Equal(t, "conversation 123", result["resource"])
+}
+
+func TestAssignCommand_DryRun_WithAgentNameAvoidsLookups(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	requestCount := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"assign", "123", "--agent", "Test Agent", "--dry-run", "--output", "json", "--allow-private"})
+		assert.NoError(t, err)
+	})
+
+	assert.Equal(t, 0, requestCount, "dry-run should not make lookup or mutation HTTP requests")
+
+	var result map[string]any
+	err := json.Unmarshal([]byte(output), &result)
+	require.NoError(t, err)
+
+	details, ok := result["details"].(map[string]any)
+	require.True(t, ok, "expected details object in dry-run output")
+	assert.Equal(t, "Test Agent", details["agent"])
+}
+
+func TestAssignCommand_DryRun_TextOutput(t *testing.T) {
+	t.Cleanup(func() { validation.SetAllowPrivate(false) })
+	requestCount := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_NO_KEYCHAIN", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"assign", "123", "--agent", "5", "--dry-run", "--allow-private"})
+		assert.NoError(t, err)
+	})
+
+	assert.Equal(t, 0, requestCount, "dry-run should not make HTTP requests")
+	assert.Contains(t, output, "[DRY-RUN] Would assign conversation 123")
+	assert.Contains(t, output, "No changes made (dry-run mode)")
+}
+
 func TestAssignCommand_AgentOutput_CompactAliases(t *testing.T) {
 	t.Cleanup(func() { validation.SetAllowPrivate(false) })
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

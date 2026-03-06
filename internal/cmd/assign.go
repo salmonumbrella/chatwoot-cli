@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/api"
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
@@ -47,16 +49,29 @@ At least one of --agent or --team must be specified.`,
 				return err
 			}
 
-			client, err := getClient()
-			if err != nil {
-				return err
+			ctx := cmdContext(cmd)
+			dryRunRequested := isDryRun(cmd)
+			var client *api.Client
+
+			ensureClient := func() (*api.Client, error) {
+				if client != nil {
+					return client, nil
+				}
+				c, err := getClient()
+				if err != nil {
+					return nil, err
+				}
+				client = c
+				return client, nil
 			}
 
-			ctx := cmdContext(cmd)
-
 			// Interactive prompts when no flags provided
-			if agent == "" && team == "" {
+			if agent == "" && team == "" && !dryRunRequested {
 				if isInteractive() {
+					client, err = ensureClient()
+					if err != nil {
+						return err
+					}
 					selectedAgent, err := promptAgentID(ctx, client)
 					if err != nil {
 						return err
@@ -74,6 +89,26 @@ At least one of --agent or --team must be specified.`,
 				}
 			}
 
+			if strings.TrimSpace(agent) == "" && strings.TrimSpace(team) == "" {
+				return fmt.Errorf("at least one of --agent or --team is required")
+			}
+
+			if dryRunRequested {
+				if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+					Operation:   "assign",
+					Resource:    fmt.Sprintf("conversation %d", id),
+					Description: "Preview conversation assignment without executing the API request",
+					Details:     buildAssignPreviewDetails(id, agent, team),
+				}); ok {
+					return err
+				}
+			}
+
+			client, err = ensureClient()
+			if err != nil {
+				return err
+			}
+
 			agentID, err := resolveAgentID(ctx, client, agent)
 			if err != nil {
 				return err
@@ -81,10 +116,6 @@ At least one of --agent or --team must be specified.`,
 			teamID, err := resolveTeamID(ctx, client, team)
 			if err != nil {
 				return err
-			}
-
-			if agentID == 0 && teamID == 0 {
-				return fmt.Errorf("at least one of --agent or --team is required")
 			}
 
 			// Perform the assignment
@@ -137,6 +168,33 @@ At least one of --agent or --team must be specified.`,
 	flagAlias(cmd.Flags(), "team", "tm")
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
 	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
+}
+
+func buildAssignPreviewDetails(conversationID int, agent, team string) map[string]any {
+	details := map[string]any{
+		"conversation_id": conversationID,
+	}
+
+	agent = strings.TrimSpace(agent)
+	if agent != "" {
+		if agentID, err := parseIDOrURL(agent, "agent"); err == nil {
+			details["agent_id"] = agentID
+		} else {
+			details["agent"] = agent
+		}
+	}
+
+	team = strings.TrimSpace(team)
+	if team != "" {
+		if teamID, err := parseIDOrURL(team, "team"); err == nil {
+			details["team_id"] = teamID
+		} else {
+			details["team"] = team
+		}
+	}
+
+	return details
 }

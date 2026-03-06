@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -61,6 +63,140 @@ func TestReopenCommand_JSONSummary(t *testing.T) {
 	}
 	if result["total"] != float64(1) {
 		t.Fatalf("expected total=1, got %#v", result["total"])
+	}
+}
+
+func TestCloseCommand_DryRun_JSONSummary(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(500)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"close", "123", "456", "--dry-run", "-o", "json"})
+		if err != nil {
+			t.Fatalf("close --dry-run failed: %v", err)
+		}
+	})
+
+	if called {
+		t.Fatal("dry-run should not make HTTP requests")
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if result["dry_run"] != true {
+		t.Fatalf("expected dry_run=true, got %#v", result["dry_run"])
+	}
+	if result["operation"] != "close" {
+		t.Fatalf("expected operation=close, got %#v", result["operation"])
+	}
+}
+
+func TestCloseCommand_DryRun_TextPreview(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(500)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"close", "123", "456", "--dry-run"})
+		if err != nil {
+			t.Fatalf("close --dry-run failed: %v", err)
+		}
+	})
+
+	if called {
+		t.Fatal("dry-run should not make HTTP requests")
+	}
+	if !strings.Contains(output, "[DRY-RUN] Would close conversations") {
+		t.Fatalf("expected dry-run banner, got: %s", output)
+	}
+	if !strings.Contains(output, "No changes made (dry-run mode)") {
+		t.Fatalf("expected dry-run footer, got: %s", output)
+	}
+}
+
+func TestReopenCommand_DryRun_JSONSummary(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(500)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reopen", "123", "--dry-run", "-o", "json"})
+		if err != nil {
+			t.Fatalf("reopen --dry-run failed: %v", err)
+		}
+	})
+
+	if called {
+		t.Fatal("dry-run should not make HTTP requests")
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if result["dry_run"] != true {
+		t.Fatalf("expected dry_run=true, got %#v", result["dry_run"])
+	}
+	if result["operation"] != "reopen" {
+		t.Fatalf("expected operation=reopen, got %#v", result["operation"])
+	}
+}
+
+func TestReopenCommand_DryRun_TextPreview(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(500)
+	}))
+	defer server.Close()
+
+	t.Setenv("CHATWOOT_BASE_URL", server.URL)
+	t.Setenv("CHATWOOT_API_TOKEN", "test-token")
+	t.Setenv("CHATWOOT_ACCOUNT_ID", "1")
+	t.Setenv("CHATWOOT_TESTING", "1")
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"reopen", "123", "--dry-run"})
+		if err != nil {
+			t.Fatalf("reopen --dry-run failed: %v", err)
+		}
+	})
+
+	if called {
+		t.Fatal("dry-run should not make HTTP requests")
+	}
+	if !strings.Contains(output, "[DRY-RUN] Would reopen conversations") {
+		t.Fatalf("expected dry-run banner, got: %s", output)
+	}
+	if !strings.Contains(output, "No changes made (dry-run mode)") {
+		t.Fatalf("expected dry-run footer, got: %s", output)
 	}
 }
 

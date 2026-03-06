@@ -364,6 +364,55 @@ func TestSearchCommand_Best_AgentEnvelope(t *testing.T) {
 	}
 }
 
+func TestSearchCommand_Best_LightJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com", "last_activity_at": 1000}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 48, "last_activity_at": 2000, "meta": {"sender": {"name": "John Doe"}}}
+				],
+				"meta": {"count": 1, "total_pages": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--best", "--light", "--output", "json"})
+		if err != nil {
+			t.Fatalf("search --best --light --output json failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Type string `json:"type"`
+		Item struct {
+			Type   string `json:"type"`
+			ID     int    `json:"id"`
+			Status string `json:"st"`
+			Inbox  int    `json:"ib"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light best payload: %v\noutput: %s", err, output)
+	}
+	if payload.Type != "conversation" {
+		t.Fatalf("expected best type conversation, got %#v", payload.Type)
+	}
+	if payload.Item.ID != 100 || payload.Item.Status != "o" || payload.Item.Inbox != 48 {
+		t.Fatalf("unexpected light best item: %#v", payload.Item)
+	}
+	if strings.Contains(output, `"conversation":`) {
+		t.Fatal("light best output should not include raw conversation object")
+	}
+}
+
 func TestSearchCommand_EmitRequiresBest(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
@@ -588,6 +637,66 @@ func TestSearchCommand_SelectJSONRaw(t *testing.T) {
 	}
 	if payload["id"] != float64(1) {
 		t.Errorf("expected selected item id 1, got %v", payload["id"])
+	}
+}
+
+func TestSearchCommand_SelectLightJSON(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/contacts/search", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "name": "John Doe", "email": "john@example.com"}
+			],
+			"meta": {"count": 1}
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations", jsonResponse(200, `{
+			"data": {
+				"payload": [
+					{"id": 100, "status": "open", "inbox_id": 1}
+				],
+				"meta": {"count": 1}
+			}
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+	t.Setenv("CHATWOOT_FORCE_INTERACTIVE", "true")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdin pipe: %v", err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	go func() {
+		_, _ = w.Write([]byte("1\n"))
+		_ = w.Close()
+	}()
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"search", "john", "--select", "--light", "--output", "json"})
+		if err != nil {
+			t.Fatalf("search --select --light --output json failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Type string `json:"type"`
+		Item struct {
+			Type  string `json:"type"`
+			ID    int    `json:"id"`
+			Name  string `json:"nm"`
+			Email string `json:"em"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light select payload: %v\noutput: %s", err, output)
+	}
+	if payload.Type != "contact" {
+		t.Fatalf("expected type contact, got %#v", payload.Type)
+	}
+	if payload.Item.ID != 1 || payload.Item.Name != "John Doe" || payload.Item.Email != "john@example.com" {
+		t.Fatalf("unexpected light select item: %#v", payload.Item)
 	}
 }
 

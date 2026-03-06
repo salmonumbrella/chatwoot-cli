@@ -411,6 +411,132 @@ func TestConversationsContextCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsContextCommand_JSON_WithContextControls(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 0,
+			"status": "open",
+			"inbox_id": 1,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{
+					"id": 1,
+					"content": "public one",
+					"message_type": 0,
+					"private": false,
+					"created_at": 1700000001,
+					"attachments": [{"id": 10, "file_type": "image", "data_url": "https://example.com/a.jpg", "file_size": 123}]
+				},
+				{
+					"id": 2,
+					"content": "internal note",
+					"message_type": 1,
+					"private": true,
+					"created_at": 1700000002
+				},
+				{
+					"id": 3,
+					"content": "public two",
+					"message_type": 1,
+					"private": false,
+					"created_at": 1700000003,
+					"attachments": [{"id": 11, "file_type": "image", "data_url": "https://example.com/b.jpg", "file_size": 456}]
+				}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "context", "123", "--tail", "1", "--public-only", "--exclude-attachments", "-o", "json"})
+		if err != nil {
+			t.Fatalf("conversations context --json with controls failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Messages []struct {
+			ID          int   `json:"id"`
+			Private     bool  `json:"private"`
+			Attachments []any `json:"attachments"`
+		} `json:"messages"`
+		Meta struct {
+			TotalMessages      int  `json:"total_messages"`
+			ReturnedMessages   int  `json:"returned_messages"`
+			Tail               int  `json:"tail"`
+			Truncated          bool `json:"truncated"`
+			PublicOnly         bool `json:"public_only"`
+			ExcludeAttachments bool `json:"exclude_attachments"`
+		} `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+
+	if len(payload.Messages) != 1 || payload.Messages[0].ID != 3 || payload.Messages[0].Private {
+		t.Fatalf("unexpected filtered messages payload: %#v", payload.Messages)
+	}
+	if len(payload.Messages[0].Attachments) != 0 {
+		t.Fatalf("expected attachments to be excluded, got %#v", payload.Messages[0].Attachments)
+	}
+	if payload.Meta.TotalMessages != 3 || payload.Meta.ReturnedMessages != 1 || payload.Meta.Tail != 1 {
+		t.Fatalf("unexpected context meta counts: %#v", payload.Meta)
+	}
+	if !payload.Meta.Truncated || !payload.Meta.PublicOnly || !payload.Meta.ExcludeAttachments {
+		t.Fatalf("unexpected context meta flags: %#v", payload.Meta)
+	}
+}
+
+func TestConversationsContextCommand_AgentMetadata_ReportsEffectiveEmbedImages(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
+			"id": 123,
+			"contact_id": 0,
+			"status": "open",
+			"inbox_id": 1,
+			"created_at": 1700000000
+		}`)).
+		On("GET", "/api/v1/accounts/1/conversations/123/messages", jsonResponse(200, `{
+			"payload": [
+				{"id": 1, "content": "public one", "message_type": 0, "private": false, "created_at": 1700000001}
+			]
+		}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "context", "123", "--embed-images", "--exclude-attachments", "-o", "agent"})
+		if err != nil {
+			t.Fatalf("conversations context -o agent with effective embed override failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		Kind string `json:"kind"`
+		Item struct {
+			Meta struct {
+				EmbedImages        bool `json:"embed_images"`
+				ExcludeAttachments bool `json:"exclude_attachments"`
+			} `json:"meta"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if payload.Kind != "conversations.context" {
+		t.Fatalf("expected kind conversations.context, got %q", payload.Kind)
+	}
+	if payload.Item.Meta.EmbedImages {
+		t.Fatalf("expected embed_images=false when attachments are excluded, got %#v", payload.Item.Meta)
+	}
+	if !payload.Item.Meta.ExcludeAttachments {
+		t.Fatalf("expected exclude_attachments=true, got %#v", payload.Item.Meta)
+	}
+}
+
 func TestConversationsContextCommand_Light(t *testing.T) {
 	handler := newRouteHandler().
 		On("GET", "/api/v1/accounts/1/conversations/123", jsonResponse(200, `{
@@ -736,6 +862,40 @@ func TestConversationsAssignCommand_JSON(t *testing.T) {
 	}
 }
 
+func TestConversationsAssignCommand_DryRun_JSON_NoRequests(t *testing.T) {
+	requestCount := 0
+	setupTestEnvWithHandler(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		http.NotFound(w, r)
+	}))
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "assign", "123", "--agent", "Agent Smith", "--dry-run", "-o", "json"})
+		if err != nil {
+			t.Fatalf("conversations assign --dry-run failed: %v", err)
+		}
+	})
+
+	if requestCount != 0 {
+		t.Fatalf("dry-run should not make HTTP requests, got %d", requestCount)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("output is not valid JSON: %v, output: %s", err, output)
+	}
+	if payload["dry_run"] != true {
+		t.Fatalf("expected dry_run=true, got %#v", payload)
+	}
+	details, ok := payload["details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected details object, got %#v", payload["details"])
+	}
+	if details["agent"] != "Agent Smith" {
+		t.Fatalf("expected details.agent=Agent Smith, got %#v", details)
+	}
+}
+
 func TestConversationsMuteCommand_Execute(t *testing.T) {
 	handler := newRouteHandler().
 		On("POST", "/api/v1/accounts/1/conversations/123/toggle_mute", jsonResponse(200, `{}`)).
@@ -1038,5 +1198,146 @@ func TestConversationsAttachmentsCommand_Execute_JSON(t *testing.T) {
 
 	if !strings.Contains(output, `"file_type"`) {
 		t.Errorf("JSON output missing file_type: %s", output)
+	}
+}
+
+func TestConversationsAttachmentsCommand_Light(t *testing.T) {
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", jsonResponse(200, `{"meta": {"total_count": 2}, "payload": [
+			{"id": 0, "file_type": "image", "data_url": "https://example.com/a.png", "file_size": 321},
+			{"id": 11, "file_type": "file", "data_url": "https://example.com/report.pdf", "file_size": 654}
+		]}`))
+
+	setupTestEnvWithHandler(t, handler)
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "attachments", "123", "--light"})
+		if err != nil {
+			t.Fatalf("conversations attachments --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ID    int `json:"id"`
+		Items []struct {
+			Index int    `json:"i"`
+			ID    *int   `json:"id,omitempty"`
+			Type  string `json:"t"`
+			Bytes int    `json:"b"`
+			Name  string `json:"n"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light attachments payload: %v\noutput: %s", err, output)
+	}
+	if payload.ID != 123 {
+		t.Fatalf("expected conversation id 123, got %d", payload.ID)
+	}
+	if len(payload.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Index != 1 || payload.Items[0].Type != "image" {
+		t.Fatalf("unexpected first item: %#v", payload.Items[0])
+	}
+	if payload.Items[1].Name != "report.pdf" {
+		t.Fatalf("expected filename report.pdf, got %#v", payload.Items[1])
+	}
+}
+
+func TestConversationsAttachmentsExtractCommand_JSON(t *testing.T) {
+	var fileURL string
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"meta": {"total_count": 2}, "payload": [
+				{"id": 0, "file_type": "image", "data_url": "https://example.com/a.png", "file_size": 321},
+				{"id": 11, "file_type": "file", "data_url": "` + fileURL + `", "file_size": 21}
+			]}`))
+		}).
+		On("GET", "/files/report.txt", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte("report body text"))
+		})
+
+	env := setupTestEnvWithHandler(t, handler)
+	fileURL = env.server.URL + "/files/report.txt"
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "attachments", "extract", "123", "--index", "2", "-o", "json", "--compact-json"})
+		if err != nil {
+			t.Fatalf("conversations attachments extract failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ConversationID int `json:"conversation_id"`
+		Items          []struct {
+			Index     int    `json:"index"`
+			Name      string `json:"name"`
+			Extractor string `json:"extractor"`
+			Text      string `json:"text"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse extraction payload: %v\noutput: %s", err, output)
+	}
+	if payload.ConversationID != 123 {
+		t.Fatalf("expected conversation id 123, got %d", payload.ConversationID)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 extracted attachment, got %d", len(payload.Items))
+	}
+	if payload.Items[0].Index != 2 || payload.Items[0].Extractor != "text" {
+		t.Fatalf("unexpected attachment: %#v", payload.Items[0])
+	}
+	if payload.Items[0].Name != "report.txt" {
+		t.Fatalf("expected report.txt, got %#v", payload.Items[0])
+	}
+	if payload.Items[0].Text != "report body text" {
+		t.Fatalf("unexpected text: %#v", payload.Items[0])
+	}
+}
+
+func TestConversationsAttachmentsExtractCommand_Light(t *testing.T) {
+	var fileURL string
+	handler := newRouteHandler().
+		On("GET", "/api/v1/accounts/1/conversations/123/attachments", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"meta": {"total_count": 1}, "payload": [
+				{"id": 11, "file_type": "file", "data_url": "` + fileURL + `", "file_size": 21}
+			]}`))
+		}).
+		On("GET", "/files/report.txt", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte("report body text"))
+		})
+
+	env := setupTestEnvWithHandler(t, handler)
+	fileURL = env.server.URL + "/files/report.txt"
+
+	output := captureStdout(t, func() {
+		err := Execute(context.Background(), []string{"conversations", "attachments", "extract", "123", "--light", "--compact-json"})
+		if err != nil {
+			t.Fatalf("conversations attachments extract --light failed: %v", err)
+		}
+	})
+
+	var payload struct {
+		ID    int `json:"id"`
+		Items []struct {
+			Index     int    `json:"i"`
+			Name      string `json:"n"`
+			Extractor string `json:"x"`
+			Text      string `json:"txt"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("failed to parse light extraction payload: %v\noutput: %s", err, output)
+	}
+	if payload.ID != 123 || len(payload.Items) != 1 {
+		t.Fatalf("unexpected payload: %#v", payload)
+	}
+	if payload.Items[0].Index != 1 || payload.Items[0].Extractor != "text" || payload.Items[0].Name != "report.txt" {
+		t.Fatalf("unexpected extracted item: %#v", payload.Items[0])
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chatwoot/chatwoot-cli/internal/dryrun"
 	"github.com/chatwoot/chatwoot-cli/internal/outfmt"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,19 @@ This is a convenience shortcut for:
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := parseIDArgs(args, "conversation")
 			if err != nil {
+				return err
+			}
+
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation:   "close",
+				Resource:    "conversations",
+				Description: "Preview closing one or more conversations without executing the API request",
+				Details: map[string]any{
+					"ids":           ids,
+					"target_status": "resolved",
+					"total":         len(ids),
+				},
+			}); ok {
 				return err
 			}
 
@@ -94,6 +108,7 @@ This is a convenience shortcut for:
 
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
 	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
 }
@@ -126,6 +141,19 @@ This is a convenience shortcut for:
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
 			ids, err := parseIDArgs(args, "conversation")
 			if err != nil {
+				return err
+			}
+
+			if ok, err := maybeDryRun(cmd, &dryrun.Preview{
+				Operation:   "reopen",
+				Resource:    "conversations",
+				Description: "Preview reopening one or more conversations without executing the API request",
+				Details: map[string]any{
+					"ids":           ids,
+					"target_status": "open",
+					"total":         len(ids),
+				},
+			}); ok {
 				return err
 			}
 
@@ -182,6 +210,7 @@ This is a convenience shortcut for:
 
 	cmd.Flags().BoolVar(&light, "light", false, "Return minimal mutation payload")
 	flagAlias(cmd.Flags(), "light", "li")
+	registerCommandContract(cmd, true, true)
 
 	return cmd
 }
