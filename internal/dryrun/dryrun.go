@@ -29,7 +29,7 @@ type Preview struct {
 	Operation   string
 	Resource    string
 	Description string
-	Details     map[string]interface{}
+	Details     map[string]any
 	Warnings    []string
 }
 
