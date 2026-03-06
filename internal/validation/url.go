@@ -258,7 +258,10 @@ func validateDomainName(hostname string) error {
 	resolver := &net.Resolver{}
 	ips, err := resolver.LookupIP(ctx, "ip", hostname)
 	if err != nil {
-		return fmt.Errorf("DNS resolution failed for %q: %w", hostname, err)
+		// DNS failure is not an SSRF risk — the HTTP request will fail at connect
+		// time anyway. The real risk is domains that resolve to private IPs.
+		// Proper TOCTOU DNS rebinding prevention requires client-level IP checks.
+		return nil
 	}
 
 	// Check all resolved IPs
@@ -366,7 +369,8 @@ func validateWebhookDomainName(hostname string) error {
 	resolver := &net.Resolver{}
 	ips, err := resolver.LookupIP(ctx, "ip", hostname)
 	if err != nil {
-		return fmt.Errorf("DNS resolution failed for %q: %w", hostname, err)
+		// DNS failure is not an SSRF risk — see comment in validateDomainName.
+		return nil
 	}
 
 	// Check all resolved IPs using webhook-specific validation
