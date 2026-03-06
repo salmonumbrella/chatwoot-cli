@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // PublicContact represents a contact created via public API
@@ -54,7 +55,7 @@ func (s PublicService) CreateContact(ctx context.Context, inboxIdentifier string
 
 func publicCreateContact(ctx context.Context, r Requester, inboxIdentifier string, req PublicCreateContactRequest) (*PublicContact, error) {
 	var result PublicContact
-	path := fmt.Sprintf("/inboxes/%s/contacts", inboxIdentifier)
+	path := fmt.Sprintf("/inboxes/%s/contacts", url.PathEscape(inboxIdentifier))
 	if err := r.do(ctx, http.MethodPost, r.publicPath(path), req, &result); err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func (s PublicService) GetContact(ctx context.Context, inboxIdentifier, contactI
 
 func publicGetContact(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string) (*PublicContact, error) {
 	var result PublicContact
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s", inboxIdentifier, contactIdentifier)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier))
 	if err := r.do(ctx, http.MethodGet, r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
@@ -86,7 +87,7 @@ func publicCreateConversation(ctx context.Context, r Requester, inboxIdentifier,
 		body["custom_attributes"] = customAttributes
 	}
 
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations", inboxIdentifier, contactIdentifier)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier))
 	var result map[string]any
 	if err := r.do(ctx, http.MethodPost, r.publicPath(path), body, &result); err != nil {
 		return nil, err
@@ -100,7 +101,7 @@ func (s PublicService) ListConversations(ctx context.Context, inboxIdentifier, c
 }
 
 func publicListConversations(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string) ([]map[string]any, error) {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations", inboxIdentifier, contactIdentifier)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier))
 	var result []map[string]any
 	if err := r.do(ctx, http.MethodGet, r.publicPath(path), nil, &result); err != nil {
 		return nil, err
@@ -114,7 +115,7 @@ func (s PublicService) GetConversation(ctx context.Context, inboxIdentifier, con
 }
 
 func publicGetConversation(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d", inboxIdentifier, contactIdentifier, conversationID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID)
 	var result map[string]any
 	if err := r.do(ctx, http.MethodGet, r.publicPath(path), nil, &result); err != nil {
 		return nil, err
@@ -128,7 +129,7 @@ func (s PublicService) ResolveConversation(ctx context.Context, inboxIdentifier,
 }
 
 func publicResolveConversation(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) (map[string]any, error) {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/toggle_status", inboxIdentifier, contactIdentifier, conversationID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/toggle_status", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID)
 	var result map[string]any
 	if err := r.do(ctx, http.MethodPost, r.publicPath(path), nil, &result); err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ func (s PublicService) ToggleTyping(ctx context.Context, inboxIdentifier, contac
 }
 
 func publicToggleTyping(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int, status string) error {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/toggle_typing", inboxIdentifier, contactIdentifier, conversationID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/toggle_typing", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID)
 	body := map[string]string{"typing_status": status}
 	return r.do(ctx, http.MethodPost, r.publicPath(path), body, nil)
 }
@@ -153,7 +154,7 @@ func (s PublicService) UpdateLastSeen(ctx context.Context, inboxIdentifier, cont
 }
 
 func publicUpdateLastSeen(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) error {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/update_last_seen", inboxIdentifier, contactIdentifier, conversationID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/update_last_seen", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID)
 	return r.do(ctx, http.MethodPost, r.publicPath(path), nil, nil)
 }
 
@@ -163,7 +164,7 @@ func (s PublicService) CreateMessage(ctx context.Context, inboxIdentifier, conta
 }
 
 func publicCreateMessage(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int, content, echoID string) (map[string]any, error) {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages", inboxIdentifier, contactIdentifier, conversationID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID)
 	body := map[string]any{
 		"content": content,
 	}
@@ -184,7 +185,7 @@ func (s PublicService) GetInbox(ctx context.Context, inboxIdentifier string) (*P
 
 func publicGetInbox(ctx context.Context, r Requester, inboxIdentifier string) (*PublicInbox, error) {
 	var result PublicInbox
-	path := fmt.Sprintf("/inboxes/%s", inboxIdentifier)
+	path := fmt.Sprintf("/inboxes/%s", url.PathEscape(inboxIdentifier))
 	if err := r.do(ctx, http.MethodGet, r.publicPath(path), nil, &result); err != nil {
 		return nil, err
 	}
@@ -198,7 +199,7 @@ func (s PublicService) UpdateContact(ctx context.Context, inboxIdentifier, conta
 
 func publicUpdateContact(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, req PublicUpdateContactRequest) (*PublicContact, error) {
 	var result PublicContact
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s", inboxIdentifier, contactIdentifier)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier))
 	if err := r.do(ctx, http.MethodPatch, r.publicPath(path), req, &result); err != nil {
 		return nil, err
 	}
@@ -211,7 +212,7 @@ func (s PublicService) ListMessages(ctx context.Context, inboxIdentifier, contac
 }
 
 func publicListMessages(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID int) ([]map[string]any, error) {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages", inboxIdentifier, contactIdentifier, conversationID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID)
 	var result []map[string]any
 	if err := r.do(ctx, http.MethodGet, r.publicPath(path), nil, &result); err != nil {
 		return nil, err
@@ -225,7 +226,7 @@ func (s PublicService) UpdateMessage(ctx context.Context, inboxIdentifier, conta
 }
 
 func publicUpdateMessage(ctx context.Context, r Requester, inboxIdentifier, contactIdentifier string, conversationID, messageID int, content string) (map[string]any, error) {
-	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages/%d", inboxIdentifier, contactIdentifier, conversationID, messageID)
+	path := fmt.Sprintf("/inboxes/%s/contacts/%s/conversations/%d/messages/%d", url.PathEscape(inboxIdentifier), url.PathEscape(contactIdentifier), conversationID, messageID)
 	body := map[string]any{"content": content}
 	var result map[string]any
 	if err := r.do(ctx, http.MethodPatch, r.publicPath(path), body, &result); err != nil {

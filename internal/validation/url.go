@@ -258,9 +258,7 @@ func validateDomainName(hostname string) error {
 	resolver := &net.Resolver{}
 	ips, err := resolver.LookupIP(ctx, "ip", hostname)
 	if err != nil {
-		// DNS resolution failure is allowed - we don't block domains that don't resolve yet
-		// This allows for testing against domains that might not be live yet
-		return nil
+		return fmt.Errorf("DNS resolution failed for %q: %w", hostname, err)
 	}
 
 	// Check all resolved IPs
@@ -368,9 +366,7 @@ func validateWebhookDomainName(hostname string) error {
 	resolver := &net.Resolver{}
 	ips, err := resolver.LookupIP(ctx, "ip", hostname)
 	if err != nil {
-		// DNS resolution failure is allowed - we don't block domains that don't resolve yet
-		// This allows for testing against domains that might not be live yet
-		return nil
+		return fmt.Errorf("DNS resolution failed for %q: %w", hostname, err)
 	}
 
 	// Check all resolved IPs using webhook-specific validation

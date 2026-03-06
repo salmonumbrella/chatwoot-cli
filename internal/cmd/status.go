@@ -183,7 +183,7 @@ before making API calls.`,
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Exit with code 1 if not authenticated")
 	flagAlias(cmd.Flags(), "check", "ck")
 	cmd.Flags().BoolVar(&ping, "ping", false, "Check if the Chatwoot server is reachable")
-	flagAlias(cmd.Flags(), "ping", "pg")
+	flagAlias(cmd.Flags(), "ping", "pn")
 
 	return cmd
 }

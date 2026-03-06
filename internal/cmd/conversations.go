@@ -2362,11 +2362,8 @@ func newConversationsAttachmentsCmd() *cobra.Command {
   # Compact attachment listing without signed URLs
   cw conversations attachments 123 --light --compact-json
 `),
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: RunE(func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
-			}
 			id, err := parseIDOrURL(args[0], "conversation")
 			if err != nil {
 				return err

@@ -29,6 +29,7 @@ const (
 	DefaultDocumentExtractMaxBytes      = int64(10 * 1024 * 1024)
 	DefaultDocumentExtractMaxTotalBytes = int64(25 * 1024 * 1024)
 	DefaultDocumentExtractMaxChars      = 12000
+	maxZIPEntrySize                     = 50 * 1024 * 1024 // 50 MB per ZIP entry (decompression bomb guard)
 )
 
 type ConversationAttachmentExtractOptions struct {
@@ -519,7 +520,7 @@ func extractDOCXText(filePath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		data, err := io.ReadAll(file)
+		data, err := io.ReadAll(io.LimitReader(file, maxZIPEntrySize))
 		_ = file.Close()
 		if err != nil {
 			return "", err
@@ -572,7 +573,7 @@ func extractXLSXText(filePath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		data, err := io.ReadAll(rc)
+		data, err := io.ReadAll(io.LimitReader(rc, maxZIPEntrySize))
 		_ = rc.Close()
 		if err != nil {
 			return "", err

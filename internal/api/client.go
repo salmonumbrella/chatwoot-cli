@@ -228,7 +228,8 @@ func (c *Client) executeRequestWithBodyInternal(ctx context.Context, method, url
 	}
 
 	// Determine if method is idempotent for retry logic
-	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+	isIdempotent := method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions ||
+		method == http.MethodPut || method == http.MethodDelete
 	if !isIdempotent && idempotencyKey != "" {
 		isIdempotent = true
 	}
@@ -272,10 +273,14 @@ func (c *Client) executeRequestWithBodyInternal(ctx context.Context, method, url
 			return nil, nil, 0, fmt.Errorf("request failed: %w", err)
 		}
 
-		respBody, err := io.ReadAll(resp.Body)
+		const maxAPIResponseSize = 50 * 1024 * 1024 // 50 MB
+		respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxAPIResponseSize+1))
 		_ = resp.Body.Close()
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("failed to read response: %w", err)
+		}
+		if int64(len(respBody)) > maxAPIResponseSize {
+			return nil, nil, 0, fmt.Errorf("API response too large (exceeds %d bytes)", maxAPIResponseSize)
 		}
 		c.recordRateLimit(resp.Header)
 		if debug.IsEnabled(ctx) {
@@ -552,6 +557,9 @@ func (e *APIError) Error() string {
 // HealthCheck checks if the Chatwoot server is reachable via GET /health.
 // Returns true if the server responds with 200, false otherwise.
 func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
+	if err := c.ensureBaseURLValidated(); err != nil {
+		return false, err
+	}
 	reqURL := c.BaseURL + "/health"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {

@@ -151,7 +151,7 @@ For example, "/conversations/123" becomes:
 	cmd.Flags().StringArrayVarP(&rawFields, "raw-field", "F", nil, "Request body field as key=value (JSON parsed)")
 	cmd.Flags().StringVarP(&inputFile, "input", "i", "", "Read request body from file (use - for stdin)")
 	cmd.Flags().StringVarP(&jsonBody, "body", "d", "", "Request body as inline JSON string")
-	cmd.Flags().BoolVarP(&silent, "silent", "s", false, "Suppress output")
+	cmd.Flags().BoolVar(&silent, "silent", false, "Suppress output")
 	cmd.Flags().BoolVar(&includeHeaders, "include", false, "Include response headers in output")
 	flagAlias(cmd.Flags(), "include", "inc")
 
